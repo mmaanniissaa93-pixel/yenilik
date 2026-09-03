@@ -1,0 +1,35 @@
+# Derleme ve çýktý klasörleri
+[Bb]in/
+[Oo]bj/
+x64/
+x86/
+[Dd]ebug/
+[Rr]elease/
+
+# Çalýþtýrýlabilir ve derlenmiþ ikili dosyalar
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Hata ayýklama ve geçici dosyalar
+*.pdb
+*.ilk
+*.exp
+*.lib
+*.iobj
+*.ipdb
+*.tlog
+*.lastbuildstate
+*.log
+
+# Visual Studio dosyalarý
+.vs/
+*.user
+*.suo
+*.userosv
+*.sln.docstates
+
+# Paketler
+packages/
+*.nupkg
