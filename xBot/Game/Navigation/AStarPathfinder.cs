@@ -97,11 +97,15 @@ namespace xBot.Game.Navigation
 
 			SimplePriorityQueue openSet = new SimplePriorityQueue();
 			gScore[startNode] = 0;
-			openSet.Enqueue(startNode, Heuristic(region.Points[startNode], region.Points[targetNode]));
+			double initialH = Heuristic(region.Points[startNode], region.Points[targetNode]);
+			openSet.Enqueue(startNode, initialH);
 
 			bool found = false;
-			int maxIterations = 50000;
+			int maxIterations = 200000;
 			int iterations = 0;
+
+			int closestNodeToTarget = startNode;
+			double minH = initialH;
 
 			while (openSet.Count > 0 && iterations++ < maxIterations)
 			{
@@ -118,8 +122,14 @@ namespace xBot.Game.Navigation
 				closedSet[current] = true;
 
 				NavPoint currentPt = region.Points[current];
-				int[] neighbors = region.Neighbors != null && current < region.Neighbors.Length ? region.Neighbors[current] : null;
+				double currentH = Heuristic(currentPt, region.Points[targetNode]);
+				if (currentH < minH)
+				{
+					minH = currentH;
+					closestNodeToTarget = current;
+				}
 
+				int[] neighbors = region.Neighbors != null && current < region.Neighbors.Length ? region.Neighbors[current] : null;
 				if (neighbors == null || neighbors.Length == 0)
 					continue;
 
@@ -142,12 +152,15 @@ namespace xBot.Game.Navigation
 				}
 			}
 
-			if (!found)
+			int endNode = found ? targetNode : closestNodeToTarget;
+			if (!found && closestNodeToTarget == startNode)
+			{
 				return null;
+			}
 
-			// Reconstruct raw node path
+			// Reconstruct node path
 			List<NavPoint> rawPath = new List<NavPoint>();
-			int curr = targetNode;
+			int curr = endNode;
 			while (curr != -1)
 			{
 				rawPath.Add(region.Points[curr]);
@@ -162,16 +175,16 @@ namespace xBot.Game.Navigation
 			List<SRCoord> waypoints = new List<SRCoord>();
 			for (int i = 0; i < smoothedPath.Count; i++)
 			{
-				waypoints.Add(new SRCoord(smoothedPath[i].X, smoothedPath[i].Y));
+				waypoints.Add(new SRCoord(smoothedPath[i].X, smoothedPath[i].Y, (int)smoothedPath[i].Z));
 			}
 
-			// Ensure exact target is the final waypoint
-			if (waypoints.Count > 0)
+			// If target was found, ensure exact target is the final waypoint
+			if (found && waypoints.Count > 0)
 			{
 				SRCoord last = waypoints[waypoints.Count - 1];
 				if (last.DistanceTo(new SRCoord(targetX, targetY)) > 1.0)
 				{
-					waypoints.Add(new SRCoord(targetX, targetY));
+					waypoints.Add(new SRCoord(targetX, targetY, (int)region.Points[targetNode].Z));
 				}
 			}
 

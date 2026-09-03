@@ -11,10 +11,11 @@ namespace xBot.Game.Objects.Common
 		public ushort Region { get; }
 		public byte ySector { get; }
 		public byte xSector { get; }
-		public SRCoord(double PosX, double PosY)
+		public SRCoord(double PosX, double PosY, int Z = 0)
 		{
 			this.PosX = PosX;
 			this.PosY = PosY;
+			this.Z = Z;
 
 			this.X = (int)(Math.Abs(PosX) % 192.0 * 10.0);
 			if (PosX < 0.0)

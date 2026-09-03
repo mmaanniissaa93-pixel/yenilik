@@ -106,7 +106,9 @@ namespace xBot.App
                     {
                         // Check if I'm inside training area
                         int trainingRadius = w.TrainingArea_GetRadius();
-                        if (myPosition.DistanceTo(trainingPosition) <= trainingRadius)
+                        double distanceToArea = myPosition.DistanceTo(trainingPosition);
+                        w.LogProcess($"Pos: ({(int)myPosition.PosX},{(int)myPosition.PosY}) -> Slot: ({(int)trainingPosition.PosX},{(int)trainingPosition.PosY}) [{(int)distanceToArea}m, r={trainingRadius}m]");
+                        if (distanceToArea <= trainingRadius)
                         {
                             AttackLoop();
                         }
@@ -156,9 +158,14 @@ namespace xBot.App
                             }
                             else
                             {
-                                w.Log("Cannot reach training area: No NavMesh path and no script found.");
-                                Stop();
-                                return;
+                                // 3. Fallback: Direct walk to training position with collision avoidance
+                                w.Log("Walking towards training area with collision avoidance...");
+                                if (!WaitMovement(trainingPosition, 15))
+                                {
+                                    w.Log("Cannot reach training area. Stopped.");
+                                    Stop();
+                                    return;
+                                }
                             }
                         }
                     }

@@ -25,6 +25,13 @@ namespace xBot.Game.Navigation
 				return x >= (MinX - padding) && x <= (MaxX + padding) &&
 				       y >= (MinY - padding) && y <= (MaxY + padding);
 			}
+
+			public double DistanceTo(float x, float y)
+			{
+				float dx = Math.Max(0, Math.Max(MinX - x, x - MaxX));
+				float dy = Math.Max(0, Math.Max(MinY - y, y - MaxY));
+				return Math.Sqrt(dx * dx + dy * dy);
+			}
 		}
 
 		private string m_dataDirectory;
@@ -69,7 +76,6 @@ namespace xBot.Game.Navigation
 				return;
 			}
 
-			Window.Get?.LogProcess($"NavMesh: Loading navdata index from [{m_dataDirectory}]...");
 			m_boundsIndex = new List<RegionBoundsEntry>();
 
 			string[] files = Directory.GetFiles(m_dataDirectory, "*.dat");
@@ -93,7 +99,7 @@ namespace xBot.Game.Navigation
 			}
 
 			m_initialized = true;
-			Window.Get?.Log($"NavMesh: Indexed {m_boundsIndex.Count} navigation regions.");
+			Window.Get?.Log($"NavMesh: Indexed {m_boundsIndex.Count} navigation regions from [{m_dataDirectory}].");
 		}
 
 		/// <summary>
@@ -103,15 +109,20 @@ namespace xBot.Game.Navigation
 		public List<SRCoord> FindPath(SRCoord start, SRCoord target)
 		{
 			if (!IsAvailable || start == null || target == null)
+			{
+				Window.Get?.Log($"NavMesh: Not available or null coords (Init={m_initialized}, Start={start != null}, Target={target != null})");
 				return null;
+			}
 
 			float startX = (float)start.PosX;
 			float startY = (float)start.PosY;
 			float targetX = (float)target.PosX;
 			float targetY = (float)target.PosY;
 
-			// If very close, no pathfinding needed
-			if (start.DistanceTo(target) <= 4.0)
+			Window.Get?.Log($"NavMesh: Path requested from ({startX:F1}, {startY:F1}) to ({targetX:F1}, {targetY:F1})");
+
+			// If already close, no pathfinding needed
+			if (start.DistanceTo(target) <= 5.0)
 			{
 				return new List<SRCoord> { target };
 			}
@@ -119,12 +130,16 @@ namespace xBot.Game.Navigation
 			RegionBoundsEntry bestEntry = FindContainingRegion(startX, startY, targetX, targetY);
 			if (bestEntry == null)
 			{
+				Window.Get?.Log($"NavMesh: No region contains start ({startX:F1}, {startY:F1}) or target ({targetX:F1}, {targetY:F1})");
 				return null;
 			}
 
 			NavRegion region = GetOrLoadRegion(bestEntry);
 			if (region == null)
+			{
+				Window.Get?.Log($"NavMesh: Failed to load region file [{Path.GetFileName(bestEntry.FilePath)}]");
 				return null;
+			}
 
 			Window.Get?.LogProcess($"NavMesh: Calculating path on [{Path.GetFileName(bestEntry.FilePath)}]...");
 			DateTime startTime = DateTime.Now;
@@ -149,16 +164,39 @@ namespace xBot.Game.Navigation
 			// 1. First priority: contains both start and target
 			foreach (var entry in m_boundsIndex)
 			{
-				if (entry.Contains(startX, startY) && entry.Contains(targetX, targetY))
+				if (entry.Contains(startX, startY, 50f) && entry.Contains(targetX, targetY, 50f))
 					return entry;
 			}
 
-			// 2. Second priority: contains start with padding
+			// 2. Second priority: contains start with broad padding
 			foreach (var entry in m_boundsIndex)
 			{
-				if (entry.Contains(startX, startY, 30f))
+				if (entry.Contains(startX, startY, 150f))
 					return entry;
 			}
+
+			// 3. Third priority: contains target
+			foreach (var entry in m_boundsIndex)
+			{
+				if (entry.Contains(targetX, targetY, 150f))
+					return entry;
+			}
+
+			// 4. Fallback: Nearest region to start within 1000m
+			RegionBoundsEntry nearest = null;
+			double minDistance = double.MaxValue;
+			foreach (var entry in m_boundsIndex)
+			{
+				double d = entry.DistanceTo(startX, startY);
+				if (d < minDistance)
+				{
+					minDistance = d;
+					nearest = entry;
+				}
+			}
+
+			if (nearest != null && minDistance < 1000.0)
+				return nearest;
 
 			return null;
 		}

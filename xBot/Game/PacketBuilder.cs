@@ -1,4 +1,4 @@
-﻿using SecurityAPI;
+using SecurityAPI;
 using xBot.App;
 using xBot.Game.Objects;
 using xBot.Game.Objects.Common;
@@ -209,7 +209,10 @@ namespace xBot.Game
 		}
 		public static void MoveTo(SRCoord position, uint petUniqueID = 0u)
 		{
-			MoveTo(position.Region, position.X, position.Y, position.Z, petUniqueID);
+			int z = position.Z;
+			if (z == 0 && InfoManager.Character != null && InfoManager.Character.Position != null)
+				z = InfoManager.Character.Position.Z;
+			MoveTo(position.Region, position.X, position.Y, z, petUniqueID);
 		}
 		public static void AddStatPointINT()
 		{

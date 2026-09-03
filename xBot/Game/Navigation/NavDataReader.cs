@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 
@@ -44,7 +45,7 @@ namespace xBot.Game.Navigation
 				return null;
 
 			uint count = BitConverter.ToUInt32(decompressed, 0);
-			if (count == 0 || count > 200000)
+			if (count == 0 || count > 300000)
 				return null;
 
 			int pointCount = (int)count;
@@ -76,27 +77,36 @@ namespace xBot.Game.Navigation
 				offset += RecordSize;
 			}
 
-			// Parse Topology (Neighbors)
-			int[][] neighbors = new int[pointCount][];
-			int cursor = (int)requiredBytes;
+			// Parse Topology with UNDIRECTED (two-way) graph expansion
+			List<int>[] tempNeighbors = new List<int>[pointCount];
+			for (int i = 0; i < pointCount; i++)
+			{
+				tempNeighbors[i] = new List<int>(6);
+			}
 
+			int cursor = (int)requiredBytes;
 			for (int i = 0; i < pointCount && cursor < decompressed.Length; i++)
 			{
 				byte neighborCount = decompressed[cursor++];
-				if (neighborCount > 0 && cursor + (neighborCount * 4) <= decompressed.Length)
+				for (int n = 0; n < neighborCount && cursor + 4 <= decompressed.Length; n++)
 				{
-					int[] nodeNeighbors = new int[neighborCount];
-					for (int n = 0; n < neighborCount; n++)
+					int target = BitConverter.ToInt32(decompressed, cursor);
+					cursor += 4;
+					if (target >= 0 && target < pointCount && target != i)
 					{
-						nodeNeighbors[n] = BitConverter.ToInt32(decompressed, cursor);
-						cursor += 4;
+						tempNeighbors[i].Add(target);
+						tempNeighbors[target].Add(i); // Crucial: make two-way
 					}
-					neighbors[i] = nodeNeighbors;
 				}
-				else
-				{
-					neighbors[i] = new int[0];
-				}
+			}
+
+			int[][] neighbors = new int[pointCount][];
+			for (int i = 0; i < pointCount; i++)
+			{
+				HashSet<int> unique = new HashSet<int>(tempNeighbors[i]);
+				int[] arr = new int[unique.Count];
+				unique.CopyTo(arr);
+				neighbors[i] = arr;
 			}
 
 			return new NavRegion
