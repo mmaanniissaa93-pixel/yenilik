@@ -774,5 +774,34 @@ namespace xBot.Game
 			p.WriteAscii(message);
 			Bot.Get.Proxy.Agent.InjectToServer(p);
 		}
+		public static void ActivateBerserk()
+		{
+			Packet p = new Packet(0x70A7);
+			p.WriteByte(1);
+			Bot.Get.Proxy.Agent.InjectToServer(p);
+		}
+		public static void RepairAllEquipments(uint npcUniqueID)
+		{
+			Packet p = new Packet(0x703E);
+			p.WriteUInt(npcUniqueID);
+			p.WriteByte(2); // 2 = Repair all equipped items
+			Bot.Get.Proxy.Agent.InjectToServer(p);
+		}
+		public static void OpenStorage(uint npcUniqueID)
+		{
+			Packet p = new Packet(Agent.Opcode.CLIENT_STORAGE_DATA_REQUEST);
+			p.WriteUInt(npcUniqueID);
+			Bot.Get.Proxy.Agent.InjectToServer(p);
+		}
+		public static void BuyItemFromShop(byte tabNumber, byte tabSlot, ushort quantity, uint npcUniqueID)
+		{
+			Packet p = new Packet(Agent.Opcode.CLIENT_INVENTORY_ITEM_MOVEMENT);
+			p.WriteByte((byte)SRTypes.InventoryItemMovement.ShopToInventory);
+			p.WriteByte(tabNumber);
+			p.WriteByte(tabSlot);
+			p.WriteUShort(quantity);
+			p.WriteUInt(npcUniqueID);
+			Bot.Get.Proxy.Agent.InjectToServer(p);
+		}
 	}
 }

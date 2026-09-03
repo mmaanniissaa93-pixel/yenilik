@@ -221,6 +221,7 @@
     <Compile Include="Game\Navigation\NavigationManager.cs" />
     <Compile Include="Game\Navigation\TeleportManager.cs" />
     <Compile Include="Game\Navigation\NavigationRoute.cs" />
+    <Compile Include="Game\Navigation\TownManager.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="xGraphics\xListView.cs">
       <SubType>Component</SubType>

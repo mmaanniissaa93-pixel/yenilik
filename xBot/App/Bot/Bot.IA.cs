@@ -196,33 +196,127 @@ namespace xBot.App
         private void TownLoop(Script town)
         {
             Window w = Window.Get;
-            w.LogProcess("In town. Checking status...");
+            if (w.Town_cbxEnableTownLoop != null && !w.Town_cbxEnableTownLoop.Checked)
+            {
+                w.LogProcess("Town Loop is disabled in Town settings.");
+                return;
+            }
 
-            byte hpSlot = 0, mpSlot = 0;
-            bool hasHP = FindItem(3, 1, 1, ref hpSlot);
-            bool hasMP = FindItem(3, 1, 2, ref mpSlot);
-            w.Log($"Town Status: HP Potions={hasHP}, MP Potions={hasMP}");
+            w.Log("Town Loop: Initiating town logistic sequence...");
 
-            // Eğer kasaba scripti varsa çalıştır
+            SRCoord myPosition = InfoManager.Character.GetRealtimePosition();
+            if (myPosition == null)
+                return;
+
+            // Step 1: Repair at Blacksmith
+            if (w.Town_cbxRepair == null || w.Town_cbxRepair.Checked)
+            {
+                TownServiceInfo blacksmith = TownManager.Get.FindNearestService(myPosition, TownServiceType.Blacksmith);
+                if (blacksmith != null)
+                {
+                    w.LogProcess($"Town Loop: Walking to [{blacksmith.NpcName}] for equipment repair...");
+                    List<SRCoord> pathToSmith = NavigationManager.Get.FindPath(myPosition, blacksmith.Coord);
+                    if (pathToSmith != null && pathToSmith.Count > 0)
+                    {
+                        for (int i = 0; i < pathToSmith.Count && isBotting; i++)
+                        {
+                            WaitMovement(pathToSmith[i], 8);
+                        }
+                    }
+                    else
+                    {
+                        WaitMovement(blacksmith.Coord, 8);
+                    }
+
+                    SREntity smithNpc = TownManager.Get.FindLiveNpc(blacksmith);
+                    if (smithNpc != null)
+                    {
+                        WaitSelectEntity(smithNpc.UniqueID, 8, 250, "Selecting Blacksmith...");
+                        Thread.Sleep(500);
+                        w.Log("Town Loop: Repairing all equipped weapons and armors...");
+                        PacketBuilder.RepairAllEquipments(smithNpc.UniqueID);
+                        Thread.Sleep(1000);
+                    }
+                }
+            }
+
+            // Step 2: Storage Deposit (Elixirs, Alchemy Stones, SOX)
+            myPosition = InfoManager.Character.GetRealtimePosition();
+            if (w.Town_cbxStorage == null || w.Town_cbxStorage.Checked)
+            {
+                TownServiceInfo storage = TownManager.Get.FindNearestService(myPosition, TownServiceType.Storage);
+                if (storage != null)
+                {
+                    w.LogProcess($"Town Loop: Walking to [{storage.NpcName}] for item storage...");
+                    List<SRCoord> pathToStorage = NavigationManager.Get.FindPath(myPosition, storage.Coord);
+                    if (pathToStorage != null && pathToStorage.Count > 0)
+                    {
+                        for (int i = 0; i < pathToStorage.Count && isBotting; i++)
+                        {
+                            WaitMovement(pathToStorage[i], 8);
+                        }
+                    }
+                    else
+                    {
+                        WaitMovement(storage.Coord, 8);
+                    }
+
+                    SREntity storageNpc = TownManager.Get.FindLiveNpc(storage);
+                    if (storageNpc != null)
+                    {
+                        WaitSelectEntity(storageNpc.UniqueID, 8, 250, "Selecting Storage Keeper...");
+                        Thread.Sleep(500);
+                        PacketBuilder.OpenStorage(storageNpc.UniqueID);
+                        Thread.Sleep(1200);
+
+                        ExecuteStorageDeposit();
+                    }
+                }
+            }
+
+            // Step 3: Potion Merchant (Sell trash equipment)
+            myPosition = InfoManager.Character.GetRealtimePosition();
+            if (w.Town_cbxSellTrash == null || w.Town_cbxSellTrash.Checked)
+            {
+                TownServiceInfo potionShop = TownManager.Get.FindNearestService(myPosition, TownServiceType.PotionMerchant);
+                if (potionShop != null)
+                {
+                    w.LogProcess($"Town Loop: Walking to [{potionShop.NpcName}] for pharmacy logistics...");
+                    List<SRCoord> pathToPotion = NavigationManager.Get.FindPath(myPosition, potionShop.Coord);
+                    if (pathToPotion != null && pathToPotion.Count > 0)
+                    {
+                        for (int i = 0; i < pathToPotion.Count && isBotting; i++)
+                        {
+                            WaitMovement(pathToPotion[i], 8);
+                        }
+                    }
+                    else
+                    {
+                        WaitMovement(potionShop.Coord, 8);
+                    }
+
+                    SREntity potionNpc = TownManager.Get.FindLiveNpc(potionShop);
+                    if (potionNpc != null)
+                    {
+                        WaitSelectEntity(potionNpc.UniqueID, 8, 250, "Selecting Potion Merchant...");
+                        Thread.Sleep(500);
+
+                        ExecuteSellTrash();
+                        Thread.Sleep(500);
+                        ExecuteAutoBuyPotions(potionNpc);
+                    }
+                }
+            }
+
+            // If user supplied custom town script, execute it too
             if (town != null)
             {
                 w.LogProcess("Running town script [" + town.FileName + "]...");
                 town.Run(0);
             }
 
-            // Kasılma alanına dönüş scriptini kontrol et
-            string scriptPath = w.TrainingArea_GetScript();
-            if (!string.IsNullOrEmpty(scriptPath) && File.Exists(scriptPath))
-            {
-                w.Log("Starting route to training area...");
-                currentScript = new Script(scriptPath);
-                currentScript.Run(0);
-            }
-            else
-            {
-                w.Log("Town finished. Please set a script to walk to training area.");
-                Stop();
-            }
+            w.Log("Town Loop: Logistics routine completed. Returning to training area...");
+            Thread.Sleep(1500);
         }
         private void AttackLoop()
         {
@@ -299,6 +393,30 @@ namespace xBot.App
                 {
                     // Attacking
                     List<SRMob> mobs = InfoManager.Mobs.FindAll(m => trainingPosition.DistanceTo(m.GetRealtimePosition()) <= trainingRadius);
+
+                    // Combat AI: Check Berserker activation
+                    if (w.Combat_cbxAutoBerserk == null || w.Combat_cbxAutoBerserk.Checked)
+                    {
+                        CheckBerserker(mobs);
+                    }
+
+                    // Combat AI: Emergency Panic Escape (low HP & no pots)
+                    if (w.Combat_cbxPanicEscape == null || w.Combat_cbxPanicEscape.Checked)
+                    {
+                        if (CheckPanicEscape())
+                            return;
+                    }
+
+                    // Combat AI: Check if we need to return to town (no pots / full bag)
+                    if (w.Town_cbxEnableTownLoop == null || w.Town_cbxEnableTownLoop.Checked)
+                    {
+                        if (CheckTownReturnConditions())
+                        {
+                            TownLoop(null);
+                            return;
+                        }
+                    }
+
                     SRMob mob = GetMobFiltered(mobs);
                     if (mob == null)
                     {
@@ -310,6 +428,12 @@ namespace xBot.App
                     }
                     else
                     {
+                        // Combat AI: Ranged Kiting check
+                        if (w.Combat_cbxKiting == null || w.Combat_cbxKiting.Checked)
+                        {
+                            ExecuteKiting(mob, myPosition);
+                        }
+
                         // Load skills and iterate it
                         SRSkill[] skillshots = w.Skills_GetSkillShots(mob.MobType);
                         if (skillshots != null && skillshots.Length != 0)
@@ -424,20 +548,324 @@ namespace xBot.App
 
         private SRMob GetMobFiltered(List<SRMob> mobs)
         {
-            SRMob mob = null;
-            // Get nearest around me
+            if (mobs == null || mobs.Count == 0)
+                return null;
+
+            SRMob bestMob = null;
+            double bestScore = double.MinValue;
             SRCoord myPosition = InfoManager.Character.GetRealtimePosition();
-            double minDistance = 0;
+
+            Window w = Window.Get;
+            bool enablePriority = (w.Combat_cbxMobPriority == null || w.Combat_cbxMobPriority.Checked);
+
             for (int j = 0; j < mobs.Count; j++)
             {
-                double d = mobs[j].GetRealtimePosition().DistanceTo(myPosition);
-                if (mob == null || d < minDistance)
+                SRMob m = mobs[j];
+
+                // Check if user allowed targeting this mob type
+                if (w.Combat_cbxTargetGeneral != null)
                 {
-                    minDistance = d;
-                    mob = mobs[j];
+                    bool allowed = true;
+                    switch (m.MobType)
+                    {
+                        case SRMob.Mob.General:
+                            allowed = w.Combat_cbxTargetGeneral.Checked;
+                            break;
+                        case SRMob.Mob.Champion:
+                            allowed = w.Combat_cbxTargetChampion.Checked;
+                            break;
+                        case SRMob.Mob.Giant:
+                            allowed = w.Combat_cbxTargetGiant.Checked;
+                            break;
+                        case SRMob.Mob.PartyGeneral:
+                        case SRMob.Mob.PartyChampion:
+                        case SRMob.Mob.PartyGiant:
+                            allowed = w.Combat_cbxTargetParty.Checked;
+                            break;
+                        case SRMob.Mob.Elite:
+                            allowed = w.Combat_cbxTargetElite.Checked;
+                            break;
+                        case SRMob.Mob.Unique:
+                            allowed = w.Combat_cbxTargetUnique.Checked;
+                            break;
+                    }
+                    if (!allowed)
+                        continue;
+                }
+
+                double dist = m.GetRealtimePosition().DistanceTo(myPosition);
+
+                // If priority is disabled, strictly choose the nearest mob
+                if (!enablePriority)
+                {
+                    double distScore = -dist;
+                    if (distScore > bestScore)
+                    {
+                        bestScore = distScore;
+                        bestMob = m;
+                    }
+                    continue;
+                }
+
+                // Base priority score based on Silkroad mob danger
+                double score = 10.0;
+                switch (m.MobType)
+                {
+                    case SRMob.Mob.Unique:
+                        score = 250.0;
+                        break;
+                    case SRMob.Mob.Elite:
+                        score = 180.0;
+                        break;
+                    case SRMob.Mob.PartyGiant:
+                        score = 140.0;
+                        break;
+                    case SRMob.Mob.Giant:
+                        score = 100.0;
+                        break;
+                    case SRMob.Mob.PartyChampion:
+                        score = 75.0;
+                        break;
+                    case SRMob.Mob.Champion:
+                        score = 50.0;
+                        break;
+                    case SRMob.Mob.PartyGeneral:
+                        score = 30.0;
+                        break;
+                    default:
+                        score = 10.0;
+                        break;
+                }
+
+                // If mob is close and in attacking range, prioritize it
+                if (dist <= 6.0)
+                {
+                    score += 35.0;
+                }
+
+                // Distance penalty: prefer closer enemies to minimize running around
+                score -= (dist * 1.5);
+
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestMob = m;
                 }
             }
-            return mob;
+
+            return bestMob;
+        }
+
+        private void CheckBerserker(List<SRMob> nearbyMobs)
+        {
+            if (InfoManager.Character == null)
+                return;
+
+            // Only trigger if Berserker bar is 100% full (5 points)
+            if (InfoManager.Character.BerserkPoints < 5)
+                return;
+
+            // Don't trigger if already in Berserk mode
+            if (InfoManager.Character.SpeedBerserk > 0)
+                return;
+
+            bool shouldActivate = false;
+
+            // 1. High-threat mob present
+            if (nearbyMobs != null && nearbyMobs.Exists(m => m.MobType == SRMob.Mob.Giant || 
+                                                            m.MobType == SRMob.Mob.PartyGiant || 
+                                                            m.MobType == SRMob.Mob.Elite || 
+                                                            m.MobType == SRMob.Mob.Unique))
+            {
+                shouldActivate = true;
+            }
+
+            // 2. Mob swarming (3 or more mobs around)
+            if (!shouldActivate && nearbyMobs != null && nearbyMobs.Count >= 3)
+            {
+                shouldActivate = true;
+            }
+
+            // 3. Emergency trigger: HP low (< 45%) and in combat
+            double hpPercent = InfoManager.Character.HPMax > 0 ? ((double)InfoManager.Character.HP / InfoManager.Character.HPMax * 100.0) : 100.0;
+            if (!shouldActivate && hpPercent < 45.0 && nearbyMobs != null && nearbyMobs.Count > 0)
+            {
+                shouldActivate = true;
+            }
+
+            if (shouldActivate)
+            {
+                Window.Get?.Log("Combat AI: High threat detected! Activating Berserker mode!");
+                PacketBuilder.ActivateBerserk();
+                Thread.Sleep(400);
+            }
+        }
+
+        private void ExecuteKiting(SRMob mob, SRCoord myPosition)
+        {
+            if (mob == null || myPosition == null)
+                return;
+
+            SRTypes.Weapon weapon = GetMyWeaponType();
+            bool isRanged = (weapon == SRTypes.Weapon.Bow || 
+                             weapon == SRTypes.Weapon.Crossbow || 
+                             weapon == SRTypes.Weapon.TwoHandStaff || 
+                             weapon == SRTypes.Weapon.Warlock);
+
+            if (!isRanged)
+                return;
+
+            SRCoord mobPos = mob.GetRealtimePosition();
+            double dist = myPosition.DistanceTo(mobPos);
+
+            // If mob gets closer than 4 meters, kite backwards
+            if (dist < 4.0 && dist > 0.1)
+            {
+                double dx = myPosition.PosX - mobPos.PosX;
+                double dy = myPosition.PosY - mobPos.PosY;
+                double len = Math.Sqrt(dx * dx + dy * dy);
+                if (len > 0.001)
+                {
+                    double stepDist = 6.0;
+                    SRCoord kitePos = new SRCoord(myPosition.PosX + (dx / len) * stepDist, myPosition.PosY + (dy / len) * stepDist);
+                    Window.Get?.LogProcess("Combat AI: Kiting back from mob...");
+                    MoveTo(kitePos);
+                    Thread.Sleep(500);
+                }
+            }
+        }
+
+        private bool CheckPanicEscape()
+        {
+            if (InfoManager.Character == null)
+                return false;
+
+            byte hpSlot = 0;
+            bool hasHpPot = FindItem(3, 1, 1, ref hpSlot);
+            double hpPercent = InfoManager.Character.HPMax > 0 ? ((double)InfoManager.Character.HP / InfoManager.Character.HPMax * 100.0) : 100.0;
+
+            // HP critical (< 22%) and no HP pots left
+            if (hpPercent < 22.0 && !hasHpPot)
+            {
+                Window.Get?.Log("Combat AI: EMERGENCY! HP critical and no HP potions! Using Return Scroll...");
+                byte scrollSlot = 0;
+                if (FindItem(3, 3, 1, ref scrollSlot) || FindItem(3, 3, 2, ref scrollSlot))
+                {
+                    SRItem scrollItem = InfoManager.Character.Inventory[scrollSlot];
+                    PacketBuilder.UseItem(scrollItem, scrollSlot);
+                    Thread.Sleep(4000);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private bool CheckTownReturnConditions()
+        {
+            if (InfoManager.Character == null || InfoManager.Character.Inventory == null)
+                return false;
+
+            byte hpSlot = 0;
+            bool hasHp = FindItem(3, 1, 1, ref hpSlot);
+            byte mpSlot = 0;
+            bool hasMp = FindItem(3, 1, 2, ref mpSlot);
+
+            // Count free inventory slots
+            int freeSlots = 0;
+            var inv = InfoManager.Character.Inventory;
+            for (int i = 13; i < inv.Count; i++)
+            {
+                if (inv[i] == null) freeSlots++;
+            }
+
+            // Return condition: No HP, No MP, or bag completely full (<= 1 slot free)
+            if (!hasHp || !hasMp || freeSlots <= 1)
+            {
+                Window.Get?.Log($"Town Return: Logistic trigger! (HP Pots={hasHp}, MP Pots={hasMp}, Free Slots={freeSlots}). Using Return Scroll...");
+                byte returnScrollSlot = 0;
+                if (FindItem(3, 3, 1, ref returnScrollSlot) || FindItem(3, 3, 2, ref returnScrollSlot))
+                {
+                    SRItem scrollItem = inv[returnScrollSlot];
+                    PacketBuilder.UseItem(scrollItem, returnScrollSlot);
+                    Thread.Sleep(5000);
+                    return true;
+                }
+                else
+                {
+                    Window.Get?.LogProcess("Town Return: No Return Scroll found in inventory!", Window.ProcessState.Warning);
+                }
+            }
+            return false;
+        }
+
+        private void ExecuteStorageDeposit()
+        {
+            Window w = Window.Get;
+            if (InfoManager.Character == null || InfoManager.Character.Storage == null)
+                return;
+
+            var inv = InfoManager.Character.Inventory;
+            var storage = InfoManager.Character.Storage;
+
+            for (byte slot = 13; slot < inv.Count && isBotting; slot++)
+            {
+                var item = inv[slot];
+                if (item == null)
+                    continue;
+
+                // Elixir (ID2=3, ID3=11, ID4=1) or Alchemy Stone (ID2=3, ID3=11, ID4=2) or SOX item
+                bool isElixirOrStone = (item.ID2 == 3 && item.ID3 == 11 && (item.ID4 == 1 || item.ID4 == 2));
+                bool isSox = (item is SREquipable eq && eq.GetRarity() != SREquipable.Rarity.None);
+
+                if (isElixirOrStone || isSox)
+                {
+                    int emptyStorageSlot = -1;
+                    for (int s = 0; s < storage.Count; s++)
+                    {
+                        if (storage[s] == null)
+                        {
+                            emptyStorageSlot = s;
+                            break;
+                        }
+                    }
+
+                    if (emptyStorageSlot != -1)
+                    {
+                        w.LogProcess($"Depositing [{item.Name}] to storage slot {emptyStorageSlot}...");
+                        PacketBuilder.MoveItem(slot, (byte)emptyStorageSlot, SRTypes.InventoryItemMovement.InventoryToStorage, item.Quantity);
+                        Thread.Sleep(350);
+                    }
+                    else
+                    {
+                        w.LogProcess("Town Loop: Storage is full!", Window.ProcessState.Warning);
+                        break;
+                    }
+                }
+            }
+        }
+
+        private void ExecuteSellTrash()
+        {
+            Window w = Window.Get;
+            if (InfoManager.Character == null || InfoManager.Character.Inventory == null)
+                return;
+
+            var inv = InfoManager.Character.Inventory;
+
+            for (byte slot = 13; slot < inv.Count && isBotting; slot++)
+            {
+                var item = inv[slot];
+                if (item == null)
+                    continue;
+
+                // Sell white/normal armor, weapon or shield
+                if (item is SREquipable eq && eq.GetRarity() == SREquipable.Rarity.None && !eq.isJob() && !eq.isAvatar())
+                {
+                    w.LogProcess($"Selling trash [{item.Name}] to NPC...");
+                    PacketBuilder.MoveItem(slot, 0, SRTypes.InventoryItemMovement.InventoryToShop, item.Quantity);
+                    Thread.Sleep(300);
+                }
+            }
         }
         private void BuffLoop()
         {
@@ -474,6 +902,8 @@ namespace xBot.App
             if (InfoManager.Character == null || InfoManager.Character.Inventory == null)
                 return;
 
+            Window w = Window.Get;
+
             // Çantada boş yer var mı? (13. slottan itibaren)
             int emptySlot = InfoManager.Character.Inventory.FindIndex(i => i == null, 13);
             if (emptySlot == -1)
@@ -490,6 +920,24 @@ namespace xBot.App
                     double dist = drop.GetRealtimePosition().DistanceTo(myPos);
                     if (dist <= 35.0)
                     {
+                        // Apply Pick Filters
+                        if (w != null && w.Filter_cbxPickGold != null)
+                        {
+                            bool isGold = drop.isGold();
+                            bool isEquip = drop.isEquipable();
+                            bool isElixirStone = (drop.ID2 == 3 && drop.ID3 == 11 && (drop.ID4 == 1 || drop.ID4 == 2));
+                            bool isMaterial = (!isGold && !isEquip && !isElixirStone);
+
+                            if (isGold && !w.Filter_cbxPickGold.Checked)
+                                continue;
+                            if (isEquip && !w.Filter_cbxPickEquip.Checked)
+                                continue;
+                            if (isElixirStone && !w.Filter_cbxPickElixirStone.Checked)
+                                continue;
+                            if (isMaterial && !w.Filter_cbxPickMaterials.Checked)
+                                continue;
+                        }
+
                         drops.Add(drop);
                     }
                 }
@@ -501,7 +949,8 @@ namespace xBot.App
             // En yakından uzağa sırala
             drops.Sort((a, b) => a.GetRealtimePosition().DistanceTo(myPos).CompareTo(b.GetRealtimePosition().DistanceTo(myPos)));
 
-            SRCoService pickPet = InfoManager.MyPets.Find(p => p.isPickPet());
+            bool usePet = (w == null || w.Filter_cbxUsePet == null || w.Filter_cbxUsePet.Checked);
+            SRCoService pickPet = usePet ? InfoManager.MyPets.Find(p => p.isPickPet()) : null;
             uint petId = pickPet != null ? pickPet.UniqueID : 0;
 
             for (int d = 0; d < drops.Count && d < 3; d++)
@@ -526,6 +975,83 @@ namespace xBot.App
                     }
                     PacketBuilder.PickUpItem(drop.UniqueID);
                     Thread.Sleep(300);
+                }
+            }
+        }
+
+        private int CountItemTotalQuantity(byte tid1, byte tid2, byte tid3)
+        {
+            if (InfoManager.Character == null || InfoManager.Character.Inventory == null)
+                return 0;
+
+            int total = 0;
+            var inv = InfoManager.Character.Inventory;
+            for (int i = 13; i < inv.Count; i++)
+            {
+                var item = inv[i];
+                if (item != null && item.ID1 == tid1 && item.ID2 == tid2 && item.ID3 == tid3)
+                {
+                    total += item.Quantity;
+                }
+            }
+            return total;
+        }
+
+        private void ExecuteAutoBuyPotions(SREntity potionNpc)
+        {
+            Window w = Window.Get;
+            if (w == null || w.Town_cbxAutoBuy == null || !w.Town_cbxAutoBuy.Checked || potionNpc == null)
+                return;
+
+            // 1. HP Potion
+            int currentHp = CountItemTotalQuantity(3, 1, 1);
+            int targetHp = 150;
+            w.Town_nudHpAmount.InvokeIfRequired(() => { targetHp = (int)w.Town_nudHpAmount.Value; });
+            int missingHp = targetHp - currentHp;
+
+            int hpIndex = 3; // default Large
+            w.Town_cmbxHpType.InvokeIfRequired(() => { hpIndex = w.Town_cmbxHpType.SelectedIndex; });
+            if (hpIndex < 0 || hpIndex > 4) hpIndex = 3;
+
+            if (missingHp > 0)
+            {
+                w.LogProcess($"Auto Buy: Purchasing {missingHp} HP potions from {potionNpc.Name}...");
+                byte slotInShop = (byte)hpIndex;
+                PacketBuilder.BuyItemFromShop(0, slotInShop, (ushort)missingHp, potionNpc.UniqueID);
+                Thread.Sleep(600);
+            }
+
+            // 2. MP Potion
+            int currentMp = CountItemTotalQuantity(3, 1, 2);
+            int targetMp = 150;
+            w.Town_nudMpAmount.InvokeIfRequired(() => { targetMp = (int)w.Town_nudMpAmount.Value; });
+            int missingMp = targetMp - currentMp;
+
+            int mpIndex = 3; // default Large
+            w.Town_cmbxMpType.InvokeIfRequired(() => { mpIndex = w.Town_cmbxMpType.SelectedIndex; });
+            if (mpIndex < 0 || mpIndex > 4) mpIndex = 3;
+
+            if (missingMp > 0)
+            {
+                w.LogProcess($"Auto Buy: Purchasing {missingMp} MP potions from {potionNpc.Name}...");
+                byte slotInShop = (byte)(5 + mpIndex);
+                PacketBuilder.BuyItemFromShop(0, slotInShop, (ushort)missingMp, potionNpc.UniqueID);
+                Thread.Sleep(600);
+            }
+
+            // 3. Universal Pills
+            bool buyPills = false;
+            w.Town_cbxBuyPills.InvokeIfRequired(() => { buyPills = w.Town_cbxBuyPills.Checked; });
+            if (buyPills)
+            {
+                int currentPills = CountItemTotalQuantity(3, 2, 1);
+                int targetPills = 50;
+                int missingPills = targetPills - currentPills;
+                if (missingPills > 0)
+                {
+                    w.LogProcess($"Auto Buy: Purchasing {missingPills} Universal Pills...");
+                    PacketBuilder.BuyItemFromShop(0, 13, (ushort)missingPills, potionNpc.UniqueID);
+                    Thread.Sleep(600);
                 }
             }
         }
