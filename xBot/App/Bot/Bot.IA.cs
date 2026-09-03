@@ -114,24 +114,45 @@ namespace xBot.App
                         }
                         else
                         {
-                            // 1. First try: Auto NavMesh pathfinding
+                            // 1. First try: Auto NavMesh / Multi-hop Ferry & Teleport route
                             if (NavigationManager.Get.IsAvailable)
                             {
                                 w.LogProcess("NavMesh: Calculating route to training area...");
-                                List<SRCoord> navPath = NavigationManager.Get.FindPath(myPosition, trainingPosition);
-                                if (navPath != null && navPath.Count > 0)
+                                NavigationRoute navRoute = NavigationManager.Get.FindCompoundRoute(myPosition, trainingPosition);
+                                if (navRoute != null && !navRoute.IsEmpty)
                                 {
-                                    w.Log($"NavMesh: Walking along calculated path ({navPath.Count} waypoints)...");
-                                    for (int p = 0; p < navPath.Count && isBotting; p++)
-                                    {
-                                        if (myPosition.DistanceTo(trainingPosition) <= trainingRadius)
-                                            break; // Arrived at training area
+                                    w.Log($"NavMesh: Executing route with {navRoute.Segments.Count} segment(s) ({navRoute.TotalWaypointsCount} waypoints)...");
+                                    bool routeAborted = false;
 
-                                        w.LogProcess($"NavMesh step [{p + 1}/{navPath.Count}]");
-                                        WaitMovement(navPath[p], 12);
-                                        myPosition = InfoManager.Character.GetRealtimePosition();
+                                    for (int s = 0; s < navRoute.Segments.Count && isBotting; s++)
+                                    {
+                                        var segment = navRoute.Segments[s];
+                                        if (segment.Type == RouteSegmentType.Walk)
+                                        {
+                                            for (int p = 0; p < segment.Waypoints.Count && isBotting; p++)
+                                            {
+                                                if (myPosition.DistanceTo(trainingPosition) <= trainingRadius)
+                                                    break; // Arrived at training area
+
+                                                w.LogProcess($"NavMesh walk [{p + 1}/{segment.Waypoints.Count}]");
+                                                WaitMovement(segment.Waypoints[p], 12);
+                                                myPosition = InfoManager.Character.GetRealtimePosition();
+                                            }
+                                        }
+                                        else if (segment.Type == RouteSegmentType.Teleport)
+                                        {
+                                            if (!ExecuteTeleportTransition(segment.TeleportLink))
+                                            {
+                                                w.LogProcess("Teleport transition failed. Retrying route...", Window.ProcessState.Warning);
+                                                routeAborted = true;
+                                                break;
+                                            }
+                                            myPosition = InfoManager.Character.GetRealtimePosition();
+                                        }
                                     }
-                                    continue;
+
+                                    if (!routeAborted)
+                                        continue;
                                 }
                             }
 
@@ -614,6 +635,87 @@ namespace xBot.App
                 InfoManager.MonitorEntitySelected.WaitOne(delay);
             }
             return true;
+        }
+
+        private bool ExecuteTeleportTransition(TeleportLinkInfo link)
+        {
+            Window w = Window.Get;
+            w.Log($"Ferry/Teleport: Transitioning [{link.SourceName}] -> [{link.DestinationName}]...");
+
+            // 1. Locate NPC / Teleport entity across all collections
+            SREntity targetEntity = null;
+            for (int attempt = 0; attempt < 30 && isBotting; attempt++)
+            {
+                // Search Npcs first (ferry ticket sellers are NPCs)
+                targetEntity = InfoManager.Npcs.Find(npc => npc.ID == link.NpcId ||
+                    (npc.Name != null && npc.Name.IndexOf(link.SourceName, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                    (npc.Position != null && npc.Position.DistanceTo(link.BoardCoord) <= 40.0));
+
+                // Search TeleportAndBuildings
+                if (targetEntity == null)
+                {
+                    targetEntity = InfoManager.TeleportAndBuildings.Find(tp => tp.ID == link.NpcId ||
+                        (tp.Name != null && tp.Name.IndexOf(link.SourceName, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                        (tp.Position != null && tp.Position.DistanceTo(link.BoardCoord) <= 40.0));
+                }
+
+                // Search all Entities as fallback
+                if (targetEntity == null)
+                {
+                    targetEntity = InfoManager.Entities.Find(e => e.ID == link.NpcId ||
+                        (e.Name != null && e.Name.IndexOf(link.SourceName, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                        (e.Position != null && e.Position.DistanceTo(link.BoardCoord) <= 40.0));
+                }
+
+                if (targetEntity != null)
+                    break;
+
+                Thread.Sleep(300);
+            }
+
+            if (targetEntity == null)
+            {
+                w.LogProcess($"Ferry/Teleport: NPC [{link.SourceName}] not found in area!", Window.ProcessState.Warning);
+                return false;
+            }
+
+            w.Log($"Ferry/Teleport: Found NPC [{targetEntity.Name}] (UID: {targetEntity.UniqueID}, ModelID: {targetEntity.ID})");
+
+            // 2. Walk close to NPC if not already within 4 meters
+            SRCoord myPos = InfoManager.Character.GetRealtimePosition();
+            if (targetEntity.Position != null && myPos.DistanceTo(targetEntity.Position) > 4.0)
+            {
+                w.LogProcess($"Walking to ferry NPC ({myPos.DistanceTo(targetEntity.Position):F1}m)...");
+                WaitMovement(targetEntity.Position, 6);
+            }
+
+            // 3. Select NPC
+            w.LogProcess($"Selecting NPC [{targetEntity.Name}]...");
+            WaitSelectEntity(targetEntity.UniqueID, 10, 250, "Selecting ferry ticket seller...");
+            Thread.Sleep(600);
+
+            // 4. Send UseTeleport packet
+            w.Log($"Ferry/Teleport: Requesting transport to [{link.DestinationName}] (DestID: {link.DestinationId})...");
+            PacketBuilder.UseTeleport(targetEntity.UniqueID, link.DestinationId);
+
+            // 5. Wait for teleport / loading / position shift
+            SRCoord beforePos = InfoManager.Character.GetRealtimePosition();
+            for (int wait = 0; wait < 35 && isBotting; wait++)
+            {
+                Thread.Sleep(500);
+                SRCoord currentPos = InfoManager.Character.GetRealtimePosition();
+                if (currentPos.DistanceTo(beforePos) > 40.0 || currentPos.DistanceTo(link.ArriveCoord) < 70.0)
+                {
+                    w.Log($"Ferry/Teleport: Successfully arrived at [{link.DestinationName}]!");
+                    Thread.Sleep(2000); // World loading settle
+                    return true;
+                }
+            }
+
+            w.LogProcess("Ferry/Teleport: Teleport transition timed out. Trying once more...", Window.ProcessState.Warning);
+            PacketBuilder.UseTeleport(targetEntity.UniqueID, link.DestinationId);
+            Thread.Sleep(2000);
+            return InfoManager.Character.GetRealtimePosition().DistanceTo(beforePos) > 40.0;
         }
         #endregion
     }

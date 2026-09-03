@@ -153,50 +153,74 @@ namespace xBot.Game.Navigation
 			}
 			else
 			{
-				Window.Get?.LogProcess("NavMesh: Path could not be resolved.", Window.ProcessState.Warning);
+				Window.Get?.LogProcess("NavMesh: Path could not be resolved on single region.", Window.ProcessState.Warning);
 			}
 
 			return path;
 		}
 
+		/// <summary>
+		/// Finds a complete compound route. If direct path is not possible (e.g. river or different region),
+		/// incorporates Ferries and Teleports automatically.
+		/// </summary>
+		public NavigationRoute FindCompoundRoute(SRCoord start, SRCoord target)
+		{
+			if (!IsAvailable || start == null || target == null)
+				return null;
+
+			NavigationRoute route = new NavigationRoute();
+
+			// 1. Try direct path first
+			List<SRCoord> direct = FindPath(start, target);
+			if (direct != null && direct.Count > 0)
+			{
+				route.Segments.Add(RouteSegment.CreateWalk(direct));
+				return route;
+			}
+
+			// 2. Direct path not found. Search for Ferry / Teleport bridge!
+			Window.Get?.LogProcess("NavMesh: Direct path unavailable. Searching for Ferry/Teleport bridges...");
+			TeleportLinkInfo bestLink = TeleportManager.Get.FindBestLink(start, target);
+			if (bestLink != null)
+			{
+				Window.Get?.Log($"NavMesh: Bridge selected: [{bestLink.SourceName} -> {bestLink.DestinationName}]");
+
+				// Segment 1: Walk to ferry/gate board position
+				List<SRCoord> pathToBoard = FindPath(start, bestLink.BoardCoord);
+				if (pathToBoard == null || pathToBoard.Count == 0)
+				{
+					pathToBoard = new List<SRCoord> { bestLink.BoardCoord };
+				}
+				route.Segments.Add(RouteSegment.CreateWalk(pathToBoard));
+
+				// Segment 2: Ferry Teleport
+				route.Segments.Add(RouteSegment.CreateTeleport(bestLink));
+
+				// Segment 3: Walk from arrival position to target
+				List<SRCoord> pathFromArrive = FindPath(bestLink.ArriveCoord, target);
+				if (pathFromArrive == null || pathFromArrive.Count == 0)
+				{
+					pathFromArrive = new List<SRCoord> { target };
+				}
+				route.Segments.Add(RouteSegment.CreateWalk(pathFromArrive));
+
+				Window.Get?.Log($"NavMesh: Multi-hop route created: {route.Segments.Count} segments, {route.TotalWaypointsCount} total waypoints.");
+				return route;
+			}
+
+			return null;
+		}
+
 		private RegionBoundsEntry FindContainingRegion(float startX, float startY, float targetX, float targetY)
 		{
-			// 1. First priority: contains both start and target
+			// Direct single-region path is ONLY possible if one region contains BOTH start and target!
+			// If start and target are in different regions (e.g. across Huang He river or in different cities),
+			// return null so FindCompoundRoute will search for Ferry/Teleport bridges.
 			foreach (var entry in m_boundsIndex)
 			{
-				if (entry.Contains(startX, startY, 50f) && entry.Contains(targetX, targetY, 50f))
+				if (entry.Contains(startX, startY, 40f) && entry.Contains(targetX, targetY, 40f))
 					return entry;
 			}
-
-			// 2. Second priority: contains start with broad padding
-			foreach (var entry in m_boundsIndex)
-			{
-				if (entry.Contains(startX, startY, 150f))
-					return entry;
-			}
-
-			// 3. Third priority: contains target
-			foreach (var entry in m_boundsIndex)
-			{
-				if (entry.Contains(targetX, targetY, 150f))
-					return entry;
-			}
-
-			// 4. Fallback: Nearest region to start within 1000m
-			RegionBoundsEntry nearest = null;
-			double minDistance = double.MaxValue;
-			foreach (var entry in m_boundsIndex)
-			{
-				double d = entry.DistanceTo(startX, startY);
-				if (d < minDistance)
-				{
-					minDistance = d;
-					nearest = entry;
-				}
-			}
-
-			if (nearest != null && minDistance < 1000.0)
-				return nearest;
 
 			return null;
 		}

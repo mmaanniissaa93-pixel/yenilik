@@ -81,6 +81,19 @@ namespace xBot.Game.Navigation
 			if (startNode == -1 || targetNode == -1)
 				return null;
 
+			// Snap distance check: if start or target is too far from any node in this region,
+			// they do not belong to this region (e.g. separated by river / on another map)
+			NavPoint startPt = region.Points[startNode];
+			NavPoint targetPt = region.Points[targetNode];
+			double startDist = Math.Sqrt((startPt.X - startX) * (startPt.X - startX) + (startPt.Y - startY) * (startPt.Y - startY));
+			double targetDist = Math.Sqrt((targetPt.X - targetX) * (targetPt.X - targetX) + (targetPt.Y - targetY) * (targetPt.Y - targetY));
+
+			if (startDist > 45.0 || targetDist > 55.0)
+			{
+				// Start or Target is not on this walkable mesh!
+				return null;
+			}
+
 			if (startNode == targetNode)
 			{
 				return new List<SRCoord> { new SRCoord(targetX, targetY) };
@@ -152,11 +165,13 @@ namespace xBot.Game.Navigation
 				}
 			}
 
-			int endNode = found ? targetNode : closestNodeToTarget;
-			if (!found && closestNodeToTarget == startNode)
+			if (!found)
 			{
+				// Target could not be reached on this landmass/region! Do NOT walk to water edge!
 				return null;
 			}
+
+			int endNode = targetNode;
 
 			// Reconstruct node path
 			List<NavPoint> rawPath = new List<NavPoint>();
