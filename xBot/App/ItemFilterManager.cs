@@ -6,14 +6,6 @@ using xBot.Game.Objects.Entity;
 
 namespace xBot.App
 {
-    public class ItemFilterRule
-    {
-        public string ItemName { get; set; } = "";
-        public bool Pickup { get; set; } = true;
-        public bool Sell { get; set; } = false;
-        public bool Store { get; set; } = false;
-    }
-
     public static class ItemFilterManager
     {
         // Global Filter Criteria
@@ -54,6 +46,12 @@ namespace xBot.App
             Rules.Clear();
         }
 
+        public static void RemoveRule(string itemName)
+        {
+            if (!string.IsNullOrEmpty(itemName))
+                Rules.Remove(itemName);
+        }
+
         public static IEnumerable<ItemFilterRule> GetAllRules()
         {
             return Rules.Values;
@@ -64,29 +62,11 @@ namespace xBot.App
             if (item == null)
                 return false;
 
-            // Check explicit rule first
-            if (Rules.TryGetValue(item.Name, out var rule) || Rules.TryGetValue(item.ServerName, out rule))
-            {
-                return rule.Pickup;
-            }
-
-            // Gold, elixirs, stones always allowed by default unless rule says otherwise
-            if (item.isType(1, 1, 0) || item.isType(1, 2, 0) || item.isType(3, 3, 0))
-                return true;
-
-            // Check equipment attributes if it's an equipable
             var equip = item as SREquipable;
-            if (equip != null)
-            {
-                if (OnlySox && equip.GetRarity() == SREquipable.Rarity.None)
-                    return false;
-
-                var genre = equip.GetGenre();
-                if (genre == SREquipable.Genre.Male && !FilterMale) return false;
-                if (genre == SREquipable.Genre.Female && !FilterFemale) return false;
-            }
-
-            return true;
+            return ItemFilterPolicy.ShouldPickup(
+                CreateInput(item, equip != null),
+                GetOptions(),
+                FindRule(item.Name, item.ServerName));
         }
 
         /// <summary>
@@ -95,21 +75,12 @@ namespace xBot.App
         public static bool ShouldPickup(SRDrop drop)
         {
             if (drop == null)
-                return true; // default allow
-
-            // Check explicit name rule first
-            if (Rules.TryGetValue(drop.Name, out var rule) || Rules.TryGetValue(drop.ServerName, out rule))
-                return rule.Pickup;
-
-            // Only equipable items are degree/SoX filtered here
-            if (!drop.isEquipable())
-                return true;
-
-            // SoX check via Rarity byte (0 = none)
-            if (OnlySox && drop.Rarity == 0)
                 return false;
 
-            return true;
+            return ItemFilterPolicy.ShouldPickup(
+                CreateInput(drop),
+                GetOptions(),
+                FindRule(drop.Name, drop.ServerName));
         }
 
         public static bool ShouldSell(SRItem item)
@@ -117,12 +88,9 @@ namespace xBot.App
             if (item == null)
                 return false;
 
-            if (Rules.TryGetValue(item.Name, out var rule) || Rules.TryGetValue(item.ServerName, out rule))
-            {
-                return rule.Sell;
-            }
-
-            return false;
+            return ItemFilterPolicy.ShouldSell(
+                CreateInput(item, item is SREquipable),
+                FindRule(item.Name, item.ServerName));
         }
 
         public static bool ShouldStore(SRItem item)
@@ -130,19 +98,80 @@ namespace xBot.App
             if (item == null)
                 return false;
 
-            if (Rules.TryGetValue(item.Name, out var rule) || Rules.TryGetValue(item.ServerName, out rule))
-            {
-                return rule.Store;
-            }
+            return ItemFilterPolicy.ShouldStore(
+                CreateInput(item, item is SREquipable),
+                FindRule(item.Name, item.ServerName));
+        }
 
-            var equip = item as SREquipable;
-            if (equip != null && equip.GetRarity() != SREquipable.Rarity.None)
-            {
-                // Auto store Sox items if enabled
-                return true;
-            }
+        private static ItemFilterRule FindRule(string itemName, string serverName)
+        {
+            ItemFilterRule rule;
+            if (!string.IsNullOrEmpty(itemName) && Rules.TryGetValue(itemName, out rule))
+                return rule;
+            if (!string.IsNullOrEmpty(serverName) && Rules.TryGetValue(serverName, out rule))
+                return rule;
+            return null;
+        }
 
-            return false;
+        private static ItemFilterOptions GetOptions()
+        {
+            return new ItemFilterOptions
+            {
+                MinDegree = MinDegree,
+                MaxDegree = MaxDegree,
+                OnlySox = OnlySox,
+                FilterChina = FilterChina,
+                FilterEurope = FilterEurope,
+                FilterMale = FilterMale,
+                FilterFemale = FilterFemale
+            };
+        }
+
+        private static ItemFilterInput CreateInput(SRItem item, bool isEquipable)
+        {
+            SREquipable equip = item as SREquipable;
+            return new ItemFilterInput
+            {
+                ItemName = item.Name,
+                ServerName = item.ServerName,
+                IsEquipable = isEquipable,
+                IsGold = item.isType(1, 1, 0) || item.isType(1, 2, 0),
+                IsElixirOrStone = item.isType(3, 11, 1) || item.isType(3, 11, 2),
+                IsSox = equip != null && equip.GetRarity() != SREquipable.Rarity.None,
+                Degree = GetDegree(item.LevelRequired),
+                IsChina = equip != null && equip.GetRace() == xBot.Game.Objects.Common.SRTypes.Race.Chinese,
+                IsEurope = equip != null && equip.GetRace() == xBot.Game.Objects.Common.SRTypes.Race.European,
+                IsMale = equip != null && equip.GetGenre() == SREquipable.Genre.Male,
+                IsFemale = equip != null && equip.GetGenre() == SREquipable.Genre.Female
+            };
+        }
+
+        private static ItemFilterInput CreateInput(SRDrop drop)
+        {
+            return new ItemFilterInput
+            {
+                ItemName = drop.Name,
+                ServerName = drop.ServerName,
+                IsEquipable = drop.isEquipable(),
+                IsGold = drop.isGold(),
+                IsElixirOrStone = drop.ID2 == 3 && drop.ID3 == 11 && (drop.ID4 == 1 || drop.ID4 == 2),
+                IsSox = drop.Rarity != 0,
+                Degree = GetDegree(drop.LevelRequired),
+                IsChina = ContainsToken(drop.ServerName, "_CH_"),
+                IsEurope = ContainsToken(drop.ServerName, "_EU_"),
+                IsMale = ContainsToken(drop.ServerName, "_M_"),
+                IsFemale = ContainsToken(drop.ServerName, "_W_")
+            };
+        }
+
+        private static int GetDegree(byte level)
+        {
+            return level == 0 ? 0 : (level + 7) / 8;
+        }
+
+        private static bool ContainsToken(string value, string token)
+        {
+            return !string.IsNullOrEmpty(value) && value.IndexOf(token, StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         public static JObject ToJson()

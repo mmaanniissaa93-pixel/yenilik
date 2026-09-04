@@ -158,7 +158,7 @@ xBot-WinForms/
 
 Özelliklerin tek takip noktası [`docs/FEATURES.md`](docs/FEATURES.md)’dir. Yeni bir işlev için önce bir `F-xxx` kaydı açın; kod, arayüz, ayar anahtarı ve doğrulama durumunu aynı kayıtta tutun. Durumu `Planlandı → Geliştiriliyor → Deneysel → Kullanımda` akışında güncelleyin. Bir özellik devre dışıysa veya yalnızca arayüz/ayar altyapısı varsa bunu özellikle belirtin.
 
-## Protection senaryo testleri
+## Koruma, item filtre ve Combat AI senaryo testleri
 
 Koruma kararlarının temel senaryoları bağımsız bir test projesinde çalıştırılabilir:
 
@@ -166,8 +166,13 @@ Koruma kararlarının temel senaryoları bağımsız bir test projesinde çalı�
 dotnet run --project tests/ProtectionScenarios/ProtectionScenarios.csproj
 ```
 
-Bu testler; envanter/pet doluluğu, ok/bolt, HP/MP stoğu, dayanıklılık, level-up,
-ölüm gecikmesi ve dönüş sonrası şehirde botu durdurma kararlarını kontrol eder.
+Bu testler; koruma kararlarının yanı sıra item pickup, degree, SoX, China/Europe,
+gender, satış/depolama kuralları ile Combat AI’nin kaçınma, Dimension Pillar,
+alan dışı takip ve Berserk tetik kararlarını; SkillPolicy ise cooldown/fallback
+ve sıralı combo kararlarını, ImbuePolicy ise Çin Fire/Cold/Lightning skill ve
+aktif buff adlandırmalarını kontrol eder. Karakter yüklendiğinde algılanan imbue
+skill’leri seviyeleriyle Skills > Attack ekranında listelenir. Toplam 44 senaryo
+çalıştırılır.
 
 ## Teşekkürler
 

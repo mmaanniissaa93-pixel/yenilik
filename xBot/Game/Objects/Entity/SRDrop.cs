@@ -13,6 +13,7 @@ namespace xBot.Game.Objects.Entity
 		public uint DropUniqueID { get; set; }
 		public byte Plus { get; set; }
 		public uint Gold { get; set; }
+		public byte LevelRequired { get; private set; }
 
 		#region (Constructor)
 		public SRDrop(uint ID)
@@ -26,6 +27,7 @@ namespace xBot.Game.Objects.Entity
 			ID2 = byte.Parse(m_data["tid2"]);
 			ID3 = byte.Parse(m_data["tid3"]);
 			ID4 = byte.Parse(m_data["tid4"]);
+			LevelRequired = ParseLevel(m_data["level"]);
 		}
 		public SRDrop(string ServerName)
 		{
@@ -38,10 +40,17 @@ namespace xBot.Game.Objects.Entity
 			ID2 = byte.Parse(m_data["tid2"]);
 			ID3 = byte.Parse(m_data["tid3"]);
 			ID4 = byte.Parse(m_data["tid4"]);
+			LevelRequired = ParseLevel(m_data["level"]);
 		}
 		public SRDrop(SREntity value) : base(value)
 		{
+			LevelRequired = ParseLevel(m_data["level"]);
+		}
 
+		private static byte ParseLevel(string value)
+		{
+			byte level;
+			return byte.TryParse(value, out level) ? level : (byte)0;
 		}
 		#endregion
 

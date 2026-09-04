@@ -429,7 +429,7 @@ namespace xBot.App
                         }
                     }
 
-                    SRMob mob = GetMobFiltered(mobs);
+                    SRMob mob = GetMobFiltered(mobs, trainingPosition, trainingRadius);
                     if (mob == null)
                     {
                         // No mob to attack
@@ -448,70 +448,36 @@ namespace xBot.App
 
                         // Load skills and iterate it
                         SRSkill[] skillshots = w.Skills_GetSkillShots(mob.MobType);
-                        if (skillshots != null && skillshots.Length != 0)
+                        if (WaitSelectEntity(mob.UniqueID, 2, 250, "Selecting " + mob.Name + " (" + mob.MobType + ")..."))
                         {
-                            // Try to select mob
-                            if (WaitSelectEntity(mob.UniqueID, 2, 250, "Selecting " + mob.Name + " (" + mob.MobType + ")..."))
+                            bool castConfirmed = false;
+                            if (skillshots != null && skillshots.Length != 0)
                             {
                                 // Iterate skills
-                                for (int k = 0; k <= skillshots.Length; k++)
+                                for (int k = 0; k < skillshots.Length; k++)
                                 {
-                                    // loop control
-                                    if (k == skillshots.Length)
-                                        break;
                                     SRSkill skillshot = skillshots[k];
 
-                                    // Check if skill is enabled
+                                    // Ignore null skills and skills disabled by the server.
+                                    if (skillshot == null || (skillshot.ID != 1 && !skillshot.Enabled))
+                                        continue;
+
+                                    if (skillshot.ID == 1)
+                                    {
+                                        // Normalize the configured basic attack for the current weapon.
+                                        skillshot = SkillManager.GetFallbackAttack(GetMyWeaponType());
+                                    }
+
                                     if (!skillshot.isCastingEnabled)
                                         continue;
 
-                                    // Check and fix the weapon used for this skillshot
-                                    SRTypes.Weapon myWeapon = GetMyWeaponType();
-                                    if (skillshot.ID == 1)
+                                    if (!TryPrepareAttackSkill(skillshot, w))
                                     {
-                                        // Common attack, fix the basic skill
-                                        if (myWeapon != SRTypes.Weapon.None)
-                                        {
-                                            skillshot = new SRSkill(DataManager.GetCommonAttack(myWeapon));
-                                            skillshot.Name = "Common Attack";
-                                        }
+                                        SkillManager.RecordCastFailure(skillshot, "Silah uygun değil");
+                                        w.LogProcess("Skipping skill (weapon unavailable): " + skillshot.Name);
+                                        continue;
                                     }
-                                    else
-                                    {
-                                        // Check the required weapon
-                                        SRTypes.Weapon weaponRequired = skillshot.RequiredWeaponPrimary;
-                                        w.LogProcess("Checking weapon required (" + weaponRequired + ")...");
-                                        while (myWeapon != weaponRequired)
-                                        {
-                                            // Check the first 4 slots from inventory
-                                            int slotInventory = InfoManager.Character.Inventory.FindIndex(item => item != null && item.ID2 == 1 && item.ID3 == 6 && item.ID4 == (byte)weaponRequired, 13, 16);
-                                            if (slotInventory != -1)
-                                            {
-                                                w.LogProcess("Changing weapon (" + myWeapon + ")...");
-                                                // Try to change it
-                                                byte maxWeaponChangeAttempts = 5; // Check max. 4 times to skip the mob (max. 1 seconds actually)
-                                                while (myWeapon != weaponRequired && maxWeaponChangeAttempts > 0)
-                                                {
-                                                    PacketBuilder.MoveItem((byte)slotInventory, 6, SRTypes.InventoryItemMovement.InventoryToInventory);
-                                                    maxWeaponChangeAttempts--;
-                                                    InfoManager.MonitorWeaponChanged.WaitOne(250);
-                                                    myWeapon = GetMyWeaponType();
-                                                }
-                                                if (maxWeaponChangeAttempts == 0)
-                                                {
-                                                    w.LogProcess("Weapon changing failed!");
-                                                    continue;
-                                                }
-                                            }
-                                            else
-                                            {
-                                                w.LogProcess("Weapon required not found (" + myWeapon + ")...");
-                                                continue;
-                                            }
-                                            InfoManager.MonitorWeaponChanged.WaitOne(250);
-                                            myWeapon = GetMyWeaponType();
-                                        }
-                                    }
+
                                     // Check if mob is alive
                                     if (InfoManager.Mobs.ContainsKey(mob.UniqueID))
                                     {
@@ -519,23 +485,22 @@ namespace xBot.App
                                         PacketBuilder.AttackTarget(mob.UniqueID, skillshot.ID);
                                         if (InfoManager.MonitorSkillCast.WaitOne(500))
                                         {
-                                            // Skill casted, create character cooldown
+                                            SkillManager.RecordCastSuccess(skillshot);
+                                            castConfirmed = true;
                                             Thread.Sleep(skillshot.CastingTime);
+                                            if (!SkillPolicy.ShouldContinueCombo(castConfirmed, SkillManager.InOrderCombo))
+                                                break;
                                         }
                                         else
                                         {
-                                            // Timeout: Skill not casted
+                                            SkillManager.RecordCastFailure(skillshot, "Yanıt alınamadı");
                                             if (!InfoManager.Mobs.ContainsKey(mob.UniqueID))
                                             {
-                                                // Mob it's dead?
                                                 break;
                                             }
-                                            else
-                                            {
-                                                // Recast skillshot
-                                                k--;
-                                                continue;
-                                            }
+                                            // Move to the next configured skill once; never retry the
+                                            // same unresponsive skill indefinitely.
+                                            continue;
                                         }
                                     }
                                     else
@@ -545,20 +510,94 @@ namespace xBot.App
                                     }
                                 }
 
-                                // Mob öldükten sonra drop topla
-                                LootDrops(trainingPosition, trainingRadius);
                             }
-                        }
-                        else
-                        {
-                            w.LogProcess("Skillshots not found");
+
+                            // A missing, cooling down, disabled or incompatible skill
+                            // must never leave the bot idle.
+                            if (SkillPolicy.ShouldUseFallback(InfoManager.Mobs.ContainsKey(mob.UniqueID), castConfirmed))
+                            {
+                                w.LogProcess("Configured skills unavailable; using Common Attack fallback");
+                                TryFallbackAttack(mob, w);
+                            }
+
+                            // Mob öldükten sonra drop topla
+                            LootDrops(trainingPosition, trainingRadius);
                         }
                     }
                 }
             }
         }
 
-        private SRMob GetMobFiltered(List<SRMob> mobs)
+        private bool TryPrepareAttackSkill(SRSkill skill, Window w)
+        {
+            if (skill == null || InfoManager.Character == null || InfoManager.Character.Inventory == null)
+                return false;
+
+            SRTypes.Weapon primaryWeapon = skill.RequiredWeaponPrimary;
+            SRTypes.Weapon secondaryWeapon = skill.RequiredWeaponSecondary;
+            if (skill.ID == 1 || (primaryWeapon == SRTypes.Weapon.None && secondaryWeapon == SRTypes.Weapon.None))
+                return true;
+
+            SRTypes.Weapon currentWeapon = GetMyWeaponType();
+            if (currentWeapon == primaryWeapon || currentWeapon == secondaryWeapon)
+                return true;
+
+            SRTypes.Weapon requiredWeapon = primaryWeapon != SRTypes.Weapon.None
+                ? primaryWeapon
+                : secondaryWeapon;
+
+            w.LogProcess("Checking weapon required (" + requiredWeapon + ")...");
+            int inventorySlot = InfoManager.Character.Inventory.FindIndex(
+                item => item != null && item.ID2 == 1 && item.ID3 == 6
+                    && (item.ID4 == (byte)primaryWeapon || item.ID4 == (byte)secondaryWeapon), 13, 16);
+            if (inventorySlot == -1)
+            {
+                w.LogProcess("Weapon required not found (" + requiredWeapon + ")...");
+                return false;
+            }
+
+            w.LogProcess("Changing weapon (" + currentWeapon + ")...");
+            byte attempts = 5;
+            while (currentWeapon != requiredWeapon && attempts > 0)
+            {
+                PacketBuilder.MoveItem((byte)inventorySlot, 6, SRTypes.InventoryItemMovement.InventoryToInventory);
+                attempts--;
+                InfoManager.MonitorWeaponChanged.WaitOne(250);
+                currentWeapon = GetMyWeaponType();
+            }
+
+            if (currentWeapon != requiredWeapon)
+            {
+                w.LogProcess("Weapon changing failed!");
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool TryFallbackAttack(SRMob mob, Window w)
+        {
+            if (mob == null || !InfoManager.Mobs.ContainsKey(mob.UniqueID))
+                return false;
+
+            SRSkill fallback = SkillManager.GetFallbackAttack(GetMyWeaponType());
+            if (fallback == null)
+                return false;
+
+            w.LogProcess("Casting Common Attack fallback...");
+            PacketBuilder.AttackTarget(mob.UniqueID, fallback.ID);
+            if (!InfoManager.MonitorSkillCast.WaitOne(500))
+            {
+                SkillManager.RecordCastFailure(fallback, "Common Attack yanıt vermedi");
+                return false;
+            }
+
+            SkillManager.RecordCastSuccess(fallback);
+            Thread.Sleep(Math.Max(100, fallback.CastingTime));
+            return true;
+        }
+
+        private SRMob GetMobFiltered(List<SRMob> mobs, SRCoord trainingPosition, int trainingRadius)
         {
             if (mobs == null || mobs.Count == 0)
                 return null;
@@ -575,9 +614,9 @@ namespace xBot.App
                 SRMob m = mobs[j];
 
                 // Check if user allowed targeting this mob type
+                bool allowed = true;
                 if (w.Combat_cbxTargetGeneral != null)
                 {
-                    bool allowed = true;
                     switch (m.MobType)
                     {
                         case SRMob.Mob.General:
@@ -601,19 +640,24 @@ namespace xBot.App
                             allowed = w.Combat_cbxTargetUnique.Checked;
                             break;
                     }
-                    if (!allowed)
-                        continue;
                 }
 
-                // CombatAI: Skip mobs on Avoid list
-                if (CombatAIEngine.ShouldAvoid(m.MobType))
+                SRCoord mobPosition = m.GetRealtimePosition();
+                bool withinTrainingArea = trainingPosition == null || trainingRadius <= 0
+                    || trainingPosition.DistanceTo(mobPosition) <= trainingRadius;
+
+                if (!CombatPolicy.CanTarget(new CombatTargetInput
+                {
+                    AllowedByType = allowed,
+                    Avoided = CombatAIEngine.ShouldAvoid(m.MobType),
+                    IsDimensionPillar = CombatAIEngine.IsDimensionPillar(m),
+                    IgnoreDimensionPillars = CombatAIEngine.IgnoreDimensionPillars,
+                    DoNotFollowMobs = CombatAIEngine.DoNotFollowMobs,
+                    WithinTrainingArea = withinTrainingArea
+                }))
                     continue;
 
-                // CombatAI: Skip Dimension Pillars if configured
-                if (CombatAIEngine.IgnoreDimensionPillars && CombatAIEngine.IsDimensionPillar(m))
-                    continue;
-
-                double dist = m.GetRealtimePosition().DistanceTo(myPosition);
+                double dist = mobPosition.DistanceTo(myPosition);
 
                 // If priority is disabled, strictly choose the nearest mob
                 if (!enablePriority)
@@ -839,11 +883,7 @@ namespace xBot.App
                 if (item == null)
                     continue;
 
-                // Elixir (ID2=3, ID3=11, ID4=1) or Alchemy Stone (ID2=3, ID3=11, ID4=2) or SOX item
-                bool isElixirOrStone = (item.ID2 == 3 && item.ID3 == 11 && (item.ID4 == 1 || item.ID4 == 2));
-                bool isSox = (item is SREquipable eq && eq.GetRarity() != SREquipable.Rarity.None);
-
-                if (isElixirOrStone || isSox)
+				if (ItemFilterManager.ShouldStore(item))
                 {
                     int emptyStorageSlot = -1;
                     for (int s = 0; s < storage.Capacity; s++)
@@ -885,7 +925,14 @@ namespace xBot.App
                     continue;
 
                 // Sell white/normal armor, weapon or shield
-                if (item is SREquipable eq && eq.GetRarity() == SREquipable.Rarity.None && !eq.isJob() && !eq.isAvatar())
+				bool isDefaultTrash = item is SREquipable eq
+					&& eq.GetRarity() == SREquipable.Rarity.None
+					&& !eq.isJob() && !eq.isAvatar();
+
+				// Explicit sell rules apply to every inventory item. Store has
+				// precedence when both flags are enabled for the same rule.
+				if (!ItemFilterManager.ShouldStore(item)
+					&& (ItemFilterManager.ShouldSell(item) || isDefaultTrash))
                 {
                     w.LogProcess($"Selling trash [{item.Name}] to NPC...");
                     PacketBuilder.MoveItem(slot, 0, SRTypes.InventoryItemMovement.InventoryToShop, item.Quantity);
@@ -963,10 +1010,13 @@ namespace xBot.App
                             if (isMaterial && !w.Filter_cbxPickMaterials.Checked)
                                 continue;
 
-                            // ItemFilterManager: advanced degree/SoX/race/gender filter
-                            if (isEquip && !ItemFilterManager.ShouldPickup(drop))
-                                continue;
-                        }
+							// Basic UI filters are followed by the persistent item filter.
+						}
+
+						// Apply named rules and advanced degree/SoX/race/gender criteria
+						// for every drop type.
+						if (!ItemFilterManager.ShouldPickup(drop))
+							continue;
 
                         drops.Add(drop);
                     }

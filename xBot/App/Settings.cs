@@ -120,6 +120,9 @@ namespace xBot.App
 			{
 				SaveBotSettings();
 			}
+
+			if (Window.Get != null)
+				Window.Get.RefreshCustomSettingsWidgets();
 		}
 		/// <summary>
 		/// Load bot settings if exists.
@@ -778,6 +781,7 @@ namespace xBot.App
 					ItemFilterManager.FromJson((Newtonsoft.Json.Linq.JObject)root["ItemFilterManager"]);
 
 				LoadingCharacterSettings = false;
+				w.RefreshCustomSettingsWidgets();
 			}
 		}
 	}

@@ -110,30 +110,18 @@ namespace xBot.App
             if (xBot.Game.InfoManager.Character == null)
                 return false;
 
-            // Zerk bar must be full (5 orbs)
-            if (xBot.Game.InfoManager.Character.BerserkPoints < 5)
-                return false;
+            bool hasMobRuleTrigger = (ZerkAvoidanceBased || ZerkRarityBased)
+                && nearbyMobs != null
+                && nearbyMobs.Any(m => ShouldZerkOnMob(m.MobType));
 
-            // Already in berserk mode
-            if (xBot.Game.InfoManager.Character.SpeedBerserk > 0)
-                return false;
-
-            // 1. When HP is full
-            if (ZerkWhenHPFull && currentHPPercent >= 99.0 && nearbyMobs != null && nearbyMobs.Count > 0)
-                return true;
-
-            // 2. Monster count threshold
-            if (ZerkMonsterCountEnabled && nearbyMobs != null && nearbyMobs.Count >= ZerkMonsterCount)
-                return true;
-
-            // 3. Avoidance / Rarity based check
-            if ((ZerkAvoidanceBased || ZerkRarityBased) && nearbyMobs != null)
-            {
-                if (nearbyMobs.Any(m => ShouldZerkOnMob(m.MobType)))
-                    return true;
-            }
-
-            return false;
+            return CombatPolicy.ShouldBerserk(
+                xBot.Game.InfoManager.Character.BerserkPoints >= 5,
+                xBot.Game.InfoManager.Character.SpeedBerserk > 0,
+                ZerkWhenHPFull && currentHPPercent >= 99.0,
+                nearbyMobs == null ? 0 : nearbyMobs.Count,
+                ZerkMonsterCountEnabled,
+                ZerkMonsterCount,
+                hasMobRuleTrigger);
         }
 
         public static JObject ToJson()

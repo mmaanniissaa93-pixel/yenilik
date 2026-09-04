@@ -27,7 +27,7 @@ Son kaynak taraması: 2026-09-04
 | F-005 | Otomatik giriş ve karakter seçimi | ✅ | `App/Bot/Bot.Events.cs`, `App/LoginStrategyManager.cs` |
 | F-006 | En yüksek seviyeli karakteri otomatik seçme | 🧪 | `App/LoginStrategyManager.cs`; UI ve ayar mevcut |
 | F-007 | Relogin ve bağlantı sonrası clientless geçiş | ✅ | `Network/Proxy.cs`, `App/Bot/Bot.Events.cs` |
-| F-008 | Sabit captcha ayarı | ⚠️ | Ayar/UI altyapısı var; captcha akışına tam bağlı değil |
+| F-008 | Sabit captcha ayarı | ✅ | `App/LoginStrategyManager.cs`, `App/Window.CustomTabs.cs`; Sabit kod girişi ve UI bağlı |
 | F-009 | Client gizleme/gösterme ve hızlı gizleme | ✅ | `App/ClientManager.cs`, `App/Window.CustomTabs.cs` |
 | F-010 | Otomatik bot başlatma ve bağlantıda kalma | ✅ | `App/LoginStrategyManager.cs`, `App/Bot/Bot.Events.cs` |
 | F-011 | Otomatik karakter oluşturma/silme seçenekleri | ✅ | `App/Window.cs`, `Game/PacketBuilder.cs`, ayarlar |
@@ -39,20 +39,20 @@ Son kaynak taraması: 2026-09-04
 | F-020 | Bot başlatma/durdurma | ✅ | `App/Bot/Bot.IA.cs` |
 | F-021 | Eğitim alanında saldırı ve hareket | ✅ | `App/Bot/Bot.IA.cs`, `App/Script.cs` |
 | F-022 | Saldırı ve buff beceri listeleri | ✅ | `App/Window.cs`, `Game/Objects/Common/SRSkill.cs` |
-| F-023 | Beceri sıralama ve sırayla kullanma | ✅ | `App/SkillManager.cs`, Skills sekmesi |
-| F-024 | Imbue seçimi ve Devil Spirit kullanımı | 🧪 | `App/SkillManager.cs`; akış bot döngüsüne bağlı |
+| F-023 | Beceri sıralama ve sırayla kullanma | ✅ | `App/SkillManager.cs`, `App/SkillPolicy.cs`, Skills sekmesi; sıra seçeneği saldırı akışına bağlı |
+| F-024 | Çin Imbue seçimi, Devil Spirit ve güvenli skill fallback’i | 🧪 | `App/SkillManager.cs`, `App/SkillPolicy.cs`, `App/ImbuePolicy.cs`; karakterin algılanan imbue skill’leri seviyeleriyle listeleniyor ve seçilen skill ID’si akışta kullanılıyor |
 | F-025 | Mob türüne göre hedef seçimi | ✅ | `App/Bot/Bot.IA.cs`, `CombatAIEngine.cs` |
-| F-026 | Mob kaçınma/öncelik ve zayıf hedef önceliği | 🧪 | `App/CombatAIEngine.cs`; bazı seçenekler UI’da mevcut |
-| F-027 | Berserk tetikleme kuralları | 🧪 | HP, mob sayısı ve nadirlik kuralları `CombatAIEngine.cs` içinde |
+| F-026 | Mob kaçınma/öncelik ve zayıf hedef önceliği | 🧪 | `App/CombatAIEngine.cs`, `App/CombatPolicy.cs`; UI `Kasılma > Combat AI` altında |
+| F-027 | Berserk tetikleme kuralları | 🧪 | HP, mob sayısı ve nadirlik kuralları; UI `Kasılma > Combat AI` altında |
 | F-028 | Dimension Pillar/gate filtreleme | ✅ | `CombatAIEngine.IsDimensionPillar()` ve saldırı seçimi |
-| F-029 | Kiting ve panik kaçışı | 🧪 | `App/Bot/Bot.IA.cs`; oyun içi senaryo testi gerekli |
+| F-029 | Kiting ve panik kaçışı | 🧪 | `App/Bot/Bot.IA.cs`, `App/Window.CustomTabs.cs`; Town dışındaki `Kasılma > Combat AI` sekmesinde |
 | F-030 | HP/MP/vigor/universal/purification kullanımı | ✅ | `App/Bot/Bot.Checks.cs` |
 | F-031 | Recovery kit, abnormal pill ve pet HGP kontrolü | ✅ | `App/Bot/Bot.Checks.cs` |
 | F-032 | Skill ile HP/MP iyileştirme | ✅ | `App/ProtectionManager.cs`; event + merkezi bot tick akışına bağlı |
 | F-033 | Skill ile kötü durum temizleme | ✅ | `App/ProtectionManager.cs`; merkezi bot tick akışına bağlı |
 | F-034 | Pet diriltme ve otomatik çağırma | ✅ | `App/ProtectionManager.cs`; merkezi bot tick akışına bağlı |
-| F-035 | Ölüm, düşük HP/MP, dayanıklılık ve dolu envanter dönüşleri | ✅ | `App/ProtectionManager.cs`, `App/ProtectionPolicy.cs`; merkezi tick ve 14 senaryo testi |
-| F-036 | Level-up sonrası otomatik STR/INT dağıtımı | ✅ | `App/StatPointManager.cs`, `Game/InfoManager.cs` |
+| F-035 | Ölüm, düşük HP/MP, dayanıklılık ve dolu envanter dönüşleri | ✅ | `App/ProtectionManager.cs`, `App/ProtectionPolicy.cs`, `App/Window.CustomTabs.cs`; merkezi tick, UI ve 14 senaryo testi |
+| F-036 | Level-up sonrası otomatik STR/INT dağıtımı | ✅ | `App/StatPointManager.cs`, `Game/InfoManager.cs`, `App/Window.CustomTabs.cs`; Pure STR/INT ve hibrit oran arayüzü Koruma sekmesinde aktif |
 | F-037 | Support/no-attack modu | ✅ | `App/SkillManager.cs`, `App/Bot/Bot.IA.cs` |
 
 ### Şehir, navigasyon ve rota
@@ -76,9 +76,9 @@ Son kaynak taraması: 2026-09-04
 | F-051 | Eşya kullanma, kuşanma, çıkarma, düşürme ve taşıma | ✅ | `Game/PacketBuilder.cs`, `Game/PacketParser.cs` |
 | F-052 | Envanter sıralama | ✅ | `App/Bot/Bot.cs` |
 | F-053 | Pet ile eşya toplama | ✅ | `App/Bot/Bot.IA.cs` |
-| F-054 | Eşya pickup filtresi: SoX, cinsiyet ve açık kurallar | 🧪 | `App/ItemFilterManager.cs`; pickup akışına bağlı |
-| F-055 | Degree/China/Europe filtresi | ⚠️ | Ayar alanları ve JSON kaydı var; tüm karar noktalarına bağlanmalı |
-| F-056 | Eşyayı satma/depolama kuralları | ⚠️ | `ShouldSell`/`ShouldStore` altyapısı var; şehir döngüsüne entegrasyon kontrolü gerekli |
+| F-054 | Eşya pickup filtresi: SoX, cinsiyet ve açık kurallar | ✅ | `App/ItemFilterManager.cs`, `App/Bot/Bot.IA.cs`, `App/Window.CustomTabs.cs`; tüm drop türlerinde bağlı ve UI kural editörü mevcut |
+| F-055 | Degree/China/Europe filtresi | ✅ | `App/ItemFilterManager.cs`, `App/ItemFilterPolicy.cs`, `App/Window.CustomTabs.cs`; pickup kararında uygulanıyor ve UI’dan ayarlanıyor |
+| F-056 | Eşyayı satma/depolama kuralları | ✅ | `App/ItemFilterManager.cs`, `App/Bot/Bot.IA.cs`, `App/Window.CustomTabs.cs`; şehir lojistiğine bağlı ve UI’dan yönetiliyor |
 | F-057 | NPC alış/satış ve buy-back paketleri | ✅ | `Game/PacketBuilder.cs`, `Game/PacketParser.cs` |
 
 ### Party, guild, exchange, stall ve sohbet
@@ -119,11 +119,11 @@ Bu bölüm, çalışma ağacında yeni görünen yöneticileri ayrı izler. Yeni
 | Yönetici | Sorumluluk | JSON bölümü | Mevcut bağlantı | Sonraki kontrol |
 | :--- | :--- | :--- | :--- | :--- |
 | `LoginStrategyManager` | Otomatik giriş, karakter seçimi, bekleme, otomatik başlatma/gizleme | `LoginStrategy` | Giriş olayları ve proxy’ye bağlı | Captcha akışını tamamla, runtime test |
-| `CombatAIEngine` | Hedef önceliği, kaçınma ve berserk tetikleri | `CombatAI` | `Bot.IA` hedef seçiminde bağlı | Her kural için UI + oyun içi test |
-| `SkillManager` | Imbue, Devil Spirit, support/no-attack, beceri sırası | `SkillManager` | Bot döngüsünde bağlı | Skill bulunamadığında güvenli fallback |
+| `CombatAIEngine` | Hedef önceliği, kaçınma ve berserk tetikleri | `CombatAI` | `Bot.IA` hedef seçiminde bağlı; arayüz `Kasılma > Combat AI` altında | Her kural için UI + oyun içi test |
+| `SkillManager` | Imbue skill seçimi, Devil Spirit, support/no-attack, beceri sırası ve fallback | `SkillManager` | Bot döngüsünde bağlı; algılanan imbue’ler seviyeleriyle Skills > Attack ekranında görünür | Oyun içi skill/weapon senaryolarıyla doğrula |
 | `ProtectionManager` | Skill iyileştirme, pet koruması, şehir dönüş tetikleri | `ProtectionManager` | Her koruma kontrolü merkezi bot tick’inde; `ProtectionPolicy` karar katmanı kullanılıyor | Oyun içi gerçek client senaryolarıyla doğrula |
 | `StatPointManager` | Level sonrası stat dağıtımı | `StatPointManager` | Level-up/InfoManager’a bağlı | STR/INT hedef doğrulaması |
-| `ItemFilterManager` | Pickup/sell/store kuralları ve item kriterleri | `ItemFilterManager` | Pickup’un bir bölümü bağlı | Degree/race ve sell/store kararlarını bot akışına bağla |
+| `ItemFilterManager` | Pickup/sell/store kuralları ve item kriterleri | `ItemFilterManager` | Pickup ve şehir lojistiğinin tamamına bağlı | Gerçek client item çeşitleriyle runtime doğrulama |
 | `LocalizationManager` | Yeni özel kontroller için TR/EN metinleri | Yok | Özel UI başlatılırken bağlı | Kaynak dosyalardaki encoding/metinleri temizle |
 
 ## Yeni özellik ekleme akışı

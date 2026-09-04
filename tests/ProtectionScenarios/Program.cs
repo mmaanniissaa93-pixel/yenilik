@@ -38,13 +38,46 @@ internal static class Program
         Run("Dönüş tamamlanıp şehre gelince bot durur", With(input => input.IsInTown = true, input => input.StopAfterReturn = true), stopOptions, ProtectionDecision.StopBotInTown);
         Run("Dönüş beklenmiyorsa şehirde bot durmaz", With(input => input.IsInTown = true), stopOptions, ProtectionDecision.None);
 
+        RunFilter("Degree aralığı dışındaki ekipman alınmaz", new ItemFilterInput { IsEquipable = true, Degree = 8 }, FilterOptions(1, 7), null, false);
+        RunFilter("SoX filtresi normal ekipmanı almaz", new ItemFilterInput { IsEquipable = true, Degree = 5, IsSox = false }, FilterOptions(1, 15, true), null, false);
+        RunFilter("China kapalıyken China ekipmanı alınmaz", new ItemFilterInput { IsEquipable = true, Degree = 5, IsChina = true }, FilterOptions(1, 15, false, false, true), null, false);
+        RunFilter("Female kapalıyken kadın ekipmanı alınmaz", new ItemFilterInput { IsEquipable = true, Degree = 5, IsFemale = true }, FilterOptions(1, 15, false, true, true, true, false), null, false);
+        RunFilter("Gold ve alchemy filtreden bağımsız alınır", new ItemFilterInput { IsGold = true, Degree = 0 }, FilterOptions(8, 8, true, false, false, false, false), null, true);
+        RunFilter("Açık pickup kuralı global filtreyi geçersiz kılar", new ItemFilterInput { IsEquipable = true, Degree = 8 }, FilterOptions(1, 7), new ItemFilterRule { Pickup = true }, true);
+        RunFilter("Kapalı pickup kuralı itemi engeller", new ItemFilterInput { IsEquipable = false }, FilterOptions(1, 15), new ItemFilterRule { Pickup = false }, false);
+        RunAction("Elixir/stone varsayılan olarak depolanır", new ItemFilterInput { IsElixirOrStone = true }, null, true, false);
+        RunAction("SoX varsayılan olarak depolanır", new ItemFilterInput { IsSox = true }, null, true, false);
+        RunAction("Açık sell kuralı satışa izin verir", new ItemFilterInput(), new ItemFilterRule { Sell = true }, false, true);
+        RunAction("Store=false açık kuralı varsayılan SoX depolamasını kapatır", new ItemFilterInput { IsSox = true }, new ItemFilterRule { Store = false }, false, false);
+
+        RunCombat("Avoid kuralındaki mob hedeflenmez", new CombatTargetInput { Avoided = true }, false);
+        RunCombat("Dimension pillar ayarı açıkken hedeflenmez", new CombatTargetInput { IsDimensionPillar = true, IgnoreDimensionPillars = true }, false);
+        RunCombat("Yarıçap dışındaki mob takip edilmez", new CombatTargetInput { DoNotFollowMobs = true, WithinTrainingArea = false }, false);
+        RunCombat("Yarıçap içindeki izinli mob hedeflenir", new CombatTargetInput { DoNotFollowMobs = true, WithinTrainingArea = true }, true);
+        RunBerserk("Berserk bar dolu değilse tetiklenmez", false, false, true, 5, true, 3, true, false);
+        RunBerserk("Mob sayısı eşiği zerk tetikler", true, false, false, 3, true, 3, false, true);
+        RunBerserk("HP tetikleyicisi mob yokken zerk tetiklemez", true, false, true, 0, true, 3, false, false);
+
+        RunSkill("Başarılı skill sonrası fallback kullanılmaz", false, true, false);
+        RunSkill("Skill başarısızsa canlı hedefte fallback kullanılır", true, false, true);
+        RunSkill("Ölü hedefte fallback kullanılmaz", false, false, false);
+        RunSkillCombo("Sıralı combo başarılı cast sonrası devam eder", true, true, true);
+        RunSkillCombo("Sırasız combo başarılı cast sonrası durur", true, false, false);
+
+        RunImbue("Çin Fire GIGONGTA skill'i tanınır", "SKILL_CH_FIRE_01_GIGONGTA_01", "Fire", true);
+        RunImbue("Çin Lightning skill'i tanınır", "SKILL_CH_LIGHTNING_01_GIGONGTA_01", "Lightning", true);
+        RunImbue("Kısa LIGHT varyantı tanınır", "SKILL_CH_LIGHT_01_ENCHANT_01", "Lightning", true);
+        RunImbue("Normal Fire saldırısı imbue sayılmaz", "SKILL_CH_FIRE_01_ATTACK_01", "Fire", false);
+        RunActiveImbue("Çin Fire imbue buff'ı aktif kabul edilir", "SKILL_CH_FIRE_01_GIGONGTA_01", "Fire", true);
+        RunActiveImbue("Yanlış element aktif buff kabul edilmez", "BUFF_CH_COLD_GIGONGTA", "Fire", false);
+
         if (failures != 0)
         {
             Console.WriteLine("Protection senaryoları başarısız: " + failures);
             return 1;
         }
 
-        Console.WriteLine("Protection senaryoları başarılı: 14");
+        Console.WriteLine("Koruma, item filtre, combat, skill ve imbue senaryoları başarılı: 44");
         return 0;
     }
 
@@ -76,6 +109,130 @@ internal static class Program
     private static void Run(string name, ProtectionPolicyInput input, ProtectionPolicyOptions options, ProtectionDecision expected)
     {
         ProtectionDecision actual = ProtectionPolicy.Evaluate(input, options);
+        if (actual == expected)
+        {
+            Console.WriteLine("PASS: " + name);
+            return;
+        }
+
+        failures++;
+        Console.WriteLine("FAIL: " + name + " | beklenen=" + expected + ", gerçek=" + actual);
+    }
+
+    private static ItemFilterOptions FilterOptions(int min, int max, bool onlySox = false,
+        bool filterChina = true, bool filterEurope = true, bool filterMale = true, bool filterFemale = true)
+    {
+        return new ItemFilterOptions
+        {
+            MinDegree = min,
+            MaxDegree = max,
+            OnlySox = onlySox,
+            FilterChina = filterChina,
+            FilterEurope = filterEurope,
+            FilterMale = filterMale,
+            FilterFemale = filterFemale
+        };
+    }
+
+    private static void RunFilter(string name, ItemFilterInput input, ItemFilterOptions options, ItemFilterRule rule, bool expected)
+    {
+        bool actual = ItemFilterPolicy.ShouldPickup(input, options, rule);
+        if (actual == expected)
+        {
+            Console.WriteLine("PASS: " + name);
+            return;
+        }
+
+        failures++;
+        Console.WriteLine("FAIL: " + name + " | beklenen=" + expected + ", gerçek=" + actual);
+    }
+
+    private static void RunAction(string name, ItemFilterInput input, ItemFilterRule rule, bool expectedStore, bool expectedSell)
+    {
+        bool actualStore = ItemFilterPolicy.ShouldStore(input, rule);
+        bool actualSell = ItemFilterPolicy.ShouldSell(input, rule);
+        if (actualStore == expectedStore && actualSell == expectedSell)
+        {
+            Console.WriteLine("PASS: " + name);
+            return;
+        }
+
+        failures++;
+        Console.WriteLine("FAIL: " + name + " | store beklenen=" + expectedStore + ", gerçek=" + actualStore
+            + "; sell beklenen=" + expectedSell + ", gerçek=" + actualSell);
+    }
+
+    private static void RunCombat(string name, CombatTargetInput input, bool expected)
+    {
+        bool actual = CombatPolicy.CanTarget(input);
+        if (actual == expected)
+        {
+            Console.WriteLine("PASS: " + name);
+            return;
+        }
+
+        failures++;
+        Console.WriteLine("FAIL: " + name + " | beklenen=" + expected + ", gerçek=" + actual);
+    }
+
+    private static void RunBerserk(string name, bool barFull, bool alreadyBerserk,
+        bool hpFullTrigger, int nearbyMobs, bool countEnabled, int countThreshold,
+        bool mobRuleTrigger, bool expected)
+    {
+        bool actual = CombatPolicy.ShouldBerserk(barFull, alreadyBerserk, hpFullTrigger,
+            nearbyMobs, countEnabled, countThreshold, mobRuleTrigger);
+        if (actual == expected)
+        {
+            Console.WriteLine("PASS: " + name);
+            return;
+        }
+
+        failures++;
+        Console.WriteLine("FAIL: " + name + " | beklenen=" + expected + ", gerçek=" + actual);
+    }
+
+    private static void RunSkill(string name, bool targetAlive, bool castConfirmed, bool expected)
+    {
+        bool actual = SkillPolicy.ShouldUseFallback(targetAlive, castConfirmed);
+        if (actual == expected)
+        {
+            Console.WriteLine("PASS: " + name);
+            return;
+        }
+
+        failures++;
+        Console.WriteLine("FAIL: " + name + " | beklenen=" + expected + ", gerçek=" + actual);
+    }
+
+    private static void RunSkillCombo(string name, bool castConfirmed, bool castInOrder, bool expected)
+    {
+        bool actual = SkillPolicy.ShouldContinueCombo(castConfirmed, castInOrder);
+        if (actual == expected)
+        {
+            Console.WriteLine("PASS: " + name);
+            return;
+        }
+
+        failures++;
+        Console.WriteLine("FAIL: " + name + " | beklenen=" + expected + ", gerçek=" + actual);
+    }
+
+    private static void RunImbue(string name, string serverName, string element, bool expected)
+    {
+        bool actual = ImbuePolicy.IsImbueSkill(serverName, element);
+        if (actual == expected)
+        {
+            Console.WriteLine("PASS: " + name);
+            return;
+        }
+
+        failures++;
+        Console.WriteLine("FAIL: " + name + " | beklenen=" + expected + ", gerçek=" + actual);
+    }
+
+    private static void RunActiveImbue(string name, string serverName, string element, bool expected)
+    {
+        bool actual = ImbuePolicy.IsActiveImbue(serverName, element);
         if (actual == expected)
         {
             Console.WriteLine("PASS: " + name);

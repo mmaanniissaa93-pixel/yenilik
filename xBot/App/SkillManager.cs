@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Windows.Forms;
 using Newtonsoft.Json.Linq;
 using xBot.Game;
@@ -9,11 +11,67 @@ namespace xBot.App
     public static class SkillManager
     {
         public static bool NoAttackMode { get; set; } = false;
-        public static string SelectedImbue { get; set; } = "None"; // None, Fire, Cold, Lightning
+        // Kept for backwards-compatible settings; the active choice is the skill ID.
+        public static string SelectedImbue { get; set; } = "None";
+        public static uint SelectedImbueSkillId { get; set; }
         public static bool UseDevilSpirit { get; set; } = false;
         public static bool InOrderCombo { get; set; } = true;
 
+        public static string LastCastStatus { get; private set; } = "Hazır";
+        public static string LastCastSkill { get; private set; } = "-";
+        public static int ConsecutiveCastFailures { get; private set; }
+        public static DateTime LastCastAt { get; private set; }
+        private static DateTime LastImbueAttemptAt { get; set; }
+
+        public sealed class ImbueSkillOption
+        {
+            public uint SkillId { get; private set; }
+            public string Element { get; private set; }
+            public byte Level { get; private set; }
+            public string DisplayName { get; private set; }
+
+            public ImbueSkillOption(SRSkill skill, string element)
+            {
+                SkillId = skill.ID;
+                Element = element;
+                Level = skill.Level;
+                string skillName = string.IsNullOrWhiteSpace(skill.Name) ? skill.ServerName : skill.Name;
+                DisplayName = string.Format("{0} - Lv.{1} ({2})", skillName, skill.Level, element);
+            }
+
+            public override string ToString()
+            {
+                return DisplayName;
+            }
+        }
+
+        public static List<ImbueSkillOption> GetAvailableImbueSkills()
+        {
+            List<ImbueSkillOption> result = new List<ImbueSkillOption>();
+            if (InfoManager.Character == null || InfoManager.Character.Skills == null)
+                return result;
+
+            for (int i = 0; i < InfoManager.Character.Skills.Count; i++)
+            {
+                SRSkill skill = InfoManager.Character.Skills.GetAt(i);
+                string element = skill == null ? "None" : ImbuePolicy.GetElement(skill.ServerName);
+                if (skill != null && skill.Enabled && element != "None")
+                    result.Add(new ImbueSkillOption(skill, element));
+            }
+
+            return result
+                .OrderByDescending(option => option.Level)
+                .ThenBy(option => option.Element)
+                .ThenBy(option => option.DisplayName)
+                .ToList();
+        }
+
         public static bool HasActiveImbue()
+        {
+            return HasActiveImbue(GetSelectedImbueElement());
+        }
+
+        public static bool HasActiveImbue(string element)
         {
             if (InfoManager.Character == null || InfoManager.Character.Buffs == null)
                 return false;
@@ -23,8 +81,7 @@ namespace xBot.App
                 var buff = InfoManager.Character.Buffs.GetAt(i);
                 if (buff != null && !string.IsNullOrEmpty(buff.ServerName))
                 {
-                    string name = buff.ServerName.ToUpperInvariant();
-                    if (name.Contains("_GIGONGTA_") || name.Contains("_FIRE_ENCHANT") || name.Contains("_COLD_ENCHANT") || name.Contains("_LIGHT_ENCHANT"))
+                    if (ImbuePolicy.IsActiveImbue(buff.ServerName, element))
                         return true;
                 }
             }
@@ -33,34 +90,26 @@ namespace xBot.App
 
         public static void EnsureImbueActive()
         {
-            if (SelectedImbue == "None" || HasActiveImbue())
+            string selectedElement = GetSelectedImbueElement();
+            if (selectedElement == "None" || HasActiveImbue(selectedElement))
                 return;
 
             if (InfoManager.Character == null || InfoManager.Character.Skills == null)
                 return;
 
-            string searchTag = "";
-            switch (SelectedImbue.ToUpperInvariant())
-            {
-                case "FIRE":
-                    searchTag = "_FIRE";
-                    break;
-                case "COLD":
-                    searchTag = "_COLD";
-                    break;
-                case "LIGHTNING":
-                    searchTag = "_LIGHT";
-                    break;
-            }
-
-            if (string.IsNullOrEmpty(searchTag))
+            // Prevent a missing/late server response from causing an imbue
+            // packet every tick. The skill cooldown remains authoritative
+            // after the server confirms the cast.
+            if ((DateTime.Now - LastImbueAttemptAt).TotalMilliseconds < 1000)
                 return;
 
             SRSkill imbueSkill = null;
             for (int i = 0; i < InfoManager.Character.Skills.Count; i++)
             {
                 var s = InfoManager.Character.Skills.GetAt(i);
-                if (s != null && !string.IsNullOrEmpty(s.ServerName) && s.ServerName.Contains(searchTag) && (s.ServerName.Contains("_GIGONGTA_") || s.ServerName.Contains("_ENCHANT")))
+                if (s != null && s.Enabled && s.isCastingEnabled
+                    && ImbuePolicy.IsImbueSkill(s.ServerName, selectedElement)
+                    && (SelectedImbueSkillId == 0 || s.ID == SelectedImbueSkillId))
                 {
                     if (imbueSkill == null || s.Level > imbueSkill.Level)
                         imbueSkill = s;
@@ -69,8 +118,36 @@ namespace xBot.App
 
             if (imbueSkill != null)
             {
+                LastImbueAttemptAt = DateTime.Now;
                 PacketBuilder.CastSkill(imbueSkill.ID, 0);
             }
+        }
+
+        private static string GetSelectedImbueElement()
+        {
+            if (SelectedImbueSkillId != 0 && InfoManager.Character != null && InfoManager.Character.Skills != null)
+            {
+                for (int i = 0; i < InfoManager.Character.Skills.Count; i++)
+                {
+                    SRSkill skill = InfoManager.Character.Skills.GetAt(i);
+                    if (skill != null && skill.ID == SelectedImbueSkillId)
+                        return ImbuePolicy.GetElement(skill.ServerName);
+                }
+            }
+
+            return NormalizeImbueSelection(SelectedImbue);
+        }
+
+        public static string NormalizeImbueSelection(string element)
+        {
+            if (string.Equals(element, "LIGHT", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(element, "LIGHTNING", StringComparison.OrdinalIgnoreCase))
+                return "Lightning";
+            if (string.Equals(element, "FIRE", StringComparison.OrdinalIgnoreCase))
+                return "Fire";
+            if (string.Equals(element, "COLD", StringComparison.OrdinalIgnoreCase))
+                return "Cold";
+            return "None";
         }
 
         public static void CheckDevilSpirit()
@@ -100,6 +177,60 @@ namespace xBot.App
             if (devilSkill != null)
             {
                 PacketBuilder.CastSkill(devilSkill.ID, 0);
+            }
+        }
+
+        /// <summary>
+        /// Creates a safe basic attack when the configured attack list is
+        /// empty, on cooldown, or requires an unavailable weapon.
+        /// </summary>
+        public static SRSkill GetFallbackAttack(SRTypes.Weapon weapon)
+        {
+            uint commonAttackID = 0;
+            if (weapon != SRTypes.Weapon.None)
+            {
+                try
+                {
+                    commonAttackID = DataManager.GetCommonAttack(weapon);
+                }
+                catch
+                {
+                    commonAttackID = 0;
+                }
+            }
+
+            SRSkill fallback = new SRSkill(commonAttackID > 0 ? commonAttackID : 1u);
+            fallback.Name = "Common Attack";
+            return fallback;
+        }
+
+        public static void RecordCastSuccess(SRSkill skill)
+        {
+            ConsecutiveCastFailures = 0;
+            LastCastSkill = skill == null ? "-" : skill.Name;
+            LastCastStatus = "Başarılı";
+            LastCastAt = DateTime.Now;
+            NotifyStatusChanged();
+        }
+
+        public static void RecordCastFailure(SRSkill skill, string reason)
+        {
+            ConsecutiveCastFailures++;
+            LastCastSkill = skill == null ? "-" : skill.Name;
+            LastCastStatus = string.IsNullOrEmpty(reason) ? "Başarısız" : reason;
+            LastCastAt = DateTime.Now;
+            NotifyStatusChanged();
+        }
+
+        private static void NotifyStatusChanged()
+        {
+            try
+            {
+                Window.Get.UpdateSkillRuntimeStatus();
+            }
+            catch
+            {
+                // UI status must never interrupt the bot loop.
             }
         }
 
@@ -142,6 +273,7 @@ namespace xBot.App
             JObject json = new JObject();
             json["NoAttackMode"] = NoAttackMode;
             json["SelectedImbue"] = SelectedImbue;
+            json["SelectedImbueSkillId"] = SelectedImbueSkillId;
             json["UseDevilSpirit"] = UseDevilSpirit;
             json["InOrderCombo"] = InOrderCombo;
             return json;
@@ -153,7 +285,8 @@ namespace xBot.App
                 return;
 
             if (json.ContainsKey("NoAttackMode")) NoAttackMode = (bool)json["NoAttackMode"];
-            if (json.ContainsKey("SelectedImbue")) SelectedImbue = (string)json["SelectedImbue"];
+            if (json.ContainsKey("SelectedImbue")) SelectedImbue = NormalizeImbueSelection((string)json["SelectedImbue"]);
+            if (json.ContainsKey("SelectedImbueSkillId")) SelectedImbueSkillId = (uint)json["SelectedImbueSkillId"];
             if (json.ContainsKey("UseDevilSpirit")) UseDevilSpirit = (bool)json["UseDevilSpirit"];
             if (json.ContainsKey("InOrderCombo")) InOrderCombo = (bool)json["InOrderCombo"];
         }

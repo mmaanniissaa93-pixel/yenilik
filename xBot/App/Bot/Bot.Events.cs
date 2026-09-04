@@ -259,22 +259,7 @@ namespace xBot.App
 		{
 			ProtectionManager.NotifyLevelUp();
 
-			Window w = Window.Get;
-			if (w != null && w.Character_cbxAutoStat != null && w.Character_cbxAutoStat.Checked)
-			{
-				bool isPureSTR = w.Character_rbnAutoSTR.Checked;
-				w.Log($"Level Up! Character reached level {level}. Auto-distributing stats ({(isPureSTR ? "STR" : "INT")})...");
-				while (InfoManager.Character != null && InfoManager.Character.StatPoints > 0)
-				{
-					if (isPureSTR)
-						PacketBuilder.AddStatPointSTR();
-					else
-						PacketBuilder.AddStatPointINT();
-
-					InfoManager.Character.StatPoints--;
-					System.Threading.Thread.Sleep(250);
-				}
-			}
+			StatPointManager.CheckAndDistribute();
 		}
 		/// <summary>
 		/// Called if any item or quantity is picked up.

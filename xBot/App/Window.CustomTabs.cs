@@ -18,6 +18,76 @@ namespace xBot.App
         private Label lblHeaderHP;
         private Label lblHeaderMP;
 
+        // General & Login Strategy controls
+        private CheckBox cbxGeneralAutoLogin;
+        private CheckBox cbxGeneralStaticCaptcha;
+        private TextBox tbxGeneralStaticCaptchaCode;
+        private CheckBox cbxGeneralAutoStart;
+        private CheckBox cbxGeneralAutoHide;
+        private CheckBox cbxGeneralStayConnected;
+        private NumericUpDown nudGeneralLoginDelay;
+        private NumericUpDown nudGeneralWaitAfterDC;
+        private RadioButton rbnGeneralFirstFound;
+        private RadioButton rbnGeneralHighestLevel;
+
+        // Protection controls added at runtime so they can be refreshed after
+        // character settings are loaded.
+        private CheckBox cbxProtectionSkillHP;
+        private NumericUpDown nudProtectionSkillHP;
+        private CheckBox cbxProtectionSkillMP;
+        private NumericUpDown nudProtectionSkillMP;
+        private CheckBox cbxProtectionCure;
+        private CheckBox cbxProtectionPetRevive;
+        private CheckBox cbxProtectionPetSummon;
+        private CheckBox cbxProtectionNoArrows;
+        private CheckBox cbxProtectionFullInventory;
+        private CheckBox cbxProtectionFullPetInventory;
+        private CheckBox cbxProtectionLowHP;
+        private CheckBox cbxProtectionLowMP;
+        private CheckBox cbxProtectionDurability;
+        private CheckBox cbxProtectionLevelUp;
+        private CheckBox cbxProtectionStopInTown;
+        private CheckBox cbxProtectionDead;
+        private NumericUpDown nudProtectionHP;
+        private NumericUpDown nudProtectionMP;
+        private NumericUpDown nudProtectionDurability;
+        private NumericUpDown nudProtectionDeadDelay;
+
+        // Auto Stat controls added at runtime
+        private CheckBox cbxAutoStatEnabled;
+        private NumericUpDown nudAutoStatSTR;
+        private NumericUpDown nudAutoStatINT;
+        private Label lblProtectionStatPointsRemain;
+
+        // Item filter controls added at runtime.
+        private NumericUpDown nudFilterMinDegree;
+        private NumericUpDown nudFilterMaxDegree;
+        private CheckBox cbxFilterSox;
+        private CheckBox cbxFilterChina;
+        private CheckBox cbxFilterEurope;
+        private CheckBox cbxFilterMale;
+        private CheckBox cbxFilterFemale;
+        private TextBox tbxItemRuleName;
+        private CheckBox cbxItemRulePickup;
+        private CheckBox cbxItemRuleSell;
+        private CheckBox cbxItemRuleStore;
+        private ListView lstvItemRules;
+
+        // Combat AI controls are hosted under Training > Combat AI.
+        private Button btnTrainingCombat;
+        private Panel pnlTrainingCombat;
+        private CheckBox cbxCombatZerkFullHP;
+        private CheckBox cbxCombatIgnorePillars;
+        private CheckBox cbxCombatWeakerFirst;
+        private CheckBox cbxCombatDoNotFollow;
+        private CheckBox cbxCombatZerkCount;
+        private CheckBox cbxCombatZerkAvoidance;
+        private CheckBox cbxCombatZerkRarity;
+        private NumericUpDown nudCombatZerkCount;
+        private Label lblSkillRuntimeStatus;
+        private ComboBox cmbxImbue;
+        private bool refreshingImbueSkills;
+
         // Custom Panels
         public Panel pnlCustomGeneral;
         public Panel pnlCustomCombat;
@@ -144,188 +214,917 @@ namespace xBot.App
         {
             if (this.TabPageV_Control01_Login_Panel == null) return;
 
+            // Hide unused advertising banner so the lower-right area is clean for strategy settings
+            if (Login_gbxAdvertising != null)
+                Login_gbxAdvertising.Visible = false;
+
             GroupBox gbxStrategy = new GroupBox();
             gbxStrategy.Text = "Giriş Akışı & Stratejisi (Login Flow & Strategy)";
             gbxStrategy.ForeColor = Color.FromArgb(0, 122, 204);
-            gbxStrategy.Location = new Point(235, 31);
-            gbxStrategy.Size = new Size(410, 183);
+            gbxStrategy.Location = new Point(234, 184);
+            gbxStrategy.Size = new Size(415, 182);
             gbxStrategy.Font = new Font("Segoe UI", 8.5F);
 
-            CheckBox cbxAutoLogin = new CheckBox { Text = "Otomatik Giriş (Automated Login)", Location = new Point(12, 22), AutoSize = true, Checked = LoginStrategyManager.AutomatedLogin, ForeColor = Color.White };
-            cbxAutoLogin.CheckedChanged += (s, e) => LoginStrategyManager.AutomatedLogin = cbxAutoLogin.Checked;
+            cbxGeneralAutoLogin = new CheckBox { Text = "Otomatik Giriş", Location = new Point(12, 20), AutoSize = true, Checked = LoginStrategyManager.AutomatedLogin, ForeColor = Color.White };
+            cbxGeneralAutoLogin.CheckedChanged += (s, e) => { LoginStrategyManager.AutomatedLogin = cbxGeneralAutoLogin.Checked; Settings.SaveBotSettings(); };
 
-            CheckBox cbxStaticCaptcha = new CheckBox { Text = "Sabit Captcha", Location = new Point(12, 45), AutoSize = true, Checked = LoginStrategyManager.StaticCaptcha, ForeColor = Color.White };
-            cbxStaticCaptcha.CheckedChanged += (s, e) => LoginStrategyManager.StaticCaptcha = cbxStaticCaptcha.Checked;
+            cbxGeneralAutoStart = new CheckBox { Text = "Oyunda Botu Başlat", Location = new Point(140, 20), AutoSize = true, Checked = LoginStrategyManager.AutoStartBot, ForeColor = Color.White };
+            cbxGeneralAutoStart.CheckedChanged += (s, e) => { LoginStrategyManager.AutoStartBot = cbxGeneralAutoStart.Checked; Settings.SaveBotSettings(); };
 
-            CheckBox cbxAutoStart = new CheckBox { Text = "Oyuna Girince Botu Başlat", Location = new Point(12, 68), AutoSize = true, Checked = LoginStrategyManager.AutoStartBot, ForeColor = Color.White };
-            cbxAutoStart.CheckedChanged += (s, e) => LoginStrategyManager.AutoStartBot = cbxAutoStart.Checked;
+            cbxGeneralAutoHide = new CheckBox { Text = "İstemciyi Gizle", Location = new Point(285, 20), AutoSize = true, Checked = LoginStrategyManager.AutoHideClient, ForeColor = Color.White };
+            cbxGeneralAutoHide.CheckedChanged += (s, e) => { LoginStrategyManager.AutoHideClient = cbxGeneralAutoHide.Checked; Settings.SaveBotSettings(); };
 
-            CheckBox cbxAutoHide = new CheckBox { Text = "İstemciyi Otomatik Gizle", Location = new Point(12, 91), AutoSize = true, Checked = LoginStrategyManager.AutoHideClient, ForeColor = Color.White };
-            cbxAutoHide.CheckedChanged += (s, e) => LoginStrategyManager.AutoHideClient = cbxAutoHide.Checked;
+            cbxGeneralStaticCaptcha = new CheckBox { Text = "Sabit Captcha:", Location = new Point(12, 47), AutoSize = true, Checked = LoginStrategyManager.StaticCaptcha, ForeColor = Color.White };
+            cbxGeneralStaticCaptcha.CheckedChanged += (s, e) => { LoginStrategyManager.StaticCaptcha = cbxGeneralStaticCaptcha.Checked; Settings.SaveBotSettings(); };
 
-            CheckBox cbxStayConnected = new CheckBox { Text = "Çökme Koruması (Failover to Clientless)", Location = new Point(12, 114), AutoSize = true, Checked = LoginStrategyManager.StayConnected, ForeColor = Color.LightSkyBlue };
-            cbxStayConnected.CheckedChanged += (s, e) => LoginStrategyManager.StayConnected = cbxStayConnected.Checked;
+            tbxGeneralStaticCaptchaCode = new TextBox { Location = new Point(115, 45), Size = new Size(55, 21), BackColor = Color.FromArgb(45, 45, 48), ForeColor = Color.White, BorderStyle = BorderStyle.FixedSingle, Text = LoginStrategyManager.StaticCaptchaCode ?? "" };
+            tbxGeneralStaticCaptchaCode.TextChanged += (s, e) => { LoginStrategyManager.StaticCaptchaCode = tbxGeneralStaticCaptchaCode.Text; Settings.SaveBotSettings(); };
+            if (ToolTips != null)
+                ToolTips.SetToolTip(tbxGeneralStaticCaptchaCode, "Sabit captcha kodu (örn: 1234)");
 
-            RadioButton rbnFirstFound = new RadioButton { Text = "İlk Karakter", Location = new Point(12, 142), AutoSize = true, Checked = (LoginStrategyManager.Strategy == CharacterSelectionStrategy.FirstFound), ForeColor = Color.LightGray };
-            RadioButton rbnHighestLevel = new RadioButton { Text = "En Yüksek Seviyeli Karakter", Location = new Point(140, 142), AutoSize = true, Checked = (LoginStrategyManager.Strategy == CharacterSelectionStrategy.HighestLevel), ForeColor = Color.Gold };
+            Label lblLoginDelay = new Label { Text = "Giriş Gecikmesi:", Location = new Point(185, 48), AutoSize = true, ForeColor = Color.LightGray };
+            nudGeneralLoginDelay = new NumericUpDown { Location = new Point(280, 46), Size = new Size(42, 21), Minimum = 0, Maximum = 60, Value = LoginStrategyManager.LoginDelaySeconds };
+            nudGeneralLoginDelay.ValueChanged += (s, e) => { LoginStrategyManager.LoginDelaySeconds = (int)nudGeneralLoginDelay.Value; Settings.SaveBotSettings(); };
+            Label lblLoginDelaySec = new Label { Text = "sn", Location = new Point(325, 48), AutoSize = true, ForeColor = Color.LightGray };
 
-            rbnFirstFound.CheckedChanged += (s, e) => { if (rbnFirstFound.Checked) LoginStrategyManager.Strategy = CharacterSelectionStrategy.FirstFound; };
-            rbnHighestLevel.CheckedChanged += (s, e) => { if (rbnHighestLevel.Checked) LoginStrategyManager.Strategy = CharacterSelectionStrategy.HighestLevel; };
+            Label lblWaitDC = new Label { Text = "DC Bekleme:", Location = new Point(12, 75), AutoSize = true, ForeColor = Color.LightGray };
+            nudGeneralWaitAfterDC = new NumericUpDown { Location = new Point(90, 73), Size = new Size(42, 21), Minimum = 0, Maximum = 60, Value = LoginStrategyManager.WaitAfterDCMinutes };
+            nudGeneralWaitAfterDC.ValueChanged += (s, e) => { LoginStrategyManager.WaitAfterDCMinutes = (int)nudGeneralWaitAfterDC.Value; Settings.SaveBotSettings(); };
+            Label lblWaitDCMin = new Label { Text = "dk", Location = new Point(135, 75), AutoSize = true, ForeColor = Color.LightGray };
 
-            gbxStrategy.Controls.AddRange(new Control[] { cbxAutoLogin, cbxStaticCaptcha, cbxAutoStart, cbxAutoHide, cbxStayConnected, rbnFirstFound, rbnHighestLevel });
+            cbxGeneralStayConnected = new CheckBox { Text = "Çökme Koruması (Failover to Clientless)", Location = new Point(185, 74), AutoSize = true, Checked = LoginStrategyManager.StayConnected, ForeColor = Color.LightSkyBlue };
+            cbxGeneralStayConnected.CheckedChanged += (s, e) => { LoginStrategyManager.StayConnected = cbxGeneralStayConnected.Checked; Settings.SaveBotSettings(); };
+            if (ToolTips != null)
+                ToolTips.SetToolTip(cbxGeneralStayConnected, "İstemci aniden çökerse sunucu bağlantısını koparmadan Clientless moda geçer");
+
+            Label lblCharStrategy = new Label { Text = "Karakter:", Location = new Point(12, 105), AutoSize = true, ForeColor = Color.LightGray };
+            rbnGeneralFirstFound = new RadioButton { Text = "İlk Karakter", Location = new Point(75, 103), AutoSize = true, Checked = (LoginStrategyManager.Strategy == CharacterSelectionStrategy.FirstFound), ForeColor = Color.LightGray };
+            rbnGeneralHighestLevel = new RadioButton { Text = "En Yüksek Seviyeli Karakter", Location = new Point(165, 103), AutoSize = true, Checked = (LoginStrategyManager.Strategy == CharacterSelectionStrategy.HighestLevel), ForeColor = Color.Gold };
+
+            rbnGeneralFirstFound.CheckedChanged += (s, e) => { if (rbnGeneralFirstFound.Checked) { LoginStrategyManager.Strategy = CharacterSelectionStrategy.FirstFound; Settings.SaveBotSettings(); } };
+            rbnGeneralHighestLevel.CheckedChanged += (s, e) => { if (rbnGeneralHighestLevel.Checked) { LoginStrategyManager.Strategy = CharacterSelectionStrategy.HighestLevel; Settings.SaveBotSettings(); } };
+
+            Label lblStrategyInfo = new Label
+            {
+                Text = "Giriş akışı, otomatik captcha, gecikmeler ve çökme koruması buradan yönetilir.",
+                Location = new Point(12, 133),
+                Size = new Size(390, 35),
+                ForeColor = Color.DarkGray,
+                Font = new Font("Segoe UI", 7.5F)
+            };
+
+            gbxStrategy.Controls.AddRange(new Control[] {
+                cbxGeneralAutoLogin, cbxGeneralAutoStart, cbxGeneralAutoHide,
+                cbxGeneralStaticCaptcha, tbxGeneralStaticCaptchaCode,
+                lblLoginDelay, nudGeneralLoginDelay, lblLoginDelaySec,
+                lblWaitDC, nudGeneralWaitAfterDC, lblWaitDCMin,
+                cbxGeneralStayConnected,
+                lblCharStrategy, rbnGeneralFirstFound, rbnGeneralHighestLevel,
+                lblStrategyInfo
+            });
             TabPageV_Control01_Login_Panel.Controls.Add(gbxStrategy);
         }
 
         private void BuildCombatTabWidgets()
         {
-            if (this.TabPageH_Town_Option02_Panel == null) return;
+            if (this.TabPageH_Training == null || this.TabPageV_Control01_Training_Panel == null
+                || Combat_gbxAI == null || Combat_gbxMobFilter == null)
+                return;
 
-            // Add custom avoidance / zerk controls to Combat panel
-            if (Combat_gbxAI != null)
+            EnsureTrainingCombatTab();
+
+            // The designer groups used to live under Town. Re-parenting them
+            // keeps the existing target filters while moving all combat UI to
+            // the Training section requested by the user.
+            Combat_gbxAI.Location = new Point(10, 8);
+            Combat_gbxAI.Size = new Size(305, 325);
+            Combat_gbxMobFilter.Location = new Point(325, 8);
+            Combat_gbxMobFilter.Size = new Size(320, 325);
+            pnlTrainingCombat.Controls.Add(Combat_gbxAI);
+            pnlTrainingCombat.Controls.Add(Combat_gbxMobFilter);
+
+            if (TabPageH_Town_Option02 != null)
+                TabPageH_Town_Option02.Visible = false;
+            if (TabPageH_Town_Option02_Panel != null)
+                TabPageH_Town_Option02_Panel.Visible = false;
+            ResizeTrainingTab(TabPageH_Town_Option01, 0, 328);
+            ResizeTrainingTab(TabPageH_Town_Option03, 329, 328);
+
+            // Keep the original controls readable and reserve the lower part
+            // of the group for the advanced settings.
+            if (Combat_lblInfo != null)
             {
-                CheckBox cbxZerkFullHP = new CheckBox { Text = "HP %100 Olduğunda Berserk Bas", Location = new Point(15, 145), AutoSize = true, Checked = CombatAIEngine.ZerkWhenHPFull, ForeColor = Color.White };
-                cbxZerkFullHP.CheckedChanged += (s, e) => CombatAIEngine.ZerkWhenHPFull = cbxZerkFullHP.Checked;
-
-                CheckBox cbxDimension = new CheckBox { Text = "Dimension Pillar Sütunlarını Yok Say", Location = new Point(15, 175), AutoSize = true, Checked = CombatAIEngine.IgnoreDimensionPillars, ForeColor = Color.White };
-                cbxDimension.CheckedChanged += (s, e) => CombatAIEngine.IgnoreDimensionPillars = cbxDimension.Checked;
-
-                CheckBox cbxWeakerFirst = new CheckBox { Text = "Önce Zayıf Moblara Saldır (Weaker First)", Location = new Point(15, 205), AutoSize = true, Checked = CombatAIEngine.AttackWeakerFirst, ForeColor = Color.White };
-                cbxWeakerFirst.CheckedChanged += (s, e) => CombatAIEngine.AttackWeakerFirst = cbxWeakerFirst.Checked;
-
-                CheckBox cbxDoNotFollow = new CheckBox { Text = "Alanın Dışındaki Mobu Takip Etme", Location = new Point(15, 235), AutoSize = true, Checked = CombatAIEngine.DoNotFollowMobs, ForeColor = Color.White };
-                cbxDoNotFollow.CheckedChanged += (s, e) => CombatAIEngine.DoNotFollowMobs = cbxDoNotFollow.Checked;
-
-                Combat_gbxAI.Controls.AddRange(new Control[] { cbxZerkFullHP, cbxDimension, cbxWeakerFirst, cbxDoNotFollow });
+                Combat_lblInfo.Location = new Point(15, 288);
+                Combat_lblInfo.Size = new Size(275, 30);
+                Combat_lblInfo.Text = "Öncelik, zerk ve alan dışı takip davranışı burada yönetilir.";
             }
+
+            cbxCombatZerkFullHP = CreateCombatCheck("HP %100 iken berserk", new Point(15, 145), CombatAIEngine.ZerkWhenHPFull, value => CombatAIEngine.ZerkWhenHPFull = value);
+            cbxCombatIgnorePillars = CreateCombatCheck("Dimension pillar yok say", new Point(15, 169), CombatAIEngine.IgnoreDimensionPillars, value => CombatAIEngine.IgnoreDimensionPillars = value);
+            cbxCombatWeakerFirst = CreateCombatCheck("Önce zayıf mob", new Point(15, 193), CombatAIEngine.AttackWeakerFirst, value => CombatAIEngine.AttackWeakerFirst = value);
+            cbxCombatDoNotFollow = CreateCombatCheck("Yarıçap dışını takip etme", new Point(15, 217), CombatAIEngine.DoNotFollowMobs, value => CombatAIEngine.DoNotFollowMobs = value);
+            cbxCombatZerkCount = CreateCombatCheck("Mob sayısında zerk", new Point(15, 241), CombatAIEngine.ZerkMonsterCountEnabled, value => CombatAIEngine.ZerkMonsterCountEnabled = value);
+            cbxCombatZerkCount.Size = new Size(125, 20);
+            nudCombatZerkCount = new NumericUpDown
+            {
+                Location = new Point(145, 239),
+                Size = new Size(45, 20),
+                Minimum = 1,
+                Maximum = 50,
+                Value = Math.Max(1, Math.Min(50, CombatAIEngine.ZerkMonsterCount))
+            };
+            nudCombatZerkCount.ValueChanged += (s, e) => CombatAIEngine.ZerkMonsterCount = (int)nudCombatZerkCount.Value;
+            cbxCombatZerkAvoidance = CreateCombatCheck("Avoidance zerk", new Point(15, 265), CombatAIEngine.ZerkAvoidanceBased, value => CombatAIEngine.ZerkAvoidanceBased = value);
+            cbxCombatZerkAvoidance.Size = new Size(125, 20);
+            cbxCombatZerkRarity = CreateCombatCheck("Rarity zerk", new Point(145, 265), CombatAIEngine.ZerkRarityBased, value => CombatAIEngine.ZerkRarityBased = value);
+            cbxCombatZerkRarity.Size = new Size(110, 20);
+
+            Combat_gbxAI.Controls.AddRange(new Control[] {
+                cbxCombatZerkFullHP, cbxCombatIgnorePillars, cbxCombatWeakerFirst,
+                cbxCombatDoNotFollow, cbxCombatZerkCount, nudCombatZerkCount,
+                cbxCombatZerkAvoidance, cbxCombatZerkRarity
+            });
+        }
+
+        private void EnsureTrainingCombatTab()
+        {
+            if (btnTrainingCombat != null && pnlTrainingCombat != null)
+                return;
+
+            const int tabWidth = 164;
+            ResizeTrainingTab(TabPageH_Training_Option01, 0, tabWidth);
+            ResizeTrainingTab(TabPageH_Training_Option02, tabWidth, tabWidth);
+            ResizeTrainingTab(TabPageH_Training_Option03, tabWidth * 2, tabWidth);
+
+            btnTrainingCombat = new Button
+            {
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                BackColor = Color.FromArgb(45, 45, 48),
+                FlatStyle = FlatStyle.Flat,
+                ForeColor = Color.FromArgb(241, 241, 241),
+                Font = new Font("Microsoft Sans Serif", 13F, FontStyle.Regular, GraphicsUnit.Pixel),
+                Location = new Point(tabWidth * 3, 0),
+                Margin = new Padding(0),
+                Name = "TabPageH_Training_Option04",
+                Size = new Size(tabWidth, 26),
+                TabIndex = 15,
+                Tag = "Source Sans Pro",
+                Text = "Combat AI",
+                UseVisualStyleBackColor = false
+            };
+            btnTrainingCombat.FlatAppearance.BorderSize = 0;
+            btnTrainingCombat.FlatAppearance.MouseDownBackColor = Color.FromArgb(0, 122, 204);
+            btnTrainingCombat.FlatAppearance.MouseOverBackColor = Color.FromArgb(28, 151, 234);
+            btnTrainingCombat.Click += TabPageH_Option_Click;
+            TabPageH_Training.Controls.Add(btnTrainingCombat);
+
+            pnlTrainingCombat = new Panel
+            {
+                BackColor = Color.FromArgb(45, 45, 48),
+                BorderStyle = BorderStyle.FixedSingle,
+                Location = new Point(0, 27),
+                Name = "TabPageH_Training_Option04_Panel",
+                Size = new Size(657, 345),
+                TabIndex = 28,
+                Visible = false
+            };
+            TabPageV_Control01_Training_Panel.Controls.Add(pnlTrainingCombat);
+        }
+
+        private void ResizeTrainingTab(Button tab, int x, int width)
+        {
+            if (tab == null)
+                return;
+
+            tab.Location = new Point(x, 0);
+            tab.Size = new Size(width, tab.Height);
+        }
+
+        private CheckBox CreateCombatCheck(string text, Point location, bool isChecked, Action<bool> changed)
+        {
+            CheckBox checkBox = new CheckBox
+            {
+                Text = text,
+                Location = location,
+                AutoSize = false,
+                Size = new Size(275, 20),
+                Checked = isChecked,
+                ForeColor = Color.White
+            };
+            checkBox.CheckedChanged += (s, e) => changed(checkBox.Checked);
+            return checkBox;
         }
 
         private void BuildSkillsTabWidgets()
         {
             if (this.TabPageV_Control01_Skills_Panel == null) return;
 
+            Skills_cbxCastInOrder.Font = new Font("Segoe UI", 9F, FontStyle.Regular);
+            Skills_cbxCastInOrder.ForeColor = Color.White;
+            Skills_cbxCastInOrder.Checked = SkillManager.InOrderCombo;
+            Skills_cbxCastInOrder.CheckedChanged += (s, e) =>
+            {
+                SkillManager.InOrderCombo = Skills_cbxCastInOrder.Checked;
+                Settings.SaveCharacterSettings();
+            };
+
             // Move Up and Down buttons
-            Button btnSkillUp = new Button { Text = "▲", Size = new Size(30, 26), Location = new Point(400, 310), FlatStyle = FlatStyle.Flat, ForeColor = Color.White, BackColor = Color.FromArgb(0, 122, 204) };
+            Button btnSkillUp = new Button { Text = "▲", Size = new Size(30, 26), Location = new Point(350, 290), FlatStyle = FlatStyle.Flat, ForeColor = Color.White, BackColor = Color.FromArgb(0, 122, 204) };
             btnSkillUp.Click += (s, e) => SkillManager.MoveSelectedItemUp(Skills_lstvSkills);
 
-            Button btnSkillDown = new Button { Text = "▼", Size = new Size(30, 26), Location = new Point(435, 310), FlatStyle = FlatStyle.Flat, ForeColor = Color.White, BackColor = Color.FromArgb(0, 122, 204) };
+            Button btnSkillDown = new Button { Text = "▼", Size = new Size(30, 26), Location = new Point(385, 290), FlatStyle = FlatStyle.Flat, ForeColor = Color.White, BackColor = Color.FromArgb(0, 122, 204) };
             btnSkillDown.Click += (s, e) => SkillManager.MoveSelectedItemDown(Skills_lstvSkills);
 
             // Imbue Selector
-            Label lblImbue = new Label { Text = "Imbue (El Yakma):", Location = new Point(475, 315), AutoSize = true, ForeColor = Color.LightGray };
-            ComboBox cmbxImbue = new ComboBox { Location = new Point(590, 312), Size = new Size(80, 22), DropDownStyle = ComboBoxStyle.DropDownList };
-            cmbxImbue.Items.AddRange(new object[] { "None", "Fire", "Cold", "Lightning" });
-            cmbxImbue.SelectedItem = SkillManager.SelectedImbue;
-            cmbxImbue.SelectedIndexChanged += (s, e) => SkillManager.SelectedImbue = cmbxImbue.SelectedItem.ToString();
+            Label lblImbue = new Label { Text = "Çin Imbue:", Location = new Point(285, 222), AutoSize = true, ForeColor = Color.LightGray };
+            cmbxImbue = new ComboBox { Location = new Point(355, 219), Size = new Size(100, 22), DropDownStyle = ComboBoxStyle.DropDownList };
+            cmbxImbue.DropDownWidth = 260;
+            cmbxImbue.SelectedIndexChanged += (s, e) =>
+            {
+                if (refreshingImbueSkills)
+                    return;
+
+                SkillManager.ImbueSkillOption selected = cmbxImbue.SelectedItem as SkillManager.ImbueSkillOption;
+                if (selected == null)
+                    return;
+
+                SkillManager.SelectedImbueSkillId = selected.SkillId;
+                SkillManager.SelectedImbue = selected.Element;
+                Settings.SaveCharacterSettings();
+            };
 
             // No attack checkbox
-            CheckBox cbxNoAttack = new CheckBox { Text = "Saldırı Yapma (No Attack / Support)", Location = new Point(400, 345), AutoSize = true, Checked = SkillManager.NoAttackMode, ForeColor = Color.White };
-            cbxNoAttack.CheckedChanged += (s, e) => SkillManager.NoAttackMode = cbxNoAttack.Checked;
+            CheckBox cbxNoAttack = new CheckBox { Text = "Saldırı Yapma (No Attack / Support)", Location = new Point(10, 218), AutoSize = true, Checked = SkillManager.NoAttackMode, ForeColor = Color.White };
+            cbxNoAttack.CheckedChanged += (s, e) => { SkillManager.NoAttackMode = cbxNoAttack.Checked; Settings.SaveCharacterSettings(); };
 
             // Devil Spirit checkbox
-            CheckBox cbxDevil = new CheckBox { Text = "Devil Spirit Becerisi Kullan", Location = new Point(400, 370), AutoSize = true, Checked = SkillManager.UseDevilSpirit, ForeColor = Color.White };
-            cbxDevil.CheckedChanged += (s, e) => SkillManager.UseDevilSpirit = cbxDevil.Checked;
+            CheckBox cbxDevil = new CheckBox { Text = "Devil Spirit Becerisi Kullan", Location = new Point(10, 245), AutoSize = true, Checked = SkillManager.UseDevilSpirit, ForeColor = Color.White };
+            cbxDevil.CheckedChanged += (s, e) => { SkillManager.UseDevilSpirit = cbxDevil.Checked; Settings.SaveCharacterSettings(); };
 
-            TabPageV_Control01_Skills_Panel.Controls.AddRange(new Control[] { btnSkillUp, btnSkillDown, lblImbue, cmbxImbue, cbxNoAttack, cbxDevil });
+            lblSkillRuntimeStatus = new Label
+            {
+                AutoEllipsis = true,
+                Location = new Point(10, 292),
+                Size = new Size(330, 22),
+                ForeColor = Color.LightSkyBlue,
+                Text = "Skill durumu: Hazır"
+            };
+            if (ToolTips != null)
+                ToolTips.SetToolTip(lblSkillRuntimeStatus, "Son skill denemesinin sonucu ve fallback durumu");
+
+            TabPageH_Skills_Option01_Panel.Controls.AddRange(new Control[]
+            {
+                btnSkillUp, btnSkillDown, lblImbue, cmbxImbue, cbxNoAttack, cbxDevil,
+                lblSkillRuntimeStatus
+            });
+            RefreshImbueSkillList();
+        }
+
+        private void RefreshImbueSkillList()
+        {
+            if (cmbxImbue == null)
+                return;
+
+            System.Collections.Generic.List<SkillManager.ImbueSkillOption> options = SkillManager.GetAvailableImbueSkills();
+            SkillManager.ImbueSkillOption selected = options.FirstOrDefault(option => option.SkillId == SkillManager.SelectedImbueSkillId);
+            if (selected == null)
+            {
+                string legacyElement = SkillManager.NormalizeImbueSelection(SkillManager.SelectedImbue);
+                selected = options.FirstOrDefault(option => option.Element == legacyElement) ?? options.FirstOrDefault();
+            }
+
+            refreshingImbueSkills = true;
+            try
+            {
+                cmbxImbue.BeginUpdate();
+                cmbxImbue.Items.Clear();
+                foreach (SkillManager.ImbueSkillOption option in options)
+                    cmbxImbue.Items.Add(option);
+
+                cmbxImbue.Enabled = options.Count > 0;
+                if (selected != null)
+                {
+                    cmbxImbue.SelectedItem = selected;
+                    SkillManager.SelectedImbueSkillId = selected.SkillId;
+                    SkillManager.SelectedImbue = selected.Element;
+                }
+                else
+                {
+                    cmbxImbue.Text = "Çin imbue bulunamadı";
+                }
+            }
+            finally
+            {
+                cmbxImbue.EndUpdate();
+                refreshingImbueSkills = false;
+            }
         }
 
         private void BuildProtectionTabWidgets()
         {
             if (this.TabPageV_Control01_Character_Panel == null) return;
 
-            GroupBox gbxProtExtra = new GroupBox();
-            gbxProtExtra.Text = "Beceriyle İyileşme & Gelişmiş Koruma (Skill Protection)";
-            gbxProtExtra.ForeColor = Color.FromArgb(0, 122, 204);
-            gbxProtExtra.Location = new Point(340, 6);
-            gbxProtExtra.Size = new Size(305, 335);
-            gbxProtExtra.Font = new Font("Segoe UI", 8.5F);
+            GroupBox gbxSkillPet = new GroupBox
+            {
+                Text = "Skill ve Pet Koruması",
+                ForeColor = Color.FromArgb(0, 122, 204),
+                Location = new Point(10, 10),
+                Size = new Size(305, 145),
+                Font = new Font("Segoe UI", 8.5F)
+            };
 
-            CheckBox cbxSkillHP = new CheckBox { Text = "HP < %50 ise Beceriyle Doldur", Location = new Point(12, 22), AutoSize = true, Checked = ProtectionManager.UseSkillHP, ForeColor = Color.White };
-            cbxSkillHP.CheckedChanged += (s, e) => ProtectionManager.UseSkillHP = cbxSkillHP.Checked;
+            cbxProtectionSkillHP = CreateProtectionCheck("HP < %:", new Point(12, 22), ProtectionManager.UseSkillHP, value => { ProtectionManager.UseSkillHP = value; Settings.SaveCharacterSettings(); });
+            cbxProtectionSkillHP.Size = new Size(80, 20);
+            nudProtectionSkillHP = CreateProtectionNumber(new Point(95, 21), 1, 99, ProtectionManager.SkillHPPercent, value => { ProtectionManager.SkillHPPercent = (byte)value; Settings.SaveCharacterSettings(); });
+            nudProtectionSkillHP.Size = new Size(42, 20);
+            Label lblSkillHPSuffix = new Label { Text = "% ise skill bas", Location = new Point(140, 23), AutoSize = true, ForeColor = Color.LightGray };
 
-            CheckBox cbxSkillMP = new CheckBox { Text = "MP < %40 ise Beceriyle Doldur", Location = new Point(12, 48), AutoSize = true, Checked = ProtectionManager.UseSkillMP, ForeColor = Color.White };
-            cbxSkillMP.CheckedChanged += (s, e) => ProtectionManager.UseSkillMP = cbxSkillMP.Checked;
+            cbxProtectionSkillMP = CreateProtectionCheck("MP < %:", new Point(12, 46), ProtectionManager.UseSkillMP, value => { ProtectionManager.UseSkillMP = value; Settings.SaveCharacterSettings(); });
+            cbxProtectionSkillMP.Size = new Size(80, 20);
+            nudProtectionSkillMP = CreateProtectionNumber(new Point(95, 45), 1, 99, ProtectionManager.SkillMPPercent, value => { ProtectionManager.SkillMPPercent = (byte)value; Settings.SaveCharacterSettings(); });
+            nudProtectionSkillMP.Size = new Size(42, 20);
+            Label lblSkillMPSuffix = new Label { Text = "% ise skill bas", Location = new Point(140, 47), AutoSize = true, ForeColor = Color.LightGray };
 
-            CheckBox cbxSkillCure = new CheckBox { Text = "Kötü Durumu Beceriyle Tedavi Et", Location = new Point(12, 74), AutoSize = true, Checked = ProtectionManager.UseSkillBadStatus, ForeColor = Color.White };
-            cbxSkillCure.CheckedChanged += (s, e) => ProtectionManager.UseSkillBadStatus = cbxSkillCure.Checked;
+            cbxProtectionCure = CreateProtectionCheck("Kötü durumu skill ile temizle", new Point(12, 70), ProtectionManager.UseSkillBadStatus, value => { ProtectionManager.UseSkillBadStatus = value; Settings.SaveCharacterSettings(); });
+            cbxProtectionPetRevive = CreateProtectionCheck("Ölen peti dirilt (Grass of Life)", new Point(12, 94), ProtectionManager.RevivePet, value => { ProtectionManager.RevivePet = value; Settings.SaveCharacterSettings(); });
+            cbxProtectionPetSummon = CreateProtectionCheck("Peti otomatik çağır", new Point(12, 118), ProtectionManager.AutoSummonPet, value => { ProtectionManager.AutoSummonPet = value; Settings.SaveCharacterSettings(); });
 
-            CheckBox cbxPetRevive = new CheckBox { Text = "Ölen Peti Dirilt (Grass of Life)", Location = new Point(12, 100), AutoSize = true, Checked = ProtectionManager.RevivePet, ForeColor = Color.White };
-            cbxPetRevive.CheckedChanged += (s, e) => ProtectionManager.RevivePet = cbxPetRevive.Checked;
-
-            CheckBox cbxPetSummon = new CheckBox { Text = "Peti Otomatik Geri Çağır", Location = new Point(12, 126), AutoSize = true, Checked = ProtectionManager.AutoSummonPet, ForeColor = Color.White };
-            cbxPetSummon.CheckedChanged += (s, e) => ProtectionManager.AutoSummonPet = cbxPetSummon.Checked;
-
-            CheckBox cbxNoArrows = new CheckBox { Text = "Ok / Bolt Bittiğinde Şehre Dön", Location = new Point(12, 152), AutoSize = true, Checked = ProtectionManager.ReturnNoArrows, ForeColor = Color.White };
-            cbxNoArrows.CheckedChanged += (s, e) => ProtectionManager.ReturnNoArrows = cbxNoArrows.Checked;
-
-            CheckBox cbxFullInv = new CheckBox { Text = "Çanta Dolduğunda Şehre Dön", Location = new Point(12, 178), AutoSize = true, Checked = ProtectionManager.ReturnFullInventory, ForeColor = Color.White };
-            cbxFullInv.CheckedChanged += (s, e) => ProtectionManager.ReturnFullInventory = cbxFullInv.Checked;
-
-            CheckBox cbxDurability = new CheckBox { Text = "Dayanıklılık (Durability) Azalınca Dön", Location = new Point(12, 204), AutoSize = true, Checked = ProtectionManager.ReturnDurabilityLow, ForeColor = Color.White };
-            cbxDurability.CheckedChanged += (s, e) => ProtectionManager.ReturnDurabilityLow = cbxDurability.Checked;
-
-            CheckBox cbxAutoStats = new CheckBox { Text = "Level Atlayınca Statları Otomatik Ver", Location = new Point(12, 235), AutoSize = true, Checked = StatPointManager.AutoDistributeEnabled, ForeColor = Color.Gold };
-            cbxAutoStats.CheckedChanged += (s, e) => StatPointManager.AutoDistributeEnabled = cbxAutoStats.Checked;
-
-            Label lblStr = new Label { Text = "STR:", Location = new Point(12, 265), AutoSize = true, ForeColor = Color.LightGray };
-            NumericUpDown nudStr = new NumericUpDown { Location = new Point(45, 263), Size = new Size(40, 20), Maximum = 3, Minimum = 0, Value = StatPointManager.TargetSTR };
-            nudStr.ValueChanged += (s, e) => StatPointManager.TargetSTR = (int)nudStr.Value;
-
-            Label lblInt = new Label { Text = "INT:", Location = new Point(100, 265), AutoSize = true, ForeColor = Color.LightGray };
-            NumericUpDown nudInt = new NumericUpDown { Location = new Point(130, 263), Size = new Size(40, 20), Maximum = 3, Minimum = 0, Value = StatPointManager.TargetINT };
-            nudInt.ValueChanged += (s, e) => StatPointManager.TargetINT = (int)nudInt.Value;
-
-            gbxProtExtra.Controls.AddRange(new Control[] {
-                cbxSkillHP, cbxSkillMP, cbxSkillCure, cbxPetRevive, cbxPetSummon,
-                cbxNoArrows, cbxFullInv, cbxDurability, cbxAutoStats, lblStr, nudStr, lblInt, nudInt
+            gbxSkillPet.Controls.AddRange(new Control[] {
+                cbxProtectionSkillHP, nudProtectionSkillHP, lblSkillHPSuffix,
+                cbxProtectionSkillMP, nudProtectionSkillMP, lblSkillMPSuffix,
+                cbxProtectionCure, cbxProtectionPetRevive, cbxProtectionPetSummon
             });
 
-            TabPageV_Control01_Character_Panel.Controls.Add(gbxProtExtra);
+            GroupBox gbxAutoStat = new GroupBox
+            {
+                Text = "Otomatik Stat Dağıtımı (Auto Stat)",
+                ForeColor = Color.FromArgb(0, 122, 204),
+                Location = new Point(10, 160),
+                Size = new Size(305, 175),
+                Font = new Font("Segoe UI", 8.5F)
+            };
+
+            cbxAutoStatEnabled = new CheckBox
+            {
+                Text = "Level atlayınca otomatik stat dağıt",
+                Location = new Point(12, 22),
+                AutoSize = true,
+                Checked = StatPointManager.AutoDistributeEnabled,
+                ForeColor = Color.White
+            };
+            cbxAutoStatEnabled.CheckedChanged += (s, e) =>
+            {
+                StatPointManager.AutoDistributeEnabled = cbxAutoStatEnabled.Checked;
+                if (Character_cbxAutoStat != null && Character_cbxAutoStat.Checked != cbxAutoStatEnabled.Checked)
+                    Character_cbxAutoStat.Checked = cbxAutoStatEnabled.Checked;
+                Settings.SaveCharacterSettings();
+            };
+
+            Label lblStr = new Label { Text = "STR:", Location = new Point(12, 50), AutoSize = true, ForeColor = Color.LightSkyBlue };
+            nudAutoStatSTR = new NumericUpDown { Location = new Point(48, 48), Size = new Size(42, 20), Minimum = 0, Maximum = 3, Value = StatPointManager.TargetSTR };
+            nudAutoStatSTR.ValueChanged += (s, e) =>
+            {
+                StatPointManager.TargetSTR = (int)nudAutoStatSTR.Value;
+                Settings.SaveCharacterSettings();
+            };
+
+            Label lblInt = new Label { Text = "INT:", Location = new Point(105, 50), AutoSize = true, ForeColor = Color.Gold };
+            nudAutoStatINT = new NumericUpDown { Location = new Point(140, 48), Size = new Size(42, 20), Minimum = 0, Maximum = 3, Value = StatPointManager.TargetINT };
+            nudAutoStatINT.ValueChanged += (s, e) =>
+            {
+                StatPointManager.TargetINT = (int)nudAutoStatINT.Value;
+                Settings.SaveCharacterSettings();
+            };
+
+            Button btnDistributeNow = new Button
+            {
+                Text = "Puanları Dağıt",
+                Location = new Point(190, 46),
+                Size = new Size(105, 24),
+                FlatStyle = FlatStyle.Flat,
+                ForeColor = Color.White,
+                BackColor = Color.FromArgb(0, 122, 204),
+                Font = new Font("Segoe UI", 8F, FontStyle.Bold)
+            };
+            btnDistributeNow.FlatAppearance.BorderSize = 0;
+            btnDistributeNow.Click += (s, e) =>
+            {
+                StatPointManager.CheckAndDistribute();
+                UpdateProtectionStatus();
+            };
+
+            Label lblStatGuidance = new Label
+            {
+                Text = "Her seviyede gelen 3 stat puanı seçilen oranda verilir.\n• 0 STR / 3 INT = Pure INT\n• 3 STR / 0 INT = Pure STR\n• 1 STR / 2 INT = Hibrit",
+                Location = new Point(12, 78),
+                Size = new Size(280, 58),
+                ForeColor = Color.LightGray,
+                Font = new Font("Segoe UI", 7.5F)
+            };
+
+            Label lblRemainInfo = new Label { Text = "Kalan Boş Stat Puanı:", Location = new Point(12, 145), AutoSize = true, ForeColor = Color.LightSkyBlue };
+            lblProtectionStatPointsRemain = new Label { Text = "--", Location = new Point(140, 145), AutoSize = true, ForeColor = Color.Gold, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
+
+            gbxAutoStat.Controls.AddRange(new Control[] {
+                cbxAutoStatEnabled, lblStr, nudAutoStatSTR, lblInt, nudAutoStatINT,
+                btnDistributeNow, lblStatGuidance, lblRemainInfo, lblProtectionStatPointsRemain
+            });
+
+            // Wire Info tab's existing auto-stat controls so both tabs stay in sync
+            if (Character_cbxAutoStat != null)
+            {
+                Character_cbxAutoStat.Checked = StatPointManager.AutoDistributeEnabled;
+                Character_cbxAutoStat.CheckedChanged += (s, e) =>
+                {
+                    StatPointManager.AutoDistributeEnabled = Character_cbxAutoStat.Checked;
+                    if (cbxAutoStatEnabled != null && cbxAutoStatEnabled.Checked != Character_cbxAutoStat.Checked)
+                        cbxAutoStatEnabled.Checked = Character_cbxAutoStat.Checked;
+                    Settings.SaveCharacterSettings();
+                };
+            }
+            if (Character_rbnAutoSTR != null)
+            {
+                Character_rbnAutoSTR.Checked = (StatPointManager.TargetSTR > StatPointManager.TargetINT);
+                Character_rbnAutoSTR.CheckedChanged += (s, e) =>
+                {
+                    if (Character_rbnAutoSTR.Checked)
+                    {
+                        StatPointManager.TargetSTR = 3;
+                        StatPointManager.TargetINT = 0;
+                        if (nudAutoStatSTR != null) nudAutoStatSTR.Value = 3;
+                        if (nudAutoStatINT != null) nudAutoStatINT.Value = 0;
+                        Settings.SaveCharacterSettings();
+                    }
+                };
+            }
+            if (Character_rbnAutoINT != null)
+            {
+                Character_rbnAutoINT.Checked = (StatPointManager.TargetINT >= StatPointManager.TargetSTR);
+                Character_rbnAutoINT.CheckedChanged += (s, e) =>
+                {
+                    if (Character_rbnAutoINT.Checked)
+                    {
+                        StatPointManager.TargetSTR = 0;
+                        StatPointManager.TargetINT = 3;
+                        if (nudAutoStatSTR != null) nudAutoStatSTR.Value = 0;
+                        if (nudAutoStatINT != null) nudAutoStatINT.Value = 3;
+                        Settings.SaveCharacterSettings();
+                    }
+                };
+            }
+
+            GroupBox gbxReturn = new GroupBox
+            {
+                Text = "Kasabaya Dönüş Koşulları",
+                ForeColor = Color.FromArgb(0, 122, 204),
+                Location = new Point(325, 10),
+                Size = new Size(320, 180),
+                Font = new Font("Segoe UI", 8.5F)
+            };
+
+            cbxProtectionNoArrows = CreateProtectionCheck("Ok / bolt bitince dön", new Point(12, 22), ProtectionManager.ReturnNoArrows, value => { ProtectionManager.ReturnNoArrows = value; Settings.SaveCharacterSettings(); });
+            cbxProtectionFullInventory = CreateProtectionCheck("Çanta dolunca dön", new Point(12, 46), ProtectionManager.ReturnFullInventory, value => { ProtectionManager.ReturnFullInventory = value; Settings.SaveCharacterSettings(); });
+            cbxProtectionFullPetInventory = CreateProtectionCheck("Pet çantası dolunca dön", new Point(12, 70), ProtectionManager.ReturnFullPetInventory, value => { ProtectionManager.ReturnFullPetInventory = value; Settings.SaveCharacterSettings(); });
+            cbxProtectionLowHP = CreateProtectionCheck("HP stoğu düşük", new Point(12, 94), ProtectionManager.ReturnHPLow, value => { ProtectionManager.ReturnHPLow = value; Settings.SaveCharacterSettings(); });
+            cbxProtectionLowMP = CreateProtectionCheck("MP stoğu düşük", new Point(12, 118), ProtectionManager.ReturnMPLow, value => { ProtectionManager.ReturnMPLow = value; Settings.SaveCharacterSettings(); });
+
+            cbxProtectionDurability = CreateProtectionCheck("Durability düşük", new Point(165, 22), ProtectionManager.ReturnDurabilityLow, value => { ProtectionManager.ReturnDurabilityLow = value; Settings.SaveCharacterSettings(); });
+            cbxProtectionLevelUp = CreateProtectionCheck("Level-up sonrası dön", new Point(165, 46), ProtectionManager.ReturnLevelUp, value => { ProtectionManager.ReturnLevelUp = value; Settings.SaveCharacterSettings(); });
+            cbxProtectionStopInTown = CreateProtectionCheck("Şehirde botu durdur", new Point(165, 70), ProtectionManager.StopBotInTown, value => { ProtectionManager.StopBotInTown = value; Settings.SaveCharacterSettings(); });
+            cbxProtectionDead = CreateProtectionCheck("Ölüm sonrası dön", new Point(165, 94), ProtectionManager.ReturnDeadWithDelay, value => { ProtectionManager.ReturnDeadWithDelay = value; Settings.SaveCharacterSettings(); });
+
+            cbxProtectionLowHP.Size = new Size(110, 20);
+            cbxProtectionLowMP.Size = new Size(110, 20);
+            cbxProtectionDurability.Size = new Size(90, 20);
+            cbxProtectionLevelUp.Size = new Size(130, 20);
+            cbxProtectionStopInTown.Size = new Size(130, 20);
+            cbxProtectionDead.Size = new Size(100, 20);
+
+            nudProtectionHP = CreateProtectionNumber(new Point(125, 93), 0, 100, ProtectionManager.HPLowThreshold, value => { ProtectionManager.HPLowThreshold = value; Settings.SaveCharacterSettings(); });
+            nudProtectionMP = CreateProtectionNumber(new Point(125, 117), 0, 100, ProtectionManager.MPLowThreshold, value => { ProtectionManager.MPLowThreshold = value; Settings.SaveCharacterSettings(); });
+            nudProtectionDurability = CreateProtectionNumber(new Point(260, 21), 0, 100, ProtectionManager.DurabilityLowThreshold, value => { ProtectionManager.DurabilityLowThreshold = value; Settings.SaveCharacterSettings(); });
+            nudProtectionDurability.Size = new Size(40, 20);
+
+            Label lblDeadDelay = new Label { Text = "Gecikme (sn):", Location = new Point(165, 120), AutoSize = true, ForeColor = Color.LightGray };
+            nudProtectionDeadDelay = CreateProtectionNumber(new Point(250, 117), 0, 3600, ProtectionManager.DeadDelaySeconds, value => { ProtectionManager.DeadDelaySeconds = value; Settings.SaveCharacterSettings(); });
+            gbxReturn.Controls.AddRange(new Control[] {
+                cbxProtectionNoArrows, cbxProtectionFullInventory, cbxProtectionFullPetInventory,
+                cbxProtectionLowHP, cbxProtectionLowMP, cbxProtectionDurability, cbxProtectionLevelUp,
+                cbxProtectionStopInTown, cbxProtectionDead, nudProtectionHP, nudProtectionMP,
+                nudProtectionDurability, lblDeadDelay, nudProtectionDeadDelay
+            });
+
+            GroupBox gbxProtectionSummary = new GroupBox
+            {
+                Text = "Hızlı Eylemler & Durum",
+                ForeColor = Color.FromArgb(0, 122, 204),
+                Location = new Point(325, 200),
+                Size = new Size(320, 135),
+                Font = new Font("Segoe UI", 8.5F)
+            };
+
+            Button btnManualPetProtection = new Button
+            {
+                Text = "Peti Kontrol Et (Dirilt/Çağır)",
+                Location = new Point(15, 24),
+                Size = new Size(185, 26),
+                FlatStyle = FlatStyle.Flat,
+                ForeColor = Color.White,
+                BackColor = Color.FromArgb(0, 122, 204)
+            };
+            btnManualPetProtection.FlatAppearance.BorderSize = 0;
+            btnManualPetProtection.Click += (s, e) =>
+            {
+                ProtectionManager.CheckPetProtection();
+                Log("Pet kontrolü tetiklendi.");
+            };
+
+            Button btnSaveProtSettings = new Button
+            {
+                Text = "Kaydet",
+                Location = new Point(210, 24),
+                Size = new Size(95, 26),
+                FlatStyle = FlatStyle.Flat,
+                ForeColor = Color.White,
+                BackColor = Color.FromArgb(45, 137, 70)
+            };
+            btnSaveProtSettings.FlatAppearance.BorderSize = 0;
+            btnSaveProtSettings.Click += (s, e) =>
+            {
+                Settings.SaveCharacterSettings();
+                Log("Koruma ve Stat ayarları kaydedildi.");
+            };
+
+            Label lblProtectionOverview = new Label
+            {
+                Text = "Karakter koruması canlı döngüde çalışır. HP/MP durumunda acil skill kullanımı, ölen petin Grass of Life ile diriltilmesi ve şehre dönüş koşulları otomatik izlenir.",
+                Location = new Point(15, 58),
+                Size = new Size(290, 65),
+                ForeColor = Color.LightGray,
+                Font = new Font("Segoe UI", 7.5F)
+            };
+
+            gbxProtectionSummary.Controls.AddRange(new Control[] {
+                btnManualPetProtection, btnSaveProtSettings, lblProtectionOverview
+            });
+
+            if (TabPageH_Character_Option03 != null)
+                TabPageH_Character_Option03.Text = "Koruma";
+            if (TabPageH_Character_Option03_Panel != null)
+                TabPageH_Character_Option03_Panel.Controls.AddRange(new Control[] { gbxSkillPet, gbxAutoStat, gbxReturn, gbxProtectionSummary });
+        }
+
+        private CheckBox CreateProtectionCheck(string text, Point location, bool isChecked, Action<bool> changed)
+        {
+            CheckBox checkBox = new CheckBox
+            {
+                Text = text,
+                Location = location,
+                AutoSize = false,
+                Size = new Size(150, 20),
+                Checked = isChecked,
+                ForeColor = Color.White
+            };
+            checkBox.CheckedChanged += (s, e) => changed(checkBox.Checked);
+            return checkBox;
+        }
+
+        private NumericUpDown CreateProtectionNumber(Point location, int minimum, int maximum, int value, Action<int> changed)
+        {
+            NumericUpDown number = new NumericUpDown
+            {
+                Location = location,
+                Size = new Size(45, 20),
+                Minimum = minimum,
+                Maximum = maximum,
+                Value = Math.Max(minimum, Math.Min(maximum, value))
+            };
+            number.ValueChanged += (s, e) => changed((int)number.Value);
+            return number;
         }
 
         private void BuildItemFilterWidgets()
         {
             if (this.TabPageH_Town_Option03_Panel == null) return;
 
-            GroupBox gbxFilterRules = new GroupBox();
-            gbxFilterRules.Text = "Gelişmiş Eşya Filtreleme & Kural Motoru (Item Filter)";
-            gbxFilterRules.ForeColor = Color.FromArgb(0, 122, 204);
-            gbxFilterRules.Location = new Point(15, 170);
-            gbxFilterRules.Size = new Size(625, 160);
-            gbxFilterRules.Font = new Font("Segoe UI", 8.5F);
-
-            Label lblDeg = new Label { Text = "Degree Aralığı:", Location = new Point(15, 25), AutoSize = true, ForeColor = Color.White };
-            NumericUpDown nudMinDeg = new NumericUpDown { Location = new Point(110, 23), Size = new Size(40, 20), Minimum = 1, Maximum = 16, Value = ItemFilterManager.MinDegree };
-            nudMinDeg.ValueChanged += (s, e) => ItemFilterManager.MinDegree = (int)nudMinDeg.Value;
-
-            Label lblTo = new Label { Text = "~", Location = new Point(155, 25), AutoSize = true, ForeColor = Color.White };
-            NumericUpDown nudMaxDeg = new NumericUpDown { Location = new Point(175, 23), Size = new Size(40, 20), Minimum = 1, Maximum = 16, Value = ItemFilterManager.MaxDegree };
-            nudMaxDeg.ValueChanged += (s, e) => ItemFilterManager.MaxDegree = (int)nudMaxDeg.Value;
-
-            CheckBox cbxSox = new CheckBox { Text = "Sadece SoX (SOS/SOM/SUN) Eşyaları", Location = new Point(235, 24), AutoSize = true, Checked = ItemFilterManager.OnlySox, ForeColor = Color.Gold };
-            cbxSox.CheckedChanged += (s, e) => ItemFilterManager.OnlySox = cbxSox.Checked;
-
-            CheckBox cbxChina = new CheckBox { Text = "China", Location = new Point(15, 55), AutoSize = true, Checked = ItemFilterManager.FilterChina, ForeColor = Color.White };
-            cbxChina.CheckedChanged += (s, e) => ItemFilterManager.FilterChina = cbxChina.Checked;
-
-            CheckBox cbxEu = new CheckBox { Text = "Europe", Location = new Point(80, 55), AutoSize = true, Checked = ItemFilterManager.FilterEurope, ForeColor = Color.White };
-            cbxEu.CheckedChanged += (s, e) => ItemFilterManager.FilterEurope = cbxEu.Checked;
-
-            CheckBox cbxMale = new CheckBox { Text = "Male", Location = new Point(155, 55), AutoSize = true, Checked = ItemFilterManager.FilterMale, ForeColor = Color.White };
-            cbxMale.CheckedChanged += (s, e) => ItemFilterManager.FilterMale = cbxMale.Checked;
-
-            CheckBox cbxFemale = new CheckBox { Text = "Female", Location = new Point(215, 55), AutoSize = true, Checked = ItemFilterManager.FilterFemale, ForeColor = Color.White };
-            cbxFemale.CheckedChanged += (s, e) => ItemFilterManager.FilterFemale = cbxFemale.Checked;
-
-            Label lblInfo = new Label
+            // The designer pickup group occupies the left column. The advanced
+            // filter and item-rule editor use the right column instead of
+            // overlapping the existing controls.
+            if (Filter_gbxPick != null)
             {
-                Text = "Filtrelenen eşyalar yerdeki droplardan otomatik toplanır, şehir döngüsünde ayara göre depoya yatırılır veya NPC'ye satılır.",
-                Location = new Point(15, 88),
-                Size = new Size(590, 30),
-                ForeColor = Color.LightGray
+                Filter_gbxPick.Location = new Point(10, 10);
+                Filter_gbxPick.Size = new Size(300, 320);
+            }
+            if (Filter_cbxPickElixirStone != null)
+                Filter_cbxPickElixirStone.Size = new Size(260, 20);
+            if (Filter_cbxPickMaterials != null)
+                Filter_cbxPickMaterials.Size = new Size(250, 20);
+            if (Filter_cbxUsePet != null)
+                Filter_cbxUsePet.Size = new Size(260, 20);
+            if (Filter_lblInfo != null)
+            {
+                Filter_lblInfo.Location = new Point(25, 245);
+                Filter_lblInfo.Size = new Size(260, 60);
+            }
+
+            GroupBox gbxFilterRules = new GroupBox
+            {
+                Text = "Gelişmiş Eşya Filtresi",
+                ForeColor = Color.FromArgb(0, 122, 204),
+                Location = new Point(320, 10),
+                Size = new Size(325, 150),
+                Font = new Font("Segoe UI", 8.5F)
             };
 
-            gbxFilterRules.Controls.AddRange(new Control[] { lblDeg, nudMinDeg, lblTo, nudMaxDeg, cbxSox, cbxChina, cbxEu, cbxMale, cbxFemale, lblInfo });
-            TabPageH_Town_Option03_Panel.Controls.Add(gbxFilterRules);
+            Label lblDeg = new Label { Text = "Degree:", Location = new Point(12, 25), AutoSize = true, ForeColor = Color.White };
+            nudFilterMinDegree = new NumericUpDown { Location = new Point(62, 23), Size = new Size(42, 20), Minimum = 1, Maximum = 16, Value = ItemFilterManager.MinDegree };
+            nudFilterMinDegree.ValueChanged += (s, e) => ItemFilterManager.MinDegree = (int)nudFilterMinDegree.Value;
+            Label lblTo = new Label { Text = "-", Location = new Point(108, 25), AutoSize = true, ForeColor = Color.White };
+            nudFilterMaxDegree = new NumericUpDown { Location = new Point(120, 23), Size = new Size(42, 20), Minimum = 1, Maximum = 16, Value = ItemFilterManager.MaxDegree };
+            nudFilterMaxDegree.ValueChanged += (s, e) => ItemFilterManager.MaxDegree = (int)nudFilterMaxDegree.Value;
+
+            cbxFilterSox = CreateFilterCheck("Sadece SoX", new Point(175, 23), ItemFilterManager.OnlySox, value => ItemFilterManager.OnlySox = value, Color.Gold);
+            cbxFilterChina = CreateFilterCheck("China", new Point(12, 53), ItemFilterManager.FilterChina, value => ItemFilterManager.FilterChina = value, Color.White);
+            cbxFilterEurope = CreateFilterCheck("Europe", new Point(82, 53), ItemFilterManager.FilterEurope, value => ItemFilterManager.FilterEurope = value, Color.White);
+            cbxFilterMale = CreateFilterCheck("Male", new Point(155, 53), ItemFilterManager.FilterMale, value => ItemFilterManager.FilterMale = value, Color.White);
+            cbxFilterFemale = CreateFilterCheck("Female", new Point(215, 53), ItemFilterManager.FilterFemale, value => ItemFilterManager.FilterFemale = value, Color.White);
+
+            Label lblFilterInfo = new Label
+            {
+                Text = "Global filtreler yalnızca ekipmana uygulanır; açık item kuralları her zaman önceliklidir.",
+                Location = new Point(12, 83),
+                Size = new Size(295, 42),
+                ForeColor = Color.LightGray
+            };
+            gbxFilterRules.Controls.AddRange(new Control[] { lblDeg, nudFilterMinDegree, lblTo, nudFilterMaxDegree, cbxFilterSox, cbxFilterChina, cbxFilterEurope, cbxFilterMale, cbxFilterFemale, lblFilterInfo });
+
+            GroupBox gbxItemRules = new GroupBox
+            {
+                Text = "Item Bazlı Pickup / Sell / Store Kuralları",
+                ForeColor = Color.FromArgb(0, 122, 204),
+                Location = new Point(320, 170),
+                Size = new Size(325, 160),
+                Font = new Font("Segoe UI", 8.5F)
+            };
+
+            tbxItemRuleName = new TextBox { Location = new Point(12, 22), Size = new Size(155, 21) };
+            if (ToolTips != null)
+                ToolTips.SetToolTip(tbxItemRuleName, "Item adı veya servername");
+            Button btnSaveRule = new Button { Text = "Kaydet", Location = new Point(173, 20), Size = new Size(65, 24), FlatStyle = FlatStyle.Flat, ForeColor = Color.White, BackColor = Color.FromArgb(0, 122, 204) };
+            Button btnRemoveRule = new Button { Text = "Sil", Location = new Point(243, 20), Size = new Size(65, 24), FlatStyle = FlatStyle.Flat, ForeColor = Color.White, BackColor = Color.FromArgb(80, 80, 85) };
+
+            cbxItemRulePickup = CreateRuleCheck("Pickup", new Point(12, 51), true);
+            cbxItemRuleSell = CreateRuleCheck("Sell", new Point(102, 51), false);
+            cbxItemRuleStore = CreateRuleCheck("Store", new Point(180, 51), false);
+
+            lstvItemRules = new ListView
+            {
+                Location = new Point(12, 76),
+                Size = new Size(296, 70),
+                View = View.Details,
+                FullRowSelect = true,
+                GridLines = true,
+                HideSelection = false,
+                BackColor = Color.FromArgb(34, 34, 38),
+                ForeColor = Color.White
+            };
+            lstvItemRules.Columns.Add("Item", 210);
+            lstvItemRules.Columns.Add("P/S/St", 70);
+            lstvItemRules.SelectedIndexChanged += (s, e) => LoadSelectedItemRule();
+            btnSaveRule.Click += (s, e) => SaveItemRule();
+            btnRemoveRule.Click += (s, e) => RemoveSelectedItemRule();
+
+            gbxItemRules.Controls.AddRange(new Control[] { tbxItemRuleName, btnSaveRule, btnRemoveRule, cbxItemRulePickup, cbxItemRuleSell, cbxItemRuleStore, lstvItemRules });
+            TabPageH_Town_Option03_Panel.Controls.AddRange(new Control[] { gbxFilterRules, gbxItemRules });
+            RefreshItemRuleList();
+        }
+
+        private CheckBox CreateFilterCheck(string text, Point location, bool isChecked, Action<bool> changed, Color foreColor)
+        {
+            CheckBox checkBox = new CheckBox
+            {
+                Text = text,
+                Location = location,
+                AutoSize = true,
+                Checked = isChecked,
+                ForeColor = foreColor
+            };
+            checkBox.CheckedChanged += (s, e) => changed(checkBox.Checked);
+            return checkBox;
+        }
+
+        private CheckBox CreateRuleCheck(string text, Point location, bool isChecked)
+        {
+            return new CheckBox { Text = text, Location = location, AutoSize = true, Checked = isChecked, ForeColor = Color.White };
+        }
+
+        private void RefreshItemRuleList()
+        {
+            if (lstvItemRules == null)
+                return;
+
+            lstvItemRules.BeginUpdate();
+            try
+            {
+                lstvItemRules.Items.Clear();
+                foreach (ItemFilterRule rule in ItemFilterManager.GetAllRules())
+                {
+                    ListViewItem row = new ListViewItem(rule.ItemName);
+                    row.SubItems.Add((rule.Pickup ? "P" : "-") + "/" + (rule.Sell ? "S" : "-") + "/" + (rule.Store ? "St" : "-"));
+                    row.Tag = rule.ItemName;
+                    lstvItemRules.Items.Add(row);
+                }
+            }
+            finally
+            {
+                lstvItemRules.EndUpdate();
+            }
+        }
+
+        private void LoadSelectedItemRule()
+        {
+            if (lstvItemRules == null || lstvItemRules.SelectedItems.Count == 0)
+                return;
+
+            string itemName = lstvItemRules.SelectedItems[0].Tag as string;
+            ItemFilterRule rule = ItemFilterManager.GetRule(itemName);
+            if (rule == null)
+                return;
+
+            tbxItemRuleName.Text = rule.ItemName;
+            cbxItemRulePickup.Checked = rule.Pickup;
+            cbxItemRuleSell.Checked = rule.Sell;
+            cbxItemRuleStore.Checked = rule.Store;
+        }
+
+        private void SaveItemRule()
+        {
+            if (tbxItemRuleName == null || string.IsNullOrWhiteSpace(tbxItemRuleName.Text))
+                return;
+
+            string itemName = tbxItemRuleName.Text.Trim();
+            ItemFilterManager.SetRule(itemName, cbxItemRulePickup.Checked, cbxItemRuleSell.Checked, cbxItemRuleStore.Checked);
+            RefreshItemRuleList();
+            SelectItemRule(itemName);
+            Log("Item filter rule saved: " + itemName);
+        }
+
+        private void RemoveSelectedItemRule()
+        {
+            if (lstvItemRules == null || lstvItemRules.SelectedItems.Count == 0)
+                return;
+
+            string itemName = lstvItemRules.SelectedItems[0].Tag as string;
+            ItemFilterManager.RemoveRule(itemName);
+            tbxItemRuleName.Clear();
+            RefreshItemRuleList();
+            Log("Item filter rule removed: " + itemName);
+        }
+
+        private void SelectItemRule(string itemName)
+        {
+            if (lstvItemRules == null)
+                return;
+
+            foreach (ListViewItem row in lstvItemRules.Items)
+            {
+                if (string.Equals(row.Tag as string, itemName, StringComparison.OrdinalIgnoreCase))
+                {
+                    row.Selected = true;
+                    row.EnsureVisible();
+                    break;
+                }
+            }
+        }
+
+        public void RefreshCustomSettingsWidgets()
+        {
+            this.InvokeIfRequired(() =>
+            {
+                // General & Login Strategy
+                SetProtectionCheck(cbxGeneralAutoLogin, LoginStrategyManager.AutomatedLogin);
+                SetProtectionCheck(cbxGeneralStaticCaptcha, LoginStrategyManager.StaticCaptcha);
+                if (tbxGeneralStaticCaptchaCode != null && tbxGeneralStaticCaptchaCode.Text != (LoginStrategyManager.StaticCaptchaCode ?? ""))
+                    tbxGeneralStaticCaptchaCode.Text = LoginStrategyManager.StaticCaptchaCode ?? "";
+                SetProtectionNumber(nudGeneralLoginDelay, LoginStrategyManager.LoginDelaySeconds);
+                SetProtectionNumber(nudGeneralWaitAfterDC, LoginStrategyManager.WaitAfterDCMinutes);
+                SetProtectionCheck(cbxGeneralAutoStart, LoginStrategyManager.AutoStartBot);
+                SetProtectionCheck(cbxGeneralAutoHide, LoginStrategyManager.AutoHideClient);
+                SetProtectionCheck(cbxGeneralStayConnected, LoginStrategyManager.StayConnected);
+                if (rbnGeneralFirstFound != null)
+                    rbnGeneralFirstFound.Checked = (LoginStrategyManager.Strategy == CharacterSelectionStrategy.FirstFound);
+                if (rbnGeneralHighestLevel != null)
+                    rbnGeneralHighestLevel.Checked = (LoginStrategyManager.Strategy == CharacterSelectionStrategy.HighestLevel);
+
+                // Protection & Healing
+                SetProtectionCheck(cbxProtectionSkillHP, ProtectionManager.UseSkillHP);
+                SetProtectionNumber(nudProtectionSkillHP, ProtectionManager.SkillHPPercent);
+                SetProtectionCheck(cbxProtectionSkillMP, ProtectionManager.UseSkillMP);
+                SetProtectionNumber(nudProtectionSkillMP, ProtectionManager.SkillMPPercent);
+                SetProtectionCheck(cbxProtectionCure, ProtectionManager.UseSkillBadStatus);
+                SetProtectionCheck(cbxProtectionPetRevive, ProtectionManager.RevivePet);
+                SetProtectionCheck(cbxProtectionPetSummon, ProtectionManager.AutoSummonPet);
+                SetProtectionCheck(cbxProtectionNoArrows, ProtectionManager.ReturnNoArrows);
+                SetProtectionCheck(cbxProtectionFullInventory, ProtectionManager.ReturnFullInventory);
+                SetProtectionCheck(cbxProtectionFullPetInventory, ProtectionManager.ReturnFullPetInventory);
+                SetProtectionCheck(cbxProtectionLowHP, ProtectionManager.ReturnHPLow);
+                SetProtectionCheck(cbxProtectionLowMP, ProtectionManager.ReturnMPLow);
+                SetProtectionCheck(cbxProtectionDurability, ProtectionManager.ReturnDurabilityLow);
+                SetProtectionCheck(cbxProtectionLevelUp, ProtectionManager.ReturnLevelUp);
+                SetProtectionCheck(cbxProtectionStopInTown, ProtectionManager.StopBotInTown);
+                SetProtectionCheck(cbxProtectionDead, ProtectionManager.ReturnDeadWithDelay);
+                SetProtectionNumber(nudProtectionHP, ProtectionManager.HPLowThreshold);
+                SetProtectionNumber(nudProtectionMP, ProtectionManager.MPLowThreshold);
+                SetProtectionNumber(nudProtectionDurability, ProtectionManager.DurabilityLowThreshold);
+                SetProtectionNumber(nudProtectionDeadDelay, ProtectionManager.DeadDelaySeconds);
+
+                // Auto Stat Points
+                SetProtectionCheck(cbxAutoStatEnabled, StatPointManager.AutoDistributeEnabled);
+                SetProtectionNumber(nudAutoStatSTR, StatPointManager.TargetSTR);
+                SetProtectionNumber(nudAutoStatINT, StatPointManager.TargetINT);
+                if (Character_cbxAutoStat != null && Character_cbxAutoStat.Checked != StatPointManager.AutoDistributeEnabled)
+                    Character_cbxAutoStat.Checked = StatPointManager.AutoDistributeEnabled;
+                if (Character_rbnAutoSTR != null)
+                    Character_rbnAutoSTR.Checked = (StatPointManager.TargetSTR > StatPointManager.TargetINT);
+                if (Character_rbnAutoINT != null)
+                    Character_rbnAutoINT.Checked = (StatPointManager.TargetINT >= StatPointManager.TargetSTR);
+                UpdateProtectionStatus();
+
+                // Item Filter
+                SetProtectionNumber(nudFilterMinDegree, ItemFilterManager.MinDegree);
+                SetProtectionNumber(nudFilterMaxDegree, ItemFilterManager.MaxDegree);
+                SetProtectionCheck(cbxFilterSox, ItemFilterManager.OnlySox);
+                SetProtectionCheck(cbxFilterChina, ItemFilterManager.FilterChina);
+                SetProtectionCheck(cbxFilterEurope, ItemFilterManager.FilterEurope);
+                SetProtectionCheck(cbxFilterMale, ItemFilterManager.FilterMale);
+                SetProtectionCheck(cbxFilterFemale, ItemFilterManager.FilterFemale);
+
+                // Skills
+                SetProtectionCheck(Skills_cbxCastInOrder, SkillManager.InOrderCombo);
+                if (cmbxImbue != null)
+                    RefreshImbueSkillList();
+                UpdateSkillRuntimeStatus();
+
+                // Combat AI
+                SetProtectionCheck(cbxCombatZerkFullHP, CombatAIEngine.ZerkWhenHPFull);
+                SetProtectionCheck(cbxCombatIgnorePillars, CombatAIEngine.IgnoreDimensionPillars);
+                SetProtectionCheck(cbxCombatWeakerFirst, CombatAIEngine.AttackWeakerFirst);
+                SetProtectionCheck(cbxCombatDoNotFollow, CombatAIEngine.DoNotFollowMobs);
+                SetProtectionCheck(cbxCombatZerkCount, CombatAIEngine.ZerkMonsterCountEnabled);
+                SetProtectionCheck(cbxCombatZerkAvoidance, CombatAIEngine.ZerkAvoidanceBased);
+                SetProtectionCheck(cbxCombatZerkRarity, CombatAIEngine.ZerkRarityBased);
+                SetProtectionNumber(nudCombatZerkCount, CombatAIEngine.ZerkMonsterCount);
+
+                RefreshItemRuleList();
+            });
+        }
+
+        public void UpdateProtectionStatus()
+        {
+            if (lblProtectionStatPointsRemain != null)
+            {
+                lblProtectionStatPointsRemain.InvokeIfRequired(() =>
+                {
+                    if (InfoManager.Character != null)
+                        lblProtectionStatPointsRemain.Text = InfoManager.Character.StatPoints.ToString();
+                    else
+                        lblProtectionStatPointsRemain.Text = "--";
+                });
+            }
+        }
+
+        public void UpdateSkillRuntimeStatus()
+        {
+            if (lblSkillRuntimeStatus == null)
+                return;
+
+            string skill = string.IsNullOrEmpty(SkillManager.LastCastSkill) ? "-" : SkillManager.LastCastSkill;
+            string text = "Skill: " + skill + " | " + SkillManager.LastCastStatus;
+            Color color = SkillManager.LastCastStatus == "Başarılı"
+                ? Color.LightGreen
+                : (SkillManager.ConsecutiveCastFailures > 0 ? Color.Khaki : Color.LightSkyBlue);
+
+            lblSkillRuntimeStatus.InvokeIfRequired(() =>
+            {
+                lblSkillRuntimeStatus.Text = text;
+                lblSkillRuntimeStatus.ForeColor = color;
+            });
+        }
+
+        private void SetProtectionCheck(CheckBox checkBox, bool value)
+        {
+            if (checkBox != null && checkBox.Checked != value)
+                checkBox.Checked = value;
+        }
+
+        private void SetProtectionNumber(NumericUpDown number, int value)
+        {
+            if (number == null)
+                return;
+
+            decimal safeValue = Math.Max(number.Minimum, Math.Min(number.Maximum, value));
+            if (number.Value != safeValue)
+                number.Value = safeValue;
         }
 
         public void UpdateHeaderStats()
@@ -352,6 +1151,8 @@ namespace xBot.App
                         lblHeaderMP.Text = "MP: " + InfoManager.Character.GetMPPercent() + "%";
                     });
                 }
+
+                UpdateProtectionStatus();
             }
             catch { }
         }
@@ -362,6 +1163,18 @@ namespace xBot.App
             {
                 this.InvokeIfRequired(() =>
                 {
+                    bool isTR = LocalizationManager.CurrentLanguage == "TR";
+                    if (btnLangTR != null)
+                    {
+                        btnLangTR.BackColor = isTR ? Color.FromArgb(0, 122, 204) : Color.FromArgb(50, 50, 55);
+                        btnLangTR.ForeColor = isTR ? Color.White : Color.LightGray;
+                    }
+                    if (btnLangEN != null)
+                    {
+                        btnLangEN.BackColor = !isTR ? Color.FromArgb(0, 122, 204) : Color.FromArgb(50, 50, 55);
+                        btnLangEN.ForeColor = !isTR ? Color.White : Color.LightGray;
+                    }
+
                     if (this.TabPageV_Control01_Login != null) this.TabPageV_Control01_Login.Text = LocalizationManager.Get("UI_General", "General");
                     if (this.TabPageV_Control01_Training != null) this.TabPageV_Control01_Training.Text = LocalizationManager.Get("UI_Training", "Training");
                     if (this.TabPageV_Control01_Skills != null) this.TabPageV_Control01_Skills.Text = LocalizationManager.Get("UI_Skills", "Skills");
@@ -370,6 +1183,13 @@ namespace xBot.App
                     if (this.TabPageV_Control01_Inventory != null) this.TabPageV_Control01_Inventory.Text = LocalizationManager.Get("UI_Inventory", "Inventory");
                     if (this.TabPageV_Control01_Town != null) this.TabPageV_Control01_Town.Text = LocalizationManager.Get("UI_Items", "Town & Items");
                     if (this.TabPageV_Control01_Chat != null) this.TabPageV_Control01_Chat.Text = LocalizationManager.Get("UI_Chat", "Chat");
+
+                    if (this.TabPageH_Character_Option03 != null)
+                        this.TabPageH_Character_Option03.Text = LocalizationManager.Get("UI_Protection", "Protection");
+                    if (this.TabPageH_Town_Option03 != null)
+                        this.TabPageH_Town_Option03.Text = LocalizationManager.Get("UI_ItemFilter", "Item Filter");
+                    if (this.Skills_cbxCastInOrder != null)
+                        this.Skills_cbxCastInOrder.Text = LocalizationManager.Get("UI_InOrder", "Cast skills in order");
 
                     if (this.lblBotState != null && this.lblBotState.Text.Contains("Ready"))
                         this.lblBotState.Text = LocalizationManager.Get("UI_WaitingForChar", "Ready");

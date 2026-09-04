@@ -5,6 +5,21 @@
 - Ölüm gecikmesi, şehirde dönüş sonrası durma, level-up, pet envanteri, ok/bolt,
   HP/MP stoğu, dayanıklılık ve envanter dönüş kararları eklendi.
 - ProtectionPolicy için 14 bağımsız senaryo testi eklendi.
+- ItemFilterManager; pickup, degree/SoX/race/gender, satış ve storage akışlarına bağlandı.
+- ItemFilterPolicy senaryolarıyla toplam 25 bağımsız karar testi çalıştırılabilir hale geldi.
+- Protection ve Item Filter eksik ayarları UI’ye eklendi; çakışan panel yerleşimleri düzeltildi.
+- Item bazlı Pickup/Sell/Store kural editörü eklendi.
+- Combat AI kontrolleri Town sekmesinden çıkarılıp `Kasılma > Combat AI` alt sekmesine taşındı.
+- CombatPolicy ile alan dışı takip, Dimension Pillar/kaçınma ve Berserk kararları ayrıştırıldı;
+  senaryo testleri toplam 32 karara çıkarıldı.
+- SkillManager için yanlış silah/cooldown durumlarında sınırlı deneme ve Common Attack fallback’i eklendi.
+- `Cast skills in order` seçeneği gerçek saldırı akışına bağlandı; son skill durumu Skills ekranında gösteriliyor.
+- SkillPolicy ve ImbuePolicy senaryolarıyla toplam karar testi 44’e çıkarıldı.
+- Arayüz denetimi tamamlandı: Koruma sekmesine Otomatik Stat Dağıtımı (STR/INT oranlama ve anlık dağıtım) paneli eklendi.
+- Giriş sekmesindeki Sunucu/Karakter listesiyle çakışan panel (gbxStrategy) temiz bir konuma taşındı; Sabit Captcha metin kutusu, Giriş ve DC gecikme NumericUpDown kontrolleri eklendi.
+- Koruma sekmesine Skill HP ve MP yüzde eşik kontrolleri (nudProtectionSkillHP/MP) ve durum özeti eklendi.
+- Beceriler sekmesinde durum etiketinin yukarı/aşağı butonlarıyla çakışması ve strikeout font hatası düzeltildi.
+- TR/EN dil butonlarına aktif seçim vurgusu ve alt sekme başlık lokalizasyonları bağlandı.
 
 ### v0.5.2
 - Fixed auto attacking stuff
