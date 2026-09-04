@@ -330,7 +330,7 @@ namespace xBot.PK2Extractor
 			}
 			catch (Exception ex)
 			{
-				Log("Error generating database: " + ex.Message);
+				Log("Error generating database: " + ex.ToString());
 				LogState("Error");
 				btnStart.InvokeIfRequired(() => {
 					btnStart.Font = new Font(btnStart.Font, FontStyle.Regular);

@@ -515,11 +515,19 @@ namespace xBot.PK2Extractor
 			string name;
 
 			// short file, load all lines to memory
-			string[] files = pk2.GetFileText("server_dep\\silkroad\\textdata\\CharacterData.txt").Split(new string[] { pk2_lineSplit }, StringSplitOptions.RemoveEmptyEntries);
+			string[] files = pk2.GetFileText("server_dep\\silkroad\\textdata\\CharacterData.txt").Split(new string[] { pk2_lineSplit, pk2_lineSplitN }, StringSplitOptions.RemoveEmptyEntries);
 			for (int i = 0; i < files.Length; i++)
 			{
+				string filename = files[i].Trim();
+				if (string.IsNullOrEmpty(filename))
+					continue;
+
+				Stream stream = pk2.GetFileStream("server_dep\\silkroad\\textdata\\" + filename);
+				if (stream == null)
+					continue;
+
 				// Keep memory safe
-				using (StreamReader reader = new StreamReader(pk2.GetFileStream("server_dep\\silkroad\\textdata\\"+files[i])))
+				using (StreamReader reader = new StreamReader(stream))
 				{
 					// using faster sqlite performance
 					db.Begin();
@@ -533,6 +541,9 @@ namespace xBot.PK2Extractor
 						if (line.StartsWith(pk2_lineEnabled))
 						{
 							data = line.Split(pk2_split, StringSplitOptions.None);
+							if (data.Length < 13)
+								continue;
+
 							// Extract name if has one
 							name = "";
 							if (data[5] != "xxx")
@@ -562,8 +573,8 @@ namespace xBot.PK2Extractor
 							db.Bind("tid2", data[10]);
 							db.Bind("tid3", data[11]);
 							db.Bind("tid4", data[12]);
-							db.Bind("hp", data[59]);
-							db.Bind("level", data[57]);
+							db.Bind("hp", data.Length > 59 ? data[59] : "0");
+							db.Bind("level", data.Length > 59 ? data[57] : "1");
 							db.ExecuteQuery();
 						}
 					}
@@ -681,19 +692,24 @@ namespace xBot.PK2Extractor
 				return;
 			}
 
-			string[] files = skillFileText.Split(new string[] { pk2_lineSplit }, StringSplitOptions.RemoveEmptyEntries);
+			string[] files = skillFileText.Split(new string[] { pk2_lineSplit, pk2_lineSplitN }, StringSplitOptions.RemoveEmptyEntries);
 			for (int i = 0; i < files.Length; i++)
 			{
-				LogState("Decoding " + files[i]);
-				Stream skillStream = pk2.GetFileStream("server_dep\\silkroad\\textdata\\" + files[i]);
+				string filename = files[i].Trim();
+				if (string.IsNullOrEmpty(filename))
+					continue;
+
+				LogState("Decoding " + filename);
+				Stream skillStream = pk2.GetFileStream("server_dep\\silkroad\\textdata\\" + filename);
 				if (skillStream == null)
 					continue;
 
 				// Decrypt and save the file to be used as stream
-				File.WriteAllBytes(SilkroadPath + "\\" + files[i] + ".tmp", DecryptSkillData(skillStream));
+				string tmpFile = SilkroadPath + "\\" + filename + ".tmp";
+				File.WriteAllBytes(tmpFile, DecryptSkillData(skillStream));
 
 				// Keep memory safe
-				using (StreamReader reader = new StreamReader(SilkroadPath+"\\"+ files[i] + ".tmp"))
+				using (StreamReader reader = new StreamReader(tmpFile))
 				{
 					// using faster sqlite performance
 					db.Begin();
@@ -707,6 +723,9 @@ namespace xBot.PK2Extractor
 						if (line.StartsWith(pk2_lineEnabled))
 						{
 							data = line.Split(pk2_split, StringSplitOptions.None);
+							if (data.Length <= DSKILL.UI_IconFile)
+								continue;
+
 							// Extract name if has one
 							name = "";
 							if (data[DSKILL.UI_SkillName] != "xxx")
@@ -719,8 +738,8 @@ namespace xBot.PK2Extractor
 								desc = "";
 							
 							// Add a few params to check stuffs
-							for (byte j = 0; j < skillparams.Length && j < data.Length; j++)
-								skillparams[j] = data[DSKILL.Param1+j];
+							for (byte j = 0; j < skillparams.Length; j++)
+								skillparams[j] = (DSKILL.Param1 + j < data.Length) ? data[DSKILL.Param1 + j] : "0";
 
 							// filter extraction
 							switch (data[DSKILL.Param1])
@@ -765,7 +784,11 @@ namespace xBot.PK2Extractor
 							db.Bind("servername", data[DSKILL.Basic_Code]);
 							db.Bind("name", name);
 							db.Bind("description", desc);
-							db.Bind("casttime", int.Parse(data[DSKILL.Action_PreparingTime])+ int.Parse(data[DSKILL.Action_CastingTime])+ int.Parse(data[DSKILL.Action_ActionDuration]));
+							int preparingTime = 0, castingTime = 0, actionDuration = 0;
+							int.TryParse(data[DSKILL.Action_PreparingTime], out preparingTime);
+							int.TryParse(data[DSKILL.Action_CastingTime], out castingTime);
+							int.TryParse(data[DSKILL.Action_ActionDuration], out actionDuration);
+							db.Bind("casttime", preparingTime + castingTime + actionDuration);
 							db.Bind("duration", duration);
 							db.Bind("cooldown", data[DSKILL.Action_ReuseDelay]);
 							db.Bind("mana", data[DSKILL.Consume_MP]);
@@ -787,7 +810,6 @@ namespace xBot.PK2Extractor
 				}
 
 				//  Delete temporal skilldata decoded
-				string tmpFile = SilkroadPath + "\\" + files[i] + ".tmp";
 				if (File.Exists(tmpFile))
 					WinAPI.FileTryDelete(tmpFile);
 			}
@@ -1063,10 +1085,14 @@ namespace xBot.PK2Extractor
 					if (line.StartsWith(pk2_lineEnabled))
 					{
 						data = line.Split(pk2_split, StringSplitOptions.None);
+						if (data.Length < 8)
+							continue;
+						byte optCount = 0;
+						byte.TryParse(data[7], out optCount);
 						// Extract Magic options
-						string[] magicOptions = new string[byte.Parse(data[7])];
+						string[] magicOptions = new string[optCount];
 						for (byte j = 0; j < magicOptions.Length; j++)
-							magicOptions[j] = data[j + 8];
+							magicOptions[j] = (j + 8 < data.Length) ? data[j + 8] : "0";
 
 						// 0 = itemServerName, 1 = plus, 2 = durability or buyStack (ID's behaviour), 3 = MagicParams
 						refScrapOfPackageItem[data[2]] = new string[] { data[3], data[4], data[6], string.Join("|",magicOptions) };
@@ -1441,12 +1467,14 @@ namespace xBot.PK2Extractor
 					if (line.StartsWith(pk2_lineEnabled))
 					{
 						data = line.Split(pk2_split, StringSplitOptions.None);
+						if (data.Length < 2)
+							continue;
 
 						// 15% display
 						if (rand.Next(1, 1000) <= 150)
 							LogState("Loading " + data[1]);
 
-						if (data[LanguageIndex] != "0")
+						if (data.Length > LanguageIndex && data[LanguageIndex] != "0")
 							RegionReferences[data[1]] = data[LanguageIndex];
 					}
 				}

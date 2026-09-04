@@ -230,9 +230,6 @@ namespace xBot.Network
 						{
 							foreach (Packet packet in packets)
 							{
-								string dir = (context == Gateway.Remote) ? "Server -> Proxy" : "Client -> Proxy";
-								w.Log($"[Packet] {dir} [0x{packet.Opcode:X4}] ({packet.GetBytes().Length} bytes)");
-
 								// Show all incoming packets on analizer
 								if (context == Gateway.Remote && w.Settings_cbxShowPacketServer.Checked)
 								{
@@ -247,7 +244,7 @@ namespace xBot.Network
 									}
 								}
 								// Switch from gateway to agent process
-								if (packet.Opcode == Gateway.Opcode.SERVER_LOGIN_RESPONSE)
+								if (packet.Opcode == Gateway.Opcode.SERVER_LOGIN_RESPONSE || packet.Opcode == Gateway.Opcode.SERVER_LOGIN_RESPONSE_CUSTOM)
 								{
 									byte result = packet.ReadByte();
 									if (result == 1)
@@ -255,7 +252,16 @@ namespace xBot.Network
 										// Stop ping while switch
 										PingHandler.Abort();
 
-										Agent = new Agent(packet.ReadUInt(), packet.ReadAscii(), packet.ReadUShort());
+										uint loginID = packet.ReadUInt();
+										string remoteAgentHost = packet.ReadAscii();
+										ushort remoteAgentPort = packet.ReadUShort();
+										byte[] extraBytes = null;
+										if (packet.RemainingRead() > 0)
+										{
+											extraBytes = packet.ReadByteArray(packet.RemainingRead());
+										}
+
+										Agent = new Agent(loginID, remoteAgentHost, remoteAgentPort);
 
 										// Bind socket available
 										string agentHost = ((IPEndPoint)SocketBinded.LocalEndPoint).Address.ToString();
@@ -267,8 +273,8 @@ namespace xBot.Network
 										agThread.Priority = ThreadPriority.AboveNormal;
 										agThread.Start();
 										
-										// Proxy packet (bot listeninig)
-										PacketBuilder.Client.CreateAgentLogin(result, Agent.id, agentHost,(ushort)agentPort);
+										// Proxy packet (bot listening)
+										PacketBuilder.Client.CreateAgentLogin(result, Agent.id, agentHost, (ushort)agentPort, packet.Opcode, extraBytes, packet.Encrypted);
 									}
 									else if (result == 2)
 									{
@@ -313,6 +319,11 @@ namespace xBot.Network
 
 										context.RelaySecurity.Send(packet);
 									}
+									else
+									{
+										w.Log("Login response with unknown result [" + result + "]");
+										context.RelaySecurity.Send(packet);
+									}
 								}
 								else if (!Gateway.PacketHandler(context, packet)
 									&& !Gateway.IgnoreOpcode(packet.Opcode, context))
@@ -350,8 +361,6 @@ namespace xBot.Network
 											w.LogPacket(string.Format("[G][{0}][{1:X4}][{2} bytes]{3}{4}{6}{5}", "C->S", packet.Opcode, packet.GetBytes().Length, packet.Encrypted ? "[Encrypted]" : "", packet.Massive ? "[Massive]" : "", Utility.HexDump(packet.GetBytes()), Environment.NewLine));
 										}
 									}
-									string sendDir = (context == Gateway.Remote) ? "Proxy -> Server" : "Proxy -> Client";
-									w.Log($"[Packet] {sendDir} [0x{packet.Opcode:X4}] ({packet.GetBytes().Length} bytes)");
 
 									while (true)
 									{
@@ -381,11 +390,17 @@ namespace xBot.Network
 			catch (Exception ex)
 			{
 				CloseGateway();
-				w.LogPacket("[G] Error: " + ex.Message);
-				w.Log("[Gateway Error] " + ex.Message);
-				// Check if agent it's not running
-				if (Agent == null)
+				if (Agent != null)
+				{
+					// Normal transition: Client closed Gateway connection to connect to Agent server
+					w.Log("[Gateway] Closed (switched to Agent server)");
+				}
+				else
+				{
+					w.LogPacket("[G] Error: " + ex.ToString());
+					w.Log("[Gateway Error] " + ex.Message);
 					Stop();
+				}
 			}
 		}
 		public void CloseClient()
@@ -402,7 +417,16 @@ namespace xBot.Network
 			try
 			{
 				if (InfoManager.inGame)
-					Window.Get.Log("Switched to clientless mode");
+				{
+					if (LoginStrategyManager.StayConnected)
+					{
+						Window.Get?.Log("[Failover] Client exited unexpectedly! Bot switched to Clientless mode and preserved session.");
+					}
+					else
+					{
+						Window.Get?.Log("Switched to clientless mode");
+					}
+				}
 			}
 			catch { /* Window closed probably.. */ }
 		}
@@ -476,7 +500,11 @@ namespace xBot.Network
 									ags.Remove(context);
 									break;
 								}
-								else throw ex;
+								else
+								{
+									w.Log($"[Proxy -> Server Recv Error] {ex.Message}");
+									throw ex;
+								}
 							}
 						}
 					}
@@ -501,6 +529,18 @@ namespace xBot.Network
 										w.LogPacket(string.Format("[A][{0}][{1:X4}][{2} bytes]{3}{4}{6}{5}", "S->C", packet.Opcode, packet.GetBytes().Length, packet.Encrypted ? "[Encrypted]" : "", packet.Massive ? "[Massive]" : "", Utility.HexDump(packet.GetBytes()), Environment.NewLine));
 									}
 								}
+								if (!InfoManager.inGame || packet.Opcode == 0x165A || packet.Opcode == 0x165B || packet.Opcode == 0xA341 
+									|| packet.Opcode == 0x7001 || packet.Opcode == 0xB001 || packet.Opcode == 0xB007)
+								{
+									string dir = (context == Agent.Remote) ? "Server -> Proxy" : "Client -> Proxy";
+									byte[] pBytes = packet.GetBytes();
+									string encStr = packet.Encrypted ? " [Encrypted]" : "";
+									if (pBytes.Length <= 32)
+										w.Log($"[Packet] {dir} [0x{packet.Opcode:X4}]{encStr} ({pBytes.Length} bytes): {BitConverter.ToString(pBytes)}");
+									else
+										w.Log($"[Packet] {dir} [0x{packet.Opcode:X4}]{encStr} ({pBytes.Length} bytes)");
+								}
+
 								if (!Agent.PacketHandler(context, packet) && !Agent.IgnoreOpcode(packet.Opcode, context))
 								{
 									// Send normally through proxy
@@ -536,6 +576,17 @@ namespace xBot.Network
 											w.LogPacket(string.Format("[A][{0}][{1:X4}][{2} bytes]{3}{4}{6}{5}", "C->S", packet.Opcode, packet.GetBytes().Length, packet.Encrypted ? "[Encrypted]" : "", packet.Massive ? "[Massive]" : "", Utility.HexDump(packet.GetBytes()), Environment.NewLine));
 										}
 									}
+									if (!InfoManager.inGame || packet.Opcode == 0x165A || packet.Opcode == 0x165B || packet.Opcode == 0xA341 
+										|| packet.Opcode == 0x7001 || packet.Opcode == 0xB001 || packet.Opcode == 0xB007)
+									{
+										string dir = (context == Agent.Remote) ? "Proxy -> Server" : "Proxy -> Client";
+										byte[] pBytes = packet.GetBytes();
+										string encStr = packet.Encrypted ? " [Encrypted]" : "";
+										if (pBytes.Length <= 32)
+											w.Log($"[Packet] {dir} [0x{packet.Opcode:X4}]{encStr} ({pBytes.Length} bytes): {BitConverter.ToString(pBytes)}");
+										else
+											w.Log($"[Packet] {dir} [0x{packet.Opcode:X4}]{encStr} ({pBytes.Length} bytes)");
+									}
 									
 									while (true)
 									{
@@ -551,7 +602,11 @@ namespace xBot.Network
 												// Try to continue without send to client
 												break;
 											}
-											else throw ex;
+											else
+											{
+												w.Log($"[Proxy -> Server Send Error] Opcode: 0x{packet.Opcode:X4}, Error: {ex.Message}");
+												throw ex;
+											}
 										}
 										buffer.Offset += count;
 										if (buffer.Offset == buffer.Size)
@@ -567,6 +622,7 @@ namespace xBot.Network
 			catch (Exception ex)
 			{
 				w.LogPacket("[A] Error: " + ex.Message + Environment.NewLine);
+				w.Log("[Agent Error] " + ex.Message);
 				Stop();
 			}
 		}
@@ -631,7 +687,7 @@ namespace xBot.Network
 			while (isRunning)
 			{
 				Thread.Sleep(6666);
-				// Keep only one connection alive at clientless mode
+				// Keep connection alive
 				if (Agent != null)
 				{
 					try
@@ -641,7 +697,7 @@ namespace xBot.Network
 					}
 					catch { /*Connection closed*/}
 				}
-			  else if (Gateway != null)
+				else if (Gateway != null)
 				{
 					try
 					{
@@ -734,14 +790,14 @@ namespace xBot.Network
 			w.Log("Disconnected");
 			w.LogProcess("Disconnected");
 			// Relogin
-			if (w.Login_cbxRelogin.Checked)
+			if (w.Login_cbxRelogin.Checked || LoginStrategyManager.AutomatedLogin)
 			{
 				System.Timers.Timer Relogin = new System.Timers.Timer(50);
 				Relogin.AutoReset = false;
 				Relogin.Elapsed += ReloginOnDisconnect;
 				ReloginIntervalCounter = 0;
-				ReloginCountdown = 15;
-        Relogin.Start();
+				ReloginCountdown = Math.Max(15, LoginStrategyManager.WaitAfterDCMinutes * 60);
+				Relogin.Start();
 				w.LogProcess("Relogin at " + ReloginCountdown + " seconds...");
 			}
 		}

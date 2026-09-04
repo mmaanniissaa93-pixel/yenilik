@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Windows.Forms;
@@ -49,7 +49,7 @@ namespace xBot.Game
 		/// <summary>
 		/// Gets the character name, available right before the character is selected.
 		/// </summary>
-		public static string CharName { get; private set; }
+		public static string CharName { get; internal set; }
 		/// <summary>
 		/// Gets the character name, available right before the character is selected.
 		/// </summary>
@@ -159,6 +159,7 @@ namespace xBot.Game
 				w.Login_btnStart.Enabled = false;
 			});
 			w.LogProcess("Selecting ["+ CharName + "] ...");
+			w.Log("Selecting [" + CharName + "] ...");
 			PacketBuilder.SelectCharacter(CharName);
 		}
 		public static void SetCredentials(string Username,string Password,string ServerName)
@@ -186,7 +187,7 @@ namespace xBot.Game
 		}
 		public static SREntity GetEntity(uint uniqueID)
 		{
-			if (uniqueID == Character.UniqueID)
+			if (Character != null && uniqueID == Character.UniqueID)
 				return Character;
 			SREntity entity = m_Entities[uniqueID];
 			if (entity != null)
@@ -447,11 +448,15 @@ namespace xBot.Game
 
 			if (!inGame)
 			{
-				w.Minimap_panelCoords.InvokeIfRequired(() => {
-					Settings.LoadCharacterSettings();
-				});
-				// Set window title
-				w.SetTitle(ServerName,CharName, Bot.Get.Proxy.SRO_Client);
+				try
+				{
+					w.Minimap_panelCoords.InvokeIfRequired(() => {
+						Settings.LoadCharacterSettings();
+					});
+					// Set window title
+					w.SetTitle(ServerName, CharName, Bot.Get.Proxy.SRO_Client);
+				}
+				catch { }
 			}
 		}
 		internal static void OnTeleported()
@@ -472,7 +477,7 @@ namespace xBot.Game
 				});
 				Bot.Get.OnGameJoined();
 			}
-			w.LogProcess("Teleported");
+			w.LogProcess("Online");
 
 			Bot.Get.OnTeleported();
 		}
@@ -509,6 +514,10 @@ namespace xBot.Game
 			w.Character_lblINT.InvokeIfRequired(() => {
 				w.Character_lblINT.Text = Character.INT.ToString();
 			});
+
+			// Auto stat distribution: spend free stat points if configured
+			if (Character.StatPoints > 0)
+				App.StatPointManager.CheckAndDistribute();
 		}
 		internal static void OnExpReceived(long ExpReceived, long Exp, long ExpMax, byte Level)
 		{
@@ -615,12 +624,20 @@ namespace xBot.Game
 			SREntity entity = m_Entities[UniqueID];
 			m_Entities.RemoveKey(UniqueID);
 			
+			if (entity == null)
+			{
+				Window.Get.Minimap_Object_Remove(UniqueID);
+				Bot.Get.OnDespawn(UniqueID);
+				return;
+			}
+
 			if (entity.isModel())
 			{
 				SRModel model = (SRModel)entity;
 				if (model.isPlayer())
 				{
-					m_Players.RemoveKey(entity.Name.ToUpper());
+					if (entity.Name != null)
+						m_Players.RemoveKey(entity.Name.ToUpper());
 				}
 				else if (model.isNPC())
 				{
@@ -1588,13 +1605,14 @@ namespace xBot.Game
 		internal static void OnEntitySkillCast(SRTypes.SkillCast type, uint skillID, uint sourceUniqueID, uint targetUniqueID)
 		{
 			SRModel entity = (SRModel)GetEntity(sourceUniqueID);
-			entity.GetRealtimePosition(); // Force update the position
+			if (entity != null)
+				entity.GetRealtimePosition(); // Force update the position
 
 			// Check if it's me
-			if (sourceUniqueID == Character.UniqueID)
+			if (Character != null && sourceUniqueID == Character.UniqueID)
 			{
 				// Put skill at cooldown
-				SRSkill skill = Character.Skills[skillID];
+				SRSkill skill = Character.Skills != null && Character.Skills.ContainsKey(skillID) ? Character.Skills[skillID] : null;
 				// Avoid basic attacks
 				if (skill != null)
 					skill.StartCooldown();
@@ -1611,9 +1629,11 @@ namespace xBot.Game
 
 				// Add and override entity buff
 				SRModel entity = (SRModel)GetEntity(uniqueID);
+				if (entity == null || entity.Buffs == null)
+					return;
 
 				// Remove last buff
-				SRBuff lastBuff = entity.Buffs[buff.GroupID];
+				SRBuff lastBuff = entity.Buffs.ContainsKey(buff.GroupID) ? entity.Buffs[buff.GroupID] : null;
 				if (lastBuff != null)
 					m_Buffs.RemoveKey(lastBuff.UniqueID);
 				entity.Buffs[buff.GroupID] = buff;
@@ -1639,7 +1659,8 @@ namespace xBot.Game
 
 				// remove entity buff
 				SRModel entity = (SRModel)GetEntity(buff.TargetUniqueID);
-				entity.Buffs.RemoveKey(buff.GroupID);
+				if (entity != null && entity.Buffs != null)
+					entity.Buffs.RemoveKey(buff.GroupID);
 				// Check my own
 				if (Character == entity)
 				{

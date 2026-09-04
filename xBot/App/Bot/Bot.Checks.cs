@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Timers;
 using xBot.Game;
@@ -92,6 +92,7 @@ namespace xBot.App
                         }
                     }
                 }
+                ProtectionManager.CheckSkillHealing();
             }
         }
         public void CheckUsingMP()
@@ -121,6 +122,7 @@ namespace xBot.App
                         }
                     }
                 }
+                ProtectionManager.CheckSkillMana();
             }
         }
         public void CheckUsingVigor()

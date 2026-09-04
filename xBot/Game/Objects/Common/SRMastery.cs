@@ -1,4 +1,4 @@
-﻿using System.Collections.Specialized;
+using System.Collections.Specialized;
 
 namespace xBot.Game.Objects.Common
 {
@@ -14,8 +14,16 @@ namespace xBot.Game.Objects.Common
 			NameValueCollection data = DataManager.GetMastery(ID);
 
 			this.ID = ID;
-			Name = data["name"];
-			Description = data["description"];
+			if (data != null)
+			{
+				Name = data["name"] ?? "";
+				Description = data["description"] ?? "";
+			}
+			else
+			{
+				Name = "Mastery_" + ID;
+				Description = "";
+			}
 		}
 	}
 }

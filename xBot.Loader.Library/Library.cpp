@@ -237,7 +237,7 @@ void Install()
 	//Multiclient
 	DetourAttach(&(PVOID&)Real_CreateMutexA,     User_CreateMutexA);
 	DetourAttach(&(PVOID&)Real_bind,             User_bind);
-	DetourAttach(&(PVOID&)Real_GetAdaptersInfo,  User_GetAdaptersInfo);
+	// DetourAttach(&(PVOID&)Real_GetAdaptersInfo,  User_GetAdaptersInfo); // Disabled: randomizing MAC breaks HWID on private servers with anti-cheat
 	DetourAttach(&(PVOID&)Real_CreateSemaphoreA, User_CreateSemaphoreA);
 	DetourAttach(&(PVOID&)Real_CreateSemaphoreW, User_CreateSemaphoreW);
 	DetourAttach(&(PVOID&)Real_connect,          Detour_connect);
@@ -251,7 +251,7 @@ void Uninstall()
 
 	DetourDetach(&(PVOID&)Real_CreateMutexA,     User_CreateMutexA);
 	DetourDetach(&(PVOID&)Real_bind,             User_bind);
-	DetourDetach(&(PVOID&)Real_GetAdaptersInfo,  User_GetAdaptersInfo);
+	// DetourDetach(&(PVOID&)Real_GetAdaptersInfo,  User_GetAdaptersInfo);
 	DetourDetach(&(PVOID&)Real_CreateSemaphoreA, User_CreateSemaphoreA);
 	DetourDetach(&(PVOID&)Real_CreateSemaphoreW, User_CreateSemaphoreW);
 	DetourDetach(&(PVOID&)Real_connect,          Detour_connect);

@@ -1,4 +1,4 @@
-﻿using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Linq;
 using System.IO;
 using System.Windows.Forms;
 using xBot.Game;
@@ -83,6 +83,11 @@ namespace xBot.App
 					root["_xBot"] = "ProjexNET | Easy & Flexible. Design perfection!";
 					root["_Version"] = w.ProductVersion;
 					root["_ContactMe"] = "Engels [JellyBitz] Quintero | Discord: JellyBitz#7643";
+
+					// Custom managers
+					root["LoginStrategy"] = LoginStrategyManager.ToJson();
+					root["CombatAI"] = CombatAIEngine.ToJson();
+
 					// Saving
 					File.WriteAllText("Settings.json", root.ToString());
 				}
@@ -211,6 +216,12 @@ namespace xBot.App
 				}
 				w.Settings_rbnPacketOnlyShow.Checked = (bool)packetAnalyzer["FilterOnlyShow"];
 				#endregion
+
+				// Custom managers
+				if (root.ContainsKey("LoginStrategy"))
+					LoginStrategyManager.FromJson((Newtonsoft.Json.Linq.JObject)root["LoginStrategy"]);
+				if (root.ContainsKey("CombatAI"))
+					CombatAIEngine.FromJson((Newtonsoft.Json.Linq.JObject)root["CombatAI"]);
 			}
 		}
 		/// <summary>
@@ -395,6 +406,12 @@ namespace xBot.App
 						Options["Note"] = w.Stall_tbxStallNote.Text;
 					}
 					#endregion
+
+					// Custom character managers
+					root["SkillManager"] = SkillManager.ToJson();
+					root["ProtectionManager"] = ProtectionManager.ToJson();
+					root["StatPointManager"] = StatPointManager.ToJson();
+					root["ItemFilterManager"] = ItemFilterManager.ToJson();
 
 					// Saving
 					File.WriteAllText("Config\\" + DataManager.SilkroadName + "_" + InfoManager.ServerName + "_" + InfoManager.CharName + ".json", root.ToString());
@@ -749,6 +766,16 @@ namespace xBot.App
 					w.Stall_tbxStallNote.Text = Options.ContainsKey("Note") ? (string)Options["Note"] : "[xBot] Fear cuts deeper than swords..";
 				}
 				#endregion
+
+				// Custom character managers
+				if (root.ContainsKey("SkillManager"))
+					SkillManager.FromJson((Newtonsoft.Json.Linq.JObject)root["SkillManager"]);
+				if (root.ContainsKey("ProtectionManager"))
+					ProtectionManager.FromJson((Newtonsoft.Json.Linq.JObject)root["ProtectionManager"]);
+				if (root.ContainsKey("StatPointManager"))
+					StatPointManager.FromJson((Newtonsoft.Json.Linq.JObject)root["StatPointManager"]);
+				if (root.ContainsKey("ItemFilterManager"))
+					ItemFilterManager.FromJson((Newtonsoft.Json.Linq.JObject)root["ItemFilterManager"]);
 
 				LoadingCharacterSettings = false;
 			}

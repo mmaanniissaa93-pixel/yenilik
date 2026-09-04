@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Specialized;
 namespace xBot.Game.Objects.Item
 {
@@ -14,18 +14,39 @@ namespace xBot.Game.Objects.Item
 			NameValueCollection data = DataManager.GetMagicOption(ID);
 
 			this.ID = ID;
-      ServerName = data["servername"];
-			Name = data["name"];
-			ValueMax = uint.Parse(data["maxvalue"]);
+			if (data != null)
+			{
+				ServerName = data["servername"] ?? "";
+				Name = data["name"] ?? ServerName;
+				uint v;
+				ValueMax = uint.TryParse(data["maxvalue"], out v) ? v : 0;
+			}
+			else
+			{
+				ServerName = "MATTR_UNKNOWN_" + ID;
+				Name = ServerName;
+				ValueMax = 0;
+			}
 		}
 		public SRMagicOption(string ServerName)
 		{
 			NameValueCollection data = DataManager.GetMagicOption(ServerName);
 			
-			ID = uint.Parse(data["id"]);
 			this.ServerName = ServerName;
-			Name = data["name"];
-			ValueMax = uint.Parse(data["maxvalue"]);
+			if (data != null)
+			{
+				uint idVal;
+				ID = uint.TryParse(data["id"], out idVal) ? idVal : 0;
+				Name = data["name"] ?? ServerName;
+				uint v;
+				ValueMax = uint.TryParse(data["maxvalue"], out v) ? v : 0;
+			}
+			else
+			{
+				ID = 0;
+				Name = ServerName;
+				ValueMax = 0;
+			}
 		}
 		public string GetFullName()
 		{

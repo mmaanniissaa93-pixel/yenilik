@@ -1,4 +1,4 @@
-﻿using SecurityAPI;
+using SecurityAPI;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -246,8 +246,9 @@ namespace xBot.Network
 			}
 			catch(Exception ex)
 			{
-				Bot.Get.LogError("Parsing Error",ex, packet);
-				throw ex;
+				Bot.Get.LogError("Parsing Error", ex, packet);
+				App.Window.Get?.Log($"[PacketParser Warning] Error parsing opcode 0x{packet.Opcode:X4}: {ex.Message}");
+				return false;
 			}
 		}
 		/// <summary>
@@ -265,8 +266,16 @@ namespace xBot.Network
 						return true;
 					break;
 				case Opcode.CLIENT_CHARACTER_SELECTION_JOIN_REQUEST:
-						InfoManager.SetCharacter(packet.ReadAscii());
-					return true;
+					string charName = packet.ReadAscii();
+					packet.SeekRead(0, System.IO.SeekOrigin.Begin);
+					InfoManager.CharName = charName;
+					Window wSelect = Window.Get;
+					wSelect?.Login_btnStart.InvokeIfRequired(() => {
+						wSelect.Login_btnStart.Enabled = false;
+					});
+					wSelect?.LogProcess("Selecting [" + charName + "] ...");
+					wSelect?.Log("Selecting [" + charName + "] ...");
+					return false;
 				case Opcode.CLIENT_CHARACTER_CONFIRM_SPAWN:
 					if (!ClientlessMode)
 						InfoManager.OnTeleported();
@@ -378,6 +387,10 @@ namespace xBot.Network
 
 						protocol = new Packet(Opcode.CLIENT_CONSIGNMENT_LIST_REQUEST);
 						InjectToServer(protocol);
+					}
+					else
+					{
+						InfoManager.OnTeleported();
 					}
 					break;
 				case Opcode.SERVER_CHARACTER_STATS_UPDATE:
@@ -658,6 +671,7 @@ namespace xBot.Network
 		/// <param name="delay">Delay in miliseconds to be executed in other thread</param>
 		public void InjectToServer(Packet p, int delay = 0)
 		{
+			App.Window.Get?.Log($"[Bot -> Server] Injected Opcode: 0x{p.Opcode:X4} (len: {p.GetBytes().Length}, enc: {p.Encrypted})");
 			if(delay > 0)
 			{
 				(new Thread((ThreadStart)delegate{

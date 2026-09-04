@@ -120,6 +120,14 @@
     <Compile Include="App\Bot\Bot.Events.cs" />
     <Compile Include="App\Bot\Bot.IA.cs" />
     <Compile Include="App\Bot\Bot.Checks.cs" />
+    <Compile Include="App\LocalizationManager.cs" />
+    <Compile Include="App\LoginStrategyManager.cs" />
+    <Compile Include="App\CombatAIEngine.cs" />
+    <Compile Include="App\SkillManager.cs" />
+    <Compile Include="App\ProtectionManager.cs" />
+    <Compile Include="App\StatPointManager.cs" />
+    <Compile Include="App\ItemFilterManager.cs" />
+    <Compile Include="App\Window.CustomTabs.cs" />
     <Compile Include="Game\Objects\Common\SRCollectionBook.cs" />
     <Compile Include="Game\Objects\Common\SRMastery.cs" />
     <Compile Include="Game\Objects\Common\SRQuest.cs" />

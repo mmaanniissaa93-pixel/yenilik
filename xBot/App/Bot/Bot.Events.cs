@@ -51,8 +51,8 @@ namespace xBot.App
 			// Select character
 			if (w.Login_cmbxCharacter.Items.Count > 0)
 			{
-				// Try Autologin
-				if (hasAutoLoginMode)
+				// Try Autologin only in Clientless mode to avoid interfering with client UI and HWID verification
+				if (hasAutoLoginMode && Proxy.ClientlessMode)
 				{
 					w.InvokeIfRequired(() => {
 						if (w.Login_cmbxCharacter.Text != ""){
@@ -88,13 +88,16 @@ namespace xBot.App
 					}
 				}
 			}
-			// Select the first character available
-			if (w.Settings_cbxSelectFirstChar.Checked)
+			// Select character based on strategy (FirstFound vs HighestLevel)
+			// Only in Clientless mode, and only when hasAutoLoginMode didn't already handle it above.
+			if (!hasAutoLoginMode
+				&& (LoginStrategyManager.AutomatedLogin || w.Settings_cbxSelectFirstChar.Checked)
+				&& Proxy.ClientlessMode)
 			{
-				SRCharSelection character = CharacterList.Find(c => !c.isDeleting);
+				SRCharSelection character = LoginStrategyManager.SelectCharacter(CharacterList);
 				if (character != null)
 				{
-					w.LogProcess("Selecting...");
+					w.Log("Selecting [" + character.Name + "] (Lvl " + character.Level + ") ...");
 					w.InvokeIfRequired(() => {
 						w.Login_cmbxCharacter.Text = character.Name;
 						w.Control_Click(w.Login_btnStart, null);
@@ -166,6 +169,12 @@ namespace xBot.App
 
 			if (!Proxy.ClientlessMode)
 			{
+				if (LoginStrategyManager.AutoHideClient)
+				{
+					ClientManager.HideClient();
+					w.Log("Game client automatically hidden.");
+				}
+
 				// Avoid client getting freezed generating issues
 				// 10s is enough to leave the client totally loaded
 				Timer check = new Timer(10000);
@@ -176,6 +185,19 @@ namespace xBot.App
 			else
 			{
 				CheckLoginOptions(null, null);
+			}
+
+			if (LoginStrategyManager.AutoStartBot)
+			{
+				System.Threading.ThreadPool.QueueUserWorkItem(_ =>
+				{
+					System.Threading.Thread.Sleep(3000);
+					if (!isBotting)
+					{
+						w.Log("Auto starting bot execution...");
+						Start();
+					}
+				});
 			}
 
 			// Start loop event
@@ -197,6 +219,9 @@ namespace xBot.App
 			// Update map view every seconds
 			if (JoinedLoopCounter % 5 == 0)
 				w.Minimap_Character_View(p, InfoManager.Character.GetDegreeAngle());
+			// Update header stats (LVL/HP/MP labels) every 5 iterations
+			if (JoinedLoopCounter % 5 == 0)
+				w.UpdateHeaderStats();
 			JoinedLoopCounter++;
 		}
 		private Timer tJoinedLoop;

@@ -1,4 +1,4 @@
-﻿using SecurityAPI;
+using SecurityAPI;
 using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
@@ -28,46 +28,76 @@ namespace xBot.Game
 			WinAPI.InvokeIfRequired(w.Login_cmbxServer, () => {
 				w.Login_cmbxServer.Items.Clear();
 			});
-			while (packet.ReadByte() == 1)
+			try
 			{
-				byte farmID = packet.ReadByte();
-				string farmName = packet.ReadAscii();
-				//WinAPI.InvokeIfRequired(w.Login_lstvServers, () =>{
-				//	Window.get.Login_lstvServers.Groups.Add(farmID.ToString(), farmName);
-				//});
-			}
-			InfoManager.ServerID = "";
-			while (packet.ReadByte() == 1)
-			{
-				ushort serverID = packet.ReadUShort();
-				string serverName = packet.ReadAscii();
-				ushort players = packet.ReadUShort();
-				ushort maxPlayers = packet.ReadUShort();
-				bool isAvailable = packet.ReadByte() == 1;
-				byte farm_ID = packet.ReadByte();
-
-				// Generate server list
-				ListViewItem server = new ListViewItem(serverName);
-				server.Name = serverID.ToString();
-				server.SubItems.Add(players + " / " + maxPlayers + " ("+Math.Round(players*100d/maxPlayers,2)+"%)");
-				server.SubItems.Add((isAvailable ? "Online" : "Offline"));
-				w.Login_lstvServers.InvokeIfRequired(() => {
-					//i.Group = w.Login_lstvServers.Groups[serverID_farmID.ToString()];
-					w.Login_lstvServers.Items.Add(server);
-				});
-				if (isAvailable)
+				while (packet.RemainingRead() > 0 && packet.ReadByte() == 1)
 				{
-					w.Login_cmbxServer.InvokeIfRequired(() => {
-						w.Login_cmbxServer.Items.Add(serverName);
-						// Select Server if is AutoLogin
-						if (Bot.Get.hasAutoLoginMode
-						&& w.Login_cmbxServer.Tag != null
-						&& serverName.Equals((string)w.Login_cmbxServer.Tag, StringComparison.OrdinalIgnoreCase))
-						{
-							w.Login_cmbxServer.SelectedItem = serverName;
-						}
-					});
+					if (packet.RemainingRead() < 3) break;
+					byte farmID = packet.ReadByte();
+					string farmName = packet.ReadAscii();
+					//WinAPI.InvokeIfRequired(w.Login_lstvServers, () =>{
+					//	Window.get.Login_lstvServers.Groups.Add(farmID.ToString(), farmName);
+					//});
 				}
+				InfoManager.ServerID = "";
+				while (packet.RemainingRead() > 0 && packet.ReadByte() == 1)
+				{
+					if (packet.RemainingRead() < 3) break;
+					ushort serverID = packet.ReadUShort();
+					string serverName = packet.ReadAscii();
+
+					ushort players = 0;
+					ushort maxPlayers = 0;
+					bool isAvailable = true;
+					byte farm_ID = 0;
+
+					// Format check:
+					// Legacy vSRO format has: ushort players, ushort maxPlayers, byte isAvailable, byte farmID (>= 6 bytes)
+					// Modern iSRO/Silkroad-R format has: byte traffic, byte isOperating (>= 2 bytes)
+					if (packet.RemainingRead() >= 6 && DataManager.Version < 300)
+					{
+						players = packet.ReadUShort();
+						maxPlayers = packet.ReadUShort();
+						isAvailable = packet.ReadByte() == 1;
+						farm_ID = packet.ReadByte();
+					}
+					else if (packet.RemainingRead() >= 2)
+					{
+						byte traffic = packet.ReadByte();
+						isAvailable = packet.ReadByte() == 1;
+					}
+
+					// Generate server list
+					ListViewItem server = new ListViewItem(serverName);
+					server.Name = serverID.ToString();
+					if (maxPlayers > 0)
+						server.SubItems.Add(players + " / " + maxPlayers + " (" + Math.Round(players * 100d / maxPlayers, 2) + "%)");
+					else
+						server.SubItems.Add(isAvailable ? "Normal" : "Check");
+
+					server.SubItems.Add((isAvailable ? "Online" : "Offline"));
+					w.Login_lstvServers.InvokeIfRequired(() => {
+						//i.Group = w.Login_lstvServers.Groups[serverID_farmID.ToString()];
+						w.Login_lstvServers.Items.Add(server);
+					});
+					if (isAvailable)
+					{
+						w.Login_cmbxServer.InvokeIfRequired(() => {
+							w.Login_cmbxServer.Items.Add(serverName);
+							// Select Server if is AutoLogin
+							if (Bot.Get.hasAutoLoginMode
+							&& w.Login_cmbxServer.Tag != null
+							&& serverName.Equals((string)w.Login_cmbxServer.Tag, StringComparison.OrdinalIgnoreCase))
+							{
+								w.Login_cmbxServer.SelectedItem = serverName;
+							}
+						});
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				w?.Log("[ShardListResponse Warning] " + ex.Message);
 			}
 			// Unlock button
 			if (w.Login_btnStart.Text == "STOP" && Bot.Get.Proxy.ClientlessMode
@@ -181,13 +211,15 @@ namespace xBot.Game
 							CharacterList.Add(character);
 						}
 						// End of Packet
+						w.Log("Character list loaded (" + CharacterList.Count + " character(s)).");
 						InfoManager.OnCharacterListing(CharacterList);
 					}
 					else if (result == 2)
 					{
 						ushort errCode = packet.ReadUShort();
-						Window.Get.Log("Error [" + errCode + "]");
-						Bot.Get.Proxy.Stop();
+						Window.Get.Log("Character list error [" + errCode + "]");
+						if (Bot.Get.Proxy.ClientlessMode)
+							Bot.Get.Proxy.Stop();
 					}
 					break;
 			}
@@ -199,7 +231,7 @@ namespace xBot.Game
 			Window w = Window.Get;
 			if (success == 1)
 			{
-				w.Log("Character selected [" + InfoManager.CharName + "]");
+				w.Log("Character selected [" + InfoManager.CharName + "], loading world...");
 			}
 			else
 			{
@@ -210,6 +242,7 @@ namespace xBot.Game
 		private static Packet characterDataPacket;
 		public static void CharacterDataBegin(Packet packet)
 		{
+			Window.Get.Log("Entering game world (receiving character data)...");
 			characterDataPacket = new Packet(Agent.Opcode.SERVER_CHARACTER_DATA);
 			//InfoManager.OnTeleporting();
 		}
@@ -219,118 +252,162 @@ namespace xBot.Game
 		}
 		public static void CharacterDataEnd()
 		{
-			Packet p = characterDataPacket;
-			p.Lock();
-
-			InfoManager.SetServerTime(new SRTimeStamp(p.ReadUInt()));
-			SRCharacter character = new SRCharacter(p.ReadUInt());
-			character.Scale = p.ReadByte();
-			character.Level = p.ReadByte();
-			character.LevelMax = p.ReadByte();
-			character.Exp = p.ReadULong();
-			character.SPExp = p.ReadUInt();
-			character.Gold = p.ReadULong();
-			character.SP = p.ReadUInt();
-			character.StatPoints = p.ReadUShort();
-			character.BerserkPoints = p.ReadByte();
-			character.GatheredExpPoint = p.ReadUInt();
-			character.HPMax = character.HP = p.ReadUInt();
-			character.MPMax = character.MP = p.ReadUInt();
-			character.ExpIconType = (SRPlayer.ExpIcon)p.ReadByte();
-			character.PKDaily = p.ReadByte();
-			character.PKTotal = p.ReadUShort();
-			character.PKPenalty = p.ReadUInt();
-			character.BerserkLevel = p.ReadByte();
-			character.PVPCapeType = (SRPlayer.PVPCape)p.ReadByte();
-			// Inventory
-			xList<SRItem> inventory = new xList<SRItem>(p.ReadByte());
-			byte itemCount = p.ReadByte();
-			for (byte j = 0; j < itemCount; j++)
+			SRCharacter character = null;
+			try
 			{
-				byte slot = p.ReadByte();
-				inventory[slot] = ItemParsing(p);
-			}
-			character.Inventory = inventory;
-			// Inventory Avatar
-			inventory = new xList<SRItem>(p.ReadByte());
-			itemCount = p.ReadByte();
-			for (byte j = 0; j < itemCount; j++)
-			{
-				byte slot = p.ReadByte();
-				inventory[slot] = ItemParsing(p);
-			}
-			character.InventoryAvatar = inventory;
-			// Masteries
-			character.unkByte01 = p.ReadByte();
-			xDictionary<uint,SRMastery> masteries = new xDictionary<uint,SRMastery>();
-			while (p.ReadBool())
-			{
-				SRMastery mastery = new SRMastery(p.ReadUInt());
-				mastery.Level = p.ReadByte();
-				masteries[mastery.ID] = mastery;
-			}
-			character.Masteries = masteries;
-			// Skills
-			character.unkByte02 = p.ReadByte();
-			xDictionary<uint, SRSkill> skills = new xDictionary<uint, SRSkill>();
-			while (p.ReadBool())
-			{
-				SRSkill skill = new SRSkill(p.ReadUInt());
-				skill.Enabled = p.ReadBool();
-				skills[skill.ID] = skill;
-			}
-			character.Skills = skills;
-			// Quests
-			xDictionary<uint, SRQuest> quests = new xDictionary<uint, SRQuest>();
-			ushort questsCompletedCount = p.ReadUShort();
-			for (ushort j = 0; j < questsCompletedCount; j++)
-			{
-				SRQuest quest = new SRQuest(p.ReadUInt());
-				quests[quest.ID] = quest;
-			}
-			character.QuestsCompleted = quests;
-
-			quests = new xDictionary<uint, SRQuest>();
-			byte questCount = p.ReadByte();
-			for (byte j = 0; j < questCount; j++)
-			{
-				SRQuest quest = new SRQuest(p.ReadUInt());
-				quest.Achievements = p.ReadByte();
-				quest.isAutoShareRequired = p.ReadBool();
-				quest.QuestType = p.ReadByte();
-				if (quest.QuestType == 28)
-					quest.TimeRemain = p.ReadUInt();
-				quest.State = p.ReadByte();
-				if (quest.QuestType != 8)
+				Packet p = characterDataPacket;
+				if (p == null) return;
+				try
 				{
-					xList<SRQuestObjective> objectives = new xList<SRQuestObjective>(p.ReadByte());
-					for (byte k = 0; k < objectives.Capacity; k++)
-					{
-						SRQuestObjective objective = new SRQuestObjective(p.ReadByte());
-						objective.isEnabled = p.ReadBool();
-						objective.Name = p.ReadAscii();
-						objective.TasksID = p.ReadUIntArray(p.ReadByte());
-						objectives[k] = objective;
-					}
-					quest.Objectives = objectives;
+					System.IO.File.WriteAllBytes("chardata_last.bin", p.GetBytes());
 				}
-				if (quest.QuestType == 88)
-					quest.NpcsID = p.ReadUIntArray(p.ReadByte());
-				quests[quest.ID] = quest;
-			}
-			character.Quests = quests;
-			// Collection Books
-			character.unkByte03 = p.ReadByte();
-			xDictionary<uint, SRCollectionBook> collectionBooks = new xDictionary<uint, SRCollectionBook>();
-			uint bookCount = p.ReadUInt();
-			for (uint j = 0; j < bookCount; j++)
-			{
-				SRCollectionBook book = new SRCollectionBook(p.ReadUInt());
-				book.StartedDatetime = new SRTimeStamp(p.ReadUInt());
-				book.Pages = p.ReadUInt();
-				collectionBooks[book.ID] = book;
-			}
-			character.CollectionBooks = collectionBooks;
+				catch { }
+				p.Lock();
+
+				InfoManager.SetServerTime(new SRTimeStamp(p.ReadUInt()));
+				character = new SRCharacter(p.ReadUInt());
+				character.Scale = p.ReadByte();
+				character.Level = p.ReadByte();
+				character.LevelMax = p.ReadByte();
+				character.Exp = p.ReadULong();
+				character.SPExp = p.ReadUInt();
+				character.Gold = p.ReadULong();
+				character.SP = p.ReadUInt();
+				character.StatPoints = p.ReadUShort();
+				character.BerserkPoints = p.ReadByte();
+				character.GatheredExpPoint = p.ReadUInt();
+				character.HPMax = character.HP = p.ReadUInt();
+				character.MPMax = character.MP = p.ReadUInt();
+				character.ExpIconType = (SRPlayer.ExpIcon)p.ReadByte();
+				character.PKDaily = p.ReadByte();
+				character.PKTotal = p.ReadUShort();
+				character.PKPenalty = p.ReadUInt();
+				character.BerserkLevel = p.ReadByte();
+				character.PVPCapeType = (SRPlayer.PVPCape)p.ReadByte();
+
+				bool isSilkroadR = (DataManager.Locale == 65);
+				if (isSilkroadR)
+				{
+					p.ReadByteArray(21); // Silkroad-R header between PVPCape and inventory
+				}
+
+				byte invCapacity = p.ReadByte();
+				byte itemCount = p.ReadByte();
+
+				// Inventory
+				xList<SRItem> inventory = new xList<SRItem>(invCapacity);
+				for (byte j = 0; j < itemCount; j++)
+				{
+					byte slot = p.ReadByte();
+					inventory[slot] = ItemParsing(p);
+				}
+				character.Inventory = inventory;
+				// Inventory Avatar
+				inventory = new xList<SRItem>(p.ReadByte());
+				itemCount = p.ReadByte();
+				for (byte j = 0; j < itemCount; j++)
+				{
+					byte slot = p.ReadByte();
+					inventory[slot] = ItemParsing(p);
+				}
+				character.InventoryAvatar = inventory;
+
+				if (isSilkroadR)
+				{
+					p.ReadByte(); // Silkroad-R extra job pouch / inventory byte
+				}
+
+				// Masteries
+				character.unkByte01 = p.ReadByte();
+				xDictionary<uint,SRMastery> masteries = new xDictionary<uint,SRMastery>();
+				while (p.ReadBool())
+				{
+					SRMastery mastery = new SRMastery(p.ReadUInt());
+					mastery.Level = p.ReadByte();
+					masteries[mastery.ID] = mastery;
+				}
+				character.Masteries = masteries;
+				// Skills
+				character.unkByte02 = p.ReadByte();
+				xDictionary<uint, SRSkill> skills = new xDictionary<uint, SRSkill>();
+				while (p.ReadBool())
+				{
+					SRSkill skill = new SRSkill(p.ReadUInt());
+					skill.Enabled = p.ReadBool();
+					skills[skill.ID] = skill;
+				}
+				character.Skills = skills;
+				// Quests
+				if (isSilkroadR)
+				{
+					p.ReadByteArray(8); // Completed quests header
+					byte questCount = p.ReadByte();
+					for (byte j = 0; j < questCount; j++)
+					{
+						uint qId = p.ReadUInt();
+						p.ReadByteArray(9);
+						p.ReadAscii();
+						p.ReadByteArray(5);
+						byte taskCount = p.ReadByte();
+						for (byte t = 0; t < taskCount; t++)
+						{
+							p.ReadUInt();
+						}
+					}
+				}
+				else
+				{
+					xDictionary<uint, SRQuest> quests = new xDictionary<uint, SRQuest>();
+					ushort questsCompletedCount = p.ReadUShort();
+					for (ushort j = 0; j < questsCompletedCount; j++)
+					{
+						SRQuest quest = new SRQuest(p.ReadUInt());
+						quests[quest.ID] = quest;
+					}
+					character.QuestsCompleted = quests;
+
+					quests = new xDictionary<uint, SRQuest>();
+					byte questCount = p.ReadByte();
+					for (byte j = 0; j < questCount; j++)
+					{
+						SRQuest quest = new SRQuest(p.ReadUInt());
+						quest.Achievements = p.ReadByte();
+						quest.isAutoShareRequired = p.ReadBool();
+						quest.QuestType = p.ReadByte();
+						if (quest.QuestType == 28)
+							quest.TimeRemain = p.ReadUInt();
+						quest.State = p.ReadByte();
+						if (quest.QuestType != 8)
+						{
+							xList<SRQuestObjective> objectives = new xList<SRQuestObjective>(p.ReadByte());
+							for (byte k = 0; k < objectives.Capacity; k++)
+							{
+								SRQuestObjective objective = new SRQuestObjective(p.ReadByte());
+								objective.isEnabled = p.ReadBool();
+								objective.Name = p.ReadAscii();
+								objective.TasksID = p.ReadUIntArray(p.ReadByte());
+								objectives[k] = objective;
+							}
+							quest.Objectives = objectives;
+						}
+						if (quest.QuestType == 88)
+							quest.NpcsID = p.ReadUIntArray(p.ReadByte());
+						quests[quest.ID] = quest;
+					}
+					character.Quests = quests;
+				}
+				// Collection Books
+				character.unkByte03 = p.ReadByte();
+				xDictionary<uint, SRCollectionBook> collectionBooks = new xDictionary<uint, SRCollectionBook>();
+				uint bookCount = p.ReadUInt();
+				for (uint j = 0; j < bookCount; j++)
+				{
+					SRCollectionBook book = new SRCollectionBook(p.ReadUInt());
+					book.StartedDatetime = new SRTimeStamp(p.ReadUInt());
+					book.Pages = p.ReadUInt();
+					collectionBooks[book.ID] = book;
+				}
+				character.CollectionBooks = collectionBooks;
 			// Position
 			character.UniqueID = p.ReadUInt();
 			character.Position = new SRCoord(p.ReadUShort(), (int)p.ReadFloat(), (int)p.ReadFloat(), (int)p.ReadFloat());
@@ -355,6 +432,10 @@ namespace xBot.Game
 			character.unkByte04 = p.ReadByte();
 			character.MotionStateType = (SRModel.MotionState)p.ReadByte();
 			character.GameStateType = (SRModel.GameState)p.ReadByte();
+			if (isSilkroadR)
+			{
+				p.ReadByte(); // Extra state byte in Silkroad-R
+			}
 			character.SpeedWalking = p.ReadFloat();
 			character.SpeedRunning = p.ReadFloat();
 			character.SpeedBerserk = p.ReadFloat();
@@ -418,10 +499,20 @@ namespace xBot.Game
 			#endregion
 			// End of Packet
 			InfoManager.OnCharacterInfo(character);
+			App.Window.Get?.Log($"[CharacterData] {character.Name} (Lv. {character.Level}) loaded!");
+			}
+			catch (Exception ex)
+			{
+				App.Window.Get?.Log($"[CharacterData Warning] Parsing error: {ex.Message}");
+				// Still assign partial character data so subsequent packets don't null-ref
+				try { InfoManager.OnCharacterInfo(character); } catch { }
+				Bot.Get.LogError("CharacterDataEnd Error", ex);
+			}
 		}
 		private static SRItem ItemParsing(Packet p)
 		{
-			SRRentable rentable = new SRRentable(p.ReadUInt());
+			uint rentableId = p.ReadUInt();
+			SRRentable rentable = new SRRentable(rentableId);
 			if(rentable.RentableType != SRRentable.Type.None)
 			{
 				if (rentable.RentableType == SRRentable.Type.LimitedTime)
@@ -445,7 +536,8 @@ namespace xBot.Game
 					rentable.PackingTime = p.ReadUInt();
 				}
 			}
-			SRItem item = SRItem.Create(p.ReadUInt(), rentable);
+			uint itemID = p.ReadUInt();
+			SRItem item = SRItem.Create(itemID, rentable);
 			if (item.isEquipable())
 			{
 				SREquipable equipable = (SREquipable)item;
@@ -460,24 +552,34 @@ namespace xBot.Game
 					magicOptions[j].Value = p.ReadUInt();
 				}
 				equipable.MagicOptions = magicOptions;
-				// 1 = Socket
-				p.ReadByte();
-				xList<SRSocket> sockets = new xList<SRSocket>(p.ReadByte());
-				for (byte j = 0; j < sockets.Capacity; j++)
+
+				bool isSilkroadR = (DataManager.Locale == 65);
+				if (isSilkroadR)
 				{
-					sockets[j] = new SRSocket(p.ReadByte(),p.ReadUInt());
-					sockets[j].Value = p.ReadUInt();
+					// Sockets in Silkroad-R: 8 bytes (4 x ushort)
+					p.ReadByteArray(8);
 				}
-				equipable.Sockets = sockets;
-				// 2 = Advanced elixir
-				p.ReadByte();
-				xList<SRAdvancedElixir> advancedElixirs = new xList<SRAdvancedElixir>(p.ReadByte());
-				for (byte j = 0; j < advancedElixirs.Capacity; j++)
+				else
 				{
-					advancedElixirs[j] = new SRAdvancedElixir(p.ReadByte(), p.ReadUInt());
-					advancedElixirs[j].Value = p.ReadUInt();
+					// 1 = Socket
+					p.ReadByte();
+					xList<SRSocket> sockets = new xList<SRSocket>(p.ReadByte());
+					for (byte j = 0; j < sockets.Capacity; j++)
+					{
+						sockets[j] = new SRSocket(p.ReadByte(),p.ReadUInt());
+						sockets[j].Value = p.ReadUInt();
+					}
+					equipable.Sockets = sockets;
+					// 2 = Advanced elixir
+					p.ReadByte();
+					xList<SRAdvancedElixir> advancedElixirs = new xList<SRAdvancedElixir>(p.ReadByte());
+					for (byte j = 0; j < advancedElixirs.Capacity; j++)
+					{
+						advancedElixirs[j] = new SRAdvancedElixir(p.ReadByte(), p.ReadUInt());
+						advancedElixirs[j].Value = p.ReadUInt();
+					}
+					equipable.AdvancedElixirs = advancedElixirs;
 				}
-				equipable.AdvancedElixirs = advancedElixirs;
 			}
 			else if (item.isCoS())
 			{
@@ -532,6 +634,7 @@ namespace xBot.Game
 		public static void CharacterStatsUpdate(Packet packet)
 		{
 			SRCharacter character = InfoManager.Character;
+			if (character == null) return;
 			character.PhyAtkMin = packet.ReadUInt();
 			character.PhyAtkMax = packet.ReadUInt();
 			character.MagAtkMin = packet.ReadUInt();
@@ -614,13 +717,20 @@ namespace xBot.Game
 			GroupSpawnPacket.Lock();
 			for (int i = 0; i < GroupSpawnCount; i++)
 			{
-				if (GroupSpawnType == 1)
+				try
 				{
-					EntitySpawn(GroupSpawnPacket);
+					if (GroupSpawnType == 1)
+					{
+						EntitySpawn(GroupSpawnPacket);
+					}
+					else
+					{
+						EntityDespawn(GroupSpawnPacket);
+					}
 				}
-				else
+				catch (Exception ex)
 				{
-					EntityDespawn(GroupSpawnPacket);
+					Bot.Get.LogError("EntityGroupSpawnEnd Entity Error", ex, GroupSpawnPacket);
 				}
 			}
 		}
@@ -711,6 +821,10 @@ namespace xBot.Game
 						model.unkByte01 = packet.ReadByte();
 						model.MotionStateType = (SRModel.MotionState)packet.ReadByte();
 						model.GameStateType = (SRModel.GameState)packet.ReadByte();
+						if (DataManager.Locale == 65)
+						{
+							packet.ReadByte(); // Silkroad-R extra state byte
+						}
 						// Speed
 						model.SpeedWalking = packet.ReadFloat();
 						model.SpeedRunning = packet.ReadFloat();
@@ -788,6 +902,10 @@ namespace xBot.Game
 								mob.MobType = (SRMob.Mob)packet.ReadByte();
 								if (mob.ID4 == 2 || mob.ID4 == 3)
 									mob.Appearence = packet.ReadByte();
+								if (DataManager.Locale == 65)
+								{
+									packet.ReadUInt(); // Silkroad-R extra mob DWORD
+								}
 							}
 							else if (npc.isCOS())
 							{
@@ -914,6 +1032,7 @@ namespace xBot.Game
 		public static void EntityMovement(Packet packet)
 		{
 			SRModel entity = (SRModel)InfoManager.GetEntity(packet.ReadUInt());
+			if (entity == null) return;
 			SRCoord currentPosition = entity.GetRealtimePosition();
 			bool hasMovement = packet.ReadBool();
 			if (hasMovement)
@@ -992,6 +1111,7 @@ namespace xBot.Game
 		public static void EntityMovementStuck(Packet packet)
 		{
 			SREntity entity = InfoManager.GetEntity(packet.ReadUInt());
+			if (entity == null) return;
 			entity.Position = new SRCoord(packet.ReadUShort(), (int)packet.ReadFloat(), (int)packet.ReadFloat(), (int)packet.ReadFloat());
 			entity.Angle = packet.ReadUShort();
 			// End of Packet
@@ -1005,11 +1125,14 @@ namespace xBot.Game
 		public static void EntityMovementAngle(Packet packet)
 		{
 			SREntity entity = InfoManager.GetEntity(packet.ReadUInt());
+			if (entity == null) return;
 			entity.Angle = packet.ReadUShort();
 		}
 		public static void EnviromentCelestialPosition(Packet packet)
 		{
-			InfoManager.Character.UniqueID = packet.ReadUInt();
+			uint uid = packet.ReadUInt();
+			if (InfoManager.Character != null)
+				InfoManager.Character.UniqueID = uid;
 			//ushort moonphase = packet.ReadUShort();
 			//byte hour = packet.ReadByte();
 			//byte minute = packet.ReadByte();
@@ -2101,6 +2224,7 @@ namespace xBot.Game
 			byte slotInventory = p.ReadByte();
 			// End of Packet
 
+			if (InfoManager.Character == null) return;
 			xList<SRItem> inventoryAvatar = InfoManager.Character.InventoryAvatar;
 			xList<SRItem> inventory = InfoManager.Character.Inventory;
 			
@@ -2115,6 +2239,7 @@ namespace xBot.Game
 			byte slotInventoryAvatar = p.ReadByte();
 			// End of Packet
 
+			if (InfoManager.Character == null) return;
 			xList<SRItem> inventoryAvatar = InfoManager.Character.InventoryAvatar;
 			xList<SRItem> inventory = InfoManager.Character.Inventory;
 
@@ -2133,6 +2258,7 @@ namespace xBot.Game
 				//ushort usageType = packet.ReadUShort();
 				// End of Packet
 
+				if (InfoManager.Character == null) return;
 				xList<SRItem> inventory = InfoManager.Character.Inventory;
 
 				if (quantityUpdate == 0)
@@ -2615,9 +2741,13 @@ namespace xBot.Game
 			if (packet.ReadBool())
 			{
 				uint masteryID = packet.ReadUInt();
-
-				SRMastery mastery = InfoManager.Character.Masteries[masteryID];
-				mastery.Level = packet.ReadByte();
+				byte newLevel = packet.ReadByte();
+				if (InfoManager.Character != null && InfoManager.Character.Masteries != null && InfoManager.Character.Masteries.ContainsKey(masteryID))
+				{
+					SRMastery mastery = InfoManager.Character.Masteries[masteryID];
+					if (mastery != null)
+						mastery.Level = newLevel;
+				}
 			}
 		}
 		public static void MasteryLevelDownResponse(Packet packet)
@@ -2626,23 +2756,31 @@ namespace xBot.Game
 			if (packet.ReadBool())
 			{
 				uint masteryID = packet.ReadUInt();
-
-				SRMastery mastery = InfoManager.Character.Masteries[masteryID];
-				mastery.Level = packet.ReadByte();
+				byte newLevel = packet.ReadByte();
+				if (InfoManager.Character != null && InfoManager.Character.Masteries != null && InfoManager.Character.Masteries.ContainsKey(masteryID))
+				{
+					SRMastery mastery = InfoManager.Character.Masteries[masteryID];
+					if (mastery != null)
+						mastery.Level = newLevel;
+				}
 			}
 		}
 		public static void EntitySpeedUpdate(Packet packet)
 		{
-			SRModel entity = (SRModel)InfoManager.GetEntity(packet.ReadUInt());
+			uint uid = packet.ReadUInt();
+			SRModel entity = (SRModel)InfoManager.GetEntity(uid);
+			if (entity == null) return;
 			entity.GetRealtimePosition(); // Force update the current position
 			entity.SpeedWalking = packet.ReadFloat();
 			entity.SpeedRunning = packet.ReadFloat();
 		}
 		public static void EntityStateUpdate(Packet packet)
 		{
-			SRModel entity = (SRModel)InfoManager.GetEntity(packet.ReadUInt());
+			uint uid = packet.ReadUInt();
+			SRModel entity = (SRModel)InfoManager.GetEntity(uid);
 			byte updateType = packet.ReadByte();
 			byte updateState = packet.ReadByte();
+			if (entity == null) return;
 			switch (updateType)
 			{
 				case 0: // LifeState
@@ -2665,13 +2803,16 @@ namespace xBot.Game
 					entity.GameStateType = (SRModel.GameState)updateState;
 					break;
 				case 7:
-					((SRPlayer)entity).PVPStateType = (SRPlayer.PVPState)updateState;
+					if (entity is SRPlayer player7)
+						player7.PVPStateType = (SRPlayer.PVPState)updateState;
 					break;
 				case 8:
-					((SRPlayer)entity).inCombat = updateState == 1;
+					if (entity is SRPlayer player8)
+						player8.inCombat = updateState == 1;
 					break;
 				case 11:
-					((SRPlayer)entity).ScrollingType = (SRPlayer.Scrolling)updateState;
+					if (entity is SRPlayer player11)
+						player11.ScrollingType = (SRPlayer.Scrolling)updateState;
 					break;
 			}
 		}

@@ -743,10 +743,25 @@ namespace xBot.App
                 SetWindowText(_process.MainWindowHandle, title);
         }
 
+        public static bool IsClientHidden { get; private set; } = false;
+
+        public static void HideClient()
+        {
+            SetVisible(false);
+            IsClientHidden = true;
+        }
+
+        public static void ShowClient()
+        {
+            SetVisible(true);
+            IsClientHidden = false;
+        }
+
         public static void SetVisible(bool visible)
         {
             if (_process != null && _process.MainWindowHandle != IntPtr.Zero)
                 ShowWindow(_process.MainWindowHandle, visible ? SW_SHOW : SW_HIDE);
+            IsClientHidden = !visible;
         }
 
         private static void CleanupProcess(PROCESS_INFORMATION pi)

@@ -113,6 +113,9 @@ namespace xBot.App
 			TabPageH_Option_Click(this.TabPageH_Town_Option01, null);
 			Town_cmbxHpType.SelectedIndex = 3;
 			Town_cmbxMpType.SelectedIndex = 3;
+
+			// Initialize Custom UBOT Features
+			InitializeCustomUBOTFeatures();
 		}
 		/// <summary>
 		/// Load command arguments to the App.
@@ -2123,24 +2126,31 @@ namespace xBot.App
 					}
 					break;
 				case "Training_btnGetCoordinates":
-					if (InfoManager.inGame && Training_lstvAreas.SelectedItems.Count == 1)
+					if (InfoManager.inGame || InfoManager.Character != null)
 					{
-						SRCoord Position = InfoManager.Character.GetRealtimePosition();
-						Training_tbxRegion.Text = Position.Region.ToString();
-						Training_tbxX.Text = Position.X.ToString();
-						Training_tbxY.Text = Position.Y.ToString();
-						Training_tbxZ.Text = Position.Z.ToString();
-						
-						Training_lstvAreas.SelectedItems[0].SubItems[1].Tag = Position.Region;
-						Training_lstvAreas.SelectedItems[0].SubItems[2].Tag = Position.X;
-						Training_lstvAreas.SelectedItems[0].SubItems[3].Tag = Position.Y;
-						Training_lstvAreas.SelectedItems[0].SubItems[4].Tag = Position.Z;
+						if (Training_lstvAreas.SelectedItems.Count == 0 && Training_lstvAreas.Items.Count > 0)
+						{
+							Training_lstvAreas.Items[0].Selected = true;
+						}
+						if (Training_lstvAreas.SelectedItems.Count == 1)
+						{
+							SRCoord Position = InfoManager.Character.GetRealtimePosition();
+							Training_tbxRegion.Text = Position.Region.ToString();
+							Training_tbxX.Text = Position.X.ToString();
+							Training_tbxY.Text = Position.Y.ToString();
+							Training_tbxZ.Text = Position.Z.ToString();
+							
+							Training_lstvAreas.SelectedItems[0].SubItems[1].Tag = Position.Region;
+							Training_lstvAreas.SelectedItems[0].SubItems[2].Tag = Position.X;
+							Training_lstvAreas.SelectedItems[0].SubItems[3].Tag = Position.Y;
+							Training_lstvAreas.SelectedItems[0].SubItems[4].Tag = Position.Z;
 
-						Settings.SaveCharacterSettings();
+							Settings.SaveCharacterSettings();
+						}
 					}
 					break;
 				case "Training_btnLoadScriptPath":
-					if (InfoManager.inGame && Training_lstvAreas.SelectedItems.Count == 1)
+					if ((InfoManager.inGame || InfoManager.Character != null) && Training_lstvAreas.SelectedItems.Count == 1)
 					{
 						using (OpenFileDialog fileDialog = new OpenFileDialog())
 						{
@@ -2804,7 +2814,7 @@ namespace xBot.App
 					Bot.Get.SetTraceName(c.Text);
 					break;
 				case "Training_tbxRadius":
-					if (InfoManager.inGame && Training_lstvAreas.SelectedItems.Count == 1)
+					if ((InfoManager.inGame || InfoManager.Character != null) && Training_lstvAreas.SelectedItems.Count == 1)
 					{
 						// Check it's positive number
 						ushort dummy;
@@ -3091,7 +3101,7 @@ namespace xBot.App
 					}
 					break;
 				case "Menu_lstvArea_Add":
-					if (InfoManager.inGame)
+					if (InfoManager.inGame || InfoManager.Character != null)
 					{
 						// Create 
 						int defaultKey = 1;
@@ -3116,21 +3126,46 @@ namespace xBot.App
 						subitem.Tag = 0; // Y
 						newArea.SubItems.Add(subitem);
 						subitem = new ListViewItem.ListViewSubItem();
-						subitem.Tag = 0; // Y
+						subitem.Tag = 0; // Z
 						newArea.SubItems.Add(subitem);
 						subitem = new ListViewItem.ListViewSubItem();
-						subitem.Tag = 0; // Radius
+						subitem.Tag = 50; // Radius
 						newArea.SubItems.Add(subitem);
 						newArea.SubItems.Add(""); // Path
 
+						// Auto-fill character current position if available
+						if (InfoManager.Character != null)
+						{
+							SRCoord currentPos = InfoManager.Character.GetRealtimePosition();
+							if (currentPos != null)
+							{
+								newArea.SubItems[1].Tag = currentPos.Region;
+								newArea.SubItems[2].Tag = currentPos.X;
+								newArea.SubItems[3].Tag = currentPos.Y;
+								newArea.SubItems[4].Tag = currentPos.Z;
+								Training_tbxRegion.Text = currentPos.Region.ToString();
+								Training_tbxX.Text = currentPos.X.ToString();
+								Training_tbxY.Text = currentPos.Y.ToString();
+								Training_tbxZ.Text = currentPos.Z.ToString();
+								Training_tbxRadius.Text = "50";
+							}
+						}
+
 						Training_lstvAreas.Items.Add(newArea);
 						newArea.Selected = true;
+
+						// Auto-activate if first area
+						if (Training_lstvAreas.Tag == null)
+						{
+							newArea.ForeColor = Color.FromArgb(0, 180, 255);
+							Training_lstvAreas.Tag = newArea;
+						}
 
 						Settings.SaveCharacterSettings();
 					}
 					break;
 				case "Menu_lstvArea_Remove":
-					if (InfoManager.inGame)
+					if (InfoManager.inGame || InfoManager.Character != null)
 					{
 						if (Training_lstvAreas.SelectedItems.Count == 1)
 						{
@@ -3144,7 +3179,7 @@ namespace xBot.App
 					}
 					break;
 				case "Menu_lstvArea_Activate":
-					if (InfoManager.inGame)
+					if (InfoManager.inGame || InfoManager.Character != null)
 					{
 						if (Training_lstvAreas.SelectedItems.Count == 1)
 						{

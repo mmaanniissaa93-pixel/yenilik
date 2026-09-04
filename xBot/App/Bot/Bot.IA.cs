@@ -391,6 +391,18 @@ namespace xBot.App
 
                 if (trainingRadius > 0)
                 {
+                    // No attack mode check (support / lure / buffer only)
+                    if (SkillManager.NoAttackMode)
+                    {
+                        w.LogProcess("Support mode: Buffing & Following only");
+                        Thread.Sleep(400);
+                        continue;
+                    }
+
+                    // Ensure Imbue & Devil Spirit are active before combat
+                    SkillManager.EnsureImbueActive();
+                    SkillManager.CheckDevilSpirit();
+
                     // Attacking
                     List<SRMob> mobs = InfoManager.Mobs.FindAll(m => trainingPosition.DistanceTo(m.GetRealtimePosition()) <= trainingRadius);
 
@@ -407,10 +419,10 @@ namespace xBot.App
                             return;
                     }
 
-                    // Combat AI: Check if we need to return to town (no pots / full bag)
+                    // Combat AI: Check if we need to return to town (no pots / full bag / durability)
                     if (w.Town_cbxEnableTownLoop == null || w.Town_cbxEnableTownLoop.Checked)
                     {
-                        if (CheckTownReturnConditions())
+                        if (CheckTownReturnConditions() || ProtectionManager.CheckTownReturnTriggers())
                         {
                             TownLoop(null);
                             return;
@@ -593,6 +605,14 @@ namespace xBot.App
                         continue;
                 }
 
+                // CombatAI: Skip mobs on Avoid list
+                if (CombatAIEngine.ShouldAvoid(m.MobType))
+                    continue;
+
+                // CombatAI: Skip Dimension Pillars if configured
+                if (CombatAIEngine.IgnoreDimensionPillars && CombatAIEngine.IsDimensionPillar(m))
+                    continue;
+
                 double dist = m.GetRealtimePosition().DistanceTo(myPosition);
 
                 // If priority is disabled, strictly choose the nearest mob
@@ -637,6 +657,17 @@ namespace xBot.App
                         break;
                 }
 
+                // CombatAI: Bonus for preferred mob types
+                if (CombatAIEngine.IsPreferred(m.MobType))
+                    score += 200.0;
+
+                // CombatAI: AttackWeakerFirst — boost mobs with lower HP ratio
+                if (CombatAIEngine.AttackWeakerFirst && m.HPMax > 0)
+                {
+                    double hpRatio = (double)m.HP / m.HPMax;
+                    score += (1.0 - hpRatio) * 80.0;
+                }
+
                 // If mob is close and in attacking range, prioritize it
                 if (dist <= 6.0)
                 {
@@ -669,33 +700,20 @@ namespace xBot.App
             if (InfoManager.Character.SpeedBerserk > 0)
                 return;
 
-            bool shouldActivate = false;
+            double hpPercent = InfoManager.Character.HPMax > 0
+                ? ((double)InfoManager.Character.HP / InfoManager.Character.HPMax * 100.0)
+                : 100.0;
 
-            // 1. High-threat mob present
-            if (nearbyMobs != null && nearbyMobs.Exists(m => m.MobType == SRMob.Mob.Giant || 
-                                                            m.MobType == SRMob.Mob.PartyGiant || 
-                                                            m.MobType == SRMob.Mob.Elite || 
-                                                            m.MobType == SRMob.Mob.Unique))
-            {
-                shouldActivate = true;
-            }
+            // Delegate to CombatAIEngine for configurable berserk triggers
+            bool shouldActivate = CombatAIEngine.CheckBerserkTrigger(nearbyMobs, hpPercent);
 
-            // 2. Mob swarming (3 or more mobs around)
-            if (!shouldActivate && nearbyMobs != null && nearbyMobs.Count >= 3)
-            {
-                shouldActivate = true;
-            }
-
-            // 3. Emergency trigger: HP low (< 45%) and in combat
-            double hpPercent = InfoManager.Character.HPMax > 0 ? ((double)InfoManager.Character.HP / InfoManager.Character.HPMax * 100.0) : 100.0;
+            // Fallback: HP low (< 45%) and in combat
             if (!shouldActivate && hpPercent < 45.0 && nearbyMobs != null && nearbyMobs.Count > 0)
-            {
                 shouldActivate = true;
-            }
 
             if (shouldActivate)
             {
-                Window.Get?.Log("Combat AI: High threat detected! Activating Berserker mode!");
+                Window.Get?.Log("Combat AI: Berserker trigger! Activating Berserk mode!");
                 PacketBuilder.ActivateBerserk();
                 Thread.Sleep(400);
             }
@@ -737,7 +755,7 @@ namespace xBot.App
 
         private bool CheckPanicEscape()
         {
-            if (InfoManager.Character == null)
+            if (InfoManager.Character == null || InfoManager.Character.Inventory == null)
                 return false;
 
             byte hpSlot = 0;
@@ -747,10 +765,10 @@ namespace xBot.App
             // HP critical (< 22%) and no HP pots left
             if (hpPercent < 22.0 && !hasHpPot)
             {
-                Window.Get?.Log("Combat AI: EMERGENCY! HP critical and no HP potions! Using Return Scroll...");
                 byte scrollSlot = 0;
-                if (FindItem(3, 3, 1, ref scrollSlot) || FindItem(3, 3, 2, ref scrollSlot))
+                if (FindItem(3, 3, 1, ref scrollSlot) || FindItem(3, 3, 2, ref scrollSlot) || FindItem(3, 3, 3, ref scrollSlot))
                 {
+                    Window.Get?.Log("Combat AI: EMERGENCY! HP critical and no HP potions! Using Return Scroll...");
                     SRItem scrollItem = InfoManager.Character.Inventory[scrollSlot];
                     PacketBuilder.UseItem(scrollItem, scrollSlot);
                     Thread.Sleep(4000);
@@ -765,26 +783,34 @@ namespace xBot.App
             if (InfoManager.Character == null || InfoManager.Character.Inventory == null)
                 return false;
 
+            Window w = Window.Get;
+            bool checkHp = w?.Character_cbxUseHP?.Checked ?? true;
+            bool checkMp = w?.Character_cbxUseMP?.Checked ?? true;
+
             byte hpSlot = 0;
             bool hasHp = FindItem(3, 1, 1, ref hpSlot);
             byte mpSlot = 0;
             bool hasMp = FindItem(3, 1, 2, ref mpSlot);
 
-            // Count free inventory slots
+            // Count free inventory slots across full capacity
             int freeSlots = 0;
             var inv = InfoManager.Character.Inventory;
-            for (int i = 13; i < inv.Count; i++)
+            for (int i = 13; i < inv.Capacity; i++)
             {
                 if (inv[i] == null) freeSlots++;
             }
 
-            // Return condition: No HP, No MP, or bag completely full (<= 1 slot free)
-            if (!hasHp || !hasMp || freeSlots <= 1)
+            // Return condition: No HP (if HP pot use enabled), No MP (if MP pot use enabled), or bag completely full (<= 1 slot free)
+            bool hpTrigger = checkHp && !hasHp;
+            bool mpTrigger = checkMp && !hasMp;
+            bool bagTrigger = freeSlots <= 1;
+
+            if (hpTrigger || mpTrigger || bagTrigger)
             {
-                Window.Get?.Log($"Town Return: Logistic trigger! (HP Pots={hasHp}, MP Pots={hasMp}, Free Slots={freeSlots}). Using Return Scroll...");
                 byte returnScrollSlot = 0;
-                if (FindItem(3, 3, 1, ref returnScrollSlot) || FindItem(3, 3, 2, ref returnScrollSlot))
+                if (FindItem(3, 3, 1, ref returnScrollSlot) || FindItem(3, 3, 2, ref returnScrollSlot) || FindItem(3, 3, 3, ref returnScrollSlot))
                 {
+                    Window.Get?.Log($"Town Return: Logistic trigger! (HP Pots={hasHp} [check={checkHp}], MP Pots={hasMp} [check={checkMp}], Free Slots={freeSlots}/{inv.Capacity - 13}). Using Return Scroll...");
                     SRItem scrollItem = inv[returnScrollSlot];
                     PacketBuilder.UseItem(scrollItem, returnScrollSlot);
                     Thread.Sleep(5000);
@@ -792,7 +818,7 @@ namespace xBot.App
                 }
                 else
                 {
-                    Window.Get?.LogProcess("Town Return: No Return Scroll found in inventory!", Window.ProcessState.Warning);
+                    Window.Get?.LogProcess($"Town Return: Conditions met (HP={hasHp}, MP={hasMp}, Free={freeSlots}), but no Return Scroll found!", Window.ProcessState.Warning);
                 }
             }
             return false;
@@ -807,7 +833,7 @@ namespace xBot.App
             var inv = InfoManager.Character.Inventory;
             var storage = InfoManager.Character.Storage;
 
-            for (byte slot = 13; slot < inv.Count && isBotting; slot++)
+            for (byte slot = 13; slot < inv.Capacity && isBotting; slot++)
             {
                 var item = inv[slot];
                 if (item == null)
@@ -820,7 +846,7 @@ namespace xBot.App
                 if (isElixirOrStone || isSox)
                 {
                     int emptyStorageSlot = -1;
-                    for (int s = 0; s < storage.Count; s++)
+                    for (int s = 0; s < storage.Capacity; s++)
                     {
                         if (storage[s] == null)
                         {
@@ -852,7 +878,7 @@ namespace xBot.App
 
             var inv = InfoManager.Character.Inventory;
 
-            for (byte slot = 13; slot < inv.Count && isBotting; slot++)
+            for (byte slot = 13; slot < inv.Capacity && isBotting; slot++)
             {
                 var item = inv[slot];
                 if (item == null)
@@ -936,6 +962,10 @@ namespace xBot.App
                                 continue;
                             if (isMaterial && !w.Filter_cbxPickMaterials.Checked)
                                 continue;
+
+                            // ItemFilterManager: advanced degree/SoX/race/gender filter
+                            if (isEquip && !ItemFilterManager.ShouldPickup(drop))
+                                continue;
                         }
 
                         drops.Add(drop);
@@ -979,17 +1009,17 @@ namespace xBot.App
             }
         }
 
-        private int CountItemTotalQuantity(byte tid1, byte tid2, byte tid3)
+        private int CountItemTotalQuantity(byte tid2, byte tid3, byte tid4 = 0)
         {
             if (InfoManager.Character == null || InfoManager.Character.Inventory == null)
                 return 0;
 
             int total = 0;
             var inv = InfoManager.Character.Inventory;
-            for (int i = 13; i < inv.Count; i++)
+            for (int i = 13; i < inv.Capacity; i++)
             {
                 var item = inv[i];
-                if (item != null && item.ID1 == tid1 && item.ID2 == tid2 && item.ID3 == tid3)
+                if (item != null && item.ID1 == 3 && item.ID2 == tid2 && item.ID3 == tid3 && (tid4 == 0 || item.ID4 == tid4))
                 {
                     total += item.Quantity;
                 }

@@ -1,4 +1,4 @@
-﻿using SecurityAPI;
+using SecurityAPI;
 using System.Collections.Generic;
 using xBot.App;
 using xBot.Game;
@@ -17,11 +17,13 @@ namespace xBot.Network
 				CLIENT_PATCH_REQUEST = 0x6100,
 				CLIENT_SHARD_LIST_REQUEST = 0x6101,
 				CLIENT_LOGIN_REQUEST = 0x6102,
+				CLIENT_LOGIN_REQUEST_CUSTOM = 0x610A,
 				CLIENT_CAPTCHA_SOLVED_REQUEST = 0x6323,
 
 				SERVER_PATCH_RESPONSE = 0xA100,
 				SERVER_SHARD_LIST_RESPONSE = 0xA101,
 				SERVER_LOGIN_RESPONSE = 0xA102,
+				SERVER_LOGIN_RESPONSE_CUSTOM = 0xA10A,
 				SERVER_CAPTCHA_DATA = 0x2322,
 				SERVER_CAPTCHA_SOLVED_RESPONSE = 0xA323,
 
@@ -86,14 +88,13 @@ namespace xBot.Network
 		/// <returns>True if the packet won't be sent to the server</returns>
 		private bool Local_PacketHandler(Packet packet)
 		{
-			if (packet.Opcode == Opcode.CLIENT_PATCH_REQUEST)
+			try
 			{
-				string service = packet.ReadAscii();
-				if (service == "GatewayServer")
+				if (packet.Opcode == Opcode.CLIENT_PATCH_REQUEST)
 				{
 					byte locale = packet.ReadByte();
 					DataManager.SR_Client = packet.ReadAscii(); // SR_CLIENT
-				  uint version = packet.ReadUInt();
+					uint version = packet.ReadUInt();
 
 					if (DataManager.Version != version)
 					{
@@ -106,18 +107,23 @@ namespace xBot.Network
 						Window.Get.Log("A new Locale has been found [" + locale + "]");
 					}
 				}
-			}
-			else if (packet.Opcode == Opcode.CLIENT_LOGIN_REQUEST)
-			{
-				packet.ReadByte(); // locale
-				packet.ReadAscii(); // id
-				packet.ReadAscii(); // psw
-				InfoManager.ServerID = packet.ReadUShort().ToString();
+				else if (packet.Opcode == Opcode.CLIENT_LOGIN_REQUEST || packet.Opcode == Opcode.CLIENT_LOGIN_REQUEST_CUSTOM)
+				{
+					packet.ReadByte(); // locale
+					packet.ReadAscii(); // id
+					packet.ReadAscii(); // psw
+					InfoManager.ServerID = packet.ReadUShort().ToString();
 
-				Window w = Window.Get;
-				w.Login_lstvServers.InvokeIfRequired(() => {
-					InfoManager.ServerName = w.Login_lstvServers.Items[InfoManager.ServerID].Text;
-				});
+					Window w = Window.Get;
+					w.Login_lstvServers.InvokeIfRequired(() => {
+						if (w.Login_lstvServers.Items.ContainsKey(InfoManager.ServerID))
+							InfoManager.ServerName = w.Login_lstvServers.Items[InfoManager.ServerID].Text;
+					});
+				}
+			}
+			catch (System.Exception ex)
+			{
+				Window.Get?.Log("[Gateway Local_PacketHandler Warning] " + ex.Message);
 			}
 			return false;
 		}
@@ -128,65 +134,72 @@ namespace xBot.Network
 		/// <returns>True if the packet will be ignored by the client</returns>
 		private bool Remote_PacketHandler(Packet packet)
 		{
-			switch(packet.Opcode)
+			try
 			{
-				case Opcode.GLOBAL_IDENTIFICATION:
-					if(ClientlessMode){
-						string service = packet.ReadAscii();
-						if (service == "GatewayServer")
-						{
-							Packet p = new Packet(Opcode.CLIENT_PATCH_REQUEST, true);
-							p.WriteByte(DataManager.Locale);
-							p.WriteAscii(DataManager.SR_Client);
-							p.WriteUInt(DataManager.Version);
-							InjectToServer(p);
-						}
-					}
-					break;
-				case Opcode.SERVER_PATCH_RESPONSE:
-					if(ClientlessMode){
-						switch (packet.ReadByte()) {
-							case 1:
-								Packet p = new Packet(Opcode.CLIENT_SHARD_LIST_REQUEST, true);
-								this.InjectToServer(p);
-								break;
-							case 2:
-								byte errorCode = packet.ReadByte();
-								if (errorCode == 2)
-								{
-									string DownloadServerIP = packet.ReadAscii();
-									ushort DownloadServerPort = packet.ReadUShort();
-									uint DownloadServerCurVersion = packet.ReadUInt();
-									Window.Get.Log("Version outdate. Please, verify that client and database (v" + DataManager.Version + ") are up to date (v" + DownloadServerCurVersion + ")");
-								}
-								else
-								{
-									Window.Get.Log("Patch error: [" + errorCode + "]");
-								}
-								Bot.Get.Proxy.Stop();
-								break;
+				switch(packet.Opcode)
+				{
+					case Opcode.GLOBAL_IDENTIFICATION:
+						if(ClientlessMode){
+							string service = packet.ReadAscii();
+							if (service == "GatewayServer")
+							{
+								Packet p = new Packet(Opcode.CLIENT_PATCH_REQUEST, true);
+								p.WriteByte(DataManager.Locale);
+								p.WriteAscii(DataManager.SR_Client);
+								p.WriteUInt(DataManager.Version);
+								InjectToServer(p);
 							}
-					}
-					break;
-				case Opcode.SERVER_SHARD_LIST_RESPONSE:
-					PacketParser.ShardListResponse(packet);
-					break;
-				case Opcode.SERVER_CAPTCHA_DATA:
-					PacketParser.CaptchaData(packet);
-					break;
-				case Opcode.SERVER_CAPTCHA_SOLVED_RESPONSE:
-					// success
-					if(packet.ReadBool())
-					{
-						Window.Get.Log("Captcha entered successfully!");
-					}
-					else
-					{
-						uint maxAttempts = packet.ReadUInt();
-						uint attempts = packet.ReadUInt();
-						Window.Get.Log("Captcha entry has failed (" + attempts + " / " + maxAttempts + " attempts)");
-					}
-					break;
+						}
+						break;
+					case Opcode.SERVER_PATCH_RESPONSE:
+						if(ClientlessMode){
+							switch (packet.ReadByte()) {
+								case 1:
+									Packet p = new Packet(Opcode.CLIENT_SHARD_LIST_REQUEST, true);
+									this.InjectToServer(p);
+									break;
+								case 2:
+									byte errorCode = packet.ReadByte();
+									if (errorCode == 2)
+									{
+										string DownloadServerIP = packet.ReadAscii();
+										ushort DownloadServerPort = packet.ReadUShort();
+										uint DownloadServerCurVersion = packet.ReadUInt();
+										Window.Get.Log("Version outdate. Please, verify that client and database (v" + DataManager.Version + ") are up to date (v" + DownloadServerCurVersion + ")");
+									}
+									else
+									{
+										Window.Get.Log("Patch error: [" + errorCode + "]");
+									}
+									Bot.Get.Proxy.Stop();
+									break;
+								}
+						}
+						break;
+					case Opcode.SERVER_SHARD_LIST_RESPONSE:
+						PacketParser.ShardListResponse(packet);
+						break;
+					case Opcode.SERVER_CAPTCHA_DATA:
+						PacketParser.CaptchaData(packet);
+						break;
+					case Opcode.SERVER_CAPTCHA_SOLVED_RESPONSE:
+						// success
+						if(packet.ReadBool())
+						{
+							Window.Get.Log("Captcha entered successfully!");
+						}
+						else
+						{
+							uint maxAttempts = packet.ReadUInt();
+							uint attempts = packet.ReadUInt();
+							Window.Get.Log("Captcha entry has failed (" + attempts + " / " + maxAttempts + " attempts)");
+						}
+						break;
+				}
+			}
+			catch (System.Exception ex)
+			{
+				Window.Get?.Log("[Gateway Remote_PacketHandler Warning] " + ex.Message);
 			}
 			return false;
 		}

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel;
 using System.Drawing;
 using System.Text;
@@ -38,7 +38,18 @@ namespace xGraphics
 		private SolidBrush TextColorBrush { get; }
 		private Pen FillColor { get; }
 		private SolidBrush TextShadowBrush { get; }
-		public double ValuePercentage { get { return Value * 100.0 / ValueMaximum; } } 
+		public double ValuePercentage
+		{
+			get
+			{
+				if (ValueMaximum == 0)
+					return 0.0;
+				double pct = (double)Value * 100.0 / (double)ValueMaximum;
+				if (double.IsNaN(pct) || double.IsInfinity(pct))
+					return 0.0;
+				return Math.Max(0.0, Math.Min(100.0, pct));
+			}
+		} 
 		public xProgressBar() : base()
 		{
 			SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, value: true);
@@ -67,31 +78,35 @@ namespace xGraphics
 			ProgressBarRenderer.DrawHorizontalBar(g, rect);
 
 			rect.Inflate(-2, -2);
-			if (Value != 0)
+			if (Value != 0 && ValueMaximum > 0 && rect.Width > 0 && rect.Height > 0)
 			{
 				int x0 = rect.X;
-				int xf = (int)(rect.Width * ValuePercentage / 100.0);
-				int _r = FillColor.Color.R;
-				int _g = FillColor.Color.G;
-				int _b = FillColor.Color.B;
-				int num;
-				for (int y = rect.Y; y <= rect.Height; y = num + 1)
+				int fillWidth = (int)Math.Round((double)rect.Width * (ValuePercentage / 100.0));
+				int xf = Math.Max(x0, Math.Min(rect.Right, x0 + fillWidth));
+				if (xf > x0)
 				{
-					Pen p = new Pen(Color.FromArgb(_r, _g, _b));
-					g.DrawLine(p, x0, y, xf, y);
-					if (_r + BackColorDegradationLevel < 256)
+					int _r = FillColor.Color.R;
+					int _g = FillColor.Color.G;
+					int _b = FillColor.Color.B;
+					for (int y = rect.Y; y < rect.Bottom; y++)
 					{
-						_r += BackColorDegradationLevel;
+						using (Pen p = new Pen(Color.FromArgb(_r, _g, _b)))
+						{
+							g.DrawLine(p, x0, y, xf, y);
+						}
+						if (_r + BackColorDegradationLevel < 256)
+						{
+							_r += BackColorDegradationLevel;
+						}
+						if (_g + BackColorDegradationLevel < 256)
+						{
+							_g += BackColorDegradationLevel;
+						}
+						if (_b + BackColorDegradationLevel < 256)
+						{
+							_b += BackColorDegradationLevel;
+						}
 					}
-					if (_g + BackColorDegradationLevel < 256)
-					{
-						_g += BackColorDegradationLevel;
-					}
-					if (_b + BackColorDegradationLevel < 256)
-					{
-						_b += BackColorDegradationLevel;
-					}
-					num = y;
 				}
 			}
 			string text = GetDisplayText();
@@ -100,15 +115,12 @@ namespace xGraphics
 			int py = Convert.ToInt32((base.Height / 2) - len.Height / 2f);
 			if (TextShadowBrush.Color != TextColorBrush.Color)
 			{
-				sbyte b;
-				for (sbyte j = -1; j < 2; j = (sbyte)(b + 1))
+				for (int j = -1; j <= 1; j++)
 				{
-					for (sbyte i = -1; i < 2; i = (sbyte)(b + 1))
+					for (int i = -1; i <= 1; i++)
 					{
 						g.DrawString(text, Font, TextShadowBrush, px + j, py + i);
-						b = i;
 					}
-					b = j;
 				}
 			}
 			g.DrawString(text, Font, TextColorBrush, px, py);

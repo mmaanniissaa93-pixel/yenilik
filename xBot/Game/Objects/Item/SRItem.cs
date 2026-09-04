@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Specialized;
 using System.Text;
 using xBot.Game.Objects.Common;
@@ -27,40 +27,72 @@ namespace xBot.Game.Objects.Item
 		{
 			NameValueCollection data = DataManager.GetItemData(ID);
 
-			if(data == null)
-			{
-				int aaa = 0;
-				aaa++;
-			}
-
 			this.ID = ID;
-			ServerName = data["servername"];
-			Name = data["name"];
-			ID1 = 3;
-			ID2 = byte.Parse(data["tid2"]);
-			ID3 = byte.Parse(data["tid3"]);
-			ID4 = byte.Parse(data["tid4"]);
+			if (data != null)
+			{
+				ServerName = data["servername"] ?? ("ITEM_UNKNOWN_" + ID);
+				Name = data["name"] ?? ServerName;
+				ID1 = 3;
+				byte b;
+				ID2 = byte.TryParse(data["tid2"], out b) ? b : (byte)0;
+				ID3 = byte.TryParse(data["tid3"], out b) ? b : (byte)0;
+				ID4 = byte.TryParse(data["tid4"], out b) ? b : (byte)0;
 
-			Icon = data["icon"];
-			Quantity = 1;
-			QuantityMax = ushort.Parse(data["stack"]);
-			LevelRequired = byte.Parse(data["level"]);
+				Icon = data["icon"] ?? "";
+				Quantity = 1;
+				ushort s;
+				QuantityMax = ushort.TryParse(data["stack"], out s) ? (s > 0 ? s : (ushort)1) : (ushort)1;
+				LevelRequired = byte.TryParse(data["level"], out b) ? b : (byte)0;
+			}
+			else
+			{
+				ServerName = "ITEM_UNKNOWN_" + ID;
+				Name = "Unknown Item (" + ID + ")";
+				ID1 = 3;
+				ID2 = 0;
+				ID3 = 0;
+				ID4 = 0;
+				Icon = "";
+				Quantity = 1;
+				QuantityMax = 1;
+				LevelRequired = 0;
+			}
 		}
 		private SRItem(string ServerName)
 		{
-		  NameValueCollection	data = DataManager.GetItemData(ServerName);
+			NameValueCollection data = DataManager.GetItemData(ServerName);
 
-			this.ID = uint.Parse(data["id"]);
-			this.ServerName = ServerName;;
-			Name = data["name"];
-			ID1 = 3;
-			ID2 = byte.Parse(data["tid2"]);
-			ID3 = byte.Parse(data["tid3"]);
-			ID4 = byte.Parse(data["tid4"]);
+			this.ServerName = ServerName;
+			if (data != null)
+			{
+				uint idVal;
+				this.ID = uint.TryParse(data["id"], out idVal) ? idVal : 0;
+				Name = data["name"] ?? ServerName;
+				ID1 = 3;
+				byte b;
+				ID2 = byte.TryParse(data["tid2"], out b) ? b : (byte)0;
+				ID3 = byte.TryParse(data["tid3"], out b) ? b : (byte)0;
+				ID4 = byte.TryParse(data["tid4"], out b) ? b : (byte)0;
 
-			Icon = data["icon"];
-      QuantityMax = ushort.Parse(data["stack"]);
-			LevelRequired = byte.Parse(data["level"]);
+				Icon = data["icon"] ?? "";
+				Quantity = 1;
+				ushort s;
+				QuantityMax = ushort.TryParse(data["stack"], out s) ? (s > 0 ? s : (ushort)1) : (ushort)1;
+				LevelRequired = byte.TryParse(data["level"], out b) ? b : (byte)0;
+			}
+			else
+			{
+				this.ID = 0;
+				Name = ServerName;
+				ID1 = 3;
+				ID2 = 0;
+				ID3 = 0;
+				ID4 = 0;
+				Icon = "";
+				Quantity = 1;
+				QuantityMax = 1;
+				LevelRequired = 0;
+			}
 		}
 		protected SRItem(SRItem value)
 		{
@@ -139,7 +171,8 @@ namespace xBot.Game.Objects.Item
 		}
 		public ushort GetUsageType()
 		{
-			return (ushort)((ushort)Rentable.ID | ID1 << 2 | ID2 << 5 | ID3 << 7 | ID4 << 11);
+			uint rentableId = Rentable != null ? Rentable.ID : 0;
+			return (ushort)((ushort)rentableId | ID1 << 2 | ID2 << 5 | ID3 << 7 | ID4 << 11);
 		}
 		public bool isType(byte ID2, byte ID3, byte ID4)
 		{

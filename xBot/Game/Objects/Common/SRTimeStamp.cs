@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -11,13 +11,30 @@ namespace xBot.Game.Objects.Common
 		public DateTime DateTime { get; }
 		public SRTimeStamp(uint SRTimeStamp)
 		{
-			int year = (int)(SRTimeStamp & 63) + 2000;
-			int month = (int)(SRTimeStamp >> 6) & 15;
-			int day = (int)(SRTimeStamp >> 10) & 31;
-			int hour = (int)(SRTimeStamp >> 15) & 31;
-			int minute = (int)(SRTimeStamp >> 20) & 63;
-			int second = (int)(SRTimeStamp >> 26) & 63;
-			DateTime = new DateTime(year, month, day, hour, minute, second);
+			try
+			{
+				if (SRTimeStamp == 0)
+				{
+					DateTime = DateTime.MinValue;
+					return;
+				}
+				int year = (int)(SRTimeStamp & 63) + 2000;
+				int month = (int)(SRTimeStamp >> 6) & 15;
+				int day = (int)(SRTimeStamp >> 10) & 31;
+				int hour = (int)(SRTimeStamp >> 15) & 31;
+				int minute = (int)(SRTimeStamp >> 20) & 63;
+				int second = (int)(SRTimeStamp >> 26) & 63;
+				if (month < 1 || month > 12 || day < 1 || day > DateTime.DaysInMonth(year, month) || hour > 23 || minute > 59 || second > 59)
+				{
+					DateTime = DateTime.MinValue;
+					return;
+				}
+				DateTime = new DateTime(year, month, day, hour, minute, second);
+			}
+			catch
+			{
+				DateTime = DateTime.MinValue;
+			}
 		}
 	}
 }

@@ -22,7 +22,7 @@ namespace xBot.Game
 		}
 		public static void RequestCharacterList()
 		{
-			Packet p = new Packet(Agent.Opcode.CLIENT_CHARACTER_SELECTION_ACTION_REQUEST, true);
+			Packet p = new Packet(Agent.Opcode.CLIENT_CHARACTER_SELECTION_ACTION_REQUEST);
 			p.WriteByte(SRTypes.CharacterSelectionAction.List);
 			Bot.Get.Proxy.Agent.InjectToServer(p);
 		}
@@ -165,7 +165,7 @@ namespace xBot.Game
 		}
 		public static void SendChatGlobal(byte slotGlobal,SRItem item,string message)
 		{
-			Packet p = new Packet(Agent.Opcode.CLIENT_INVENTORY_ITEM_USE,true);
+			Packet p = new Packet(Agent.Opcode.CLIENT_INVENTORY_ITEM_USE);
 			p.WriteByte(slotGlobal);
 			p.WriteUShort(item.GetUsageType());
 			p.WriteAscii(message);
@@ -349,7 +349,7 @@ namespace xBot.Game
 		}
 		public static void UseItem(SRItem item,byte slot,uint uniqueID = 0)
 		{
-			Packet p = new Packet(Agent.Opcode.CLIENT_INVENTORY_ITEM_USE,true);
+			Packet p = new Packet(Agent.Opcode.CLIENT_INVENTORY_ITEM_USE);
 			p.WriteByte(slot);
 			p.WriteUShort(item.GetUsageType());
 			if (uniqueID != 0)
@@ -757,13 +757,17 @@ namespace xBot.Game
 				p.WriteAscii(message);
 				Bot.Get.Proxy.Agent.InjectToClient(p);
 			}
-			public static void CreateAgentLogin(byte flag, uint loginID, string host, ushort port)
+			public static void CreateAgentLogin(byte flag, uint loginID, string host, ushort port, ushort opcode = Gateway.Opcode.SERVER_LOGIN_RESPONSE, byte[] extraBytes = null, bool encrypted = true)
 			{
-				Packet p = new Packet(Gateway.Opcode.SERVER_LOGIN_RESPONSE, true);
+				Packet p = new Packet(opcode, encrypted);
 				p.WriteByte(flag);
 				p.WriteUInt(loginID);
 				p.WriteAscii(host);
 				p.WriteUShort(port);
+				if (extraBytes != null && extraBytes.Length > 0)
+				{
+					p.WriteByteArray(extraBytes);
+				}
 				Bot.Get.Proxy.Gateway.InjectToClient(p);
 			}
 		}
