@@ -158,6 +158,17 @@ xBot-WinForms/
 
 Özelliklerin tek takip noktası [`docs/FEATURES.md`](docs/FEATURES.md)’dir. Yeni bir işlev için önce bir `F-xxx` kaydı açın; kod, arayüz, ayar anahtarı ve doğrulama durumunu aynı kayıtta tutun. Durumu `Planlandı → Geliştiriliyor → Deneysel → Kullanımda` akışında güncelleyin. Bir özellik devre dışıysa veya yalnızca arayüz/ayar altyapısı varsa bunu özellikle belirtin.
 
+## Protection senaryo testleri
+
+Koruma kararlarının temel senaryoları bağımsız bir test projesinde çalıştırılabilir:
+
+```powershell
+dotnet run --project tests/ProtectionScenarios/ProtectionScenarios.csproj
+```
+
+Bu testler; envanter/pet doluluğu, ok/bolt, HP/MP stoğu, dayanıklılık, level-up,
+ölüm gecikmesi ve dönüş sonrası şehirde botu durdurma kararlarını kontrol eder.
+
 ## Teşekkürler
 
 - Drew “pushedx” Benton — önceki çalışmalar ve kaynaklar

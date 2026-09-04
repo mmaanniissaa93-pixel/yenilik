@@ -127,6 +127,7 @@
     <Compile Include="App\ProtectionManager.cs" />
     <Compile Include="App\StatPointManager.cs" />
     <Compile Include="App\ItemFilterManager.cs" />
+    <Compile Include="App\ProtectionPolicy.cs" />
     <Compile Include="App\Window.CustomTabs.cs" />
     <Compile Include="Game\Objects\Common\SRCollectionBook.cs" />
     <Compile Include="Game\Objects\Common\SRMastery.cs" />

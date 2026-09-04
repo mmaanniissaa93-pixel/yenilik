@@ -1,5 +1,11 @@
 # Changelog
 
+### Unreleased
+- ProtectionManager kontrolleri merkezi bot tick akışına bağlandı.
+- Ölüm gecikmesi, şehirde dönüş sonrası durma, level-up, pet envanteri, ok/bolt,
+  HP/MP stoğu, dayanıklılık ve envanter dönüş kararları eklendi.
+- ProtectionPolicy için 14 bağımsız senaryo testi eklendi.
+
 ### v0.5.2
 - Fixed auto attacking stuff
 

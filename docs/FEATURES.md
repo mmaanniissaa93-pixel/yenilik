@@ -48,10 +48,10 @@ Son kaynak taraması: 2026-09-04
 | F-029 | Kiting ve panik kaçışı | 🧪 | `App/Bot/Bot.IA.cs`; oyun içi senaryo testi gerekli |
 | F-030 | HP/MP/vigor/universal/purification kullanımı | ✅ | `App/Bot/Bot.Checks.cs` |
 | F-031 | Recovery kit, abnormal pill ve pet HGP kontrolü | ✅ | `App/Bot/Bot.Checks.cs` |
-| F-032 | Skill ile HP/MP iyileştirme | 🧪 | `App/ProtectionManager.cs`; HP/MP kontrolleri bağlı |
-| F-033 | Skill ile kötü durum temizleme | ⚠️ | Manager ve UI var; çağrı/oyun içi akış ayrıca tamamlanmalı |
-| F-034 | Pet diriltme ve otomatik çağırma | ⚠️ | Manager ve UI var; bot döngüsüne tam bağlanma kontrol edilmeli |
-| F-035 | Ölüm, düşük HP/MP, dayanıklılık ve dolu envanter dönüşleri | 🧪 | `App/ProtectionManager.cs`; bazı tetikleyiciler ayar seviyesinde |
+| F-032 | Skill ile HP/MP iyileştirme | ✅ | `App/ProtectionManager.cs`; event + merkezi bot tick akışına bağlı |
+| F-033 | Skill ile kötü durum temizleme | ✅ | `App/ProtectionManager.cs`; merkezi bot tick akışına bağlı |
+| F-034 | Pet diriltme ve otomatik çağırma | ✅ | `App/ProtectionManager.cs`; merkezi bot tick akışına bağlı |
+| F-035 | Ölüm, düşük HP/MP, dayanıklılık ve dolu envanter dönüşleri | ✅ | `App/ProtectionManager.cs`, `App/ProtectionPolicy.cs`; merkezi tick ve 14 senaryo testi |
 | F-036 | Level-up sonrası otomatik STR/INT dağıtımı | ✅ | `App/StatPointManager.cs`, `Game/InfoManager.cs` |
 | F-037 | Support/no-attack modu | ✅ | `App/SkillManager.cs`, `App/Bot/Bot.IA.cs` |
 
@@ -121,7 +121,7 @@ Bu bölüm, çalışma ağacında yeni görünen yöneticileri ayrı izler. Yeni
 | `LoginStrategyManager` | Otomatik giriş, karakter seçimi, bekleme, otomatik başlatma/gizleme | `LoginStrategy` | Giriş olayları ve proxy’ye bağlı | Captcha akışını tamamla, runtime test |
 | `CombatAIEngine` | Hedef önceliği, kaçınma ve berserk tetikleri | `CombatAI` | `Bot.IA` hedef seçiminde bağlı | Her kural için UI + oyun içi test |
 | `SkillManager` | Imbue, Devil Spirit, support/no-attack, beceri sırası | `SkillManager` | Bot döngüsünde bağlı | Skill bulunamadığında güvenli fallback |
-| `ProtectionManager` | Skill iyileştirme, pet koruması, şehir dönüş tetikleri | `ProtectionManager` | HP/MP ve bazı dönüş kontrolleri bağlı | Cure/pet/full pet inventory çağrılarını tamamla |
+| `ProtectionManager` | Skill iyileştirme, pet koruması, şehir dönüş tetikleri | `ProtectionManager` | Her koruma kontrolü merkezi bot tick’inde; `ProtectionPolicy` karar katmanı kullanılıyor | Oyun içi gerçek client senaryolarıyla doğrula |
 | `StatPointManager` | Level sonrası stat dağıtımı | `StatPointManager` | Level-up/InfoManager’a bağlı | STR/INT hedef doğrulaması |
 | `ItemFilterManager` | Pickup/sell/store kuralları ve item kriterleri | `ItemFilterManager` | Pickup’un bir bölümü bağlı | Degree/race ve sell/store kararlarını bot akışına bağla |
 | `LocalizationManager` | Yeni özel kontroller için TR/EN metinleri | Yok | Özel UI başlatılırken bağlı | Kaynak dosyalardaki encoding/metinleri temizle |

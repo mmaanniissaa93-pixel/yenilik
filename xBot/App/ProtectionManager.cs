@@ -1,6 +1,9 @@
 using System;
+using System.Threading;
 using Newtonsoft.Json.Linq;
 using xBot.Game;
+using xBot.Game.Navigation;
+using xBot.Game.Objects;
 using xBot.Game.Objects.Common;
 using xBot.Game.Objects.Entity;
 using xBot.Game.Objects.Item;
@@ -35,20 +38,109 @@ namespace xBot.App
         public static int DurabilityLowThreshold { get; set; } = 5;
         public static bool ReturnLevelUp { get; set; } = false;
 
+        private static readonly object RuntimeLock = new object();
         private static DateTime lastTownReturnCheck = DateTime.MinValue;
+        private static DateTime nextSkillHealingUtc = DateTime.MinValue;
+        private static DateTime nextSkillManaUtc = DateTime.MinValue;
+        private static DateTime nextSkillCureUtc = DateTime.MinValue;
+        private static DateTime nextPetProtectionUtc = DateTime.MinValue;
+        private static DateTime characterDeadSinceUtc = DateTime.MinValue;
+        private static bool stopAfterReturn;
+        private static bool levelUpPending;
+
+        /// <summary>
+        /// Runs every protection rule from the joined-game loop.
+        /// Event-driven checks remain available for fast HP/MP updates, while
+        /// this tick covers rules that do not have a packet event of their own.
+        /// </summary>
+        public static void RunTick()
+        {
+            if (InfoManager.Character == null || !InfoManager.inGame || !Bot.Get.isBotting)
+                return;
+
+            if (!Monitor.TryEnter(RuntimeLock))
+                return;
+
+            try
+            {
+                if (InfoManager.Character.LifeStateType == SRModel.LifeState.Dead)
+                {
+                    CheckTownReturnTriggers();
+                    return;
+                }
+
+                CheckSkillHealing();
+                CheckSkillMana();
+                CheckSkillCure();
+                CheckPetProtection();
+                CheckTownReturnTriggers();
+            }
+            finally
+            {
+                Monitor.Exit(RuntimeLock);
+            }
+        }
+
+        /// <summary>
+        /// Resets transient protection state when the game session ends.
+        /// </summary>
+        public static void ResetRuntimeState()
+        {
+            lock (RuntimeLock)
+            {
+                lastTownReturnCheck = DateTime.MinValue;
+                nextSkillHealingUtc = DateTime.MinValue;
+                nextSkillManaUtc = DateTime.MinValue;
+                nextSkillCureUtc = DateTime.MinValue;
+                nextPetProtectionUtc = DateTime.MinValue;
+                characterDeadSinceUtc = DateTime.MinValue;
+                stopAfterReturn = false;
+                levelUpPending = false;
+            }
+        }
+
+        public static void NotifyCharacterDead()
+        {
+            lock (RuntimeLock)
+            {
+                if (characterDeadSinceUtc == DateTime.MinValue)
+                    characterDeadSinceUtc = DateTime.UtcNow;
+            }
+        }
+
+        public static void NotifyLevelUp()
+        {
+            lock (RuntimeLock)
+            {
+                levelUpPending = true;
+            }
+        }
+
+        private static bool IsActionDue(ref DateTime nextAllowedUtc, int delayMilliseconds)
+        {
+            DateTime now = DateTime.UtcNow;
+            if (now < nextAllowedUtc)
+                return false;
+
+            nextAllowedUtc = now.AddMilliseconds(delayMilliseconds);
+            return true;
+        }
 
         public static void CheckSkillHealing()
         {
             if (!UseSkillHP || InfoManager.Character == null || InfoManager.Character.Skills == null)
                 return;
 
-            if (InfoManager.Character.GetHPPercent() <= SkillHPPercent)
+            if (InfoManager.Character.GetHPPercent() <= SkillHPPercent
+                && IsActionDue(ref nextSkillHealingUtc, 1000))
             {
                 SRSkill healSkill = null;
                 for (int i = 0; i < InfoManager.Character.Skills.Count; i++)
                 {
                     var s = InfoManager.Character.Skills.GetAt(i);
-                    if (s != null && !string.IsNullOrEmpty(s.ServerName) && (s.ServerName.Contains("HEAL") || s.ServerName.Contains("RECOVERY_DIV")))
+                    if (s != null && s.isCastingEnabled && !string.IsNullOrEmpty(s.ServerName)
+                        && (s.ServerName.IndexOf("HEAL", StringComparison.OrdinalIgnoreCase) >= 0
+                            || s.ServerName.IndexOf("RECOVERY_DIV", StringComparison.OrdinalIgnoreCase) >= 0))
                     {
                         if (healSkill == null || s.Level > healSkill.Level)
                             healSkill = s;
@@ -67,13 +159,16 @@ namespace xBot.App
             if (!UseSkillMP || InfoManager.Character == null || InfoManager.Character.Skills == null)
                 return;
 
-            if (InfoManager.Character.GetMPPercent() <= SkillMPPercent)
+            if (InfoManager.Character.GetMPPercent() <= SkillMPPercent
+                && IsActionDue(ref nextSkillManaUtc, 1000))
             {
                 SRSkill mpSkill = null;
                 for (int i = 0; i < InfoManager.Character.Skills.Count; i++)
                 {
                     var s = InfoManager.Character.Skills.GetAt(i);
-                    if (s != null && !string.IsNullOrEmpty(s.ServerName) && (s.ServerName.Contains("MANA_CYCLE") || s.ServerName.Contains("MANA_ORBIT")))
+                    if (s != null && s.isCastingEnabled && !string.IsNullOrEmpty(s.ServerName)
+                        && (s.ServerName.IndexOf("MANA_CYCLE", StringComparison.OrdinalIgnoreCase) >= 0
+                            || s.ServerName.IndexOf("MANA_ORBIT", StringComparison.OrdinalIgnoreCase) >= 0))
                     {
                         if (mpSkill == null || s.Level > mpSkill.Level)
                             mpSkill = s;
@@ -92,13 +187,17 @@ namespace xBot.App
             if (!UseSkillBadStatus || InfoManager.Character == null || InfoManager.Character.Skills == null)
                 return;
 
-            if (InfoManager.Character.BadStatusFlags != SRModel.BadStatus.None)
+            if (InfoManager.Character.BadStatusFlags != SRModel.BadStatus.None
+                && IsActionDue(ref nextSkillCureUtc, 1000))
             {
                 SRSkill cureSkill = null;
                 for (int i = 0; i < InfoManager.Character.Skills.Count; i++)
                 {
                     var s = InfoManager.Character.Skills.GetAt(i);
-                    if (s != null && !string.IsNullOrEmpty(s.ServerName) && (s.ServerName.Contains("PURIFY") || s.ServerName.Contains("HOLY_SPELL") || s.ServerName.Contains("CURE")))
+                    if (s != null && s.isCastingEnabled && !string.IsNullOrEmpty(s.ServerName)
+                        && (s.ServerName.IndexOf("PURIFY", StringComparison.OrdinalIgnoreCase) >= 0
+                            || s.ServerName.IndexOf("HOLY_SPELL", StringComparison.OrdinalIgnoreCase) >= 0
+                            || s.ServerName.IndexOf("CURE", StringComparison.OrdinalIgnoreCase) >= 0))
                     {
                         if (cureSkill == null || s.Level > cureSkill.Level)
                             cureSkill = s;
@@ -114,7 +213,9 @@ namespace xBot.App
 
         public static void CheckPetProtection()
         {
-            if (InfoManager.Character == null || InfoManager.MyPets == null)
+            if (InfoManager.Character == null || InfoManager.Character.Inventory == null
+                || InfoManager.MyPets == null || !InfoManager.inGame
+                || !IsActionDue(ref nextPetProtectionUtc, 1000))
                 return;
 
             // 1. Revive dead pet
@@ -150,114 +251,254 @@ namespace xBot.App
             if (InfoManager.Character == null || !InfoManager.inGame)
                 return false;
 
-            // Only run town return triggers when the bot is actively running
             if (!Bot.Get.isBotting)
                 return false;
 
-            // Throttle checks to once every 3 seconds
-            if ((DateTime.UtcNow - lastTownReturnCheck).TotalSeconds < 3)
+            if (!Monitor.TryEnter(RuntimeLock))
                 return false;
 
-            lastTownReturnCheck = DateTime.UtcNow;
+            try
+            {
+                DateTime now = DateTime.UtcNow;
+                bool isDead = InfoManager.Character.LifeStateType == SRModel.LifeState.Dead;
 
-            // Check if character is alive
-            if (InfoManager.Character.LifeStateType != SRModel.LifeState.Alive)
+                if (isDead)
+                {
+                    if (characterDeadSinceUtc == DateTime.MinValue)
+                        characterDeadSinceUtc = now;
+                }
+                else
+                {
+                    characterDeadSinceUtc = DateTime.MinValue;
+                }
+
+                ProtectionPolicyInput input = BuildPolicyInput(now);
+                ProtectionPolicyOptions options = GetPolicyOptions();
+                ProtectionDecision decision = ProtectionPolicy.Evaluate(input, options);
+
+                // Stopping after a successful return must not wait for the 3-second
+                // trigger throttle; the character may already be in town by then.
+                if (decision == ProtectionDecision.StopBotInTown)
+                {
+                    stopAfterReturn = false;
+                    Window.Get?.Log("Protection: Returned to town; bot stopped.");
+                    Bot.Get.Stop();
+                    return true;
+                }
+
+                if ((now - lastTownReturnCheck).TotalSeconds < 3)
+                    return false;
+
+                lastTownReturnCheck = now;
+
+                if (decision == ProtectionDecision.ReturnToTown)
+                    return TryReturnToTown(GetReturnReason(input));
+
+                if (IsConfiguredTriggerActive(input, options) ||
+                    (!input.IsAlive && options.ReturnDeadWithDelay && input.DeadDelayElapsed))
+                {
+                    Window.Get?.LogProcess("Protection: A return condition is active, but no Return Scroll was found.", Window.ProcessState.Warning);
+                }
+
                 return false;
+            }
+            finally
+            {
+                Monitor.Exit(RuntimeLock);
+            }
+        }
 
-            var inventory = InfoManager.Character.Inventory;
+        private static ProtectionPolicyOptions GetPolicyOptions()
+        {
+            return new ProtectionPolicyOptions
+            {
+                ReturnDeadWithDelay = ReturnDeadWithDelay,
+                StopBotInTown = StopBotInTown,
+                ReturnNoArrows = ReturnNoArrows,
+                ReturnFullInventory = ReturnFullInventory,
+                ReturnFullPetInventory = ReturnFullPetInventory,
+                ReturnHPLow = ReturnHPLow,
+                ReturnMPLow = ReturnMPLow,
+                ReturnDurabilityLow = ReturnDurabilityLow,
+                ReturnLevelUp = ReturnLevelUp
+            };
+        }
+
+        private static ProtectionPolicyInput BuildPolicyInput(DateTime now)
+        {
+            xList<SRItem> inventory = InfoManager.Character.Inventory;
+            return new ProtectionPolicyInput
+            {
+                IsInGame = InfoManager.inGame,
+                IsBotting = Bot.Get.isBotting,
+                IsInTown = TownManager.Get.IsNearTown(InfoManager.Character.GetRealtimePosition()),
+                IsAlive = InfoManager.Character.LifeStateType == SRModel.LifeState.Alive,
+                StopAfterReturn = stopAfterReturn,
+                DeadDelayElapsed = characterDeadSinceUtc != DateTime.MinValue &&
+                    (now - characterDeadSinceUtc).TotalSeconds >= Math.Max(0, DeadDelaySeconds),
+                HasReturnScroll = HasReturnScroll(inventory),
+                NoArrows = HasNoArrows(inventory),
+                FullInventory = IsInventoryFull(inventory),
+                FullPetInventory = IsPetInventoryFull(),
+                HPLow = CountInventoryQuantity(inventory, 3, 1, 1) <= HPLowThreshold,
+                MPLow = CountInventoryQuantity(inventory, 3, 1, 2) <= MPLowThreshold,
+                DurabilityLow = HasLowDurability(inventory),
+                LevelUpPending = levelUpPending
+            };
+        }
+
+        private static bool IsConfiguredTriggerActive(ProtectionPolicyInput input, ProtectionPolicyOptions options)
+        {
+            return ProtectionPolicy.HasReturnTrigger(input, options);
+        }
+
+        private static string GetReturnReason(ProtectionPolicyInput input)
+        {
+            if (!input.IsAlive && ReturnDeadWithDelay)
+                return "Character is dead and the configured delay elapsed.";
+            if (ReturnLevelUp && input.LevelUpPending)
+                return "Level-up protection triggered.";
+            if (ReturnFullPetInventory && input.FullPetInventory)
+                return "Pet inventory is full.";
+            if (ReturnFullInventory && input.FullInventory)
+                return "Inventory is full.";
+            if (ReturnNoArrows && input.NoArrows)
+                return "No arrows or bolts remain.";
+            if (ReturnHPLow && input.HPLow)
+                return "HP potions are low (" + HPLowThreshold + " threshold).";
+            if (ReturnMPLow && input.MPLow)
+                return "MP potions are low (" + MPLowThreshold + " threshold).";
+            if (ReturnDurabilityLow && input.DurabilityLow)
+                return "Equipment durability is low.";
+            return "A protection condition was met.";
+        }
+
+        private static bool TryReturnToTown(string reason)
+        {
+            if (Bot.Get.UseReturnScroll())
+            {
+                stopAfterReturn = StopBotInTown;
+                levelUpPending = false;
+                Window.Get?.Log("Protection: " + reason + " Returning to town...");
+                return true;
+            }
+
+            Window.Get?.LogProcess("Protection: " + reason + " but no Return Scroll was found.", Window.ProcessState.Warning);
+            return false;
+        }
+
+        private static bool HasReturnScroll(xList<SRItem> inventory)
+        {
             if (inventory == null)
                 return false;
 
-            // 1. Full inventory check
-            if (ReturnFullInventory)
+            for (byte i = 13; i < inventory.Capacity; i++)
             {
-                int freeSlots = 0;
-                for (byte i = 13; i < inventory.Capacity; i++)
-                {
-                    if (inventory[i] == null)
-                        freeSlots++;
-                }
+                SRItem item = inventory[i];
+                if (item == null || !item.isType(3, 3, 1))
+                    continue;
 
-                if (freeSlots == 0)
+                switch (item.ServerName)
                 {
-                    Window.Get?.Log("Town Trigger: Inventory full! Returning to town...");
-                    Bot.Get.UseReturnScroll();
-                    return true;
+                    case "ITEM_ETC_SCROLL_RETURN_01":
+                    case "ITEM_ETC_SCROLL_RETURN_02":
+                    case "ITEM_ETC_SCROLL_RETURN_03":
+                    case "ITEM_ETC_SCROLL_RETURN_NEWBIE_01":
+                    case "ITEM_ETC_E041225_SANTA_WINGS":
+                    case "ITEM_MALL_RETURN_SCROLL_HIGH_SPEED":
+                    case "ITEM_EVENT_RETURN_SCROLL_HIGH_SPEED":
+                        return true;
                 }
             }
 
-            // 2. No arrows or bolts left
-            if (ReturnNoArrows)
+            return false;
+        }
+
+        private static bool HasNoArrows(xList<SRItem> inventory)
+        {
+            if (inventory == null)
+                return false;
+
+            SRTypes.Weapon weapon = Bot.Get.GetMyWeaponType();
+            if (weapon != SRTypes.Weapon.Bow && weapon != SRTypes.Weapon.Crossbow)
+                return false;
+
+            SRItem equippedAmmo = inventory.Capacity > 7 ? inventory[7] : null;
+            if (equippedAmmo != null && equippedAmmo.Quantity > 0)
+                return false;
+
+            byte slot = 0;
+            return !Bot.Get.FindItem(3, 1, 7, ref slot);
+        }
+
+        private static bool IsInventoryFull(xList<SRItem> inventory)
+        {
+            if (inventory == null || inventory.Capacity <= 13)
+                return true;
+
+            for (byte i = 13; i < inventory.Capacity; i++)
             {
-                var weapon = Bot.Get.GetMyWeaponType();
-                if (weapon == SRTypes.Weapon.Bow || weapon == SRTypes.Weapon.Crossbow)
-                {
-                    var ammoItem = inventory[7];
-                    if (ammoItem == null || ammoItem.Quantity == 0)
-                    {
-                        byte dummySlot = 0;
-                        bool hasInBag = Bot.Get.FindItem(3, 1, 7, ref dummySlot);
-                        if (!hasInBag)
-                        {
-                            Window.Get?.Log("Town Trigger: No arrows/bolts left! Returning to town...");
-                            Bot.Get.UseReturnScroll();
-                            return true;
-                        }
-                    }
-                }
+                if (inventory[i] == null)
+                    return false;
             }
 
-            // 3. HP / MP Potions low
-            if (ReturnHPLow || ReturnMPLow)
+            return true;
+        }
+
+        private static bool IsPetInventoryFull()
+        {
+            if (InfoManager.MyPets == null)
+                return false;
+
+            for (int i = 0; i < InfoManager.MyPets.Count; i++)
             {
-                int hpCount = 0;
-                int mpCount = 0;
-                for (byte i = 13; i < inventory.Capacity; i++)
+                SRCoService pet = InfoManager.MyPets.GetAt(i);
+                if (pet == null || !pet.isPickPet() || pet.Inventory == null || pet.Inventory.Capacity == 0)
+                    continue;
+
+                for (int slot = 0; slot < pet.Inventory.Capacity; slot++)
                 {
-                    var item = inventory[i];
-                    if (item != null)
-                    {
-                        if (item.isType(3, 1, 1)) hpCount += item.Quantity;
-                        else if (item.isType(3, 1, 2)) mpCount += item.Quantity;
-                    }
+                    if (pet.Inventory[slot] == null)
+                        return false;
                 }
 
-                if (ReturnHPLow && hpCount <= HPLowThreshold)
-                {
-                    Window.Get?.Log("Town Trigger: HP potions low (" + hpCount + ")! Returning to town...");
-                    Bot.Get.UseReturnScroll();
-                    return true;
-                }
-
-                if (ReturnMPLow && mpCount <= MPLowThreshold)
-                {
-                    Window.Get?.Log("Town Trigger: MP potions low (" + mpCount + ")! Returning to town...");
-                    Bot.Get.UseReturnScroll();
-                    return true;
-                }
+                return true;
             }
 
-            // 4. Equipment durability low
-            if (ReturnDurabilityLow)
+            return false;
+        }
+
+        private static int CountInventoryQuantity(xList<SRItem> inventory, byte id2, byte id3, byte id4)
+        {
+            if (inventory == null)
+                return 0;
+
+            int quantity = 0;
+            for (byte i = 13; i < inventory.Capacity; i++)
             {
-                // In Silkroad: slots 0..5 are armor, slot 6 is weapon, slot 7 is shield.
-                // Slots 8 (job/avatar), 9..12 (accessories: earring, necklace, rings) DO NOT HAVE DURABILITY!
-                for (byte i = 0; i <= 7; i++)
-                {
-                    var equip = inventory[i] as SREquipable;
-                    if (equip != null && !equip.isAvatar() && !equip.isJob()
-                        && equip.ItemType != SREquipable.Equipable.AccesoriesCH
-                        && equip.ItemType != SREquipable.Equipable.AccesoriesEU
-                        && equip.Durability > 0)
-                    {
-                        if (equip.Durability <= DurabilityLowThreshold)
-                        {
-                            Window.Get?.Log("Town Trigger: Equipment durability critical (" + equip.Durability + ") on " + equip.Name + "! Returning to town...");
-                            Bot.Get.UseReturnScroll();
-                            return true;
-                        }
-                    }
-                }
+                SRItem item = inventory[i];
+                if (item != null && item.isType(id2, id3, id4))
+                    quantity += item.Quantity;
+            }
+
+            return quantity;
+        }
+
+        private static bool HasLowDurability(xList<SRItem> inventory)
+        {
+            if (inventory == null)
+                return false;
+
+            // Slots 0..7 are armor, weapon and shield. Avatar, job and
+            // accessories do not participate in durability protection.
+            for (byte i = 0; i <= 7 && i < inventory.Capacity; i++)
+            {
+                SREquipable equip = inventory[i] as SREquipable;
+                if (equip != null && !equip.isAvatar() && !equip.isJob()
+                    && equip.ItemType != SREquipable.Equipable.AccesoriesCH
+                    && equip.ItemType != SREquipable.Equipable.AccesoriesEU
+                    && equip.Durability > 0 && equip.Durability <= DurabilityLowThreshold)
+                    return true;
             }
 
             return false;

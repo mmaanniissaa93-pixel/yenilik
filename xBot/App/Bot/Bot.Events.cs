@@ -28,6 +28,8 @@ namespace xBot.App
 		/// </summary>
 		public void OnDisconnected()
 		{
+			ProtectionManager.ResetRuntimeState();
+
 			// Stop recording
 			isRecording = false;
 
@@ -222,6 +224,9 @@ namespace xBot.App
 			// Update header stats (LVL/HP/MP labels) every 5 iterations
 			if (JoinedLoopCounter % 5 == 0)
 				w.UpdateHeaderStats();
+			// Run all protection checks from one throttled, serialized tick.
+			if (JoinedLoopCounter % 5 == 0)
+				ProtectionManager.RunTick();
 			JoinedLoopCounter++;
 		}
 		private Timer tJoinedLoop;
@@ -252,6 +257,8 @@ namespace xBot.App
 		/// </summary>
 		public void OnLevelUp(byte level)
 		{
+			ProtectionManager.NotifyLevelUp();
+
 			Window w = Window.Get;
 			if (w != null && w.Character_cbxAutoStat != null && w.Character_cbxAutoStat.Checked)
 			{
@@ -311,6 +318,8 @@ namespace xBot.App
 		}
 		public void OnCharacterDead()
 		{
+			ProtectionManager.NotifyCharacterDead();
+
 			Window w = Window.Get;
 			if (w.Character_cbxAcceptRess.Checked)
 			{

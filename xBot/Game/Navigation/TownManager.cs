@@ -120,6 +120,23 @@ namespace xBot.Game.Navigation
 		}
 
 		/// <summary>
+		/// Checks whether a position is inside the known town service area.
+		/// </summary>
+		public bool IsNearTown(SRCoord position, double maxRange = 50.0)
+		{
+			if (position == null)
+				return false;
+
+			foreach (var service in m_services)
+			{
+				if (service.Coord != null && service.Coord.DistanceTo(position) <= maxRange)
+					return true;
+			}
+
+			return false;
+		}
+
+		/// <summary>
 		/// Finds live NPC entity for the given service.
 		/// </summary>
 		public SREntity FindLiveNpc(TownServiceInfo service)
