@@ -26,6 +26,7 @@ namespace xBot.App
         
         public bool IsSwitchingWeapon { get; set; }
         public Timer TimerSwitchingWeapon { get; set; } = null;
+        public SRTypes.Weapon MainWeaponType { get; set; } = SRTypes.Weapon.None;
 
 
         private void InitializeTimers()
@@ -521,10 +522,49 @@ namespace xBot.App
 
             CheckAutoParty();
         }
+        public void DetectAndSetMainWeapon()
+        {
+            if (MainWeaponType == SRTypes.Weapon.None)
+            {
+                var current = GetMyWeaponType();
+                if (current != SRTypes.Weapon.None)
+                {
+                    MainWeaponType = current;
+                }
+            }
+        }
+
+        public void EnsureMainWeapon()
+        {
+            if (MainWeaponType == SRTypes.Weapon.None)
+            {
+                DetectAndSetMainWeapon();
+                return;
+            }
+
+            var current = GetMyWeaponType();
+            if (current == MainWeaponType || IsSwitchingWeapon)
+                return;
+
+            if (InfoManager.Character == null || InfoManager.Character.Inventory == null)
+                return;
+
+            int slot = InfoManager.Character.Inventory.FindIndex(i => i != null && i.isEquipable() && ((SREquipable)i).IsWeapon() && (SRTypes.Weapon)i.ID4 == MainWeaponType, 13);
+            if (slot != -1)
+            {
+                Window.Get?.LogProcess($"Weapon Swap: Reverting back to main weapon ({MainWeaponType})...");
+                IsSwitchingWeapon = true;
+                PacketBuilder.MoveItem((byte)slot, 6, SRTypes.InventoryItemMovement.InventoryToInventory);
+                System.Threading.Thread.Sleep(500);
+            }
+        }
+
         public void CheckWeaponSwitch(SRSkill skill)
         {
-            if (IsSwitchingWeapon)
+            if (IsSwitchingWeapon || skill == null)
                 return;
+
+            DetectAndSetMainWeapon();
 
             // Check if the skill requires a weapon or an item to be used
             if (skill.RequiredWeaponPrimary == SRTypes.Weapon.None && skill.RequiredWeaponSecondary == SRTypes.Weapon.None && skill.RequiredItems.Count == 0)

@@ -274,6 +274,31 @@ namespace xBot.Game
 				w.Log("Error: " + errCode);
 			}
 		}
+		public static void SecondaryPasscodeResponse(Packet packet)
+		{
+			byte result = packet.ReadByte();
+			Window w = Window.Get;
+			if (result == 1)
+			{
+				w.Log("Secondary passcode accepted.");
+			}
+			else
+			{
+				w.Log("Secondary passcode notice/prompt received (result: " + result + ").");
+				SavedAccount activeAcc = AccountManager.GetAccount(AccountManager.SelectedAccountUsername);
+				string resolvedPin = SecondaryPasscodePolicy.ResolvePasscode(activeAcc?.SecondaryPasscode, LoginStrategyManager.SecondaryPasscode);
+				if (SecondaryPasscodePolicy.ShouldSendPasscodeForAccount(activeAcc?.SecondaryPasscode, LoginStrategyManager.AutoEnterSecondaryPasscode, LoginStrategyManager.SecondaryPasscode))
+				{
+					w.Log("Submitting secondary passcode automatically...");
+					PacketBuilder.SendSecondaryPasscode(resolvedPin, 250);
+				}
+			}
+		}
+		public static void AlchemyResponse(Packet packet)
+		{
+			byte result = packet.ReadByte();
+			AlchemyManager.OnAlchemyResult(result);
+		}
 		private static Packet characterDataPacket;
 		public static void CharacterDataBegin(Packet packet)
 		{

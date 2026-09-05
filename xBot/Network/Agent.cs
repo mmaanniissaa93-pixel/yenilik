@@ -80,8 +80,14 @@ namespace xBot.Network
 				CLIENT_EXCHANGE_CONFIRM_REQUEST = 0x7082,
 				CLIENT_EXCHANGE_APPROVE_REQUEST = 0x7083,
 				CLIENT_EXCHANGE_EXIT_REQUEST = 0x7084,
+				CLIENT_SECONDARY_PASSCODE = 0x7625,
+				CLIENT_ALCHEMY = 0x7150,
+				CLIENT_ALCHEMY_STONE = 0x7151,
 
 				SERVER_AUTH_RESPONSE = 0xA103,
+				SERVER_SECONDARY_PASSCODE_REQUEST = 0x3625,
+				SERVER_SECONDARY_PASSCODE_RESPONSE = 0xB625,
+				SERVER_ALCHEMY_RESPONSE = 0xB150,
 				SERVER_CHARACTER_SELECTION_JOIN_RESPONSE = 0xB001,
 				SERVER_CHARACTER_SELECTION_ACTION_RESPONSE = 0xB007,
 				SERVER_CHARACTER_DATA_BEGIN = 0x34A5,
@@ -377,6 +383,13 @@ namespace xBot.Network
 					break;
 				case Opcode.SERVER_CHARACTER_SELECTION_JOIN_RESPONSE:
 					PacketParser.CharacterSelectionJoinResponse(packet);
+					break;
+				case Opcode.SERVER_SECONDARY_PASSCODE_REQUEST:
+				case Opcode.SERVER_SECONDARY_PASSCODE_RESPONSE:
+					PacketParser.SecondaryPasscodeResponse(packet);
+					break;
+				case Opcode.SERVER_ALCHEMY_RESPONSE:
+					PacketParser.AlchemyResponse(packet);
 					break;
 				case Opcode.SERVER_CHARACTER_DATA_BEGIN:
 					PacketParser.CharacterDataBegin(packet);

@@ -308,6 +308,12 @@ namespace xBot.App
                 }
             }
 
+            // Step 4: Grocery Merchant (Ammunition for Bow / Crossbow users)
+            if (isBotting)
+            {
+                ExecuteAutoBuyAmmo();
+            }
+
             // If user supplied custom town script, execute it too
             if (town != null)
             {
@@ -388,6 +394,15 @@ namespace xBot.App
 
                 // Check buffs
                 BuffLoop();
+
+                // Check party support (Heal, Ress, Cure)
+                PartySupportManager.RunTick();
+
+                // Check auto alchemy (+ basma)
+                if (AlchemyManager.IsRunning)
+                {
+                    AlchemyManager.RunTick();
+                }
 
                 if (trainingRadius > 0)
                 {
@@ -954,6 +969,58 @@ namespace xBot.App
                     }
                 }
             }
+
+            // Unload and store items from active Pick Pet
+            if (InfoManager.MyPets != null)
+            {
+                SRCoService pickPet = InfoManager.MyPets.Find(p => p != null && p.isPickPet() && p.Inventory != null);
+                if (pickPet != null && pickPet.Inventory != null)
+                {
+                    for (byte pSlot = 0; pSlot < pickPet.Inventory.Capacity && isBotting; pSlot++)
+                    {
+                        var pItem = pickPet.Inventory[pSlot];
+                        if (pItem == null)
+                            continue;
+
+                        if (ItemFilterManager.ShouldStore(pItem))
+                        {
+                            int emptyStorageSlot = -1;
+                            for (int s = 0; s < storage.Capacity; s++)
+                            {
+                                if (storage[s] == null)
+                                {
+                                    emptyStorageSlot = s;
+                                    break;
+                                }
+                            }
+
+                            if (emptyStorageSlot == -1)
+                            {
+                                w.LogProcess("Town Loop: Storage is full for pet items!", Window.ProcessState.Warning);
+                                break;
+                            }
+
+                            // Find empty slot in character inventory to intermediate pet to storage
+                            int emptyCharSlot = inv.FindIndex(i => i == null, 13);
+                            if (emptyCharSlot != -1)
+                            {
+                                w.LogProcess($"Transferring [{pItem.Name}] from pet slot {pSlot} to inventory...");
+                                PacketBuilder.MoveItem(pSlot, (byte)emptyCharSlot, SRTypes.InventoryItemMovement.PetToInventory, pickPet.UniqueID);
+                                Thread.Sleep(350);
+
+                                w.LogProcess($"Depositing [{pItem.Name}] to storage slot {emptyStorageSlot}...");
+                                PacketBuilder.MoveItem((byte)emptyCharSlot, (byte)emptyStorageSlot, SRTypes.InventoryItemMovement.InventoryToStorage, pItem.Quantity);
+                                Thread.Sleep(350);
+                            }
+                            else
+                            {
+                                w.LogProcess("Town Loop: Character inventory full while transferring pet items.", Window.ProcessState.Warning);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         private void ExecuteSellTrash()
@@ -1014,6 +1081,9 @@ namespace xBot.App
                     Thread.Sleep(Math.Max(500, buff.CastingTime + 100));
                 }
             }
+
+            // Revert back to primary attack weapon if weapon was switched for buffs
+            EnsureMainWeapon();
         }
 
         private void LootDrops(SRCoord trainingPosition, int trainingRadius)
@@ -1178,6 +1248,121 @@ namespace xBot.App
                     w.LogProcess($"Auto Buy: Purchasing {missingPills} Universal Pills...");
                     PacketBuilder.BuyItemFromShop(0, 13, (ushort)missingPills, potionNpc.UniqueID);
                     Thread.Sleep(600);
+                }
+            }
+
+            // 4. Return Scrolls
+            int currentScrolls = CountReturnScrolls();
+            int targetScrolls = 5;
+            int missingScrolls = targetScrolls - currentScrolls;
+            if (missingScrolls > 0)
+            {
+                w.LogProcess($"Auto Buy: Purchasing {missingScrolls} Return Scrolls...");
+                PacketBuilder.BuyItemFromShop(0, 14, (ushort)missingScrolls, potionNpc.UniqueID);
+                Thread.Sleep(600);
+            }
+        }
+
+        private int CountReturnScrolls()
+        {
+            if (InfoManager.Character == null || InfoManager.Character.Inventory == null)
+                return 0;
+
+            int total = 0;
+            var inv = InfoManager.Character.Inventory;
+            for (int i = 13; i < inv.Capacity; i++)
+            {
+                var item = inv[i];
+                if (item != null && item.isType(3, 3, 1))
+                {
+                    total += item.Quantity;
+                }
+            }
+            return total;
+        }
+
+        private int CountEquippedAndInventoryAmmo()
+        {
+            if (InfoManager.Character == null || InfoManager.Character.Inventory == null)
+                return 0;
+
+            var inv = InfoManager.Character.Inventory;
+            int total = 0;
+            // Slot 7 is secondary / ammo slot
+            if (inv.Capacity > 7 && inv[7] != null && inv[7].isType(3, 1, 7))
+            {
+                total += inv[7].Quantity;
+            }
+            for (int i = 13; i < inv.Capacity; i++)
+            {
+                var item = inv[i];
+                if (item != null && item.isType(3, 1, 7))
+                {
+                    total += item.Quantity;
+                }
+            }
+            return total;
+        }
+
+        private void ExecuteAutoBuyAmmo()
+        {
+            Window w = Window.Get;
+            if (InfoManager.Character == null)
+                return;
+
+            SRTypes.Weapon weapon = GetMyWeaponType();
+            bool isBow = (weapon == SRTypes.Weapon.Bow);
+            bool isCrossbow = (weapon == SRTypes.Weapon.Crossbow);
+            if (!isBow && !isCrossbow)
+                return;
+
+            int currentAmmo = CountEquippedAndInventoryAmmo();
+            if (currentAmmo >= 1000)
+                return;
+
+            SRCoord myPosition = InfoManager.Character.GetRealtimePosition();
+            TownServiceInfo grocery = TownManager.Get.FindNearestService(myPosition, TownServiceType.GroceryMerchant);
+            if (grocery == null)
+                return;
+
+            w.LogProcess($"Town Loop: Walking to [{grocery.NpcName}] for ammunition...");
+            List<SRCoord> pathToGrocery = NavigationManager.Get.FindPath(myPosition, grocery.Coord);
+            if (pathToGrocery != null && pathToGrocery.Count > 0)
+            {
+                for (int i = 0; i < pathToGrocery.Count && isBotting; i++)
+                    WaitMovement(pathToGrocery[i], 8);
+            }
+            else
+            {
+                WaitMovement(grocery.Coord, 8);
+            }
+
+            SREntity groceryNpc = TownManager.Get.FindLiveNpc(grocery);
+            if (groceryNpc != null)
+            {
+                WaitSelectEntity(groceryNpc.UniqueID, 8, 250, "Selecting Grocery Merchant...");
+                Thread.Sleep(500);
+
+                byte shopSlot = isBow ? (byte)0 : (byte)1;
+                string ammoName = isBow ? "Arrows" : "Bolts";
+                w.LogProcess($"Auto Buy: Purchasing {ammoName} from {groceryNpc.Name}...");
+                // Buy 2 stacks of ammunition
+                PacketBuilder.BuyItemFromShop(0, shopSlot, 1, groceryNpc.UniqueID);
+                Thread.Sleep(600);
+                PacketBuilder.BuyItemFromShop(0, shopSlot, 1, groceryNpc.UniqueID);
+                Thread.Sleep(600);
+
+                // Auto-equip ammunition if secondary slot 7 is empty
+                var inv = InfoManager.Character.Inventory;
+                if (inv != null && inv.Capacity > 7 && (inv[7] == null || inv[7].Quantity == 0))
+                {
+                    byte invSlot = 0;
+                    if (Bot.Get.FindItem(3, 1, 7, ref invSlot))
+                    {
+                        w.LogProcess("Auto Equip: Equipping ammunition to slot 7...");
+                        PacketBuilder.MoveItem(invSlot, 7, SRTypes.InventoryItemMovement.InventoryToInventory);
+                        Thread.Sleep(500);
+                    }
                 }
             }
         }

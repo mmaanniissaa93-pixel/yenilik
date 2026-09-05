@@ -13,5 +13,10 @@
     <Compile Include="..\..\xBot\App\SkillPolicy.cs" Link="SkillPolicy.cs" />
     <Compile Include="..\..\xBot\App\ImbuePolicy.cs" Link="ImbuePolicy.cs" />
     <Compile Include="..\..\xBot\App\CommandCenter\CommandCenterPolicy.cs" Link="CommandCenterPolicy.cs" />
+    <Compile Include="..\..\xBot\App\TownLogisticsPolicy.cs" Link="TownLogisticsPolicy.cs" />
+    <Compile Include="..\..\xBot\App\PartyPolicy.cs" Link="PartyPolicy.cs" />
+    <Compile Include="..\..\xBot\App\SecondaryPasscodePolicy.cs" Link="SecondaryPasscodePolicy.cs" />
+    <Compile Include="..\..\xBot\App\Socks5Policy.cs" Link="Socks5Policy.cs" />
+    <Compile Include="..\..\xBot\App\AlchemyPolicy.cs" Link="AlchemyPolicy.cs" />
   </ItemGroup>
 </Project>

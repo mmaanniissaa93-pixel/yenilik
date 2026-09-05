@@ -96,6 +96,14 @@ namespace xBot.App
 
 				if (character != null)
 				{
+					SavedAccount activeAcc = AccountManager.GetAccount(AccountManager.SelectedAccountUsername);
+					string resolvedPin = SecondaryPasscodePolicy.ResolvePasscode(activeAcc?.SecondaryPasscode, LoginStrategyManager.SecondaryPasscode);
+					if (SecondaryPasscodePolicy.ShouldSendPasscodeForAccount(activeAcc?.SecondaryPasscode, LoginStrategyManager.AutoEnterSecondaryPasscode, LoginStrategyManager.SecondaryPasscode))
+					{
+						w.Log("Sending secondary passcode (PIN)...");
+						PacketBuilder.SendSecondaryPasscode(resolvedPin, 100);
+					}
+
 					w.Log("Selecting [" + character.Name + "] (Lvl " + character.Level + ") ...");
 					w.InvokeIfRequired(() => {
 						w.Login_cmbxCharacter.Text = character.Name;
@@ -850,22 +858,36 @@ namespace xBot.App
 		public void OnResurrection(uint UniqueID)
 		{
 			Window w = Window.Get;
+			bool acceptRess = w != null && w.Character_cbxAcceptRess != null && w.Character_cbxAcceptRess.Checked;
+			bool partyOnly = w != null && w.Character_cbxAcceptRessPartyOnly != null && w.Character_cbxAcceptRessPartyOnly.Checked;
 
-			if (w.Character_cbxAcceptRess.Checked)
+			bool requesterInParty = false;
+			if (InfoManager.Party != null && InfoManager.Party.Members != null)
 			{
-				if (!w.Character_cbxAcceptRessPartyOnly.Checked)
+				SREntity player = InfoManager.GetEntity(UniqueID);
+				if (player != null)
 				{
-					PacketBuilder.PlayerPetitionResponse(true, SRTypes.PlayerPetition.Resurrection);
+					requesterInParty = (InfoManager.Party.Members.Find(p => p != null && p.Name == player.Name) != null);
 				}
 				else
 				{
-					SREntity player = InfoManager.GetEntity(UniqueID);
-					if(player != null)
+					SRPlayer p = InfoManager.Players.Find(pl => pl != null && pl.UniqueID == UniqueID);
+					if (p != null)
 					{
-						if (InfoManager.Party.Members.Find(p => p.Name == player.Name) != null)
-							PacketBuilder.PlayerPetitionResponse(true, SRTypes.PlayerPetition.Resurrection);
+						requesterInParty = (InfoManager.Party.Members.Find(m => m != null && m.Name == p.Name) != null);
 					}
 				}
+			}
+
+			if (PartyPolicy.ShouldAcceptRess(acceptRess, partyOnly, requesterInParty))
+			{
+				w?.LogProcess("Resurrection: Accepting resurrection request...");
+				PacketBuilder.PlayerPetitionResponse(true, SRTypes.PlayerPetition.Resurrection);
+			}
+			else
+			{
+				w?.LogProcess("Resurrection: Request declined based on policy.", Window.ProcessState.Warning);
+				PacketBuilder.PlayerPetitionResponse(false, SRTypes.PlayerPetition.Resurrection);
 			}
 		}
 		#endregion

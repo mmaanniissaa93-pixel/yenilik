@@ -133,6 +133,14 @@
     <Compile Include="App\ItemFilterManager.cs" />
     <Compile Include="App\ItemFilterPolicy.cs" />
     <Compile Include="App\ProtectionPolicy.cs" />
+    <Compile Include="App\TownLogisticsPolicy.cs" />
+    <Compile Include="App\PartyPolicy.cs" />
+    <Compile Include="App\PartySupportManager.cs" />
+    <Compile Include="App\SecondaryPasscodePolicy.cs" />
+    <Compile Include="App\Socks5Policy.cs" />
+    <Compile Include="App\AlchemyPolicy.cs" />
+    <Compile Include="App\AlchemyManager.cs" />
+    <Compile Include="App\AccountSetupForm.cs" />
     <Compile Include="App\Window.CustomTabs.cs" />
     <Compile Include="App\Window.ModernTheme.cs" />
     <Compile Include="App\Theme\DarkTheme.cs" />
@@ -217,6 +225,7 @@
     <Compile Include="Game\PacketBuilder.cs" />
     <Compile Include="Game\PacketParser.cs" />
     <Compile Include="Network\Proxy.cs" />
+    <Compile Include="Network\Socks5Handler.cs" />
     <Compile Include="App\Bot\Bot.cs" />
     <Compile Include="App\WinAPI.cs" />
     <Compile Include="App\Fonts.cs" />

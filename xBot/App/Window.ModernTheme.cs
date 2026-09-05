@@ -509,12 +509,19 @@ namespace xBot.App
                 Dock = DockStyle.None
             };
 
+            BuildAlchemyTab();
+            if (TabPageV_Control01_Alchemy_Panel != null && TabPageV_Control01_Alchemy_Panel.Parent == null)
+            {
+                pnlWindow.Controls.Add(TabPageV_Control01_Alchemy_Panel);
+            }
+
             // Category 1: BOT AYARLARI (Core Bot Features)
             modernSidebar.AddItem("Login", "Genel / Giriş", "⚡", "BOT AYARLARI", TabPageV_Control01_Login_Panel);
             modernSidebar.AddItem("Training", "Kasılma", "⚔", "BOT AYARLARI", TabPageV_Control01_Training_Panel);
             modernSidebar.AddItem("Skills", "Beceriler", "✦", "BOT AYARLARI", TabPageV_Control01_Skills_Panel);
             modernSidebar.AddItem("Character", "Koruma", "🛡", "BOT AYARLARI", TabPageV_Control01_Character_Panel);
             modernSidebar.AddItem("Town", "Şehir & İtem", "🏛", "BOT AYARLARI", TabPageV_Control01_Town_Panel);
+            modernSidebar.AddItem("Alchemy", "Simya (+ Basma)", "⚗", "BOT AYARLARI", TabPageV_Control01_Alchemy_Panel);
 
             // Category 2: TOPLULUK (Social & Community)
             modernSidebar.AddItem("Inventory", "Envanter", "▣", "TOPLULUK", TabPageV_Control01_Inventory_Panel);
@@ -589,7 +596,8 @@ namespace xBot.App
                 TabPageV_Control01_Stall_Panel,
                 TabPageV_Control01_Minimap_Panel,
                 TabPageV_Control01_GameInfo_Panel,
-                TabPageV_Control01_Settings_Panel
+                TabPageV_Control01_Settings_Panel,
+                TabPageV_Control01_Alchemy_Panel
             };
 
             foreach (var panel in allTabPanels)
@@ -683,9 +691,10 @@ namespace xBot.App
                     int row4Y = 122; // Server
                     int row5Y = 154; // Karakter
 
-                    // Row 1: Saved Account selector + Save + Delete
+                    // Row 1: Saved Account selector + Setup + Save + Delete
                     if (Login_lblAccount != null) { Login_lblAccount.Location = new Point(labelX, row1Y + 4); Login_lblAccount.AutoSize = true; Login_lblAccount.ForeColor = DarkTheme.TextMuted; }
-                    if (Login_cmbxSavedAccounts != null) { Login_cmbxSavedAccounts.Location = new Point(inputX, row1Y); Login_cmbxSavedAccounts.Size = new Size(inputW - 46, 24); Login_cmbxSavedAccounts.FlatStyle = FlatStyle.Flat; }
+                    if (Login_cmbxSavedAccounts != null) { Login_cmbxSavedAccounts.Location = new Point(inputX, row1Y); Login_cmbxSavedAccounts.Size = new Size(inputW - 68, 24); Login_cmbxSavedAccounts.FlatStyle = FlatStyle.Flat; }
+                    if (Login_btnAccountSetup != null) { Login_btnAccountSetup.Location = new Point(inputX + inputW - 66, row1Y); Login_btnAccountSetup.Size = new Size(20, 24); }
                     if (Login_btnSaveAccount != null) { Login_btnSaveAccount.Location = new Point(inputX + inputW - 44, row1Y); Login_btnSaveAccount.Size = new Size(20, 24); }
                     if (Login_btnDeleteAccount != null) { Login_btnDeleteAccount.Location = new Point(inputX + inputW - 22, row1Y); Login_btnDeleteAccount.Size = new Size(20, 24); }
 

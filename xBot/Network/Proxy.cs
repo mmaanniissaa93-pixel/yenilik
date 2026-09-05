@@ -180,7 +180,15 @@ namespace xBot.Network
 				w.LogProcess("Waiting server connection...");
 
 				ProxyReconnection(30, ref CurrentAttemptReconnections, 10); // Wait 30 seconds, max. 10 attempts
-				Gateway.Remote.Socket.Connect(Gateway.Host, Gateway.Port);
+				if (Socks5Config.GetEffectiveProxy(out string pHost, out ushort pPort, out string pUser, out string pPass))
+				{
+					w.Log($"[SOCKS5] Routing via {pHost}:{pPort} to Gateway [{Gateway.Host}:{Gateway.Port}]");
+					Socks5Handler.Connect(Gateway.Remote.Socket, pHost, pPort, Gateway.Host, Gateway.Port, pUser, pPass);
+				}
+				else
+				{
+					Gateway.Remote.Socket.Connect(Gateway.Host, Gateway.Port);
+				}
 				ProxyReconnectionStop();
 				CurrentAttemptReconnections = 0;
 				w.Log("Connected");
@@ -462,7 +470,15 @@ namespace xBot.Network
 				w.Log("Connecting to Agent server [" + Agent.Host + ":" + Agent.Port + "]");
 				w.LogProcess("Waiting server connection...");
 				ProxyReconnection(10, ref dummy, int.MaxValue);
-				Agent.Remote.Socket.Connect(Agent.Host, Agent.Port);
+				if (Socks5Config.GetEffectiveProxy(out string pHost, out ushort pPort, out string pUser, out string pPass))
+				{
+					w.Log($"[SOCKS5] Routing via {pHost}:{pPort} to Agent [{Agent.Host}:{Agent.Port}]");
+					Socks5Handler.Connect(Agent.Remote.Socket, pHost, pPort, Agent.Host, Agent.Port, pUser, pPass);
+				}
+				else
+				{
+					Agent.Remote.Socket.Connect(Agent.Host, Agent.Port);
+				}
 				ProxyReconnectionStop();
 				w.Log("Connected");
 				w.LogProcess("Connected");
@@ -902,6 +918,68 @@ namespace xBot.Network
 			{
 				Gateway.InjectToClient(packet);
 			}
+		}
+	}
+
+	/// <summary>
+	/// Manages global SOCKS5 proxy configuration and resolution with account overrides.
+	/// </summary>
+	public static class Socks5Config
+	{
+		public static bool Enabled { get; set; } = false;
+		public static string Host { get; set; } = string.Empty;
+		public static ushort Port { get; set; } = 1080;
+		public static string Username { get; set; } = string.Empty;
+		public static string Password { get; set; } = string.Empty;
+
+		/// <summary>
+		/// Resolves the effective proxy settings, prioritizing selected account's proxy if configured.
+		/// </summary>
+		public static bool GetEffectiveProxy(out string host, out ushort port, out string username, out string password)
+		{
+			SavedAccount activeAcc = AccountManager.GetAccount(AccountManager.SelectedAccountUsername);
+			if (activeAcc != null && activeAcc.UseProxy && !string.IsNullOrWhiteSpace(activeAcc.ProxyHost))
+			{
+				host = activeAcc.ProxyHost.Trim();
+				port = activeAcc.ProxyPort > 0 ? activeAcc.ProxyPort : (ushort)1080;
+				username = activeAcc.ProxyUsername ?? string.Empty;
+				password = activeAcc.ProxyPassword ?? string.Empty;
+				return true;
+			}
+			if (Enabled && !string.IsNullOrWhiteSpace(Host))
+			{
+				host = Host.Trim();
+				port = Port > 0 ? Port : (ushort)1080;
+				username = Username ?? string.Empty;
+				password = Password ?? string.Empty;
+				return true;
+			}
+			host = string.Empty;
+			port = 0;
+			username = string.Empty;
+			password = string.Empty;
+			return false;
+		}
+
+		public static Newtonsoft.Json.Linq.JObject ToJson()
+		{
+			var json = new Newtonsoft.Json.Linq.JObject();
+			json["Enabled"] = Enabled;
+			json["Host"] = Host;
+			json["Port"] = Port;
+			json["Username"] = Username;
+			json["Password"] = Password;
+			return json;
+		}
+
+		public static void FromJson(Newtonsoft.Json.Linq.JObject json)
+		{
+			if (json == null) return;
+			if (json.ContainsKey("Enabled")) Enabled = (bool)json["Enabled"];
+			if (json.ContainsKey("Host")) Host = (string)json["Host"] ?? string.Empty;
+			if (json.ContainsKey("Port")) Port = (ushort)json["Port"];
+			if (json.ContainsKey("Username")) Username = (string)json["Username"] ?? string.Empty;
+			if (json.ContainsKey("Password")) Password = (string)json["Password"] ?? string.Empty;
 		}
 	}
 }

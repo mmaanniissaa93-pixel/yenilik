@@ -23,6 +23,8 @@ namespace xBot.App
         public static bool AutoHideClient { get; set; } = false;
         public static bool StayConnected { get; set; } = true; // Failover
         public static CharacterSelectionStrategy Strategy { get; set; } = CharacterSelectionStrategy.FirstFound;
+        public static bool AutoEnterSecondaryPasscode { get; set; } = true;
+        public static string SecondaryPasscode { get; set; } = "";
 
         public static SRCharSelection SelectCharacter(List<SRCharSelection> characterList)
         {
@@ -56,6 +58,8 @@ namespace xBot.App
             json["AutoHideClient"] = AutoHideClient;
             json["StayConnected"] = StayConnected;
             json["Strategy"] = (int)Strategy;
+            json["AutoEnterSecondaryPasscode"] = AutoEnterSecondaryPasscode;
+            json["SecondaryPasscode"] = SecondaryPasscode;
             return json;
         }
 
@@ -73,6 +77,8 @@ namespace xBot.App
             if (json.ContainsKey("AutoHideClient")) AutoHideClient = (bool)json["AutoHideClient"];
             if (json.ContainsKey("StayConnected")) StayConnected = (bool)json["StayConnected"];
             if (json.ContainsKey("Strategy")) Strategy = (CharacterSelectionStrategy)(int)json["Strategy"];
+            if (json.ContainsKey("AutoEnterSecondaryPasscode")) AutoEnterSecondaryPasscode = (bool)json["AutoEnterSecondaryPasscode"];
+            if (json.ContainsKey("SecondaryPasscode")) SecondaryPasscode = (string)json["SecondaryPasscode"];
         }
     }
 }

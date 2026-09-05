@@ -89,6 +89,9 @@ namespace xBot.App
 					root["CombatAI"] = CombatAIEngine.ToJson();
 					root["Accounts"] = AccountManager.ToJson();
 					root["SelectedAccount"] = AccountManager.SelectedAccountUsername;
+					root["Socks5Proxy"] = Network.Socks5Config.ToJson();
+					root["PartySupport"] = PartySupportManager.ToJson();
+					root["Alchemy"] = AlchemyManager.ToJson();
 					CommandCenter.CommandCenterManager.SaveSettings(root);
 
 					// Saving
@@ -235,6 +238,12 @@ namespace xBot.App
 				}
 				if (root.ContainsKey("CommandCenter"))
 					CommandCenter.CommandCenterManager.LoadSettings(root);
+				if (root.ContainsKey("Socks5Proxy"))
+					Network.Socks5Config.FromJson((Newtonsoft.Json.Linq.JObject)root["Socks5Proxy"]);
+				if (root.ContainsKey("PartySupport"))
+					PartySupportManager.FromJson((Newtonsoft.Json.Linq.JObject)root["PartySupport"]);
+				if (root.ContainsKey("Alchemy"))
+					AlchemyManager.FromJson((Newtonsoft.Json.Linq.JObject)root["Alchemy"]);
 			}
 		}
 		/// <summary>

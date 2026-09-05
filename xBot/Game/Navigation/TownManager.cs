@@ -9,7 +9,8 @@ namespace xBot.Game.Navigation
 	{
 		Blacksmith,
 		Storage,
-		PotionMerchant
+		PotionMerchant,
+		GroceryMerchant
 	}
 
 	public class TownServiceInfo
@@ -58,26 +59,31 @@ namespace xBot.Game.Navigation
 			m_services.Add(new TownServiceInfo("Jangan", TownServiceType.Blacksmith, 2003, "Blacksmith Chulsan", new SRCoord(6425.0, 1070.0)));
 			m_services.Add(new TownServiceInfo("Jangan", TownServiceType.Storage, 2013, "Storage-Keeper Wangu", new SRCoord(6455.0, 1105.0)));
 			m_services.Add(new TownServiceInfo("Jangan", TownServiceType.PotionMerchant, 2005, "Herbalist Yangyun", new SRCoord(6368.0, 1078.0)));
+			m_services.Add(new TownServiceInfo("Jangan", TownServiceType.GroceryMerchant, 2004, "Grocery Merchant Jinjin", new SRCoord(6438.0, 1085.0)));
 
 			// 2. Donwhang (Western China)
 			m_services.Add(new TownServiceInfo("Donwhang", TownServiceType.Blacksmith, 2051, "Blacksmith Agol", new SRCoord(3566.0, 2038.0)));
 			m_services.Add(new TownServiceInfo("Donwhang", TownServiceType.Storage, 2057, "Storage-Keeper Paedo", new SRCoord(3532.0, 2028.0)));
 			m_services.Add(new TownServiceInfo("Donwhang", TownServiceType.PotionMerchant, 2053, "Herbalist Bori", new SRCoord(3545.0, 2045.0)));
+			m_services.Add(new TownServiceInfo("Donwhang", TownServiceType.GroceryMerchant, 2052, "Grocery Merchant Yeonho", new SRCoord(3555.0, 2055.0)));
 
 			// 3. Hotan (Oasis Kingdom)
 			m_services.Add(new TownServiceInfo("Hotan", TownServiceType.Blacksmith, 2072, "Blacksmith Soboi", new SRCoord(142.0, 22.0)));
 			m_services.Add(new TownServiceInfo("Hotan", TownServiceType.Storage, 2083, "Storage-Keeper Auisan", new SRCoord(115.0, 18.0)));
 			m_services.Add(new TownServiceInfo("Hotan", TownServiceType.PotionMerchant, 2074, "Potion Merchant Manina", new SRCoord(132.0, 30.0)));
+			m_services.Add(new TownServiceInfo("Hotan", TownServiceType.GroceryMerchant, 2073, "Grocery Merchant Mamoje", new SRCoord(122.0, 15.0)));
 
 			// 4. Samarkand (Central Asia)
 			m_services.Add(new TownServiceInfo("Samarkand", TownServiceType.Blacksmith, 22685, "Samarkand Blacksmith", new SRCoord(-4950.0, 1540.0)));
 			m_services.Add(new TownServiceInfo("Samarkand", TownServiceType.Storage, 7537, "Storage-Keeper Saesa", new SRCoord(-4930.0, 1520.0)));
 			m_services.Add(new TownServiceInfo("Samarkand", TownServiceType.PotionMerchant, 7532, "Nun Martel", new SRCoord(-4960.0, 1530.0)));
+			m_services.Add(new TownServiceInfo("Samarkand", TownServiceType.GroceryMerchant, 7533, "Samarkand Grocery", new SRCoord(-4940.0, 1535.0)));
 
 			// 5. Constantinople (Europe)
 			m_services.Add(new TownServiceInfo("Constantinople", TownServiceType.Blacksmith, 22680, "Eastern Europe Blacksmith", new SRCoord(-10220.0, 2550.0)));
 			m_services.Add(new TownServiceInfo("Constantinople", TownServiceType.Storage, 7497, "Constantinople Storage", new SRCoord(-10240.0, 2530.0)));
 			m_services.Add(new TownServiceInfo("Constantinople", TownServiceType.PotionMerchant, 7497, "Nun Retaldi", new SRCoord(-10210.0, 2540.0)));
+			m_services.Add(new TownServiceInfo("Constantinople", TownServiceType.GroceryMerchant, 7498, "Constantinople Grocery", new SRCoord(-10230.0, 2545.0)));
 		}
 
 		/// <summary>

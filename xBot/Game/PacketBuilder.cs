@@ -32,6 +32,26 @@ namespace xBot.Game
 			p.WriteAscii(charname);
 			Bot.Get.Proxy.Agent.InjectToServer(p, delay);
 		}
+		public static void SendSecondaryPasscode(string passcode, int delay = 0)
+		{
+			if (string.IsNullOrWhiteSpace(passcode))
+				return;
+			Packet p = new Packet(Agent.Opcode.CLIENT_SECONDARY_PASSCODE);
+			p.WriteAscii(passcode.Trim());
+			Bot.Get.Proxy.Agent.InjectToServer(p, delay);
+		}
+		public static void FuseItem(byte targetSlot, byte elixirSlot, byte powderSlot = 0xFF)
+		{
+			Packet p = new Packet(Agent.Opcode.CLIENT_ALCHEMY);
+			p.WriteByte(2); // Action: Fuse/Reinforce
+			p.WriteByte(targetSlot);
+			p.WriteByte(elixirSlot);
+			if (powderSlot != 0xFF)
+			{
+				p.WriteByte(powderSlot);
+			}
+			Bot.Get.Proxy.Agent.InjectToServer(p);
+		}
 		public static void DeleteCharacter(string charname)
 		{
 			Packet p = new Packet(Agent.Opcode.CLIENT_CHARACTER_SELECTION_ACTION_REQUEST);

@@ -24,7 +24,31 @@ namespace xBot.App
         public ComboBox Login_cmbxSavedAccounts;
         public Button Login_btnSaveAccount;
         public Button Login_btnDeleteAccount;
+        public Button Login_btnAccountSetup;
         private bool _isPopulatingSavedAccounts = false;
+
+        // Alchemy controls
+        public Panel TabPageV_Control01_Alchemy_Panel;
+        private Theme.ModernCard gbxAlchemySettings;
+        private Theme.ModernCard gbxAlchemyActions;
+        private ComboBox cmbxAlchemyItems;
+        private Button btnAlchemyRefreshItems;
+        private NumericUpDown nudAlchemyTargetSlot;
+        private NumericUpDown nudAlchemyTargetPlus;
+        private CheckBox cbxAlchemyUsePowder;
+        private NumericUpDown nudAlchemyMaxAttempts;
+        private NumericUpDown nudAlchemyDelay;
+        private Label lblAlchemyItemInfo;
+        private Label lblAlchemyElixirInfo;
+        private Label lblAlchemyPowderInfo;
+        private Button btnAlchemyStart;
+        private Button btnAlchemyStop;
+        private Button btnAlchemyReset;
+        private Label lblAlchemyStatus;
+        private Label lblAlchemyAttempts;
+        private Label lblAlchemySuccess;
+        private Label lblAlchemyFailed;
+        private ListBox lbxAlchemyLog;
 
         // General & Login Strategy controls
         private CheckBox cbxGeneralAutoLogin;
@@ -363,21 +387,48 @@ namespace xBot.App
                 Login_btnDeleteAccount.FlatAppearance.BorderSize = 1;
                 Login_btnDeleteAccount.FlatAppearance.BorderColor = Theme.DarkTheme.BorderSubtle;
 
+                Login_btnAccountSetup = new Button
+                {
+                    Name = "Login_btnAccountSetup",
+                    Text = "⚙",
+                    Font = Theme.DarkTheme.FontBodyBold,
+                    FlatStyle = FlatStyle.Flat,
+                    BackColor = Theme.DarkTheme.BgInput,
+                    ForeColor = Theme.DarkTheme.Accent,
+                    Cursor = Cursors.Hand
+                };
+                Login_btnAccountSetup.FlatAppearance.BorderSize = 1;
+                Login_btnAccountSetup.FlatAppearance.BorderColor = Theme.DarkTheme.BorderSubtle;
+
                 if (ToolTips != null)
                 {
                     ToolTips.SetToolTip(Login_btnSaveAccount, "Geçerli hesap bilgilerini kaydet / güncelle");
                     ToolTips.SetToolTip(Login_btnDeleteAccount, "Seçili hesabı listeden sil");
+                    ToolTips.SetToolTip(Login_btnAccountSetup, "Hesap Yönetimi ve PIN Ayarları (Account Setup)");
                     ToolTips.SetToolTip(Login_cmbxSavedAccounts, "Kayıtlı hesaplar arasından seçim yapın");
                 }
 
                 Login_cmbxSavedAccounts.SelectedIndexChanged += (s, e) => OnSavedAccountSelected();
                 Login_btnSaveAccount.Click += (s, e) => OnSaveAccountClicked();
                 Login_btnDeleteAccount.Click += (s, e) => OnDeleteAccountClicked();
+                Login_btnAccountSetup.Click += (s, e) => OpenAccountSetupDialog();
 
                 Login_gbxLogin.Controls.Add(Login_lblAccount);
                 Login_gbxLogin.Controls.Add(Login_cmbxSavedAccounts);
+                Login_gbxLogin.Controls.Add(Login_btnAccountSetup);
                 Login_gbxLogin.Controls.Add(Login_btnSaveAccount);
                 Login_gbxLogin.Controls.Add(Login_btnDeleteAccount);
+            }
+        }
+
+        public void OpenAccountSetupDialog()
+        {
+            using (var dlg = new AccountSetupForm())
+            {
+                if (dlg.ShowDialog(this) == DialogResult.OK)
+                {
+                    PopulateSavedAccounts(AccountManager.SelectedAccountUsername);
+                }
             }
         }
 
@@ -488,13 +539,17 @@ namespace xBot.App
             string character = Login_cmbxCharacter?.Text?.Trim() ?? string.Empty;
             string sro = Login_cmbxSilkroad?.Text?.Trim() ?? string.Empty;
 
+            SavedAccount existing = AccountManager.GetAccount(user);
+            string pin = existing?.SecondaryPasscode ?? string.Empty;
+
             SavedAccount acc = new SavedAccount
             {
                 Username = user,
                 Password = pass,
                 Server = server,
                 Character = character,
-                Silkroad = sro
+                Silkroad = sro,
+                SecondaryPasscode = pin
             };
 
             AccountManager.SaveAccount(acc);
@@ -574,6 +629,466 @@ namespace xBot.App
             automatedLoginTimer.Stop();
             automatedLoginTimer.Start();
             LogProcess("Otomatik giriş " + LoginStrategyManager.LoginDelaySeconds + " sn sonra başlayacak...");
+        }
+
+        public void BuildAlchemyTab()
+        {
+            if (TabPageV_Control01_Alchemy_Panel != null)
+                return;
+
+            TabPageV_Control01_Alchemy_Panel = new Panel
+            {
+                Name = "TabPageV_Control01_Alchemy_Panel",
+                BackColor = Theme.DarkTheme.BgDark,
+                BorderStyle = BorderStyle.None,
+                Visible = false
+            };
+
+            int cardW = 370;
+            int cardH = 404;
+
+            // -------------------------------------------------------------
+            // Card 1: Simya Ayarları (Left)
+            // -------------------------------------------------------------
+            gbxAlchemySettings = new Theme.ModernCard
+            {
+                Name = "gbxAlchemySettings",
+                TitleText = "SİMYA (+ BASMA) AYARLARI",
+                Location = new Point(4, 4),
+                Size = new Size(cardW, cardH),
+                CardColor = Theme.DarkTheme.BgCard,
+                BorderColor = Theme.DarkTheme.BorderSubtle,
+                BorderRadius = 8
+            };
+
+            Label lblSelect = new Label
+            {
+                Text = "Hedef Ekipman (Envanter):",
+                Location = new Point(14, 44),
+                AutoSize = true,
+                ForeColor = Theme.DarkTheme.TextMuted,
+                Font = Theme.DarkTheme.FontCaption
+            };
+
+            cmbxAlchemyItems = new ComboBox
+            {
+                Name = "cmbxAlchemyItems",
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                FlatStyle = FlatStyle.Flat,
+                Location = new Point(14, 64),
+                Size = new Size(296, 24),
+                BackColor = Theme.DarkTheme.BgInput,
+                ForeColor = Theme.DarkTheme.TextPrimary,
+                Font = Theme.DarkTheme.FontBody
+            };
+
+            btnAlchemyRefreshItems = new Button
+            {
+                Name = "btnAlchemyRefreshItems",
+                Text = "🔄",
+                Location = new Point(314, 64),
+                Size = new Size(40, 24),
+                BackColor = Theme.DarkTheme.BgInput,
+                ForeColor = Theme.DarkTheme.Accent,
+                FlatStyle = FlatStyle.Flat,
+                Font = Theme.DarkTheme.FontBodyBold,
+                Cursor = Cursors.Hand
+            };
+            btnAlchemyRefreshItems.FlatAppearance.BorderSize = 1;
+            btnAlchemyRefreshItems.FlatAppearance.BorderColor = Theme.DarkTheme.BorderSubtle;
+            if (ToolTips != null)
+            {
+                ToolTips.SetToolTip(btnAlchemyRefreshItems, "Envanterdeki ekipmanları ve malzemeleri yenile");
+            }
+
+            Label lblSlot = new Label
+            {
+                Text = "Envanter Slotu (13-76):",
+                Location = new Point(14, 98),
+                AutoSize = true,
+                ForeColor = Theme.DarkTheme.TextMuted,
+                Font = Theme.DarkTheme.FontBody
+            };
+
+            nudAlchemyTargetSlot = new NumericUpDown
+            {
+                Name = "nudAlchemyTargetSlot",
+                Location = new Point(234, 96),
+                Size = new Size(120, 22),
+                Minimum = 13,
+                Maximum = 76,
+                Value = Math.Max(13, Math.Min(76, (decimal)AlchemyManager.TargetSlot)),
+                BackColor = Theme.DarkTheme.BgInput,
+                ForeColor = Theme.DarkTheme.TextPrimary,
+                Font = Theme.DarkTheme.FontBody,
+                BorderStyle = BorderStyle.FixedSingle
+            };
+
+            Label lblPlus = new Label
+            {
+                Text = "Hedef Artı Değeri (+):",
+                Location = new Point(14, 130),
+                AutoSize = true,
+                ForeColor = Theme.DarkTheme.TextMuted,
+                Font = Theme.DarkTheme.FontBody
+            };
+
+            nudAlchemyTargetPlus = new NumericUpDown
+            {
+                Name = "nudAlchemyTargetPlus",
+                Location = new Point(234, 128),
+                Size = new Size(120, 22),
+                Minimum = 1,
+                Maximum = 15,
+                Value = Math.Max(1, Math.Min(15, (decimal)AlchemyManager.TargetPlus)),
+                BackColor = Theme.DarkTheme.BgInput,
+                ForeColor = Theme.DarkTheme.TextPrimary,
+                Font = Theme.DarkTheme.FontBody,
+                BorderStyle = BorderStyle.FixedSingle
+            };
+
+            cbxAlchemyUsePowder = new CheckBox
+            {
+                Name = "cbxAlchemyUsePowder",
+                Text = "Lucky Powder Kullan (Otomatik Degree)",
+                Checked = AlchemyManager.UseLuckyPowder,
+                Location = new Point(14, 162),
+                Size = new Size(340, 24),
+                ForeColor = Theme.DarkTheme.TextPrimary,
+                Font = Theme.DarkTheme.FontBody
+            };
+
+            Label lblMax = new Label
+            {
+                Text = "Maksimum Deneme Sınırı:",
+                Location = new Point(14, 196),
+                AutoSize = true,
+                ForeColor = Theme.DarkTheme.TextMuted,
+                Font = Theme.DarkTheme.FontBody
+            };
+
+            nudAlchemyMaxAttempts = new NumericUpDown
+            {
+                Name = "nudAlchemyMaxAttempts",
+                Location = new Point(234, 194),
+                Size = new Size(120, 22),
+                Minimum = 1,
+                Maximum = 500,
+                Value = Math.Max(1, Math.Min(500, (decimal)AlchemyManager.MaxAttempts)),
+                BackColor = Theme.DarkTheme.BgInput,
+                ForeColor = Theme.DarkTheme.TextPrimary,
+                Font = Theme.DarkTheme.FontBody,
+                BorderStyle = BorderStyle.FixedSingle
+            };
+
+            Label lblDelay = new Label
+            {
+                Text = "Deneme Gecikmesi (ms):",
+                Location = new Point(14, 228),
+                AutoSize = true,
+                ForeColor = Theme.DarkTheme.TextMuted,
+                Font = Theme.DarkTheme.FontBody
+            };
+
+            nudAlchemyDelay = new NumericUpDown
+            {
+                Name = "nudAlchemyDelay",
+                Location = new Point(234, 226),
+                Size = new Size(120, 22),
+                Minimum = 500,
+                Maximum = 10000,
+                Increment = 250,
+                Value = Math.Max(500, Math.Min(10000, (decimal)AlchemyManager.DelayMs)),
+                BackColor = Theme.DarkTheme.BgInput,
+                ForeColor = Theme.DarkTheme.TextPrimary,
+                Font = Theme.DarkTheme.FontBody,
+                BorderStyle = BorderStyle.FixedSingle
+            };
+
+            lblAlchemyItemInfo = new Label
+            {
+                Text = "Seçili: [Slot " + nudAlchemyTargetSlot.Value + "]",
+                Location = new Point(14, 270),
+                Size = new Size(340, 20),
+                ForeColor = Theme.DarkTheme.Accent,
+                Font = Theme.DarkTheme.FontBodyBold
+            };
+
+            lblAlchemyElixirInfo = new Label
+            {
+                Text = "Gereken Elixir: -",
+                Location = new Point(14, 298),
+                Size = new Size(340, 20),
+                ForeColor = Theme.DarkTheme.TextSecondary,
+                Font = Theme.DarkTheme.FontBody
+            };
+
+            lblAlchemyPowderInfo = new Label
+            {
+                Text = "Gereken Powder: -",
+                Location = new Point(14, 326),
+                Size = new Size(340, 20),
+                ForeColor = Theme.DarkTheme.TextSecondary,
+                Font = Theme.DarkTheme.FontBody
+            };
+
+            gbxAlchemySettings.Controls.Add(lblSelect);
+            gbxAlchemySettings.Controls.Add(cmbxAlchemyItems);
+            gbxAlchemySettings.Controls.Add(btnAlchemyRefreshItems);
+            gbxAlchemySettings.Controls.Add(lblSlot);
+            gbxAlchemySettings.Controls.Add(nudAlchemyTargetSlot);
+            gbxAlchemySettings.Controls.Add(lblPlus);
+            gbxAlchemySettings.Controls.Add(nudAlchemyTargetPlus);
+            gbxAlchemySettings.Controls.Add(cbxAlchemyUsePowder);
+            gbxAlchemySettings.Controls.Add(lblMax);
+            gbxAlchemySettings.Controls.Add(nudAlchemyMaxAttempts);
+            gbxAlchemySettings.Controls.Add(lblDelay);
+            gbxAlchemySettings.Controls.Add(nudAlchemyDelay);
+            gbxAlchemySettings.Controls.Add(lblAlchemyItemInfo);
+            gbxAlchemySettings.Controls.Add(lblAlchemyElixirInfo);
+            gbxAlchemySettings.Controls.Add(lblAlchemyPowderInfo);
+
+            // -------------------------------------------------------------
+            // Card 2: Aksiyonlar ve Canlı Durum (Right)
+            // -------------------------------------------------------------
+            gbxAlchemyActions = new Theme.ModernCard
+            {
+                Name = "gbxAlchemyActions",
+                TitleText = "İŞLEMLER VE CANLI DURUM",
+                Location = new Point(cardW + 14, 4),
+                Size = new Size(cardW, cardH),
+                CardColor = Theme.DarkTheme.BgCard,
+                BorderColor = Theme.DarkTheme.BorderSubtle,
+                BorderRadius = 8
+            };
+
+            btnAlchemyStart = new Button
+            {
+                Name = "btnAlchemyStart",
+                Text = "▶ Simyayı Başlat",
+                Location = new Point(14, 44),
+                Size = new Size(160, 34),
+                BackColor = Theme.DarkTheme.Success,
+                ForeColor = Color.White,
+                Font = Theme.DarkTheme.FontBodyBold,
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand
+            };
+            btnAlchemyStart.FlatAppearance.BorderSize = 0;
+
+            btnAlchemyStop = new Button
+            {
+                Name = "btnAlchemyStop",
+                Text = "⏹ Durdur",
+                Location = new Point(184, 44),
+                Size = new Size(160, 34),
+                BackColor = Theme.DarkTheme.Danger,
+                ForeColor = Color.White,
+                Font = Theme.DarkTheme.FontBodyBold,
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand
+            };
+            btnAlchemyStop.FlatAppearance.BorderSize = 0;
+
+            btnAlchemyReset = new Button
+            {
+                Name = "btnAlchemyReset",
+                Text = "↺ Sayaçları Sıfırla",
+                Location = new Point(14, 86),
+                Size = new Size(140, 26),
+                BackColor = Theme.DarkTheme.BgInput,
+                ForeColor = Theme.DarkTheme.TextSecondary,
+                Font = Theme.DarkTheme.FontCaption,
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand
+            };
+            btnAlchemyReset.FlatAppearance.BorderSize = 1;
+            btnAlchemyReset.FlatAppearance.BorderColor = Theme.DarkTheme.BorderSubtle;
+
+            lblAlchemyStatus = new Label
+            {
+                Text = "Durum: " + AlchemyManager.LastStatus,
+                Location = new Point(14, 122),
+                Size = new Size(330, 20),
+                ForeColor = Theme.DarkTheme.InfoBlue,
+                Font = Theme.DarkTheme.FontBodyBold
+            };
+
+            lblAlchemyAttempts = new Label
+            {
+                Text = "Deneme: 0 / " + nudAlchemyMaxAttempts.Value,
+                Location = new Point(14, 148),
+                AutoSize = true,
+                ForeColor = Theme.DarkTheme.TextPrimary,
+                Font = Theme.DarkTheme.FontBodyBold
+            };
+
+            lblAlchemySuccess = new Label
+            {
+                Text = "Başarılı: 0",
+                Location = new Point(150, 148),
+                AutoSize = true,
+                ForeColor = Theme.DarkTheme.Success,
+                Font = Theme.DarkTheme.FontBodyBold
+            };
+
+            lblAlchemyFailed = new Label
+            {
+                Text = "Başarısız: 0",
+                Location = new Point(250, 148),
+                AutoSize = true,
+                ForeColor = Theme.DarkTheme.Danger,
+                Font = Theme.DarkTheme.FontBodyBold
+            };
+
+            Label lblLogHead = new Label
+            {
+                Text = "Simya Olay Günlüğü:",
+                Location = new Point(14, 178),
+                AutoSize = true,
+                ForeColor = Theme.DarkTheme.TextMuted,
+                Font = Theme.DarkTheme.FontCaption
+            };
+
+            lbxAlchemyLog = new ListBox
+            {
+                Name = "lbxAlchemyLog",
+                Location = new Point(14, 198),
+                Size = new Size(342, 192),
+                BackColor = Theme.DarkTheme.BgDark,
+                ForeColor = Theme.DarkTheme.TextSecondary,
+                BorderStyle = BorderStyle.FixedSingle,
+                Font = Theme.DarkTheme.FontConsole
+            };
+
+            gbxAlchemyActions.Controls.Add(btnAlchemyStart);
+            gbxAlchemyActions.Controls.Add(btnAlchemyStop);
+            gbxAlchemyActions.Controls.Add(btnAlchemyReset);
+            gbxAlchemyActions.Controls.Add(lblAlchemyStatus);
+            gbxAlchemyActions.Controls.Add(lblAlchemyAttempts);
+            gbxAlchemyActions.Controls.Add(lblAlchemySuccess);
+            gbxAlchemyActions.Controls.Add(lblAlchemyFailed);
+            gbxAlchemyActions.Controls.Add(lblLogHead);
+            gbxAlchemyActions.Controls.Add(lbxAlchemyLog);
+
+            TabPageV_Control01_Alchemy_Panel.Controls.Add(gbxAlchemySettings);
+            TabPageV_Control01_Alchemy_Panel.Controls.Add(gbxAlchemyActions);
+
+            // Hook Event Listeners
+            btnAlchemyRefreshItems.Click += (s, e) => RefreshAlchemyInventoryItems();
+
+            cmbxAlchemyItems.SelectedIndexChanged += (s, e) =>
+            {
+                if (cmbxAlchemyItems.SelectedItem is AlchemyManager.UpgradeableItemInfo item)
+                {
+                    nudAlchemyTargetSlot.Value = item.Slot;
+                    UpdateAlchemyMaterialPreview(item);
+                }
+            };
+
+            nudAlchemyTargetSlot.ValueChanged += (s, e) =>
+            {
+                AlchemyManager.TargetSlot = (byte)nudAlchemyTargetSlot.Value;
+                lblAlchemyItemInfo.Text = $"Seçili: [Slot {nudAlchemyTargetSlot.Value}]";
+            };
+
+            nudAlchemyTargetPlus.ValueChanged += (s, e) =>
+            {
+                AlchemyManager.TargetPlus = (byte)nudAlchemyTargetPlus.Value;
+            };
+
+            cbxAlchemyUsePowder.CheckedChanged += (s, e) =>
+            {
+                AlchemyManager.UseLuckyPowder = cbxAlchemyUsePowder.Checked;
+            };
+
+            nudAlchemyMaxAttempts.ValueChanged += (s, e) =>
+            {
+                AlchemyManager.MaxAttempts = (int)nudAlchemyMaxAttempts.Value;
+            };
+
+            nudAlchemyDelay.ValueChanged += (s, e) =>
+            {
+                AlchemyManager.DelayMs = (int)nudAlchemyDelay.Value;
+            };
+
+            btnAlchemyStart.Click += (s, e) =>
+            {
+                byte slot = (byte)nudAlchemyTargetSlot.Value;
+                byte targetPlus = (byte)nudAlchemyTargetPlus.Value;
+                bool usePowder = cbxAlchemyUsePowder.Checked;
+                int maxAttempts = (int)nudAlchemyMaxAttempts.Value;
+                int delayMs = (int)nudAlchemyDelay.Value;
+
+                AlchemyManager.Start(slot, targetPlus, usePowder, maxAttempts, delayMs);
+                Settings.SaveBotSettings();
+            };
+
+            btnAlchemyStop.Click += (s, e) =>
+            {
+                AlchemyManager.Stop();
+            };
+
+            btnAlchemyReset.Click += (s, e) =>
+            {
+                AlchemyManager.ResetCounters();
+            };
+
+            AlchemyManager.OnStatusChanged += () =>
+            {
+                if (TabPageV_Control01_Alchemy_Panel.IsDisposed) return;
+                this.InvokeIfRequired(() =>
+                {
+                    lblAlchemyStatus.Text = "Durum: " + AlchemyManager.LastStatus;
+                    lblAlchemyAttempts.Text = $"Deneme: {AlchemyManager.CurrentAttempts} / {AlchemyManager.MaxAttempts}";
+                    lblAlchemySuccess.Text = $"Başarılı: {AlchemyManager.SuccessCount}";
+                    lblAlchemyFailed.Text = $"Başarısız: {AlchemyManager.FailCount}";
+                });
+            };
+
+            AlchemyManager.OnLogMessage += (msg) =>
+            {
+                if (TabPageV_Control01_Alchemy_Panel.IsDisposed) return;
+                this.InvokeIfRequired(() =>
+                {
+                    lbxAlchemyLog.Items.Add($"[{DateTime.Now:HH:mm:ss}] {msg}");
+                    lbxAlchemyLog.TopIndex = Math.Max(0, lbxAlchemyLog.Items.Count - 1);
+                });
+            };
+        }
+
+        private void RefreshAlchemyInventoryItems()
+        {
+            if (cmbxAlchemyItems == null) return;
+            cmbxAlchemyItems.Items.Clear();
+
+            var items = AlchemyManager.GetUpgradeableInventoryItems();
+            foreach (var itm in items)
+            {
+                cmbxAlchemyItems.Items.Add(itm);
+            }
+
+            if (cmbxAlchemyItems.Items.Count > 0)
+            {
+                cmbxAlchemyItems.SelectedIndex = 0;
+            }
+            else
+            {
+                lblAlchemyItemInfo.Text = "Envanterde yükseltilebilir eşya bulunamadı.";
+                lblAlchemyElixirInfo.Text = "Gereken Elixir: -";
+                lblAlchemyPowderInfo.Text = "Gereken Powder: -";
+            }
+        }
+
+        private void UpdateAlchemyMaterialPreview(AlchemyManager.UpgradeableItemInfo item)
+        {
+            if (item == null) return;
+            int elixirCount = AlchemyManager.CountElixirs(item.RequiredElixir);
+            int powderCount = AlchemyManager.CountLuckyPowder(item.Degree);
+
+            lblAlchemyItemInfo.Text = $"Seçili: {item.Name} (+{item.Plus}) - D{item.Degree}";
+            lblAlchemyElixirInfo.Text = $"Gereken: Elixir {item.RequiredElixir} (Envanterde: {elixirCount} adet)";
+            lblAlchemyPowderInfo.Text = $"Gereken: Lucky Powder D{item.Degree} (Envanterde: {powderCount} adet)";
         }
 
         private void BuildCombatTabWidgets()

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Newtonsoft.Json.Linq;
 
@@ -14,6 +14,12 @@ namespace xBot.App
         public string Server { get; set; } = string.Empty;
         public string Character { get; set; } = string.Empty;
         public string Silkroad { get; set; } = string.Empty;
+        public string SecondaryPasscode { get; set; } = string.Empty;
+        public bool UseProxy { get; set; } = false;
+        public string ProxyHost { get; set; } = string.Empty;
+        public ushort ProxyPort { get; set; } = 1080;
+        public string ProxyUsername { get; set; } = string.Empty;
+        public string ProxyPassword { get; set; } = string.Empty;
 
         public override string ToString()
         {
@@ -49,6 +55,12 @@ namespace xBot.App
                 existing.Server = account.Server ?? string.Empty;
                 existing.Character = account.Character ?? string.Empty;
                 existing.Silkroad = account.Silkroad ?? string.Empty;
+                existing.SecondaryPasscode = account.SecondaryPasscode ?? string.Empty;
+                existing.UseProxy = account.UseProxy;
+                existing.ProxyHost = account.ProxyHost ?? string.Empty;
+                existing.ProxyPort = account.ProxyPort;
+                existing.ProxyUsername = account.ProxyUsername ?? string.Empty;
+                existing.ProxyPassword = account.ProxyPassword ?? string.Empty;
             }
             else
             {
@@ -107,7 +119,13 @@ namespace xBot.App
                     ["Password"] = acc.Password,
                     ["Server"] = acc.Server,
                     ["Character"] = acc.Character,
-                    ["Silkroad"] = acc.Silkroad
+                    ["Silkroad"] = acc.Silkroad,
+                    ["SecondaryPasscode"] = acc.SecondaryPasscode,
+                    ["UseProxy"] = acc.UseProxy,
+                    ["ProxyHost"] = acc.ProxyHost,
+                    ["ProxyPort"] = acc.ProxyPort,
+                    ["ProxyUsername"] = acc.ProxyUsername,
+                    ["ProxyPassword"] = acc.ProxyPassword
                 };
                 array.Add(obj);
             }
@@ -134,7 +152,13 @@ namespace xBot.App
                         Password = (string)obj["Password"] ?? string.Empty,
                         Server = (string)obj["Server"] ?? string.Empty,
                         Character = (string)obj["Character"] ?? string.Empty,
-                        Silkroad = (string)obj["Silkroad"] ?? string.Empty
+                        Silkroad = (string)obj["Silkroad"] ?? string.Empty,
+                        SecondaryPasscode = (string)obj["SecondaryPasscode"] ?? string.Empty,
+                        UseProxy = obj.ContainsKey("UseProxy") ? (bool)obj["UseProxy"] : false,
+                        ProxyHost = (string)obj["ProxyHost"] ?? string.Empty,
+                        ProxyPort = obj.ContainsKey("ProxyPort") ? (ushort)obj["ProxyPort"] : (ushort)1080,
+                        ProxyUsername = (string)obj["ProxyUsername"] ?? string.Empty,
+                        ProxyPassword = (string)obj["ProxyPassword"] ?? string.Empty
                     };
                     Accounts.Add(acc);
                 }
