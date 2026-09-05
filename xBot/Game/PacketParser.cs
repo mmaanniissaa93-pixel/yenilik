@@ -227,8 +227,18 @@ namespace xBot.Game
 							xList<SREquipable> inventoryAvatar = new xList<SREquipable>(packet.ReadByte());
 							for (byte j = 0; j < inventoryAvatar.Capacity; j++)
 							{
-								inventoryAvatar[j] = (SREquipable)SRItem.Create(packet.ReadUInt(), null);
-								inventoryAvatar[j].Plus = packet.ReadByte();
+								SRItem avItem = SRItem.Create(packet.ReadUInt(), null);
+								byte avPlus = packet.ReadByte();
+								if (avItem is SREquipable avEquip)
+								{
+									avEquip.Plus = avPlus;
+									inventoryAvatar[j] = avEquip;
+								}
+								else if (avItem != null)
+								{
+									SREquipable fallbackEquip = new SREquipable(avItem) { Plus = avPlus };
+									inventoryAvatar[j] = fallbackEquip;
+								}
 							}
 							character.InventoryAvatar = inventoryAvatar;
 
@@ -2483,13 +2493,22 @@ namespace xBot.Game
 				//ushort usageType = packet.ReadUShort();
 				// End of Packet
 
-				if (InfoManager.Character == null) return;
+				if (InfoManager.Character?.Inventory == null || slotInventory >= InfoManager.Character.Inventory.Capacity) return;
 				xList<SRItem> inventory = InfoManager.Character.Inventory;
 
 				if (quantityUpdate == 0)
 					inventory[slotInventory] = null; // Item consumed
-				else
+				else if (inventory[slotInventory] != null)
 					inventory[slotInventory].Quantity = quantityUpdate;
+			}
+			else
+			{
+				try
+				{
+					ushort errorCode = packet.ReadUShort();
+					Window.Get?.Log($"[Item Use Warning] 0xB04C rejected by server (Error code: 0x{errorCode:X4})", xBot.App.Theme.LogLevel.Warning);
+				}
+				catch { }
 			}
 		}
 		public static void InventoryItemDurabilityUpdate(Packet packet)
@@ -2498,14 +2517,32 @@ namespace xBot.Game
 			uint durability = packet.ReadUInt();
 			// End of Packet
 
-			SREquipable item = (SREquipable)InfoManager.Character.Inventory[slotInventory];
-			item.Durability = durability;
+			if (InfoManager.Character?.Inventory == null || slotInventory >= InfoManager.Character.Inventory.Capacity)
+				return;
+
+			SRItem item = InfoManager.Character.Inventory[slotInventory];
+			if (item is SREquipable equipable)
+			{
+				equipable.Durability = durability;
+			}
+			else if (item != null)
+			{
+				// In Silkroad, slot 5 holds arrows/bolts (SREtc). When arrows are shot or updated,
+				// the server sends 0x3052 with the remaining count.
+				if (durability == 0)
+					InfoManager.Character.Inventory[slotInventory] = null;
+				else
+					item.Quantity = (ushort)Math.Min(durability, (uint)ushort.MaxValue);
+			}
 		}
 		public static void InventoryItemUpdate(Packet packet)
 		{
 			byte slotInventory = packet.ReadByte();
 			byte updateType = packet.ReadByte();
 			
+			if (InfoManager.Character?.Inventory == null || slotInventory >= InfoManager.Character.Inventory.Capacity)
+				return;
+
 			xList<SRItem> inventory = InfoManager.Character.Inventory;
 			switch (updateType)
 			{
@@ -2514,14 +2551,16 @@ namespace xBot.Game
 						ushort quantity = packet.ReadUShort();
 						if (quantity == 0)
 							inventory[slotInventory] = null; // Item consumed
-						else
+						else if (inventory[slotInventory] != null)
 							inventory[slotInventory].Quantity = quantity;
 					}
 					break;
 				case 0x40: // Pet State
 					{
-						SRCoS cos = (SRCoS)inventory[slotInventory];
-						cos.StateType = (SRCoS.State)packet.ReadByte();
+						if (inventory[slotInventory] is SRCoS cos)
+							cos.StateType = (SRCoS.State)packet.ReadByte();
+						else
+							packet.ReadByte();
 					}
 					break;
 			}
@@ -2531,7 +2570,7 @@ namespace xBot.Game
 			// success
 			if(packet.ReadBool()){
 				byte newCapacity = packet.ReadByte();
-				InfoManager.Character.Inventory.Resize(newCapacity);
+				InfoManager.Character?.Inventory?.Resize(newCapacity);
 			}
 		}
 		public static void ConsigmentRegisterResponse(Packet packet)

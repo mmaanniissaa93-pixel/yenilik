@@ -47,10 +47,11 @@ namespace xBot.App
             tUsingRecoveryKit.AutoReset = tUsingAbnormalPill.AutoReset =
             tCycleAutoParty.AutoReset = false;
 
-            // A second is enought for any potion cooldown
-            tUsingHP.Interval = tUsingMP.Interval = tUsingVigor.Interval =
-            tUsingUniversal.Interval = tUsingPurification.Interval =
-            tUsingRecoveryKit.Interval = tUsingAbnormalPill.Interval = 1000;
+            // Potion & pill cooldowns: In Silkroad, pills have a 10-15s server cooldown.
+            tUsingHP.Interval = tUsingMP.Interval = tUsingVigor.Interval = 1000;
+            tUsingUniversal.Interval = tUsingPurification.Interval = 12000;
+            tUsingRecoveryKit.Interval = 1000;
+            tUsingAbnormalPill.Interval = 12000;
 
             tCycleAutoParty.Interval = 5000;
 

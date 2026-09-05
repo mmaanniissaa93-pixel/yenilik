@@ -532,11 +532,17 @@ namespace xBot.Network
 							{
 								if (context == Agent.Remote)
 								{
-									ModernLogger.TracePacket("Server->Client", packet.Opcode, packet.GetBytes().Length);
+									byte[] bytes = packet.GetBytes();
+									string hex = Utility.HexDump(bytes).Replace("\r", "").Replace("\n", " ").Trim();
+									if (hex.Length > 80) hex = hex.Substring(0, 80) + "...";
+									ModernLogger.TracePacket("Server->Client", packet.Opcode, bytes.Length, hex);
 								}
 								else if (context == Agent.Local)
 								{
-									ModernLogger.TracePacket("Client->Server", packet.Opcode, packet.GetBytes().Length);
+									byte[] bytes = packet.GetBytes();
+									string hex = Utility.HexDump(bytes).Replace("\r", "").Replace("\n", " ").Trim();
+									if (hex.Length > 80) hex = hex.Substring(0, 80) + "...";
+									ModernLogger.TracePacket("Client->Server", packet.Opcode, bytes.Length, hex);
 								}
 
 								// Show all incoming packets on analizer
