@@ -26,11 +26,11 @@ namespace xBot.Game
 			p.WriteByte(SRTypes.CharacterSelectionAction.List);
 			Bot.Get.Proxy.Agent.InjectToServer(p);
 		}
-		public static void SelectCharacter(string charname)
+		public static void SelectCharacter(string charname, int delay = 0)
 		{
 			Packet p = new Packet(Agent.Opcode.CLIENT_CHARACTER_SELECTION_JOIN_REQUEST);
 			p.WriteAscii(charname);
-			Bot.Get.Proxy.Agent.InjectToServer(p);
+			Bot.Get.Proxy.Agent.InjectToServer(p, delay);
 		}
 		public static void DeleteCharacter(string charname)
 		{

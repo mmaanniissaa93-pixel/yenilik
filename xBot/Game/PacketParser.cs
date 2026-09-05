@@ -100,8 +100,8 @@ namespace xBot.Game
 				w?.Log("[ShardListResponse Warning] " + ex.Message);
 			}
 			// Unlock button
-			if (w.Login_btnStart.Text == "STOP" && Bot.Get.Proxy.ClientlessMode
-				|| Bot.Get.hasAutoLoginMode)
+			if ((w.Login_btnStart.Text == "STOP" && Bot.Get.Proxy != null)
+				|| Bot.Get.hasAutoLoginMode || LoginStrategyManager.AutomatedLogin)
 			{
 				WinAPI.InvokeIfRequired(w.Login_btnStart, () => {
 					w.Login_btnStart.Text = "LOGIN";
@@ -109,16 +109,40 @@ namespace xBot.Game
 			}
 			w.LogProcess("Server selection");
 
-			// AutoLogin
-			if (Bot.Get.hasAutoLoginMode) {
-				// Server found
-				if (InfoManager.ServerID != "") {
-					WinAPI.InvokeIfRequired(w, () => {
+			// Automated login: select the requested server when supplied,
+			// otherwise use the first available server and continue to LOGIN.
+		bool shouldAutoLogin = Bot.Get.Proxy != null
+				&& (Bot.Get.hasAutoLoginMode || LoginStrategyManager.AutomatedLogin);
+		if (shouldAutoLogin)
+		{
+				WinAPI.InvokeIfRequired(w, () =>
+				{
+					if (w.Login_cmbxServer.Items.Count == 0)
+						return;
+
+					bool requestedServerSelected = false;
+					if (w.Login_cmbxServer.Tag != null)
+					{
+						string requestedServer = (string)w.Login_cmbxServer.Tag;
+						for (int i = 0; i < w.Login_cmbxServer.Items.Count; i++)
+						{
+							if (w.Login_cmbxServer.Items[i].ToString().Equals(requestedServer, StringComparison.OrdinalIgnoreCase))
+							{
+								w.Login_cmbxServer.SelectedIndex = i;
+								requestedServerSelected = true;
+								break;
+							}
+						}
+					}
+
+					if (!requestedServerSelected && w.Login_cmbxServer.SelectedIndex < 0)
+						w.Login_cmbxServer.SelectedIndex = 0;
+
+					if (InfoManager.ServerID != "" && w.Login_btnStart.Text == "LOGIN")
 						w.Control_Click(w.Login_btnStart, null);
-					});
-				}
-			}
-			else
+				});
+		}
+		else
 			{
 				// Select first one (Just for UX)
 				if (w.Login_cmbxServer.Items.Count > 0)
@@ -253,9 +277,11 @@ namespace xBot.Game
 		public static void CharacterDataEnd()
 		{
 			SRCharacter character = null;
+			Packet p = null;
+			int payloadLength = 0;
 			try
 			{
-				Packet p = characterDataPacket;
+				p = characterDataPacket;
 				if (p == null) return;
 				try
 				{
@@ -263,6 +289,7 @@ namespace xBot.Game
 				}
 				catch { }
 				p.Lock();
+				payloadLength = p.GetBytes().Length;
 
 				InfoManager.SetServerTime(new SRTimeStamp(p.ReadUInt()));
 				character = new SRCharacter(p.ReadUInt());
@@ -359,10 +386,23 @@ namespace xBot.Game
 				{
 					xDictionary<uint, SRQuest> quests = new xDictionary<uint, SRQuest>();
 					ushort questsCompletedCount = p.ReadUShort();
-					for (ushort j = 0; j < questsCompletedCount; j++)
+					int questSectionOffset;
+					bool recoveredQuestLayout = TryRecoverQuestSection(p, questsCompletedCount, out questSectionOffset);
+					if (recoveredQuestLayout)
 					{
-						SRQuest quest = new SRQuest(p.ReadUInt());
-						quests[quest.ID] = quest;
+						// This server inserts a private quest/skill block after the
+						// standard counters. Jump to the validated active-quest marker
+						// instead of interpreting that block as completed quest IDs.
+						p.SeekRead(questSectionOffset, System.IO.SeekOrigin.Begin);
+						App.Window.Get?.Log("[CharacterData] Private quest layout detected; packet alignment recovered.");
+					}
+					else
+					{
+						for (ushort j = 0; j < questsCompletedCount; j++)
+						{
+							SRQuest quest = new SRQuest(p.ReadUInt());
+							quests[quest.ID] = quest;
+						}
 					}
 					character.QuestsCompleted = quests;
 
@@ -503,15 +543,156 @@ namespace xBot.Game
 			}
 			catch (Exception ex)
 			{
-				App.Window.Get?.Log($"[CharacterData Warning] Parsing error: {ex.Message}");
-				// Still assign partial character data so subsequent packets don't null-ref
-				try { InfoManager.OnCharacterInfo(character); } catch { }
+				int remainingBytes = -1;
+				try
+				{
+					if (p != null)
+						remainingBytes = p.RemainingRead();
+				}
+				catch { }
+
+				int readOffset = remainingBytes >= 0 ? payloadLength - remainingBytes : -1;
+				App.Window.Get?.Log($"[CharacterData Warning] Parsing error at offset {readOffset}/{payloadLength}: {ex.Message}");
+				// Do not publish an incomplete character. Movement and bot logic can
+				// safely wait for the next complete character-data packet instead.
+				if (character != null && character.Position != null
+					&& character.Inventory != null && character.Skills != null
+					&& character.Buffs != null)
+				{
+					try { InfoManager.OnCharacterInfo(character); } catch { }
+				}
 				Bot.Get.LogError("CharacterDataEnd Error", ex);
 			}
 		}
+
+		private static bool TryRecoverQuestSection(Packet p, ushort completedQuestCount, out int questSectionOffset)
+		{
+			questSectionOffset = -1;
+			byte[] data = p.GetBytes();
+			int currentOffset = data.Length - p.RemainingRead();
+			int normalOffset = currentOffset + completedQuestCount * sizeof(uint);
+
+			// Keep the normal protocol path whenever it validates successfully.
+			int ignoredEndOffset;
+			if (TryValidateQuestSection(data, normalOffset, out ignoredEndOffset))
+				return false;
+
+			int scanEnd = Math.Min(data.Length - 1, currentOffset + 256);
+			for (int candidate = currentOffset; candidate <= scanEnd; candidate++)
+			{
+				if (TryValidateQuestSection(data, candidate, out ignoredEndOffset))
+				{
+					questSectionOffset = candidate;
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		private static bool TryValidateQuestSection(byte[] data, int offset, out int endOffset)
+		{
+			endOffset = -1;
+			if (data == null || offset < 0 || offset >= data.Length)
+				return false;
+
+			int cursor = offset;
+			int questCount = data[cursor++];
+			if (questCount == 0 || questCount > 32)
+				return false;
+
+			int namedObjectives = 0;
+			for (int q = 0; q < questCount; q++)
+			{
+				if (cursor + 9 > data.Length)
+					return false;
+
+				cursor += 4; // Quest ID
+				cursor += 1; // Achievement count
+				cursor += 1; // Auto-share flag / private-server byte
+				byte questType = data[cursor++];
+				cursor += 1; // Quest state
+
+				if (questType != 8)
+				{
+					if (cursor >= data.Length)
+						return false;
+					int objectiveCount = data[cursor++];
+					if (objectiveCount > 32)
+						return false;
+
+					for (int objective = 0; objective < objectiveCount; objective++)
+					{
+						if (cursor + 4 > data.Length)
+							return false;
+
+						cursor += 2; // Objective ID and state
+						ushort nameLength = (ushort)(data[cursor] | data[cursor + 1] << 8);
+						cursor += 2;
+						if (nameLength == 0 || nameLength > 128 || cursor + nameLength > data.Length)
+							return false;
+
+						bool printableName = true;
+						for (int nameIndex = 0; nameIndex < nameLength; nameIndex++)
+						{
+							byte value = data[cursor + nameIndex];
+							if (value < 32 || value > 126)
+							{
+								printableName = false;
+								break;
+							}
+						}
+						if (!printableName)
+							return false;
+
+						namedObjectives++;
+						cursor += nameLength;
+						if (cursor >= data.Length)
+							return false;
+						int taskCount = data[cursor++];
+						if (taskCount > 32 || cursor + taskCount * sizeof(uint) > data.Length)
+							return false;
+						cursor += taskCount * sizeof(uint);
+					}
+				}
+
+				if (questType == 88)
+				{
+					if (cursor >= data.Length)
+						return false;
+					int npcCount = data[cursor++];
+					if (npcCount > 32 || cursor + npcCount * sizeof(uint) > data.Length)
+						return false;
+					cursor += npcCount * sizeof(uint);
+				}
+			}
+
+			// A valid section must contain at least one readable objective name.
+			// The remaining bytes are checked by CharacterDataEnd's position parser.
+			if (namedObjectives == 0 || cursor + 32 > data.Length)
+				return false;
+
+			endOffset = cursor;
+			return true;
+		}
+
 		private static SRItem ItemParsing(Packet p)
 		{
 			uint rentableId = p.ReadUInt();
+
+			// Some private servers serialize PET_WATCH items in a compact record:
+			// the item id is written where the regular rentable id normally lives,
+			// followed by a runtime id and five bytes of server metadata. Treating
+			// that first value as a rentable id shifts the complete 0x3013 stream
+			// and makes the parser fail later in the quest section.
+			if (IsCompactPetWatchRecord(rentableId, p))
+			{
+				SRItem compactItem = SRItem.Create(rentableId, new SRRentable(0));
+				p.ReadUInt(); // server-side pet-watch runtime id
+				p.ReadByteArray(5); // expiry/state metadata used by this server
+				return compactItem;
+			}
+
 			SRRentable rentable = new SRRentable(rentableId);
 			if(rentable.RentableType != SRRentable.Type.None)
 			{
@@ -630,6 +811,19 @@ namespace xBot.Game
 				}
 			}
 			return item;
+		}
+
+		private static bool IsCompactPetWatchRecord(uint firstValue, Packet p)
+		{
+			if (firstValue <= (uint)SRRentable.Type.Package || p.RemainingRead() < 9)
+				return false;
+
+			System.Collections.Specialized.NameValueCollection data = DataManager.GetItemData(firstValue);
+			if (data == null)
+				return false;
+
+			string serverName = data["servername"] ?? string.Empty;
+			return serverName.IndexOf("PET_WATCH", StringComparison.OrdinalIgnoreCase) >= 0;
 		}
 		public static void CharacterStatsUpdate(Packet packet)
 		{
@@ -1034,6 +1228,9 @@ namespace xBot.Game
 			SRModel entity = (SRModel)InfoManager.GetEntity(packet.ReadUInt());
 			if (entity == null) return;
 			SRCoord currentPosition = entity.GetRealtimePosition();
+			// A character-data parser failure must not make movement parsing
+			// throw repeatedly while the client is already online.
+			if (currentPosition == null) return;
 			bool hasMovement = packet.ReadBool();
 			if (hasMovement)
 			{

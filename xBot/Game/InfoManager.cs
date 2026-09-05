@@ -150,7 +150,7 @@ namespace xBot.Game
 		#endregion
 
 		#region (Methods)
-		public static void SetCharacter(string CharName)
+		public static void SetCharacter(string CharName, int selectionDelay = 0)
 		{
 			InfoManager.CharName = CharName;
 
@@ -160,7 +160,7 @@ namespace xBot.Game
 			});
 			w.LogProcess("Selecting ["+ CharName + "] ...");
 			w.Log("Selecting [" + CharName + "] ...");
-			PacketBuilder.SelectCharacter(CharName);
+			PacketBuilder.SelectCharacter(CharName, selectionDelay);
 		}
 		public static void SetCredentials(string Username,string Password,string ServerName)
 		{

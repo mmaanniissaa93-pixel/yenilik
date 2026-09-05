@@ -174,6 +174,14 @@ aktif buff adlandırmalarını kontrol eder. Karakter yüklendiğinde algılanan
 skill’leri seviyeleriyle Skills > Attack ekranında listelenir. Toplam 44 senaryo
 çalıştırılır.
 
+## Otomatik giriş
+
+`Genel > Giriş Akışı & Stratejisi` bölümünde `Otomatik Giriş` seçiliyken SRO,
+kullanıcı adı ve şifre alanlarını doldurun. Giriş gecikmesi sonunda akış hem `Clientless`
+hem de `Use Client` modunda bağlantıyı ve server seçimini otomatik ilerletir; ardından
+FirstFound/HighestLevel tercihine göre karakteri seçer. Kullanıcı adı ve şifre uygulama
+tarafından kalıcı olarak saklanmaz.
+
 ## Teşekkürler
 
 - Drew “pushedx” Benton — önceki çalışmalar ve kaynaklar

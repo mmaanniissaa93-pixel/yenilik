@@ -50,28 +50,6 @@ namespace xBot.App
 		public void OnCharacterListing(List<SRCharSelection> CharacterList)
 		{
 			Window w = Window.Get;
-			// Select character
-			if (w.Login_cmbxCharacter.Items.Count > 0)
-			{
-				// Try Autologin only in Clientless mode to avoid interfering with client UI and HWID verification
-				if (hasAutoLoginMode && Proxy.ClientlessMode)
-				{
-					w.InvokeIfRequired(() => {
-						if (w.Login_cmbxCharacter.Text != ""){
-							w.Control_Click(w.Login_btnStart, null);
-							return;
-						}
-					});
-				}
-				else
-				{
-					// Select first one (UX)
-					w.Login_cmbxCharacter.InvokeIfRequired(() => {
-						w.Login_cmbxCharacter.SelectedIndex = 0;
-					});
-				}
-			}
-			
 			// Reset value
 			CreatingCharacterName = "";
 			// Delete characters that are not being deleted
@@ -90,19 +68,42 @@ namespace xBot.App
 					}
 				}
 			}
-			// Select character based on strategy (FirstFound vs HighestLevel)
-			// Only in Clientless mode, and only when hasAutoLoginMode didn't already handle it above.
-			if (!hasAutoLoginMode
-				&& (LoginStrategyManager.AutomatedLogin || w.Settings_cbxSelectFirstChar.Checked)
-				&& Proxy.ClientlessMode)
+			// Select character based on the requested target, then the configured
+			// strategy. When automated login is enabled, the proxy has already
+			// authenticated the client, so this is safe in both connection modes.
+			bool shouldAutoSelect = Proxy != null
+				&& (hasAutoLoginMode || LoginStrategyManager.AutomatedLogin
+					|| (Proxy.ClientlessMode && w.Settings_cbxSelectFirstChar.Checked));
+			if (shouldAutoSelect)
 			{
-				SRCharSelection character = LoginStrategyManager.SelectCharacter(CharacterList);
+				SRCharSelection character = null;
+				if (w.Login_cmbxCharacter.Tag != null)
+				{
+					string requestedName = (string)w.Login_cmbxCharacter.Tag;
+					for (int i = 0; i < CharacterList.Count; i++)
+					{
+						if (!CharacterList[i].isDeleting
+							&& CharacterList[i].Name.Equals(requestedName, StringComparison.OrdinalIgnoreCase))
+						{
+							character = CharacterList[i];
+							break;
+						}
+					}
+				}
+				if (character == null)
+					character = LoginStrategyManager.SelectCharacter(CharacterList);
+
 				if (character != null)
 				{
 					w.Log("Selecting [" + character.Name + "] (Lvl " + character.Level + ") ...");
 					w.InvokeIfRequired(() => {
 						w.Login_cmbxCharacter.Text = character.Name;
-						w.Control_Click(w.Login_btnStart, null);
+						// Packet handlers run before the proxy relays B007 to the
+						// game client. In Client mode, wait for that relay so the
+						// client has entered the character-selection state before
+						// receiving our 7001 selection packet.
+						int selectionDelay = Proxy.ClientlessMode ? 0 : 250;
+						InfoManager.SetCharacter(character.Name, selectionDelay);
 					});
 					return;
 				}

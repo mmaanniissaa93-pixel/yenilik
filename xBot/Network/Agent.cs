@@ -674,10 +674,20 @@ namespace xBot.Network
 			App.Window.Get?.Log($"[Bot -> Server] Injected Opcode: 0x{p.Opcode:X4} (len: {p.GetBytes().Length}, enc: {p.Encrypted})");
 			if(delay > 0)
 			{
-				(new Thread((ThreadStart)delegate{
+				Thread delayedSend = new Thread((ThreadStart)delegate{
 					Thread.Sleep(delay);
-					Remote.Security.Send(p);
-				})).Start();
+					try
+					{
+						if (Remote != null && Remote.Socket != null && Remote.Socket.Connected)
+							Remote.Security.Send(p);
+					}
+					catch (Exception ex)
+					{
+						App.Window.Get?.Log($"[Delayed packet warning] {ex.Message}");
+					}
+				});
+				delayedSend.IsBackground = true;
+				delayedSend.Start();
 			}
 			else
 			{

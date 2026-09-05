@@ -87,6 +87,7 @@ namespace xBot.App
         private Label lblSkillRuntimeStatus;
         private ComboBox cmbxImbue;
         private bool refreshingImbueSkills;
+        private System.Windows.Forms.Timer automatedLoginTimer;
 
         // Custom Panels
         public Panel pnlCustomGeneral;
@@ -226,7 +227,12 @@ namespace xBot.App
             gbxStrategy.Font = new Font("Segoe UI", 8.5F);
 
             cbxGeneralAutoLogin = new CheckBox { Text = "Otomatik Giriş", Location = new Point(12, 20), AutoSize = true, Checked = LoginStrategyManager.AutomatedLogin, ForeColor = Color.White };
-            cbxGeneralAutoLogin.CheckedChanged += (s, e) => { LoginStrategyManager.AutomatedLogin = cbxGeneralAutoLogin.Checked; Settings.SaveBotSettings(); };
+            cbxGeneralAutoLogin.CheckedChanged += (s, e) =>
+            {
+                LoginStrategyManager.AutomatedLogin = cbxGeneralAutoLogin.Checked;
+                Settings.SaveBotSettings();
+                ScheduleAutomatedLogin();
+            };
 
             cbxGeneralAutoStart = new CheckBox { Text = "Oyunda Botu Başlat", Location = new Point(140, 20), AutoSize = true, Checked = LoginStrategyManager.AutoStartBot, ForeColor = Color.White };
             cbxGeneralAutoStart.CheckedChanged += (s, e) => { LoginStrategyManager.AutoStartBot = cbxGeneralAutoStart.Checked; Settings.SaveBotSettings(); };
@@ -244,7 +250,7 @@ namespace xBot.App
 
             Label lblLoginDelay = new Label { Text = "Giriş Gecikmesi:", Location = new Point(185, 48), AutoSize = true, ForeColor = Color.LightGray };
             nudGeneralLoginDelay = new NumericUpDown { Location = new Point(280, 46), Size = new Size(42, 21), Minimum = 0, Maximum = 60, Value = LoginStrategyManager.LoginDelaySeconds };
-            nudGeneralLoginDelay.ValueChanged += (s, e) => { LoginStrategyManager.LoginDelaySeconds = (int)nudGeneralLoginDelay.Value; Settings.SaveBotSettings(); };
+            nudGeneralLoginDelay.ValueChanged += (s, e) => { LoginStrategyManager.LoginDelaySeconds = (int)nudGeneralLoginDelay.Value; Settings.SaveBotSettings(); ScheduleAutomatedLogin(); };
             Label lblLoginDelaySec = new Label { Text = "sn", Location = new Point(325, 48), AutoSize = true, ForeColor = Color.LightGray };
 
             Label lblWaitDC = new Label { Text = "DC Bekleme:", Location = new Point(12, 75), AutoSize = true, ForeColor = Color.LightGray };
@@ -266,7 +272,7 @@ namespace xBot.App
 
             Label lblStrategyInfo = new Label
             {
-                Text = "Giriş akışı, otomatik captcha, gecikmeler ve çökme koruması buradan yönetilir.",
+                Text = "Client ve Clientless modlarında SRO, kullanıcı adı ve şifre doldurulduğunda başlar.",
                 Location = new Point(12, 133),
                 Size = new Size(390, 35),
                 ForeColor = Color.DarkGray,
@@ -283,6 +289,55 @@ namespace xBot.App
                 lblStrategyInfo
             });
             TabPageV_Control01_Login_Panel.Controls.Add(gbxStrategy);
+
+            // Credentials and the selected SRO are entered in the original
+            // Login panel. Re-evaluate the automatic flow when either changes.
+            Login_tbxUsername.TextChanged += (s, e) => ScheduleAutomatedLogin();
+            Login_tbxPassword.TextChanged += (s, e) => ScheduleAutomatedLogin();
+            Login_cmbxSilkroad.SelectedIndexChanged += (s, e) => ScheduleAutomatedLogin();
+            Login_rbnClientless.CheckedChanged += (s, e) => ScheduleAutomatedLogin();
+        }
+
+        private void ScheduleAutomatedLogin()
+        {
+            if ((!LoginStrategyManager.AutomatedLogin && !Bot.Get.hasAutoLoginMode)
+                || InfoManager.inGame
+                || Login_btnStart == null
+                || Login_btnStart.Text != "START"
+                || !Login_btnStart.Enabled
+                || Login_cmbxSilkroad == null
+                || string.IsNullOrWhiteSpace(Login_cmbxSilkroad.Text)
+                || Login_tbxUsername == null
+                || string.IsNullOrWhiteSpace(Login_tbxUsername.Text)
+                || Login_tbxPassword == null
+                || string.IsNullOrWhiteSpace(Login_tbxPassword.Text)
+                || Login_rbnClientless == null)
+            {
+                if (automatedLoginTimer != null)
+                    automatedLoginTimer.Stop();
+                return;
+            }
+
+            if (automatedLoginTimer == null)
+            {
+                automatedLoginTimer = new System.Windows.Forms.Timer();
+                automatedLoginTimer.Tick += (s, e) =>
+                {
+                    automatedLoginTimer.Stop();
+                    if ((LoginStrategyManager.AutomatedLogin || Bot.Get.hasAutoLoginMode)
+                        && Login_btnStart.Text == "START")
+                    {
+                        Bot.Get.LoggedFromBot = true;
+                        Log("Otomatik giriş başlatılıyor...");
+                        Control_Click(Login_btnStart, null);
+                    }
+                };
+            }
+
+            automatedLoginTimer.Interval = Math.Max(1, LoginStrategyManager.LoginDelaySeconds * 1000);
+            automatedLoginTimer.Stop();
+            automatedLoginTimer.Start();
+            LogProcess("Otomatik giriş " + LoginStrategyManager.LoginDelaySeconds + " sn sonra başlayacak...");
         }
 
         private void BuildCombatTabWidgets()

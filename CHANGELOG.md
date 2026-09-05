@@ -15,6 +15,11 @@
 - SkillManager için yanlış silah/cooldown durumlarında sınırlı deneme ve Common Attack fallback’i eklendi.
 - `Cast skills in order` seçeneği gerçek saldırı akışına bağlandı; son skill durumu Skills ekranında gösteriliyor.
 - SkillPolicy ve ImbuePolicy senaryolarıyla toplam karar testi 44’e çıkarıldı.
+- Otomatik giriş, normal UI kullanımında Client ve Clientless modlarında bağlantı → server → karakter adımlarını tamamlayacak şekilde düzeltildi; ayar artık gerçek login akışına bağlı.
+- Client modunda otomatik karakter seçimi, karakter listesi client’a aktarıldıktan sonra gönderilecek şekilde geciktirildi; erken `0x7001` paketinin client çökmesine yol açması engellendi.
+- `LoginDelaySeconds`, komut satırıyla başlatılan otomatik girişte de gerçek bağlantı başlangıcına uygulanıyor; karakter verisi eksik olduğunda `0xB021` hareket parser’ı da artık null-ref üretmiyor.
+- `0x3013` karakter verisi parser’ına SevarOnline pet-watch ve özel quest yerleşimi uyumluluğu eklendi; karakter yüklenirken oluşan stream taşması giderildi.
+- Karakter verisi hatalarında byte offset’i raporlanıyor ve eksik karakter durumu bot akışına yayınlanmıyor.
 - Arayüz denetimi tamamlandı: Koruma sekmesine Otomatik Stat Dağıtımı (STR/INT oranlama ve anlık dağıtım) paneli eklendi.
 - Giriş sekmesindeki Sunucu/Karakter listesiyle çakışan panel (gbxStrategy) temiz bir konuma taşındı; Sabit Captcha metin kutusu, Giriş ve DC gecikme NumericUpDown kontrolleri eklendi.
 - Koruma sekmesine Skill HP ve MP yüzde eşik kontrolleri (nudProtectionSkillHP/MP) ve durum özeti eklendi.

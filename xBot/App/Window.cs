@@ -176,7 +176,9 @@ namespace xBot.App
 				&& Login_tbxPassword.Text != "" && Login_cmbxServer.Tag != null)
 			{
 				Bot.Get.hasAutoLoginMode = true;
-				Control_Click(Login_btnStart, null);
+				// Keep command-line login on the same delayed path as the UI
+				// flow. The previous direct START call bypassed LoginDelaySeconds.
+				ScheduleAutomatedLogin();
 			}
 		}
 		private void ShowAdvertising()
@@ -1708,6 +1710,10 @@ namespace xBot.App
 			Settings.LoadBotSettings();
 			// Load basic
 			LoadCommandLine();
+			// The normal UI flow has no command-line arguments. Start the same
+			// automated Client/Clientless login path when the user has filled the fields
+			// and enabled the General > Automated Login option.
+			ScheduleAutomatedLogin();
 			// Force visible
 			Activate();
 			BringToFront();
@@ -1722,6 +1728,8 @@ namespace xBot.App
 		/// </summary>
 		private void Window_Closing(object sender, FormClosingEventArgs e)
 		{
+			if (automatedLoginTimer != null)
+				automatedLoginTimer.Stop();
 			if (Bot.Get.Proxy != null && Bot.Get.Proxy.isRunning)
 				Bot.Get.Proxy.Stop();
 			if(tAdsWindow != null && tAdsWindow.ThreadState == System.Threading.ThreadState.Running)
@@ -1824,6 +1832,14 @@ namespace xBot.App
 
 							// Extended protocol Setup
 							Bot b = Bot.Get;
+							if (LoginStrategyManager.AutomatedLogin
+								&& !string.IsNullOrWhiteSpace(Login_tbxUsername.Text)
+								&& !string.IsNullOrWhiteSpace(Login_tbxPassword.Text))
+							{
+								// Lets the proxy authenticate the game client with the
+								// credentials entered in this window in both modes.
+								b.LoggedFromBot = true;
+							}
 							b.SetExtendedProtocol();
 
 							// Creating Proxy

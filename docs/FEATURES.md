@@ -24,8 +24,8 @@ Son kaynak taraması: 2026-09-04
 | F-002 | Clientless çalışma | ✅ | `Network/Proxy.cs`, `Network/Gateway.cs`, `Network/Agent.cs` |
 | F-003 | Gateway/Agent proxy ve paket güvenliği | ✅ | `Network/`, `SecurityAPI/` |
 | F-004 | Host/port seçimi ve rastgele host | ✅ | `Network/Proxy.cs`, Settings ekranı |
-| F-005 | Otomatik giriş ve karakter seçimi | ✅ | `App/Bot/Bot.Events.cs`, `App/LoginStrategyManager.cs` |
-| F-006 | En yüksek seviyeli karakteri otomatik seçme | 🧪 | `App/LoginStrategyManager.cs`; UI ve ayar mevcut |
+| F-005 | Otomatik giriş ve karakter seçimi | ✅ | `App/Bot/Bot.Events.cs`, `Game/PacketParser.cs`, `App/LoginStrategyManager.cs`; Client ve Clientless akışlarında bağlantı → server → karakter adımları otomatik ilerliyor; karakter verisi parser’ı özel server yerleşimlerini de doğruluyor |
+| F-006 | En yüksek seviyeli karakteri otomatik seçme | 🧪 | `App/LoginStrategyManager.cs`, `App/Window.CustomTabs.cs`; otomatik girişte FirstFound/HighestLevel seçimi uygulanıyor |
 | F-007 | Relogin ve bağlantı sonrası clientless geçiş | ✅ | `Network/Proxy.cs`, `App/Bot/Bot.Events.cs` |
 | F-008 | Sabit captcha ayarı | ✅ | `App/LoginStrategyManager.cs`, `App/Window.CustomTabs.cs`; Sabit kod girişi ve UI bağlı |
 | F-009 | Client gizleme/gösterme ve hızlı gizleme | ✅ | `App/ClientManager.cs`, `App/Window.CustomTabs.cs` |
@@ -118,7 +118,7 @@ Bu bölüm, çalışma ağacında yeni görünen yöneticileri ayrı izler. Yeni
 
 | Yönetici | Sorumluluk | JSON bölümü | Mevcut bağlantı | Sonraki kontrol |
 | :--- | :--- | :--- | :--- | :--- |
-| `LoginStrategyManager` | Otomatik giriş, karakter seçimi, bekleme, otomatik başlatma/gizleme | `LoginStrategy` | Giriş olayları ve proxy’ye bağlı | Captcha akışını tamamla, runtime test |
+| `LoginStrategyManager` | Otomatik giriş, server/karakter seçimi, bekleme, otomatik başlatma/gizleme | `LoginStrategy` | Client ve Clientless akışlarında UI alanları, `PacketParser` ve `Bot.Events` ile bağlı | Gerçek server bağlantısı ve captcha ile runtime test |
 | `CombatAIEngine` | Hedef önceliği, kaçınma ve berserk tetikleri | `CombatAI` | `Bot.IA` hedef seçiminde bağlı; arayüz `Kasılma > Combat AI` altında | Her kural için UI + oyun içi test |
 | `SkillManager` | Imbue skill seçimi, Devil Spirit, support/no-attack, beceri sırası ve fallback | `SkillManager` | Bot döngüsünde bağlı; algılanan imbue’ler seviyeleriyle Skills > Attack ekranında görünür | Oyun içi skill/weapon senaryolarıyla doğrula |
 | `ProtectionManager` | Skill iyileştirme, pet koruması, şehir dönüş tetikleri | `ProtectionManager` | Her koruma kontrolü merkezi bot tick’inde; `ProtectionPolicy` karar katmanı kullanılıyor | Oyun içi gerçek client senaryolarıyla doğrula |
