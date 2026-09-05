@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Linq;
 using System.Windows.Forms;
 using xBot.App.Theme;
 using xBot.Game;
@@ -515,6 +516,12 @@ namespace xBot.App
                 pnlWindow.Controls.Add(TabPageV_Control01_Alchemy_Panel);
             }
 
+            BuildTargetAssistTab();
+            if (TabPageV_Control01_TargetAssist_Panel != null && TabPageV_Control01_TargetAssist_Panel.Parent == null)
+            {
+                pnlWindow.Controls.Add(TabPageV_Control01_TargetAssist_Panel);
+            }
+
             // Category 1: BOT AYARLARI (Core Bot Features)
             modernSidebar.AddItem("Login", "Genel / Giriş", "⚡", "BOT AYARLARI", TabPageV_Control01_Login_Panel);
             modernSidebar.AddItem("Training", "Kasılma", "⚔", "BOT AYARLARI", TabPageV_Control01_Training_Panel);
@@ -522,6 +529,7 @@ namespace xBot.App
             modernSidebar.AddItem("Character", "Koruma", "🛡", "BOT AYARLARI", TabPageV_Control01_Character_Panel);
             modernSidebar.AddItem("Town", "Şehir & İtem", "🏛", "BOT AYARLARI", TabPageV_Control01_Town_Panel);
             modernSidebar.AddItem("Alchemy", "Simya (+ Basma)", "⚗", "BOT AYARLARI", TabPageV_Control01_Alchemy_Panel);
+            modernSidebar.AddItem("TargetAssist", "Target Assist", "🎯", "BOT AYARLARI", TabPageV_Control01_TargetAssist_Panel);
 
             // Category 2: TOPLULUK (Social & Community)
             modernSidebar.AddItem("Inventory", "Envanter", "▣", "TOPLULUK", TabPageV_Control01_Inventory_Panel);
@@ -578,7 +586,7 @@ namespace xBot.App
             int contentX = DarkTheme.SidebarWidth + 10;
             int contentY = DarkTheme.HeaderHeight + 4;
             int contentW = DarkTheme.DefaultWindowWidth - contentX - 10;
-            int contentH = 412;
+            int contentH = DarkTheme.DefaultWindowHeight - contentY - DarkTheme.LogPanelHeight - 30;
 
             Panel[] allTabPanels = new Panel[]
             {
@@ -597,7 +605,8 @@ namespace xBot.App
                 TabPageV_Control01_Minimap_Panel,
                 TabPageV_Control01_GameInfo_Panel,
                 TabPageV_Control01_Settings_Panel,
-                TabPageV_Control01_Alchemy_Panel
+                TabPageV_Control01_Alchemy_Panel,
+                TabPageV_Control01_TargetAssist_Panel
             };
 
             foreach (var panel in allTabPanels)
@@ -611,18 +620,18 @@ namespace xBot.App
                 }
             }
 
-            // Align Controls inside Login Panel with strict pixel grid
+            // 1. Align Controls inside Login Panel with spacious modern 2-column grid
             if (TabPageV_Control01_Login_Panel != null)
             {
-                int col1W = 240;
-                int col2X = 252;
-                int col2W = contentW - col2X - 4; // ~519px
+                int col1W = 430;
+                int col2X = 442;
+                int col2W = contentW - col2X - 4; // ~764px
                 int card1Y = 4;
-                int card1H = 196;
-                int card2Y = 208;
-                int card2H = 196;
+                int card1H = 330;
+                int card2Y = 340;
+                int card2H = contentH - card2Y - 4; // ~342px
 
-                // Left Col 1: Connection Card (Y: 4 -> 200, H: 196)
+                // Left Col 1: Connection Card
                 if (Login_gbxConnection != null)
                 {
                     Login_gbxConnection.Location = new Point(4, card1Y);
@@ -645,13 +654,13 @@ namespace xBot.App
                         Login_gbxConnection.Controls.Add(Login_btnAddSilkroad);
                     }
 
-                    // Row 1: Silkroad selection
-                    if (Login_lblSilkroad != null) { Login_lblSilkroad.Location = new Point(14, 28); Login_lblSilkroad.Text = "SRO:"; Login_lblSilkroad.AutoSize = true; }
-                    if (Login_cmbxSilkroad != null) { Login_cmbxSilkroad.Location = new Point(54, 25); Login_cmbxSilkroad.Size = new Size(146, 24); Login_cmbxSilkroad.FlatStyle = FlatStyle.Flat; }
+                    // Row 1: Silkroad path
+                    if (Login_lblSilkroad != null) { Login_lblSilkroad.Location = new Point(14, 32); Login_lblSilkroad.Text = "SRO:"; Login_lblSilkroad.AutoSize = true; }
+                    if (Login_cmbxSilkroad != null) { Login_cmbxSilkroad.Location = new Point(60, 28); Login_cmbxSilkroad.Size = new Size(col1W - 60 - 42, 26); Login_cmbxSilkroad.FlatStyle = FlatStyle.Flat; }
                     if (Login_btnAddSilkroad != null)
                     {
-                        Login_btnAddSilkroad.Location = new Point(204, 24);
-                        Login_btnAddSilkroad.Size = new Size(24, 25);
+                        Login_btnAddSilkroad.Location = new Point(col1W - 36, 28);
+                        Login_btnAddSilkroad.Size = new Size(26, 26);
                         Login_btnAddSilkroad.Text = "+";
                         Login_btnAddSilkroad.Font = DarkTheme.FontBodyBold;
                         Login_btnAddSilkroad.ForeColor = DarkTheme.Accent;
@@ -662,48 +671,49 @@ namespace xBot.App
                     }
 
                     // Row 2: Client mode radio + Start
-                    if (Login_rbnClient != null) Login_rbnClient.Location = new Point(14, 58);
-                    if (Login_btnStart != null) { Login_btnStart.Location = new Point(120, 54); Login_btnStart.Size = new Size(108, 28); }
+                    int btnColW = col1W - 240;
+                    if (Login_rbnClient != null) { Login_rbnClient.Location = new Point(14, 76); Login_rbnClient.AutoSize = true; }
+                    if (Login_btnStart != null) { Login_btnStart.Location = new Point(226, 70); Login_btnStart.Size = new Size(btnColW, 34); }
 
                     // Row 3: Clientless radio + Launcher
-                    if (Login_rbnClientless != null) Login_rbnClientless.Location = new Point(14, 90);
-                    if (Login_btnLauncher != null) { Login_btnLauncher.Location = new Point(120, 86); Login_btnLauncher.Size = new Size(108, 28); }
+                    if (Login_rbnClientless != null) { Login_rbnClientless.Location = new Point(14, 122); Login_rbnClientless.AutoSize = true; }
+                    if (Login_btnLauncher != null) { Login_btnLauncher.Location = new Point(226, 116); Login_btnLauncher.Size = new Size(btnColW, 34); }
 
                     // Row 4..6: Checkboxes
-                    if (Login_cbxGoClientless != null) { Login_cbxGoClientless.Location = new Point(14, 122); Login_cbxGoClientless.Size = new Size(218, 20); }
-                    if (Login_cbxUseReturnScroll != null) { Login_cbxUseReturnScroll.Location = new Point(14, 144); Login_cbxUseReturnScroll.Size = new Size(218, 20); }
-                    if (Login_cbxRelogin != null) { Login_cbxRelogin.Location = new Point(14, 166); Login_cbxRelogin.Size = new Size(218, 20); }
+                    if (Login_cbxGoClientless != null) { Login_cbxGoClientless.Location = new Point(14, 172); Login_cbxGoClientless.Size = new Size(col1W - 28, 24); Login_cbxGoClientless.AutoSize = true; }
+                    if (Login_cbxUseReturnScroll != null) { Login_cbxUseReturnScroll.Location = new Point(14, 212); Login_cbxUseReturnScroll.Size = new Size(col1W - 28, 24); Login_cbxUseReturnScroll.AutoSize = true; }
+                    if (Login_cbxRelogin != null) { Login_cbxRelogin.Location = new Point(14, 252); Login_cbxRelogin.Size = new Size(col1W - 28, 24); Login_cbxRelogin.AutoSize = true; }
                 }
 
-                // Left Col 2: Login Credentials Card (Y: 208 -> 404, H: 196)
+                // Left Col 2: Login Credentials Card
                 if (Login_gbxLogin != null)
                 {
                     Login_gbxLogin.Location = new Point(4, card2Y);
                     Login_gbxLogin.Size = new Size(col1W, card2H);
 
-                    int labelX = 12;
-                    int inputX = 68;
-                    int inputW = col1W - inputX - 12; // 160px
+                    int labelX = 14;
+                    int inputX = 84;
+                    int inputW = col1W - inputX - 16;
 
-                    int row1Y = 26; // Hesap
-                    int row2Y = 58; // ID
-                    int row3Y = 90; // PW
-                    int row4Y = 122; // Server
-                    int row5Y = 154; // Karakter
+                    int row1Y = 32; // Hesap
+                    int row2Y = 82; // ID
+                    int row3Y = 132; // PW
+                    int row4Y = 182; // Server
+                    int row5Y = 232; // Karakter
 
                     // Row 1: Saved Account selector + Setup + Save + Delete
                     if (Login_lblAccount != null) { Login_lblAccount.Location = new Point(labelX, row1Y + 4); Login_lblAccount.AutoSize = true; Login_lblAccount.ForeColor = DarkTheme.TextMuted; }
-                    if (Login_cmbxSavedAccounts != null) { Login_cmbxSavedAccounts.Location = new Point(inputX, row1Y); Login_cmbxSavedAccounts.Size = new Size(inputW - 68, 24); Login_cmbxSavedAccounts.FlatStyle = FlatStyle.Flat; }
-                    if (Login_btnAccountSetup != null) { Login_btnAccountSetup.Location = new Point(inputX + inputW - 66, row1Y); Login_btnAccountSetup.Size = new Size(20, 24); }
-                    if (Login_btnSaveAccount != null) { Login_btnSaveAccount.Location = new Point(inputX + inputW - 44, row1Y); Login_btnSaveAccount.Size = new Size(20, 24); }
-                    if (Login_btnDeleteAccount != null) { Login_btnDeleteAccount.Location = new Point(inputX + inputW - 22, row1Y); Login_btnDeleteAccount.Size = new Size(20, 24); }
+                    if (Login_cmbxSavedAccounts != null) { Login_cmbxSavedAccounts.Location = new Point(inputX, row1Y); Login_cmbxSavedAccounts.Size = new Size(inputW - 84, 26); Login_cmbxSavedAccounts.FlatStyle = FlatStyle.Flat; }
+                    if (Login_btnAccountSetup != null) { Login_btnAccountSetup.Location = new Point(inputX + inputW - 80, row1Y); Login_btnAccountSetup.Size = new Size(24, 26); }
+                    if (Login_btnSaveAccount != null) { Login_btnSaveAccount.Location = new Point(inputX + inputW - 54, row1Y); Login_btnSaveAccount.Size = new Size(24, 26); }
+                    if (Login_btnDeleteAccount != null) { Login_btnDeleteAccount.Location = new Point(inputX + inputW - 28, row1Y); Login_btnDeleteAccount.Size = new Size(24, 26); }
 
                     // Row 2: ID (Username)
                     if (Login_lblUsername != null) { Login_lblUsername.Location = new Point(labelX, row2Y + 4); Login_lblUsername.AutoSize = true; Login_lblUsername.Text = "ID:"; Login_lblUsername.ForeColor = DarkTheme.TextMuted; }
                     if (Login_tbxUsername != null)
                     {
                         Login_tbxUsername.Location = new Point(inputX + 4, row2Y + 4);
-                        Login_tbxUsername.Size = new Size(inputW - 8, 16);
+                        Login_tbxUsername.Size = new Size(inputW - 8, 20);
                         Login_tbxUsername.BorderStyle = BorderStyle.None;
                         Login_tbxUsername.TextAlign = HorizontalAlignment.Left;
                         Login_tbxUsername.BackColor = DarkTheme.BgInput;
@@ -715,7 +725,7 @@ namespace xBot.App
                     if (Login_tbxPassword != null)
                     {
                         Login_tbxPassword.Location = new Point(inputX + 4, row3Y + 4);
-                        Login_tbxPassword.Size = new Size(inputW - 8, 16);
+                        Login_tbxPassword.Size = new Size(inputW - 8, 20);
                         Login_tbxPassword.BorderStyle = BorderStyle.None;
                         Login_tbxPassword.TextAlign = HorizontalAlignment.Left;
                         Login_tbxPassword.BackColor = DarkTheme.BgInput;
@@ -728,71 +738,216 @@ namespace xBot.App
 
                     // Row 4: Server
                     if (Login_lblServer != null) { Login_lblServer.Location = new Point(labelX, row4Y + 4); Login_lblServer.AutoSize = true; Login_lblServer.Text = "Server:"; Login_lblServer.ForeColor = DarkTheme.TextMuted; }
-                    if (Login_cmbxServer != null) { Login_cmbxServer.Location = new Point(inputX, row4Y); Login_cmbxServer.Size = new Size(inputW, 24); Login_cmbxServer.FlatStyle = FlatStyle.Flat; }
+                    if (Login_cmbxServer != null) { Login_cmbxServer.Location = new Point(inputX, row4Y); Login_cmbxServer.Size = new Size(inputW, 26); Login_cmbxServer.FlatStyle = FlatStyle.Flat; }
 
                     // Row 5: Character
                     if (Login_lblCharacter != null) { Login_lblCharacter.Location = new Point(labelX, row5Y + 4); Login_lblCharacter.AutoSize = true; Login_lblCharacter.Text = "Karakter:"; Login_lblCharacter.ForeColor = DarkTheme.TextMuted; }
-                    if (Login_cmbxCharacter != null) { Login_cmbxCharacter.Location = new Point(inputX, row5Y); Login_cmbxCharacter.Size = new Size(inputW, 24); Login_cmbxCharacter.FlatStyle = FlatStyle.Flat; }
+                    if (Login_cmbxCharacter != null) { Login_cmbxCharacter.Location = new Point(inputX, row5Y); Login_cmbxCharacter.Size = new Size(inputW, 26); Login_cmbxCharacter.FlatStyle = FlatStyle.Flat; }
 
                     Login_gbxLogin.MouseDown += (s, e) =>
                     {
-                        if (new Rectangle(inputX, row2Y, inputW, 24).Contains(e.Location)) Login_tbxUsername?.Focus();
-                        else if (new Rectangle(inputX, row3Y, inputW, 24).Contains(e.Location)) Login_tbxPassword?.Focus();
+                        if (new Rectangle(inputX, row2Y, inputW, 26).Contains(e.Location)) Login_tbxUsername?.Focus();
+                        else if (new Rectangle(inputX, row3Y, inputW, 26).Contains(e.Location)) Login_tbxPassword?.Focus();
                     };
                 }
 
-                // Right Col 1: Server List Card (Y: 4 -> 200, H: 196)
+                // Right Col 1: Server List Card
                 if (Login_gbxServers != null)
                 {
                     Login_gbxServers.Location = new Point(col2X, card1Y);
                     Login_gbxServers.Size = new Size(col2W, card1H);
                     if (Login_lstvServers != null)
                     {
-                        Login_lstvServers.Location = new Point(8, 26);
-                        Login_lstvServers.Size = new Size(Login_gbxServers.Width - 16, Login_gbxServers.Height - 34);
+                        Login_lstvServers.Location = new Point(8, 28);
+                        Login_lstvServers.Size = new Size(col2W - 16, card1H - 36);
                         if (Login_lstvServers.Columns.Count >= 3)
                         {
-                            Login_lstvServers.Columns[0].Width = 190;
-                            Login_lstvServers.Columns[1].Width = 170;
-                            Login_lstvServers.Columns[2].Width = 140;
+                            int usableW = col2W - 22;
+                            Login_lstvServers.Columns[0].Width = (int)(usableW * 0.45);
+                            Login_lstvServers.Columns[1].Width = (int)(usableW * 0.30);
+                            Login_lstvServers.Columns[2].Width = usableW - Login_lstvServers.Columns[0].Width - Login_lstvServers.Columns[1].Width;
                         }
                     }
                 }
 
-                // Right Col 1 (Alternate): Character List Card (same position/size as Server List)
+                // Right Col 1 (Alternate): Character List Card
                 if (Login_gbxCharacters != null)
                 {
                     Login_gbxCharacters.Location = new Point(col2X, card1Y);
                     Login_gbxCharacters.Size = new Size(col2W, card1H);
                     if (Login_lstvCharacters != null)
                     {
-                        Login_lstvCharacters.Location = new Point(8, 26);
-                        Login_lstvCharacters.Size = new Size(Login_gbxCharacters.Width - 16, Login_gbxCharacters.Height - 34);
+                        Login_lstvCharacters.Location = new Point(8, 28);
+                        Login_lstvCharacters.Size = new Size(col2W - 16, card1H - 36);
                         if (Login_lstvCharacters.Columns.Count >= 4)
                         {
-                            Login_lstvCharacters.Columns[0].Width = 180;
-                            Login_lstvCharacters.Columns[1].Width = 75;
-                            Login_lstvCharacters.Columns[2].Width = 110;
-                            Login_lstvCharacters.Columns[3].Width = 135;
+                            int usableW = col2W - 22;
+                            Login_lstvCharacters.Columns[0].Width = (int)(usableW * 0.35);
+                            Login_lstvCharacters.Columns[1].Width = (int)(usableW * 0.15);
+                            Login_lstvCharacters.Columns[2].Width = (int)(usableW * 0.25);
+                            Login_lstvCharacters.Columns[3].Width = usableW - Login_lstvCharacters.Columns[0].Width - Login_lstvCharacters.Columns[1].Width - Login_lstvCharacters.Columns[2].Width;
                         }
                     }
                 }
 
-                // Right Col 2: Login Flow Strategy Card (Y: 208 -> 404, H: 196)
+                // Right Col 2: Login Flow Strategy Card
                 if (gbxStrategy != null)
                 {
                     gbxStrategy.Location = new Point(col2X, card2Y);
                     gbxStrategy.Size = new Size(col2W, card2H);
+                    RepositionStrategyCardControls();
+                }
+            }
+
+            // 2. Skills Panel Layout
+            if (TabPageV_Control01_Skills_Panel != null)
+            {
+                int skillListW = 320;
+                if (Skills_lstvSkills != null)
+                {
+                    Skills_lstvSkills.Location = new Point(0, 0);
+                    Skills_lstvSkills.Size = new Size(skillListW, contentH);
+                    if (Skills_lstvSkills.Columns.Count > 0)
+                        Skills_lstvSkills.Columns[0].Width = skillListW - 6;
+                }
+
+                int rightX = skillListW + 6;
+                int rightW = contentW - rightX - 4;
+
+                // Tab strip (Attack / Buff / Parti Buff)
+                if (TabPageH_Skills != null)
+                {
+                    TabPageH_Skills.Location = new Point(rightX, 0);
+                    TabPageH_Skills.Size = new Size(rightW, 30);
+                    int tabBtnW = rightW / 3;
+                    if (TabPageH_Skills_Option01 != null) { TabPageH_Skills_Option01.Location = new Point(0, 0); TabPageH_Skills_Option01.Size = new Size(tabBtnW, 28); }
+                    if (TabPageH_Skills_Option02 != null) { TabPageH_Skills_Option02.Location = new Point(tabBtnW, 0); TabPageH_Skills_Option02.Size = new Size(tabBtnW, 28); }
+                    if (TabPageH_Skills_Option03 != null) { TabPageH_Skills_Option03.Location = new Point(tabBtnW * 2, 0); TabPageH_Skills_Option03.Size = new Size(rightW - tabBtnW * 2, 28); }
+                }
+
+                int optPanelH = contentH - 32;
+                if (TabPageH_Skills_Option01_Panel != null)
+                {
+                    TabPageH_Skills_Option01_Panel.Location = new Point(rightX, 32);
+                    TabPageH_Skills_Option01_Panel.Size = new Size(rightW, optPanelH);
+                    int listH = optPanelH - 120;
+
+                    // Attack skill list
+                    if (Skills_lstvAttackMobType_General != null)   { Skills_lstvAttackMobType_General.Location   = new Point(6, 36); Skills_lstvAttackMobType_General.Size   = new Size(rightW - 12, listH); if (Skills_lstvAttackMobType_General.Columns.Count > 0) Skills_lstvAttackMobType_General.Columns[0].Width   = rightW - 18; }
+                    if (Skills_lstvAttackMobType_Champion != null)  { Skills_lstvAttackMobType_Champion.Location  = new Point(6, 36); Skills_lstvAttackMobType_Champion.Size  = new Size(rightW - 12, listH); if (Skills_lstvAttackMobType_Champion.Columns.Count > 0) Skills_lstvAttackMobType_Champion.Columns[0].Width  = rightW - 18; }
+                    if (Skills_lstvAttackMobType_Giant != null)     { Skills_lstvAttackMobType_Giant.Location     = new Point(6, 36); Skills_lstvAttackMobType_Giant.Size     = new Size(rightW - 12, listH); if (Skills_lstvAttackMobType_Giant.Columns.Count > 0) Skills_lstvAttackMobType_Giant.Columns[0].Width     = rightW - 18; }
+                    if (Skills_lstvAttackMobType_PartyGeneral != null)  { Skills_lstvAttackMobType_PartyGeneral.Location   = new Point(6, 36); Skills_lstvAttackMobType_PartyGeneral.Size   = new Size(rightW - 12, listH); if (Skills_lstvAttackMobType_PartyGeneral.Columns.Count > 0) Skills_lstvAttackMobType_PartyGeneral.Columns[0].Width   = rightW - 18; }
+                    if (Skills_lstvAttackMobType_PartyChampion != null) { Skills_lstvAttackMobType_PartyChampion.Location  = new Point(6, 36); Skills_lstvAttackMobType_PartyChampion.Size  = new Size(rightW - 12, listH); if (Skills_lstvAttackMobType_PartyChampion.Columns.Count > 0) Skills_lstvAttackMobType_PartyChampion.Columns[0].Width  = rightW - 18; }
+                    if (Skills_lstvAttackMobType_PartyGiant != null)    { Skills_lstvAttackMobType_PartyGiant.Location     = new Point(6, 36); Skills_lstvAttackMobType_PartyGiant.Size     = new Size(rightW - 12, listH); if (Skills_lstvAttackMobType_PartyGiant.Columns.Count > 0) Skills_lstvAttackMobType_PartyGiant.Columns[0].Width     = rightW - 18; }
+                    if (Skills_lstvAttackMobType_Unique != null)    { Skills_lstvAttackMobType_Unique.Location    = new Point(6, 36); Skills_lstvAttackMobType_Unique.Size    = new Size(rightW - 12, listH); if (Skills_lstvAttackMobType_Unique.Columns.Count > 0) Skills_lstvAttackMobType_Unique.Columns[0].Width    = rightW - 18; }
+                    if (Skills_lstvAttackMobType_Elite != null)     { Skills_lstvAttackMobType_Elite.Location     = new Point(6, 36); Skills_lstvAttackMobType_Elite.Size     = new Size(rightW - 12, listH); if (Skills_lstvAttackMobType_Elite.Columns.Count > 0) Skills_lstvAttackMobType_Elite.Columns[0].Width     = rightW - 18; }
+                    if (Skills_lstvAttackMobType_Event != null)     { Skills_lstvAttackMobType_Event.Location     = new Point(6, 36); Skills_lstvAttackMobType_Event.Size     = new Size(rightW - 12, listH); if (Skills_lstvAttackMobType_Event.Columns.Count > 0) Skills_lstvAttackMobType_Event.Columns[0].Width     = rightW - 18; }
+
+                    // Top toolbar: [+] [-] | MobType | ▲ ▼ | CastInOrder
+                    if (Skills_btnAddAttack != null) { Skills_btnAddAttack.Location = new Point(6, 4); Skills_btnAddAttack.Size = new Size(32, 28); }
+                    if (Skills_btnRemAttack != null) { Skills_btnRemAttack.Location = new Point(42, 4); Skills_btnRemAttack.Size = new Size(32, 28); }
+                    if (Skills_cmbxAttackMobType != null) { Skills_cmbxAttackMobType.Location = new Point(80, 5); Skills_cmbxAttackMobType.Size = new Size(180, 26); }
+                    if (Skills_cbxCastInOrder != null) { Skills_cbxCastInOrder.Location = new Point(370, 6); Skills_cbxCastInOrder.Size = new Size(260, 24); }
+
+                    int bottomY = listH + 40;
+                    if (Training_cbxWalkToCenter != null) { Training_cbxWalkToCenter.Location = new Point(6, bottomY); Training_cbxWalkToCenter.Size = new Size(220, 24); }
+                }
+
+                // Buff panel (Option02)
+                if (TabPageH_Skills_Option02_Panel != null)
+                {
+                    TabPageH_Skills_Option02_Panel.Location = new Point(rightX, 32);
+                    TabPageH_Skills_Option02_Panel.Size = new Size(rightW, optPanelH);
+                    int listH = optPanelH - 60;
+                    if (Skills_lstvBuffMobType_General != null)   { Skills_lstvBuffMobType_General.Location   = new Point(6, 34); Skills_lstvBuffMobType_General.Size   = new Size(rightW - 12, listH); if (Skills_lstvBuffMobType_General.Columns.Count > 0) Skills_lstvBuffMobType_General.Columns[0].Width   = rightW - 18; }
+                    if (Skills_lstvBuffMobType_Champion != null)  { Skills_lstvBuffMobType_Champion.Location  = new Point(6, 34); Skills_lstvBuffMobType_Champion.Size  = new Size(rightW - 12, listH); if (Skills_lstvBuffMobType_Champion.Columns.Count > 0) Skills_lstvBuffMobType_Champion.Columns[0].Width  = rightW - 18; }
+                    if (Skills_lstvBuffMobType_Giant != null)     { Skills_lstvBuffMobType_Giant.Location     = new Point(6, 34); Skills_lstvBuffMobType_Giant.Size     = new Size(rightW - 12, listH); if (Skills_lstvBuffMobType_Giant.Columns.Count > 0) Skills_lstvBuffMobType_Giant.Columns[0].Width     = rightW - 18; }
+                    if (Skills_lstvBuffMobType_PartyGeneral != null)  { Skills_lstvBuffMobType_PartyGeneral.Location   = new Point(6, 34); Skills_lstvBuffMobType_PartyGeneral.Size   = new Size(rightW - 12, listH); if (Skills_lstvBuffMobType_PartyGeneral.Columns.Count > 0) Skills_lstvBuffMobType_PartyGeneral.Columns[0].Width   = rightW - 18; }
+                    if (Skills_lstvBuffMobType_PartyChampion != null) { Skills_lstvBuffMobType_PartyChampion.Location  = new Point(6, 34); Skills_lstvBuffMobType_PartyChampion.Size  = new Size(rightW - 12, listH); if (Skills_lstvBuffMobType_PartyChampion.Columns.Count > 0) Skills_lstvBuffMobType_PartyChampion.Columns[0].Width  = rightW - 18; }
+                    if (Skills_lstvBuffMobType_PartyGiant != null)    { Skills_lstvBuffMobType_PartyGiant.Location     = new Point(6, 34); Skills_lstvBuffMobType_PartyGiant.Size     = new Size(rightW - 12, listH); if (Skills_lstvBuffMobType_PartyGiant.Columns.Count > 0) Skills_lstvBuffMobType_PartyGiant.Columns[0].Width     = rightW - 18; }
+                    if (Skills_lstvBuffMobType_Unique != null)    { Skills_lstvBuffMobType_Unique.Location    = new Point(6, 34); Skills_lstvBuffMobType_Unique.Size    = new Size(rightW - 12, listH); if (Skills_lstvBuffMobType_Unique.Columns.Count > 0) Skills_lstvBuffMobType_Unique.Columns[0].Width    = rightW - 18; }
+                    if (Skills_lstvBuffMobType_Elite != null)     { Skills_lstvBuffMobType_Elite.Location     = new Point(6, 34); Skills_lstvBuffMobType_Elite.Size     = new Size(rightW - 12, listH); if (Skills_lstvBuffMobType_Elite.Columns.Count > 0) Skills_lstvBuffMobType_Elite.Columns[0].Width     = rightW - 18; }
+                    if (Skills_btnAddBuff != null) { Skills_btnAddBuff.Location = new Point(6, 4); Skills_btnAddBuff.Size = new Size(32, 28); }
+                    if (Skills_btnRemBuff != null) { Skills_btnRemBuff.Location = new Point(42, 4); Skills_btnRemBuff.Size = new Size(32, 28); }
+                    if (Skills_cmbxBuffMobType != null) { Skills_cmbxBuffMobType.Location = new Point(80, 5); Skills_cmbxBuffMobType.Size = new Size(180, 26); }
+                }
+
+                // Party Buff panel (Option03)
+                if (TabPageH_Skills_Option03_Panel != null)
+                {
+                    TabPageH_Skills_Option03_Panel.Location = new Point(rightX, 32);
+                    TabPageH_Skills_Option03_Panel.Size = new Size(rightW, optPanelH);
+                }
+            }
+
+            // 3. Universal Layout Pass for all other subtab-based panels
+            LayoutSubTabs(TabPageV_Control01_Training_Panel, TabPageH_Training, TabPageH_Training_Option01_Panel, TabPageH_Training_Option02_Panel, TabPageH_Training_Option03_Panel);
+            LayoutSubTabs(TabPageV_Control01_Character_Panel, TabPageH_Character, TabPageH_Character_Option01_Panel, TabPageH_Character_Option02_Panel, TabPageH_Character_Option03_Panel, TabPageH_Character_Option04_Panel);
+            LayoutSubTabs(TabPageV_Control01_Town_Panel, TabPageH_Town, TabPageH_Town_Option01_Panel, TabPageH_Town_Option02_Panel, TabPageH_Town_Option03_Panel);
+            LayoutSubTabs(TabPageV_Control01_Inventory_Panel, TabPageH_Inventory, TabPageH_Inventory_Option01_Panel, TabPageH_Inventory_Option02_Panel, TabPageH_Inventory_Option03_Panel, TabPageH_Inventory_Option04_Panel);
+            LayoutSubTabs(TabPageV_Control01_Party_Panel, TabPageH_Party, TabPageH_Party_Option01_Panel, TabPageH_Party_Option02_Panel, TabPageH_Party_Option03_Panel, TabPageH_Party_Option04_Panel);
+            LayoutSubTabs(TabPageV_Control01_Guild_Panel, TabPageH_Guild, TabPageH_Guild_Option01_Panel, TabPageH_Guild_Option02_Panel);
+            LayoutSubTabs(TabPageV_Control01_Chat_Panel, TabPageH_Chat, TabPageH_Chat_Option01_Panel, TabPageH_Chat_Option02_Panel, TabPageH_Chat_Option03_Panel, TabPageH_Chat_Option04_Panel, TabPageH_Chat_Option05_Panel, TabPageH_Chat_Option06_Panel, TabPageH_Chat_Option07_Panel, TabPageH_Chat_Option08_Panel);
+            LayoutSubTabs(TabPageV_Control01_Settings_Panel, TabPageH_Settings, TabPageH_Settings_Option01_Panel, TabPageH_Settings_Option02_Panel, TabPageH_Settings_Option03_Panel, TabPageH_Settings_Option04_Panel);
+            LayoutSubTabs(TabPageV_Control01_Players_Panel, TabPageH_Players, TabPageH_Players_Option01_Panel, TabPageH_Players_Option02_Panel);
+            LayoutSubTabs(TabPageV_Control01_Stall_Panel, TabPageH_Stall, TabPageH_Stall_Option01_Panel, TabPageH_Stall_Option02_Panel);
+        }
+
+        private void LayoutSubTabs(Panel mainPanel, Panel tabStrip, params Panel[] optionPanels)
+        {
+            if (mainPanel == null) return;
+            int tabW = mainPanel.Width;
+            int tabH = mainPanel.Height;
+
+            if (tabStrip != null)
+            {
+                tabStrip.Location = new Point(0, 0);
+                tabStrip.Size = new Size(tabW, 30);
+
+                var tabButtons = tabStrip.Controls.OfType<Button>().OrderBy(b => b.Location.X).ToList();
+                if (tabButtons.Count > 0)
+                {
+                    int btnW = Math.Max(120, tabW / tabButtons.Count);
+                    for (int i = 0; i < tabButtons.Count; i++)
+                    {
+                        tabButtons[i].Location = new Point(i * btnW, 0);
+                        tabButtons[i].Size = new Size(btnW, 28);
+                        tabButtons[i].FlatStyle = FlatStyle.Flat;
+                        tabButtons[i].FlatAppearance.BorderSize = 0;
+                    }
+                }
+            }
+
+            foreach (var opt in optionPanels)
+            {
+                if (opt != null)
+                {
+                    opt.Location = new Point(0, 32);
+                    opt.Size = new Size(tabW, tabH - 32);
+
+                    foreach (Control child in opt.Controls)
+                    {
+                        if (child is GroupBox gb && gb.Width > 500)
+                        {
+                            gb.Width = tabW - gb.Left - 12;
+                        }
+                        else if (child is ListView lv && lv.Width > 500)
+                        {
+                            lv.Width = tabW - lv.Left - 12;
+                        }
+                    }
                 }
             }
         }
 
         private void ApplyModernConsoleAndActions()
         {
+            int contentY = DarkTheme.HeaderHeight + 4;
+            int contentH = DarkTheme.DefaultWindowHeight - contentY - DarkTheme.LogPanelHeight - 34;
             int consoleX = DarkTheme.SidebarWidth + 10;
-            int consoleY = 466;
+            int consoleY = contentY + contentH + 6;
             int consoleW = DarkTheme.DefaultWindowWidth - consoleX - 10;
-            int consoleH = 142;
+            int consoleH = DarkTheme.LogPanelHeight;
 
             // Modernize RichTextBox Console
             if (rtbxLogs != null)
@@ -825,7 +980,7 @@ namespace xBot.App
                     this.Controls.Remove(lblBotState);
                     pnlWindow.Controls.Add(lblBotState);
                 }
-                lblBotState.Location = new Point(consoleX, 614);
+                lblBotState.Location = new Point(consoleX, consoleY + consoleH + 2);
                 lblBotState.Size = new Size(consoleW, 20);
                 lblBotState.BackColor = DarkTheme.BgDark;
                 lblBotState.ForeColor = DarkTheme.Accent;

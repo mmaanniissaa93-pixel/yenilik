@@ -404,6 +404,9 @@ namespace xBot.App
                     AlchemyManager.RunTick();
                 }
 
+                // Check Target Assist hotkey cycle
+                TargetAssistManager.RunTick();
+
                 if (trainingRadius > 0)
                 {
                     // No attack mode check (support / lure / buffer only)
@@ -491,77 +494,130 @@ namespace xBot.App
                         }
 
                         // Load skills and iterate it
-                        SRSkill[] skillshots = w.Skills_GetSkillShots(mob.MobType);
                         if (WaitSelectEntity(mob.UniqueID, 2, 250, "Selecting " + mob.Name + " (" + mob.MobType + ")..."))
                         {
-                            bool castConfirmed = false;
-                            if (skillshots != null && skillshots.Length != 0)
+                            int currentSkillIndex = 0;
+                            int noSkillAttempts = 0;
+
+                            while (isBotting && InfoManager.Mobs.ContainsKey(mob.UniqueID))
                             {
-                                // Iterate skills
-                                for (int k = 0; k < skillshots.Length; k++)
+                                if (SkillManager.NoAttackMode)
+                                    break;
+
+                                SkillManager.EnsureImbueActive();
+                                SkillManager.CheckDevilSpirit();
+
+                                // Distance check to target
+                                myWeapon = GetMyWeaponType();
+                                maxAttackRange = GetWeaponAttackRange(myWeapon);
+                                mobPosition = mob.GetRealtimePosition();
+                                myPosition = InfoManager.Character.GetRealtimePosition();
+                                distanceToMob = myPosition.DistanceTo(mobPosition);
+
+                                if (distanceToMob > maxAttackRange)
                                 {
-                                    SRSkill skillshot = skillshots[k];
+                                    MoveTo(mobPosition);
+                                    Thread.Sleep(200);
+                                    continue;
+                                }
 
-                                    // Ignore null skills and skills disabled by the server.
-                                    if (skillshot == null || (skillshot.ID != 1 && !skillshot.Enabled))
-                                        continue;
+                                SRSkill[] skillshots = w.Skills_GetSkillShots(mob.MobType);
+                                SRSkill skillToCast = null;
 
-                                    if (skillshot.ID == 1)
+                                if (skillshots != null && skillshots.Length > 0)
+                                {
+                                    if (SkillManager.InOrderCombo)
                                     {
-                                        // Normalize the configured basic attack for the current weapon.
-                                        skillshot = SkillManager.GetFallbackAttack(GetMyWeaponType());
-                                    }
-
-                                    if (!skillshot.isCastingEnabled)
-                                        continue;
-
-                                    if (!TryPrepareAttackSkill(skillshot, w))
-                                    {
-                                        SkillManager.RecordCastFailure(skillshot, "Silah uygun değil");
-                                        w.LogProcess("Skipping skill (weapon unavailable): " + skillshot.Name);
-                                        continue;
-                                    }
-
-                                    // Check if mob is alive
-                                    if (InfoManager.Mobs.ContainsKey(mob.UniqueID))
-                                    {
-                                        w.LogProcess("Casting skill " + skillshot.Name + " (" + skillshot.CastingTime + "ms)...");
-                                        PacketBuilder.AttackTarget(mob.UniqueID, skillshot.ID);
-                                        int sleepTime = Math.Max(600, skillshot.CastingTime);
-                                        if (InfoManager.MonitorSkillCast.WaitOne(500))
+                                        int checkedCount = 0;
+                                        while (checkedCount < skillshots.Length)
                                         {
-                                            SkillManager.RecordCastSuccess(skillshot);
-                                            castConfirmed = true;
-                                            Thread.Sleep(sleepTime);
-                                            if (!SkillPolicy.ShouldContinueCombo(castConfirmed, SkillManager.InOrderCombo))
-                                                break;
-                                        }
-                                        else
-                                        {
-                                            SkillManager.RecordCastFailure(skillshot, "Yanıt alınamadı");
-                                            if (!InfoManager.Mobs.ContainsKey(mob.UniqueID))
+                                            int idx = (currentSkillIndex + checkedCount) % skillshots.Length;
+                                            SRSkill candidate = skillshots[idx];
+                                            if (candidate != null && (candidate.ID == 1 || candidate.Enabled) && candidate.isCastingEnabled)
                                             {
-                                                break;
+                                                if (TryPrepareAttackSkill(candidate, w))
+                                                {
+                                                    skillToCast = candidate;
+                                                    currentSkillIndex = (idx + 1) % skillshots.Length;
+                                                    break;
+                                                }
                                             }
-                                            Thread.Sleep(250);
-                                            continue;
+                                            checkedCount++;
                                         }
                                     }
                                     else
                                     {
-                                        // mob selection failed
-                                        break;
+                                        // Priority mode: first check non-basic attack skills
+                                        for (int k = 0; k < skillshots.Length; k++)
+                                        {
+                                            SRSkill candidate = skillshots[k];
+                                            if (candidate != null && candidate.ID != 1 && candidate.Enabled && candidate.isCastingEnabled)
+                                            {
+                                                if (TryPrepareAttackSkill(candidate, w))
+                                                {
+                                                    skillToCast = candidate;
+                                                    break;
+                                                }
+                                            }
+                                        }
+
+                                        // If class skills are on cooldown, check if Common Attack is in list
+                                        if (skillToCast == null)
+                                        {
+                                            for (int k = 0; k < skillshots.Length; k++)
+                                            {
+                                                SRSkill candidate = skillshots[k];
+                                                if (candidate != null && candidate.ID == 1 && candidate.isCastingEnabled)
+                                                {
+                                                    skillToCast = candidate;
+                                                    break;
+                                                }
+                                            }
+                                        }
                                     }
                                 }
 
-                            }
+                                if (skillToCast == null)
+                                {
+                                    noSkillAttempts++;
+                                    if (noSkillAttempts >= 2 && SkillPolicy.ShouldUseFallback(InfoManager.Mobs.ContainsKey(mob.UniqueID), false))
+                                    {
+                                        TryFallbackAttack(mob, w);
+                                        noSkillAttempts = 0;
+                                    }
+                                    else
+                                    {
+                                        Thread.Sleep(150);
+                                    }
+                                    continue;
+                                }
 
-                            // A missing, cooling down, disabled or incompatible skill
-                            // must never leave the bot idle.
-                            if (SkillPolicy.ShouldUseFallback(InfoManager.Mobs.ContainsKey(mob.UniqueID), castConfirmed))
-                            {
-                                w.LogProcess("Configured skills unavailable; using Common Attack fallback");
-                                TryFallbackAttack(mob, w);
+                                noSkillAttempts = 0;
+
+                                if (skillToCast.ID == 1)
+                                {
+                                    skillToCast = SkillManager.GetFallbackAttack(GetMyWeaponType());
+                                }
+
+                                if (!InfoManager.Mobs.ContainsKey(mob.UniqueID))
+                                    break;
+
+                                w.LogProcess("Casting skill " + skillToCast.Name + " (" + skillToCast.CastingTime + "ms)...");
+                                PacketBuilder.AttackTarget(mob.UniqueID, skillToCast.ID);
+                                int sleepTime = Math.Max(600, skillToCast.CastingTime);
+
+                                if (InfoManager.MonitorSkillCast.WaitOne(500))
+                                {
+                                    SkillManager.RecordCastSuccess(skillToCast);
+                                    Thread.Sleep(sleepTime);
+                                }
+                                else
+                                {
+                                    SkillManager.RecordCastFailure(skillToCast, "Yanıt alınamadı");
+                                    if (!InfoManager.Mobs.ContainsKey(mob.UniqueID))
+                                        break;
+                                    Thread.Sleep(200);
+                                }
                             }
 
                             // Mob öldükten sonra drop topla

@@ -92,6 +92,7 @@ namespace xBot.App
 					root["Socks5Proxy"] = Network.Socks5Config.ToJson();
 					root["PartySupport"] = PartySupportManager.ToJson();
 					root["Alchemy"] = AlchemyManager.ToJson();
+					root["TargetAssist"] = TargetAssistManager.ToJson();
 					CommandCenter.CommandCenterManager.SaveSettings(root);
 
 					// Saving
@@ -244,6 +245,11 @@ namespace xBot.App
 					PartySupportManager.FromJson((Newtonsoft.Json.Linq.JObject)root["PartySupport"]);
 				if (root.ContainsKey("Alchemy"))
 					AlchemyManager.FromJson((Newtonsoft.Json.Linq.JObject)root["Alchemy"]);
+				if (root.ContainsKey("TargetAssist"))
+				{
+					TargetAssistManager.FromJson((Newtonsoft.Json.Linq.JObject)root["TargetAssist"]);
+					w.RefreshTargetAssistControls();
+				}
 			}
 		}
 		/// <summary>

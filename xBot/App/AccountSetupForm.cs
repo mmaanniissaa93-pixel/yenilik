@@ -44,7 +44,7 @@ namespace xBot.App
 
         private void InitializeComponent()
         {
-            this.Text = "Account Setup";
+            this.Text = LocalizationManager.Get("UI_Acc_Title", "Account Setup");
             this.ClientSize = new Size(760, 460);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
@@ -57,7 +57,7 @@ namespace xBot.App
             // Title and Subtitle
             lblTitle = new Label
             {
-                Text = "Account Setup",
+                Text = LocalizationManager.Get("UI_Acc_Title", "Account Setup"),
                 Location = new Point(24, 16),
                 AutoSize = true,
                 Font = new Font("Segoe UI", 16F, FontStyle.Bold, GraphicsUnit.Pixel),
@@ -66,7 +66,7 @@ namespace xBot.App
 
             lblSubtitle = new Label
             {
-                Text = "Manage saved accounts and character login credentials.",
+                Text = LocalizationManager.Get("UI_Acc_Subtitle", "Manage saved accounts and character login credentials."),
                 Location = new Point(25, 42),
                 AutoSize = true,
                 Font = new Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Pixel),
@@ -85,7 +85,7 @@ namespace xBot.App
 
             lblUsername = new Label
             {
-                Text = "Username",
+                Text = LocalizationManager.Get("UI_Acc_Username", "Username"),
                 Location = new Point(18, 16),
                 AutoSize = true,
                 Font = DarkTheme.FontCaption,
@@ -104,7 +104,7 @@ namespace xBot.App
 
             lblPassword = new Label
             {
-                Text = "Password",
+                Text = LocalizationManager.Get("UI_Acc_Password", "Password"),
                 Location = new Point(18, 74),
                 AutoSize = true,
                 Font = DarkTheme.FontCaption,
@@ -124,7 +124,7 @@ namespace xBot.App
 
             lblSecondary = new Label
             {
-                Text = "Secondary",
+                Text = LocalizationManager.Get("UI_Acc_Secondary", "Secondary (PIN)"),
                 Location = new Point(176, 74),
                 AutoSize = true,
                 Font = DarkTheme.FontCaption,
@@ -144,7 +144,7 @@ namespace xBot.App
 
             lblServer = new Label
             {
-                Text = "Server name",
+                Text = LocalizationManager.Get("UI_Acc_Server", "Server name"),
                 Location = new Point(18, 134),
                 AutoSize = true,
                 Font = DarkTheme.FontCaption,
@@ -163,7 +163,7 @@ namespace xBot.App
 
             btnAddUpdate = new Button
             {
-                Text = "Add / Update",
+                Text = LocalizationManager.Get("UI_Acc_AddUpdate", "Add / Update"),
                 Location = new Point(18, 198),
                 Size = new Size(120, 32),
                 BackColor = DarkTheme.Accent,
@@ -218,13 +218,13 @@ namespace xBot.App
                 Font = DarkTheme.FontBody,
                 HeaderStyle = ColumnHeaderStyle.Nonclickable
             };
-            lstvAccounts.Columns.Add("USERNAME:", 165);
-            lstvAccounts.Columns.Add("SERVER NAME:", 155);
+            lstvAccounts.Columns.Add(LocalizationManager.Get("UI_Acc_ColUser", "USERNAME:"), 165);
+            lstvAccounts.Columns.Add(LocalizationManager.Get("UI_Acc_ColServer", "SERVER NAME:"), 155);
             lstvAccounts.SelectedIndexChanged += (s, e) => OnAccountSelectionChanged();
 
             btnRemoveSelected = new Button
             {
-                Text = "Remove Selected",
+                Text = LocalizationManager.Get("UI_Acc_Remove", "Remove Selected"),
                 Location = new Point(14, 260),
                 Size = new Size(130, 28),
                 BackColor = DarkTheme.BgInput,
@@ -252,7 +252,7 @@ namespace xBot.App
 
             btnOK = new Button
             {
-                Text = "OK",
+                Text = LocalizationManager.Get("UI_Acc_OK", "OK"),
                 Location = new Point(646, 404),
                 Size = new Size(90, 32),
                 BackColor = DarkTheme.Accent,

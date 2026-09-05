@@ -244,13 +244,189 @@ internal static class Program
         bool alcDest = AlchemyPolicy.ParseAlchemyResponse(3, out bool alcDestSuccess, out string alcDestMsg);
         RunAlchemyCheck("Simya kırılma yanıtı (code: 3) tanınır", alcDest && !alcDestSuccess && alcDestMsg.Contains("destroyed"), true);
 
+        // Target Assist (PvP Hedef Döngüsü & Filtreleme) Tests
+        var taBaseSettings = new TargetAssistSettings
+        {
+            Enabled = true,
+            MaxRange = 40.0,
+            RoleMode = TargetAssistRoleMode.Civil,
+            IncludeDeadTargets = false,
+            IgnoreSnowShieldTargets = true,
+            IgnoreBloodyStormTargets = false,
+            OnlyCustomPlayers = false
+        };
+
+        var validPlayer = new TargetCandidateData
+        {
+            UniqueId = 101,
+            Name = "EnemyPlayer",
+            Distance = 25.0,
+            GuildName = "RedDragon",
+            IsDead = false,
+            HasSnowShield = false,
+            HasBloodyStorm = false,
+            HasJobMode = false,
+            JobType = 0
+        };
+
+        RunTargetAssistCheck("Menzil içindeki canlı oyuncu geçerli hedeftir", TargetAssistPolicy.IsValidTarget(validPlayer, taBaseSettings, 999), true);
+
+        var farPlayer = new TargetCandidateData { UniqueId = 102, Name = "FarPlayer", Distance = 55.0 };
+        RunTargetAssistCheck("Menzil dışındaki (55m > 40m) oyuncu hedeflenmez", TargetAssistPolicy.IsValidTarget(farPlayer, taBaseSettings, 999), false);
+
+        var selfPlayer = new TargetCandidateData { UniqueId = 999, Name = "MyChar", Distance = 0.0 };
+        RunTargetAssistCheck("Karakterin kendisi hedeflenmez", TargetAssistPolicy.IsValidTarget(selfPlayer, taBaseSettings, 999), false);
+
+        var deadPlayer = new TargetCandidateData { UniqueId = 103, Name = "DeadPlayer", Distance = 15.0, IsDead = true };
+        RunTargetAssistCheck("IncludeDeadTargets kapalıyken ölü hedef elenir", TargetAssistPolicy.IsValidTarget(deadPlayer, taBaseSettings, 999), false);
+
+        var taAllowDead = new TargetAssistSettings { Enabled = true, MaxRange = 40.0, IncludeDeadTargets = true };
+        RunTargetAssistCheck("IncludeDeadTargets açıkken ölü hedef kabul edilir", TargetAssistPolicy.IsValidTarget(deadPlayer, taAllowDead, 999), true);
+
+        var snowPlayer = new TargetCandidateData { UniqueId = 104, Name = "SnowPlayer", Distance = 20.0, HasSnowShield = true };
+        RunTargetAssistCheck("IgnoreSnowShield açıkken Snow Shield'lı hedef atlanır", TargetAssistPolicy.IsValidTarget(snowPlayer, taBaseSettings, 999), false);
+        var taAllowSnow = new TargetAssistSettings { Enabled = true, MaxRange = 40.0, IgnoreSnowShieldTargets = false };
+        RunTargetAssistCheck("IgnoreSnowShield kapalıyken Snow Shield'lı hedef kabul edilir", TargetAssistPolicy.IsValidTarget(snowPlayer, taAllowSnow, 999), true);
+
+        var bloodyPlayer = new TargetCandidateData { UniqueId = 105, Name = "BloodyPlayer", Distance = 20.0, HasBloodyStorm = true };
+        RunTargetAssistCheck("IgnoreBloodyStorm kapalıyken Bloody Storm'lu hedef kabul edilir", TargetAssistPolicy.IsValidTarget(bloodyPlayer, taBaseSettings, 999), true);
+        var taIgnoreBloody = new TargetAssistSettings { Enabled = true, MaxRange = 40.0, IgnoreBloodyStormTargets = true };
+        RunTargetAssistCheck("IgnoreBloodyStorm açıkken Bloody Storm'lu hedef atlanır", TargetAssistPolicy.IsValidTarget(bloodyPlayer, taIgnoreBloody, 999), false);
+
+        var guildSettings = new TargetAssistSettings { Enabled = true, MaxRange = 40.0 };
+        guildSettings.IgnoredGuilds.Add("BlackListGuild");
+        var ignoredGuildMember = new TargetCandidateData { UniqueId = 106, Name = "IgnoredMember", Distance = 10.0, GuildName = "BlackListGuild" };
+        var friendGuildMember = new TargetCandidateData { UniqueId = 107, Name = "FriendMember", Distance = 10.0, GuildName = "WhiteListGuild" };
+        RunTargetAssistCheck("Ignored Guild üyesi listeden elenir", TargetAssistPolicy.IsValidTarget(ignoredGuildMember, guildSettings, 999), false);
+        RunTargetAssistCheck("Normal guild üyesi kabul edilir", TargetAssistPolicy.IsValidTarget(friendGuildMember, guildSettings, 999), true);
+
+        var customSettings = new TargetAssistSettings { Enabled = true, MaxRange = 40.0, OnlyCustomPlayers = true };
+        customSettings.CustomPlayers.Add("TargetAlpha");
+        var customTarget = new TargetCandidateData { UniqueId = 108, Name = "TargetAlpha", Distance = 15.0 };
+        var otherPlayer = new TargetCandidateData { UniqueId = 109, Name = "RandomPlayer", Distance = 15.0 };
+        RunTargetAssistCheck("OnlyCustomPlayers açıkken listedeki oyuncu hedeflenir", TargetAssistPolicy.IsValidTarget(customTarget, customSettings, 999), true);
+        RunTargetAssistCheck("OnlyCustomPlayers açıkken listede olmayan oyuncu hedeflenmez", TargetAssistPolicy.IsValidTarget(otherPlayer, customSettings, 999), false);
+
+        // Role mode checks
+        var thiefSuitTarget = new TargetCandidateData { UniqueId = 110, Name = "ThiefEnemy", Distance = 12.0, HasJobMode = true, JobType = 2 }; // Thief
+        var hunterSuitTarget = new TargetCandidateData { UniqueId = 111, Name = "HunterEnemy", Distance = 12.0, HasJobMode = true, JobType = 3 }; // Hunter
+        var traderSuitTarget = new TargetCandidateData { UniqueId = 112, Name = "TraderEnemy", Distance = 12.0, HasJobMode = true, JobType = 1 }; // Trader
+        var civilPlayer = new TargetCandidateData { UniqueId = 113, Name = "Civilian", Distance = 12.0, HasJobMode = false, JobType = 0 };
+
+        var thiefSettings = new TargetAssistSettings { Enabled = true, MaxRange = 40.0, RoleMode = TargetAssistRoleMode.Thief };
+        RunTargetAssistCheck("Thief modu: Hunter hedef alınır", TargetAssistPolicy.IsValidTarget(hunterSuitTarget, thiefSettings, 999), true);
+        RunTargetAssistCheck("Thief modu: Trader hedef alınır", TargetAssistPolicy.IsValidTarget(traderSuitTarget, thiefSettings, 999), true);
+        RunTargetAssistCheck("Thief modu: Başka Thief hedef alınmaz", TargetAssistPolicy.IsValidTarget(thiefSuitTarget, thiefSettings, 999), false);
+        RunTargetAssistCheck("Thief modu: Mesleksiz oyuncu hedef alınmaz", TargetAssistPolicy.IsValidTarget(civilPlayer, thiefSettings, 999), false);
+
+        var hunterTraderSettings = new TargetAssistSettings { Enabled = true, MaxRange = 40.0, RoleMode = TargetAssistRoleMode.HunterTrader };
+        RunTargetAssistCheck("HunterTrader modu: Thief hedef alınır", TargetAssistPolicy.IsValidTarget(thiefSuitTarget, hunterTraderSettings, 999), true);
+        RunTargetAssistCheck("HunterTrader modu: Hunter hedef alınmaz", TargetAssistPolicy.IsValidTarget(hunterSuitTarget, hunterTraderSettings, 999), false);
+
+        // Cycle resolution tests
+        var candidatesList = new List<TargetCandidateData>
+        {
+            new TargetCandidateData { UniqueId = 201, Name = "Target1", Distance = 10.0 },
+            new TargetCandidateData { UniqueId = 202, Name = "Target2", Distance = 20.0 },
+            new TargetCandidateData { UniqueId = 203, Name = "Target3", Distance = 30.0 }
+        };
+
+        RunTargetAssistCheck("Hedef seçili değilken (0) en yakın ilk aday (201) seçilir",
+            TargetAssistPolicy.ResolveNextTarget(candidatesList, 0)?.UniqueId == 201, true);
+
+        RunTargetAssistCheck("201 seçiliyken sıradaki hedef 202 seçilir",
+            TargetAssistPolicy.ResolveNextTarget(candidatesList, 201)?.UniqueId == 202, true);
+
+        RunTargetAssistCheck("Son hedef 203 seçiliyken döngü başa (201) döner",
+            TargetAssistPolicy.ResolveNextTarget(candidatesList, 203)?.UniqueId == 201, true);
+
+        // Buff helpers
+        RunTargetAssistCheck("COLD_SHIELD yeteneği Snow Shield olarak tanınır", TargetAssistPolicy.HasSnowShield("SKILL_CH_COLD_SHIELD_01"), true);
+        RunTargetAssistCheck("AUTO_TRANSFER parametresi Snow Shield olarak tanınır", TargetAssistPolicy.HasSnowShield("UNKNOWN", 1701213281), true);
+        RunTargetAssistCheck("FANSTORM yeteneği Bloody Storm olarak tanınır", TargetAssistPolicy.HasBloodyStorm("SKILL_EU_WARRIOR_FANSTORM_01"), true);
+        RunTargetAssistCheck("FAN_STORM yeteneği Bloody Storm olarak tanınır", TargetAssistPolicy.HasBloodyStorm("SKILL_EU_WARRIOR_FAN_STORM_01"), true);
+
+        // Status formatter
+        string emptyStatus = TargetAssistPolicy.FormatCandidateStatus(0, "", -1);
+        RunTargetAssistCheck("Aday yokken doğru durum metni üretilir", emptyStatus == "No target candidates in range.", true);
+        string activeStatus = TargetAssistPolicy.FormatCandidateStatus(3, "Target1", 12.4);
+        RunTargetAssistCheck("Aday varken formatlı durum metni üretilir", activeStatus.Contains("Candidates: 3") && activeStatus.Contains("Target1") && activeStatus.Contains("12.4m"), true);
+
+        // Localization (TR / EN Dynamic Optimization) Tests
+        bool langEventFired = false;
+        LocalizationManager.OnLanguageChanged += () => { langEventFired = true; };
+
+        // Test Turkish Localization
+        LocalizationManager.SetLanguage("TR");
+        RunLocalizationCheck("Dil TR olarak seçildi", LocalizationManager.CurrentLanguage == "TR", true);
+        RunLocalizationCheck("Dil değiştirme event'i tetiklendi", langEventFired, true);
+
+        RunLocalizationString("TR Kategori: BOT AYARLARI", LocalizationManager.Get("UI_Cat_BotSettings"), "BOT AYARLARI");
+        RunLocalizationString("TR Tab: Genel / Giriş", LocalizationManager.Get("UI_Tab_Login"), "Genel / Giriş");
+        RunLocalizationString("TR Tab: Kasılma", LocalizationManager.Get("UI_Tab_Training"), "Kasılma");
+        RunLocalizationString("TR Tab: Beceriler", LocalizationManager.Get("UI_Tab_Skills"), "Beceriler");
+        RunLocalizationString("TR Tab: Koruma", LocalizationManager.Get("UI_Tab_Character"), "Koruma");
+        RunLocalizationString("TR Tab: Simya (+ Basma)", LocalizationManager.Get("UI_Tab_Alchemy"), "Simya (+ Basma)");
+        RunLocalizationString("TR Tab: Target Assist", LocalizationManager.Get("UI_Tab_TargetAssist"), "Target Assist");
+        RunLocalizationString("TR Buton: Ayarları Kaydet", LocalizationManager.Get("UI_Save"), "Ayarları Kaydet");
+        RunLocalizationString("TR Buton: Komut Merkezi", LocalizationManager.Get("UI_CommandCenter"), "Komut Merkezi");
+        RunLocalizationString("TR Giriş: Otomatik Giriş Yap", LocalizationManager.Get("UI_AutomatedLogin"), "Otomatik Giriş Yap");
+        RunLocalizationString("TR Combat: Can (HP) Tam Olduğunda Berserk Bas", LocalizationManager.Get("UI_ZerkHPFull"), "Can (HP) Tam Olduğunda Berserk Bas");
+        RunLocalizationString("TR Beceri: Becerileri Sırayla Kullan (Kombo)", LocalizationManager.Get("UI_InOrder"), "Becerileri Sırayla Kullan (Kombo)");
+        RunLocalizationString("TR Koruma: HP < % ise Beceriyle İyileş", LocalizationManager.Get("UI_SkillHP"), "HP < % ise Beceriyle İyileş");
+        RunLocalizationString("TR Koruma: Ölen Peti Dirilt (Grass of Life)", LocalizationManager.Get("UI_PetRevive"), "Ölen Peti Dirilt (Grass of Life)");
+        RunLocalizationString("TR Filtre: Sadece SoX", LocalizationManager.Get("UI_SoxPrint"), "Sadece SoX (SOS / SOM / SUN / Nova)");
+        RunLocalizationString("TR Simya: ▶ Simyayı Başlat", LocalizationManager.Get("UI_Alchemy_Start"), "▶ Simyayı Başlat");
+        RunLocalizationString("TR Simya: Lucky Powder Kullan (Otomatik Eşle)", LocalizationManager.Get("UI_Alchemy_UsePowder"), "Lucky Powder Kullan (Otomatik Eşle)");
+        RunLocalizationString("TR TargetAssist: Ölü hedefleri dahil et", LocalizationManager.Get("UI_TA_IncludeDead"), "Ölü hedefleri dahil et");
+        RunLocalizationString("TR Hesap Yönetimi: Başlık", LocalizationManager.Get("UI_Acc_Title"), "Hesap Yönetimi");
+        RunLocalizationString("TR Hesap Yönetimi: İkinci Şifre (PIN)", LocalizationManager.Get("UI_Acc_Secondary"), "İkinci Şifre (PIN)");
+
+        // Test English Localization
+        langEventFired = false;
+        LocalizationManager.SetLanguage("EN");
+        RunLocalizationCheck("Dil EN olarak seçildi", LocalizationManager.CurrentLanguage == "EN", true);
+        RunLocalizationCheck("Dil değiştirme event'i EN için tetiklendi", langEventFired, true);
+
+        RunLocalizationString("EN Kategori: BOT SETTINGS", LocalizationManager.Get("UI_Cat_BotSettings"), "BOT SETTINGS");
+        RunLocalizationString("EN Tab: General / Login", LocalizationManager.Get("UI_Tab_Login"), "General / Login");
+        RunLocalizationString("EN Tab: Training", LocalizationManager.Get("UI_Tab_Training"), "Training");
+        RunLocalizationString("EN Tab: Skills", LocalizationManager.Get("UI_Tab_Skills"), "Skills");
+        RunLocalizationString("EN Tab: Protection", LocalizationManager.Get("UI_Tab_Character"), "Protection");
+        RunLocalizationString("EN Tab: Alchemy (+ Fuse)", LocalizationManager.Get("UI_Tab_Alchemy"), "Alchemy (+ Fuse)");
+        RunLocalizationString("EN Tab: Target Assist", LocalizationManager.Get("UI_Tab_TargetAssist"), "Target Assist");
+        RunLocalizationString("EN Buton: Save Settings", LocalizationManager.Get("UI_Save"), "Save Settings");
+        RunLocalizationString("EN Buton: Command Center", LocalizationManager.Get("UI_CommandCenter"), "Command Center");
+        RunLocalizationString("EN Giriş: Enable Automated Login", LocalizationManager.Get("UI_AutomatedLogin"), "Enable Automated Login");
+        RunLocalizationString("EN Combat: Berserk When HP is Full", LocalizationManager.Get("UI_ZerkHPFull"), "Berserk When HP is Full");
+        RunLocalizationString("EN Beceri: Cast Skills in Order (Combo)", LocalizationManager.Get("UI_InOrder"), "Cast Skills in Order (Combo)");
+        RunLocalizationString("EN Koruma: Heal Skill if HP < %", LocalizationManager.Get("UI_SkillHP"), "Heal Skill if HP < %");
+        RunLocalizationString("EN Koruma: Auto Revive Pet (Grass of Life)", LocalizationManager.Get("UI_PetRevive"), "Auto Revive Pet (Grass of Life)");
+        RunLocalizationString("EN Filtre: Only SoX", LocalizationManager.Get("UI_SoxPrint"), "Only SoX (SOS / SOM / SUN / Nova)");
+        RunLocalizationString("EN Simya: ▶ Start Alchemy", LocalizationManager.Get("UI_Alchemy_Start"), "▶ Start Alchemy");
+        RunLocalizationString("EN Simya: Use Lucky Powder (Auto-Match)", LocalizationManager.Get("UI_Alchemy_UsePowder"), "Use Lucky Powder (Auto-Match)");
+        RunLocalizationString("EN TargetAssist: Include dead targets", LocalizationManager.Get("UI_TA_IncludeDead"), "Include dead targets");
+        RunLocalizationString("EN Hesap Setup: Title", LocalizationManager.Get("UI_Acc_Title"), "Account Setup");
+        RunLocalizationString("EN Hesap Setup: Secondary (PIN)", LocalizationManager.Get("UI_Acc_Secondary"), "Secondary (PIN)");
+
+        // Silkroad Oyun Terimleri Koruma Testi (Hem TR hem EN'de Silkroad terimleri bozulmamalı)
+        RunLocalizationCheck("TR dilinde SoX terimi korunur", LocalizationManager.Get("UI_SoxPrint").Contains("SoX"), true);
+        RunLocalizationCheck("TR dilinde Grass of Life terimi korunur", LocalizationManager.Get("UI_PetRevive").Contains("Grass of Life"), true);
+        RunLocalizationCheck("TR dilinde Lucky Powder terimi korunur", LocalizationManager.Get("UI_Alchemy_UsePowder").Contains("Lucky Powder"), true);
+        RunLocalizationCheck("TR dilinde PIN terimi korunur", LocalizationManager.Get("UI_Acc_Secondary").Contains("PIN"), true);
+        RunLocalizationCheck("TR dilinde Berserk terimi korunur", LocalizationManager.Get("UI_ZerkHPFull").Contains("Berserk"), true);
+        RunLocalizationCheck("TR dilinde HP terimi korunur", LocalizationManager.Get("UI_ZerkHPFull").Contains("HP"), true);
+
+        // Reset to TR default
+        LocalizationManager.SetLanguage("TR");
+
         if (failures != 0)
         {
             Console.WriteLine("Protection senaryoları başarısız: " + failures);
             return 1;
         }
 
-        Console.WriteLine("Koruma, item filtre, combat, skill, imbue, command center, lojistik, parti, PIN, SOCKS5 ve Auto Alchemy senaryoları başarılı: 154");
+        Console.WriteLine("Koruma, item filtre, combat, skill, imbue, command center, lojistik, parti, PIN, SOCKS5, Auto Alchemy, Target Assist ve Localization senaryoları başarılı: 230");
         return 0;
     }
 
@@ -552,6 +728,42 @@ internal static class Program
     }
 
     private static void RunAlchemyByte(string name, byte actual, byte expected)
+    {
+        if (actual == expected)
+        {
+            Console.WriteLine("PASS: " + name);
+            return;
+        }
+
+        failures++;
+        Console.WriteLine("FAIL: " + name + " | beklenen=" + expected + ", gerçek=" + actual);
+    }
+
+    private static void RunTargetAssistCheck(string name, bool actual, bool expected)
+    {
+        if (actual == expected)
+        {
+            Console.WriteLine("PASS: " + name);
+            return;
+        }
+
+        failures++;
+        Console.WriteLine("FAIL: " + name + " | beklenen=" + expected + ", gerçek=" + actual);
+    }
+
+    private static void RunLocalizationString(string name, string actual, string expected)
+    {
+        if (string.Equals(actual, expected, StringComparison.Ordinal))
+        {
+            Console.WriteLine("PASS: " + name);
+            return;
+        }
+
+        failures++;
+        Console.WriteLine("FAIL: " + name + " | beklenen=\"" + expected + "\", gerçek=\"" + actual + "\"");
+    }
+
+    private static void RunLocalizationCheck(string name, bool actual, bool expected)
     {
         if (actual == expected)
         {

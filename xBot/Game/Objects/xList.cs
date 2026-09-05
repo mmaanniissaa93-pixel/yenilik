@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 namespace xBot.Game.Objects
 {
@@ -30,7 +30,11 @@ namespace xBot.Game.Objects
 		}
 		public T this[int index]
 		{
-			get { return m_list[index]; }
+			get {
+				if (index < 0 || index >= m_list.Count)
+					return default(T);
+				return m_list[index];
+			}
 			set {
 				if (index >= m_list.Count)
 				{

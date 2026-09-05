@@ -78,6 +78,19 @@ namespace xBot.App.Theme
             Invalidate();
         }
 
+        public void UpdateItemText(string key, string newTitle, string newCategory = null)
+        {
+            NavItem found = _items.Find(x => string.Equals(x.Key, key, StringComparison.OrdinalIgnoreCase));
+            if (found != null)
+            {
+                if (!string.IsNullOrEmpty(newTitle))
+                    found.Title = newTitle;
+                if (!string.IsNullOrEmpty(newCategory))
+                    found.Category = newCategory;
+                Invalidate();
+            }
+        }
+
         public void SelectTab(string key, bool triggerEvent = true)
         {
             NavItem found = _items.Find(x => string.Equals(x.Key, key, StringComparison.OrdinalIgnoreCase));

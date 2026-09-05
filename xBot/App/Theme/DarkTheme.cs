@@ -60,11 +60,11 @@ namespace xBot.App.Theme
         // -------------------------------------------------------------
         // Window & Layout Metrics (8px Grid System)
         // -------------------------------------------------------------
-        public const int DefaultWindowWidth  = 980;
-        public const int DefaultWindowHeight = 640;
-        public const int HeaderHeight        = 44;
-        public const int SidebarWidth        = 185;
-        public const int LogPanelHeight      = 120;
+        public const int DefaultWindowWidth  = 1440;
+        public const int DefaultWindowHeight = 920;
+        public const int HeaderHeight        = 46;
+        public const int SidebarWidth        = 210;
+        public const int LogPanelHeight      = 150;
         public const int SpacingMicro        = 4;
         public const int SpacingCompact      = 8;
         public const int SpacingDefault      = 16;
@@ -115,6 +115,7 @@ namespace xBot.App.Theme
         public static Font FontBody         => GetFont(9f, FontStyle.Regular);
         public static Font FontBodyBold     => GetFont(9f, FontStyle.Bold);
         public static Font FontCaption      => GetFont(8f, FontStyle.Regular);
+        public static Font FontCaptionBold  => GetFont(8f, FontStyle.Bold);
         public static Font FontConsole      => new Font("Consolas", 8.5f, FontStyle.Regular);
 
         // -------------------------------------------------------------

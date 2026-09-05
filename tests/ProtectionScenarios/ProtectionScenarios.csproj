@@ -18,5 +18,7 @@
     <Compile Include="..\..\xBot\App\SecondaryPasscodePolicy.cs" Link="SecondaryPasscodePolicy.cs" />
     <Compile Include="..\..\xBot\App\Socks5Policy.cs" Link="Socks5Policy.cs" />
     <Compile Include="..\..\xBot\App\AlchemyPolicy.cs" Link="AlchemyPolicy.cs" />
+    <Compile Include="..\..\xBot\App\TargetAssistPolicy.cs" Link="TargetAssistPolicy.cs" />
+    <Compile Include="..\..\xBot\App\LocalizationManager.cs" Link="LocalizationManager.cs" />
   </ItemGroup>
 </Project>

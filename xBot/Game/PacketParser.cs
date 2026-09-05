@@ -2299,8 +2299,13 @@ namespace xBot.Game
 			byte slotDst = p.ReadByte();
 			ushort quantityMoved = p.ReadUShort();
 
-            // Make movement
-            InventoryItemMovement_FromSameInventory(InfoManager.MyPets[uniqueID].Inventory, slotSrc, slotDst, quantityMoved);
+			if (!InfoManager.MyPets.ContainsKey(uniqueID)) return;
+			SRCoService pet = InfoManager.MyPets[uniqueID];
+			if (pet?.Inventory == null)
+				return;
+
+			// Make movement
+			InventoryItemMovement_FromSameInventory(pet.Inventory, slotSrc, slotDst, quantityMoved);
 		}
 		private static void InventoryItemMovement_GroundToPet(Packet p)
 		{
@@ -2310,7 +2315,13 @@ namespace xBot.Game
 			//string OwnerName = p.ReadAscii(); ??
 			// End of Packet
 
+			if (!InfoManager.MyPets.ContainsKey(uniqueID)) return;
 			SRCoService pet = InfoManager.MyPets[uniqueID];
+			if (pet == null) return;
+
+			if (pet.Inventory == null)
+				pet.Inventory = new xList<SRItem>();
+
 			// Check quantity picked up
 			ushort quantity = 1;
 			if (pet.Inventory[slotInventory] != null)
@@ -2327,11 +2338,18 @@ namespace xBot.Game
 			byte tabSlot = p.ReadByte();
 			byte packageCount = p.ReadByte();
 			
+			if (!InfoManager.MyPets.ContainsKey(uniqueID)) return;
 			SRCoService pet = InfoManager.MyPets[uniqueID];
+			if (pet == null) return;
+
+			if (pet.Inventory == null)
+				pet.Inventory = new xList<SRItem>();
+
 			xList<SRItem> inventory = pet.Inventory;
 			// Select the item from the shop specified
 			SREntity NPCEntity = InfoManager.GetEntity(InfoManager.SelectedEntityUniqueID);
-			SRItem item = DataManager.GetItemFromShop(NPCEntity.ServerName, tabNumber, tabSlot);
+			SRItem item = NPCEntity != null ? DataManager.GetItemFromShop(NPCEntity.ServerName, tabNumber, tabSlot) : null;
+			if (item == null) return;
 			
 			if (packageCount == 1)
 			{
@@ -2389,8 +2407,17 @@ namespace xBot.Game
 			byte slotPetInventory = p.ReadByte();
 			// End of Packet
 
-			xList<SRItem> myInventory = InfoManager.Character.Inventory;
+			if (InfoManager.Character?.Inventory == null)
+				return;
+
+			if (!InfoManager.MyPets.ContainsKey(uniqueID)) return;
 			SRCoService pet = InfoManager.MyPets[uniqueID];
+			if (pet == null) return;
+
+			if (pet.Inventory == null)
+				pet.Inventory = new xList<SRItem>();
+
+			xList<SRItem> myInventory = InfoManager.Character.Inventory;
 			xList<SRItem> petInventory = pet.Inventory;
 
 			petInventory[slotPetInventory] = myInventory[slotMyInventory];
@@ -2405,6 +2432,12 @@ namespace xBot.Game
 			{
 				SRItem item = ItemParsing(p);
 				// End of Packet
+
+				if (InfoManager.Character == null)
+					return;
+
+				if (InfoManager.Character.Inventory == null)
+					InfoManager.Character.Inventory = new xList<SRItem>();
 
 				xList<SRItem> inventory = InfoManager.Character.Inventory;
 
