@@ -1,0 +1,155 @@
+using System;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Windows.Forms;
+
+namespace xBot.App.Theme
+{
+    /// <summary>
+    /// Centralized Dark Mode Design Tokens: Colors, Typography, and GDI+ Drawing Helpers.
+    /// </summary>
+    public static class DarkTheme
+    {
+        // -------------------------------------------------------------
+        // Background & Surface Colors (Dark Void Palette)
+        // -------------------------------------------------------------
+        public static readonly Color BgDark          = Color.FromArgb(15, 17, 23);     // #0F1117 (Main form canvas)
+        public static readonly Color BgSidebar       = Color.FromArgb(22, 25, 34);     // #161922 (Vertical sidebar)
+        public static readonly Color BgCard          = Color.FromArgb(30, 34, 45);     // #1E222D (Surface card panel)
+        public static readonly Color BgCardHeader    = Color.FromArgb(24, 28, 38);     // #181C26 (Card header / table header)
+        public static readonly Color BgInput         = Color.FromArgb(38, 43, 58);     // #262B3A (Input fields / hover card)
+        public static readonly Color BgInputFocus    = Color.FromArgb(46, 54, 76);     // #2E364C (Focused input background)
+        public static readonly Color BgHeader        = Color.FromArgb(22, 25, 34);     // #161922 (Top window header)
+
+        // -------------------------------------------------------------
+        // Border & Divider Colors
+        // -------------------------------------------------------------
+        public static readonly Color BorderSubtle    = Color.FromArgb(45, 51, 69);     // #2D3345 (Default 1px borders)
+        public static readonly Color BorderBright    = Color.FromArgb(61, 70, 96);     // #3D4660 (Hovered borders)
+        public static readonly Color BorderFocus     = Color.FromArgb(59, 130, 246);   // #3B82F6 (Focused inputs)
+
+        // -------------------------------------------------------------
+        // Accent Colors (Electric Azure)
+        // -------------------------------------------------------------
+        public static readonly Color Accent          = Color.FromArgb(37, 99, 235);    // #2563EB (Primary action/tab bar)
+        public static readonly Color Primary         = Color.FromArgb(37, 99, 235);    // Alias for Accent
+        public static readonly Color AccentHover     = Color.FromArgb(59, 130, 246);   // #3B82F6 (Hover highlight)
+        public static readonly Color AccentPressed   = Color.FromArgb(29, 78, 216);    // #1D4ED8 (Mouse down)
+        public static readonly Color AccentSubtle    = Color.FromArgb(30, 41, 59);     // #1E293B (Active tab background)
+
+        // -------------------------------------------------------------
+        // Typography Colors
+        // -------------------------------------------------------------
+        public static readonly Color TextPrimary     = Color.FromArgb(248, 250, 252);  // #F8FAFC (High contrast titles/values)
+        public static readonly Color TextSecondary   = Color.FromArgb(226, 232, 240);  // #E2E8F0 (Standard body text)
+        public static readonly Color TextMuted       = Color.FromArgb(148, 163, 184);  // #94A3B8 (Labels, captions)
+        public static readonly Color TextFaint       = Color.FromArgb(100, 116, 139);  // #64748B (Category headings, disabled)
+
+        // -------------------------------------------------------------
+        // Status & Semantic Colors
+        // -------------------------------------------------------------
+        public static readonly Color Success         = Color.FromArgb(16, 185, 129);   // #10B981 (HP / Success logs)
+        public static readonly Color SuccessHover    = Color.FromArgb(52, 211, 153);   // #34D399
+        public static readonly Color Warning         = Color.FromArgb(245, 158, 11);   // #F59E0B (EXP / Warning logs)
+        public static readonly Color Danger          = Color.FromArgb(239, 68, 68);    // #EF4444 (Stop / Error logs / Low HP)
+        public static readonly Color DangerHover     = Color.FromArgb(248, 113, 113);  // #F87171
+        public static readonly Color Mana            = Color.FromArgb(6, 182, 212);    // #06B6D4 (MP bar / Mana skills)
+        public static readonly Color InfoBlue        = Color.FromArgb(56, 189, 248);   // #38BDF8 (Info log)
+        public static readonly Color SystemPurple    = Color.FromArgb(168, 85, 247);   // #A855F7 (System log)
+
+        // -------------------------------------------------------------
+        // Window & Layout Metrics (8px Grid System)
+        // -------------------------------------------------------------
+        public const int DefaultWindowWidth  = 980;
+        public const int DefaultWindowHeight = 640;
+        public const int HeaderHeight        = 44;
+        public const int SidebarWidth        = 185;
+        public const int LogPanelHeight      = 120;
+        public const int SpacingMicro        = 4;
+        public const int SpacingCompact      = 8;
+        public const int SpacingDefault      = 16;
+        public const int SpacingLarge        = 24;
+        public const int DefaultRadius       = 8;
+
+        // -------------------------------------------------------------
+        // Typography Factories
+        // -------------------------------------------------------------
+        private static readonly string[] PreferredFontFamilies = new string[]
+        {
+            "Segoe UI Variable Display",
+            "Segoe UI Variable Text",
+            "Segoe UI",
+            "Microsoft Sans Serif"
+        };
+
+        private static string _resolvedFontFamily = null;
+
+        public static string ResolveFontFamily()
+        {
+            if (_resolvedFontFamily != null)
+                return _resolvedFontFamily;
+
+            foreach (var name in PreferredFontFamilies)
+            {
+                using (var testFont = new Font(name, 9f))
+                {
+                    if (string.Equals(testFont.FontFamily.Name, name, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _resolvedFontFamily = name;
+                        return _resolvedFontFamily;
+                    }
+                }
+            }
+            _resolvedFontFamily = "Segoe UI";
+            return _resolvedFontFamily;
+        }
+
+        public static Font GetFont(float size, FontStyle style = FontStyle.Regular)
+        {
+            return new Font(ResolveFontFamily(), size, style);
+        }
+
+        public static Font FontTitle        => GetFont(11f, FontStyle.Bold);
+        public static Font FontHeader       => GetFont(10f, FontStyle.Bold);
+        public static Font FontCategory     => GetFont(8f, FontStyle.Bold);
+        public static Font FontBody         => GetFont(9f, FontStyle.Regular);
+        public static Font FontBodyBold     => GetFont(9f, FontStyle.Bold);
+        public static Font FontCaption      => GetFont(8f, FontStyle.Regular);
+        public static Font FontConsole      => new Font("Consolas", 8.5f, FontStyle.Regular);
+
+        // -------------------------------------------------------------
+        // GDI+ Geometry Helpers
+        // -------------------------------------------------------------
+        public static GraphicsPath CreateRoundedRectangle(Rectangle bounds, int radius)
+        {
+            GraphicsPath path = new GraphicsPath();
+            if (radius <= 0)
+            {
+                path.AddRectangle(bounds);
+                return path;
+            }
+
+            int diameter = radius * 2;
+            Size size = new Size(diameter, diameter);
+            Rectangle arc = new Rectangle(bounds.Location, size);
+
+            // Top-left
+            path.AddArc(arc, 180, 90);
+
+            // Top-right
+            arc.X = bounds.Right - diameter;
+            path.AddArc(arc, 270, 90);
+
+            // Bottom-right
+            arc.Y = bounds.Bottom - diameter;
+            path.AddArc(arc, 0, 90);
+
+            // Bottom-left
+            arc.X = bounds.Left;
+            path.AddArc(arc, 90, 90);
+
+            path.CloseFigure();
+            return path;
+        }
+    }
+}

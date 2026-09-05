@@ -325,7 +325,7 @@ namespace xBot.App
             SRCoord myPosition, trainingPosition;
             int trainingRadius;
 
-            bool doMovement = true;
+            bool doMovement = false;
             while (true)
             {
                 // Check attacking params
@@ -350,30 +350,30 @@ namespace xBot.App
                         // Try to make a training movement
                         if (w.Training_cbxWalkToCenter.Checked)
                         {
-                            if (!myPosition.Equals(trainingPosition))
+                            if (!myPosition.Equals(trainingPosition, 3.0))
                             {
                                 // Move and wait
                                 timeTraveling = myPosition.TimeTo(trainingPosition, InfoManager.Character.GetMovementSpeed());
                                 MoveTo(trainingPosition);
                                 w.LogProcess("Walking to center (" + timeTraveling + "ms)...");
-                                WaitHandle.WaitAny(new WaitHandle[] { InfoManager.MonitorMobSpawnChanged, InfoManager.MonitorBuffRemoved }, timeTraveling);
+                                WaitHandle.WaitAny(new WaitHandle[] { InfoManager.MonitorMobSpawnChanged, InfoManager.MonitorBuffRemoved }, Math.Min(timeTraveling, 3000));
                             }
                         }
                         else
                         {
-                            // Random walk
-                            int random = rand.Next(-trainingRadius, trainingRadius);
-                            // Take care about where am I
-                            SRCoord newPosition;
-                            if (trainingPosition.inDungeon())
-                                newPosition = new SRCoord(trainingPosition.PosX + random, trainingPosition.PosY + random, trainingPosition.Region, trainingPosition.Z);
+                            // Avoid blind random walk across terrain / sectors. If drifted, return to center.
+                            if (myPosition.DistanceTo(trainingPosition) > 15.0)
+                            {
+                                timeTraveling = myPosition.TimeTo(trainingPosition, InfoManager.Character.GetMovementSpeed());
+                                MoveTo(trainingPosition);
+                                w.LogProcess("Returning towards center (" + timeTraveling + "ms)...");
+                                WaitHandle.WaitAny(new WaitHandle[] { InfoManager.MonitorMobSpawnChanged, InfoManager.MonitorBuffRemoved }, Math.Min(timeTraveling, 3000));
+                            }
                             else
-                                newPosition = new SRCoord(trainingPosition.PosX + random, trainingPosition.PosY + random);
-                            // Move and wait
-                            timeTraveling = myPosition.TimeTo(trainingPosition, InfoManager.Character.GetMovementSpeed());
-                            MoveTo(newPosition);
-                            w.LogProcess("Walking randomly (" + timeTraveling + "ms)...");
-                            WaitHandle.WaitAny(new WaitHandle[] { InfoManager.MonitorMobSpawnChanged, InfoManager.MonitorBuffRemoved }, timeTraveling);
+                            {
+                                // Already in center, wait safely for mobs to spawn
+                                WaitHandle.WaitAny(new WaitHandle[] { InfoManager.MonitorMobSpawnChanged }, 1000);
+                            }
                         }
                         doMovement = false;
                     }
@@ -435,7 +435,11 @@ namespace xBot.App
                         // No mob to attack
                         w.LogProcess("No mobs around to attack");
                         LootDrops(trainingPosition, trainingRadius);
-                        doMovement = true;
+                        WaitHandle.WaitAny(new WaitHandle[] { InfoManager.MonitorMobSpawnChanged }, 1000);
+                        if (myPosition.DistanceTo(trainingPosition) > 20.0)
+                            doMovement = true;
+                        else
+                            doMovement = false;
                         continue;
                     }
                     else
@@ -444,6 +448,31 @@ namespace xBot.App
                         if (w.Combat_cbxKiting == null || w.Combat_cbxKiting.Checked)
                         {
                             ExecuteKiting(mob, myPosition);
+                        }
+
+                        // Check distance to target mob before attacking
+                        SRTypes.Weapon myWeapon = GetMyWeaponType();
+                        double maxAttackRange = GetWeaponAttackRange(myWeapon);
+                        SRCoord mobPosition = mob.GetRealtimePosition();
+                        myPosition = InfoManager.Character.GetRealtimePosition();
+                        double distanceToMob = myPosition.DistanceTo(mobPosition);
+
+                        if (distanceToMob > maxAttackRange)
+                        {
+                            w.LogProcess($"Approaching {mob.Name} ({distanceToMob:F1}m)...");
+                            MoveTo(mobPosition);
+                            int approachAttempts = 0;
+                            while (isBotting && InfoManager.Mobs.ContainsKey(mob.UniqueID) && approachAttempts < 15)
+                            {
+                                Thread.Sleep(250);
+                                myPosition = InfoManager.Character.GetRealtimePosition();
+                                mobPosition = mob.GetRealtimePosition();
+                                if (myPosition.DistanceTo(mobPosition) <= maxAttackRange)
+                                    break;
+                                approachAttempts++;
+                                if (approachAttempts % 3 == 0)
+                                    MoveTo(mobPosition);
+                            }
                         }
 
                         // Load skills and iterate it
@@ -483,11 +512,12 @@ namespace xBot.App
                                     {
                                         w.LogProcess("Casting skill " + skillshot.Name + " (" + skillshot.CastingTime + "ms)...");
                                         PacketBuilder.AttackTarget(mob.UniqueID, skillshot.ID);
+                                        int sleepTime = Math.Max(600, skillshot.CastingTime);
                                         if (InfoManager.MonitorSkillCast.WaitOne(500))
                                         {
                                             SkillManager.RecordCastSuccess(skillshot);
                                             castConfirmed = true;
-                                            Thread.Sleep(skillshot.CastingTime);
+                                            Thread.Sleep(sleepTime);
                                             if (!SkillPolicy.ShouldContinueCombo(castConfirmed, SkillManager.InOrderCombo))
                                                 break;
                                         }
@@ -498,8 +528,7 @@ namespace xBot.App
                                             {
                                                 break;
                                             }
-                                            // Move to the next configured skill once; never retry the
-                                            // same unresponsive skill indefinitely.
+                                            Thread.Sleep(250);
                                             continue;
                                         }
                                     }
@@ -585,15 +614,16 @@ namespace xBot.App
                 return false;
 
             w.LogProcess("Casting Common Attack fallback...");
-            PacketBuilder.AttackTarget(mob.UniqueID, fallback.ID);
+            PacketBuilder.AttackTarget(mob.UniqueID, 1u);
             if (!InfoManager.MonitorSkillCast.WaitOne(500))
             {
                 SkillManager.RecordCastFailure(fallback, "Common Attack yanıt vermedi");
+                Thread.Sleep(250);
                 return false;
             }
 
             SkillManager.RecordCastSuccess(fallback);
-            Thread.Sleep(Math.Max(100, fallback.CastingTime));
+            Thread.Sleep(Math.Max(800, fallback.CastingTime));
             return true;
         }
 
@@ -760,6 +790,22 @@ namespace xBot.App
                 Window.Get?.Log("Combat AI: Berserker trigger! Activating Berserk mode!");
                 PacketBuilder.ActivateBerserk();
                 Thread.Sleep(400);
+            }
+        }
+
+        private double GetWeaponAttackRange(SRTypes.Weapon weapon)
+        {
+            switch (weapon)
+            {
+                case SRTypes.Weapon.Bow:
+                    return 15.0;
+                case SRTypes.Weapon.Crossbow:
+                    return 14.0;
+                case SRTypes.Weapon.TwoHandStaff:
+                case SRTypes.Weapon.Warlock:
+                    return 14.0;
+                default:
+                    return 3.5;
             }
         }
 

@@ -18,6 +18,13 @@ namespace xBot.App
         private Label lblHeaderHP;
         private Label lblHeaderMP;
 
+        // Saved Accounts controls
+        public Label Login_lblAccount;
+        public ComboBox Login_cmbxSavedAccounts;
+        public Button Login_btnSaveAccount;
+        public Button Login_btnDeleteAccount;
+        private bool _isPopulatingSavedAccounts = false;
+
         // General & Login Strategy controls
         private CheckBox cbxGeneralAutoLogin;
         private CheckBox cbxGeneralStaticCaptcha;
@@ -29,6 +36,7 @@ namespace xBot.App
         private NumericUpDown nudGeneralWaitAfterDC;
         private RadioButton rbnGeneralFirstFound;
         private RadioButton rbnGeneralHighestLevel;
+        private Theme.ModernCard gbxStrategy;
 
         // Protection controls added at runtime so they can be refreshed after
         // character settings are loaded.
@@ -108,6 +116,7 @@ namespace xBot.App
                 BuildProtectionTabWidgets();
                 BuildItemFilterWidgets();
                 ApplyLanguageToWindow();
+                ApplyModernTheme();
             }
             catch (Exception ex)
             {
@@ -219,64 +228,62 @@ namespace xBot.App
             if (Login_gbxAdvertising != null)
                 Login_gbxAdvertising.Visible = false;
 
-            GroupBox gbxStrategy = new GroupBox();
-            gbxStrategy.Text = "Giriş Akışı & Stratejisi (Login Flow & Strategy)";
-            gbxStrategy.ForeColor = Color.FromArgb(0, 122, 204);
-            gbxStrategy.Location = new Point(234, 184);
-            gbxStrategy.Size = new Size(415, 182);
-            gbxStrategy.Font = new Font("Segoe UI", 8.5F);
+            gbxStrategy = new Theme.ModernCard();
+            gbxStrategy.TitleText = "Giriş Akışı & Stratejisi (Login Flow & Strategy)";
+            gbxStrategy.Location = new Point(252, 208);
+            gbxStrategy.Size = new Size(519, 196);
+            gbxStrategy.Font = Theme.DarkTheme.FontBody;
 
-            cbxGeneralAutoLogin = new CheckBox { Text = "Otomatik Giriş", Location = new Point(12, 20), AutoSize = true, Checked = LoginStrategyManager.AutomatedLogin, ForeColor = Color.White };
+            cbxGeneralAutoLogin = new CheckBox { Text = "Otomatik Giriş", Location = new Point(14, 30), AutoSize = true, Checked = LoginStrategyManager.AutomatedLogin, ForeColor = Theme.DarkTheme.TextPrimary };
             cbxGeneralAutoLogin.CheckedChanged += (s, e) =>
             {
                 LoginStrategyManager.AutomatedLogin = cbxGeneralAutoLogin.Checked;
                 Settings.SaveBotSettings();
-                ScheduleAutomatedLogin();
             };
 
-            cbxGeneralAutoStart = new CheckBox { Text = "Oyunda Botu Başlat", Location = new Point(140, 20), AutoSize = true, Checked = LoginStrategyManager.AutoStartBot, ForeColor = Color.White };
+            cbxGeneralAutoStart = new CheckBox { Text = "Oyunda Botu Başlat", Location = new Point(140, 30), AutoSize = true, Checked = LoginStrategyManager.AutoStartBot, ForeColor = Theme.DarkTheme.TextPrimary };
             cbxGeneralAutoStart.CheckedChanged += (s, e) => { LoginStrategyManager.AutoStartBot = cbxGeneralAutoStart.Checked; Settings.SaveBotSettings(); };
 
-            cbxGeneralAutoHide = new CheckBox { Text = "İstemciyi Gizle", Location = new Point(285, 20), AutoSize = true, Checked = LoginStrategyManager.AutoHideClient, ForeColor = Color.White };
+            cbxGeneralAutoHide = new CheckBox { Text = "İstemciyi Gizle", Location = new Point(290, 30), AutoSize = true, Checked = LoginStrategyManager.AutoHideClient, ForeColor = Theme.DarkTheme.TextPrimary };
             cbxGeneralAutoHide.CheckedChanged += (s, e) => { LoginStrategyManager.AutoHideClient = cbxGeneralAutoHide.Checked; Settings.SaveBotSettings(); };
 
-            cbxGeneralStaticCaptcha = new CheckBox { Text = "Sabit Captcha:", Location = new Point(12, 47), AutoSize = true, Checked = LoginStrategyManager.StaticCaptcha, ForeColor = Color.White };
+            cbxGeneralStaticCaptcha = new CheckBox { Text = "Sabit Captcha:", Location = new Point(14, 58), AutoSize = true, Checked = LoginStrategyManager.StaticCaptcha, ForeColor = Theme.DarkTheme.TextPrimary };
             cbxGeneralStaticCaptcha.CheckedChanged += (s, e) => { LoginStrategyManager.StaticCaptcha = cbxGeneralStaticCaptcha.Checked; Settings.SaveBotSettings(); };
 
-            tbxGeneralStaticCaptchaCode = new TextBox { Location = new Point(115, 45), Size = new Size(55, 21), BackColor = Color.FromArgb(45, 45, 48), ForeColor = Color.White, BorderStyle = BorderStyle.FixedSingle, Text = LoginStrategyManager.StaticCaptchaCode ?? "" };
+            tbxGeneralStaticCaptchaCode = new TextBox { Location = new Point(126, 56), Size = new Size(50, 21), BackColor = Theme.DarkTheme.BgInput, ForeColor = Theme.DarkTheme.TextPrimary, BorderStyle = BorderStyle.FixedSingle, Text = LoginStrategyManager.StaticCaptchaCode ?? "" };
             tbxGeneralStaticCaptchaCode.TextChanged += (s, e) => { LoginStrategyManager.StaticCaptchaCode = tbxGeneralStaticCaptchaCode.Text; Settings.SaveBotSettings(); };
             if (ToolTips != null)
                 ToolTips.SetToolTip(tbxGeneralStaticCaptchaCode, "Sabit captcha kodu (örn: 1234)");
 
-            Label lblLoginDelay = new Label { Text = "Giriş Gecikmesi:", Location = new Point(185, 48), AutoSize = true, ForeColor = Color.LightGray };
-            nudGeneralLoginDelay = new NumericUpDown { Location = new Point(280, 46), Size = new Size(42, 21), Minimum = 0, Maximum = 60, Value = LoginStrategyManager.LoginDelaySeconds };
-            nudGeneralLoginDelay.ValueChanged += (s, e) => { LoginStrategyManager.LoginDelaySeconds = (int)nudGeneralLoginDelay.Value; Settings.SaveBotSettings(); ScheduleAutomatedLogin(); };
-            Label lblLoginDelaySec = new Label { Text = "sn", Location = new Point(325, 48), AutoSize = true, ForeColor = Color.LightGray };
+            Label lblLoginDelay = new Label { Text = "Giriş Gecikmesi:", Location = new Point(185, 58), AutoSize = true, ForeColor = Theme.DarkTheme.TextMuted };
+            nudGeneralLoginDelay = new NumericUpDown { Location = new Point(280, 56), Size = new Size(45, 21), Minimum = 0, Maximum = 60, Value = LoginStrategyManager.LoginDelaySeconds, BackColor = Theme.DarkTheme.BgInput, ForeColor = Theme.DarkTheme.TextPrimary };
+            nudGeneralLoginDelay.ValueChanged += (s, e) => { LoginStrategyManager.LoginDelaySeconds = (int)nudGeneralLoginDelay.Value; Settings.SaveBotSettings(); };
+            Label lblLoginDelaySec = new Label { Text = "sn", Location = new Point(330, 58), AutoSize = true, ForeColor = Theme.DarkTheme.TextMuted };
 
-            Label lblWaitDC = new Label { Text = "DC Bekleme:", Location = new Point(12, 75), AutoSize = true, ForeColor = Color.LightGray };
-            nudGeneralWaitAfterDC = new NumericUpDown { Location = new Point(90, 73), Size = new Size(42, 21), Minimum = 0, Maximum = 60, Value = LoginStrategyManager.WaitAfterDCMinutes };
+            Label lblWaitDC = new Label { Text = "DC Bekleme:", Location = new Point(14, 88), AutoSize = true, ForeColor = Theme.DarkTheme.TextMuted };
+            nudGeneralWaitAfterDC = new NumericUpDown { Location = new Point(95, 86), Size = new Size(45, 21), Minimum = 0, Maximum = 60, Value = LoginStrategyManager.WaitAfterDCMinutes, BackColor = Theme.DarkTheme.BgInput, ForeColor = Theme.DarkTheme.TextPrimary };
             nudGeneralWaitAfterDC.ValueChanged += (s, e) => { LoginStrategyManager.WaitAfterDCMinutes = (int)nudGeneralWaitAfterDC.Value; Settings.SaveBotSettings(); };
-            Label lblWaitDCMin = new Label { Text = "dk", Location = new Point(135, 75), AutoSize = true, ForeColor = Color.LightGray };
+            Label lblWaitDCMin = new Label { Text = "dk", Location = new Point(145, 88), AutoSize = true, ForeColor = Theme.DarkTheme.TextMuted };
 
-            cbxGeneralStayConnected = new CheckBox { Text = "Çökme Koruması (Failover to Clientless)", Location = new Point(185, 74), AutoSize = true, Checked = LoginStrategyManager.StayConnected, ForeColor = Color.LightSkyBlue };
+            cbxGeneralStayConnected = new CheckBox { Text = "Çökme Koruması (Failover)", Location = new Point(185, 88), AutoSize = true, Checked = LoginStrategyManager.StayConnected, ForeColor = Theme.DarkTheme.InfoBlue };
             cbxGeneralStayConnected.CheckedChanged += (s, e) => { LoginStrategyManager.StayConnected = cbxGeneralStayConnected.Checked; Settings.SaveBotSettings(); };
             if (ToolTips != null)
                 ToolTips.SetToolTip(cbxGeneralStayConnected, "İstemci aniden çökerse sunucu bağlantısını koparmadan Clientless moda geçer");
 
-            Label lblCharStrategy = new Label { Text = "Karakter:", Location = new Point(12, 105), AutoSize = true, ForeColor = Color.LightGray };
-            rbnGeneralFirstFound = new RadioButton { Text = "İlk Karakter", Location = new Point(75, 103), AutoSize = true, Checked = (LoginStrategyManager.Strategy == CharacterSelectionStrategy.FirstFound), ForeColor = Color.LightGray };
-            rbnGeneralHighestLevel = new RadioButton { Text = "En Yüksek Seviyeli Karakter", Location = new Point(165, 103), AutoSize = true, Checked = (LoginStrategyManager.Strategy == CharacterSelectionStrategy.HighestLevel), ForeColor = Color.Gold };
+            Label lblCharStrategy = new Label { Text = "Karakter:", Location = new Point(14, 118), AutoSize = true, ForeColor = Theme.DarkTheme.TextMuted };
+            rbnGeneralFirstFound = new RadioButton { Text = "İlk Karakter", Location = new Point(75, 118), AutoSize = true, Checked = (LoginStrategyManager.Strategy == CharacterSelectionStrategy.FirstFound), ForeColor = Theme.DarkTheme.TextPrimary };
+            rbnGeneralHighestLevel = new RadioButton { Text = "En Yüksek Seviyeli Karakter", Location = new Point(170, 118), AutoSize = true, Checked = (LoginStrategyManager.Strategy == CharacterSelectionStrategy.HighestLevel), ForeColor = Theme.DarkTheme.Warning };
 
             rbnGeneralFirstFound.CheckedChanged += (s, e) => { if (rbnGeneralFirstFound.Checked) { LoginStrategyManager.Strategy = CharacterSelectionStrategy.FirstFound; Settings.SaveBotSettings(); } };
             rbnGeneralHighestLevel.CheckedChanged += (s, e) => { if (rbnGeneralHighestLevel.Checked) { LoginStrategyManager.Strategy = CharacterSelectionStrategy.HighestLevel; Settings.SaveBotSettings(); } };
 
             Label lblStrategyInfo = new Label
             {
-                Text = "Client ve Clientless modlarında SRO, kullanıcı adı ve şifre doldurulduğunda başlar.",
-                Location = new Point(12, 133),
-                Size = new Size(390, 35),
-                ForeColor = Color.DarkGray,
-                Font = new Font("Segoe UI", 7.5F)
+                Text = "Kayıtlı hesabı seçip START butonuna bastığınızda bot oyuna otomatik giriş yapacaktır.",
+                Location = new Point(14, 148),
+                Size = new Size(490, 36),
+                ForeColor = Theme.DarkTheme.TextFaint,
+                Font = Theme.DarkTheme.FontCaption
             };
 
             gbxStrategy.Controls.AddRange(new Control[] {
@@ -290,17 +297,229 @@ namespace xBot.App
             });
             TabPageV_Control01_Login_Panel.Controls.Add(gbxStrategy);
 
-            // Credentials and the selected SRO are entered in the original
-            // Login panel. Re-evaluate the automatic flow when either changes.
-            Login_tbxUsername.TextChanged += (s, e) => ScheduleAutomatedLogin();
-            Login_tbxPassword.TextChanged += (s, e) => ScheduleAutomatedLogin();
-            Login_cmbxSilkroad.SelectedIndexChanged += (s, e) => ScheduleAutomatedLogin();
-            Login_rbnClientless.CheckedChanged += (s, e) => ScheduleAutomatedLogin();
+            // Saved Accounts Controls inside Login_gbxLogin
+            if (Login_gbxLogin != null)
+            {
+                Login_lblAccount = new Label
+                {
+                    Name = "Login_lblAccount",
+                    Text = "Hesap:",
+                    ForeColor = Theme.DarkTheme.TextMuted,
+                    AutoSize = true
+                };
+
+                Login_cmbxSavedAccounts = new ComboBox
+                {
+                    Name = "Login_cmbxSavedAccounts",
+                    DropDownStyle = ComboBoxStyle.DropDownList,
+                    FlatStyle = FlatStyle.Flat,
+                    BackColor = Theme.DarkTheme.BgInput,
+                    ForeColor = Theme.DarkTheme.TextPrimary,
+                    Font = Theme.DarkTheme.FontBody
+                };
+
+                Login_btnSaveAccount = new Button
+                {
+                    Name = "Login_btnSaveAccount",
+                    Text = "+",
+                    Font = Theme.DarkTheme.FontBodyBold,
+                    FlatStyle = FlatStyle.Flat,
+                    BackColor = Theme.DarkTheme.BgInput,
+                    ForeColor = Theme.DarkTheme.Success,
+                    Cursor = Cursors.Hand
+                };
+                Login_btnSaveAccount.FlatAppearance.BorderSize = 1;
+                Login_btnSaveAccount.FlatAppearance.BorderColor = Theme.DarkTheme.BorderSubtle;
+
+                Login_btnDeleteAccount = new Button
+                {
+                    Name = "Login_btnDeleteAccount",
+                    Text = "✕",
+                    Font = Theme.DarkTheme.FontBodyBold,
+                    FlatStyle = FlatStyle.Flat,
+                    BackColor = Theme.DarkTheme.BgInput,
+                    ForeColor = Theme.DarkTheme.Danger,
+                    Cursor = Cursors.Hand
+                };
+                Login_btnDeleteAccount.FlatAppearance.BorderSize = 1;
+                Login_btnDeleteAccount.FlatAppearance.BorderColor = Theme.DarkTheme.BorderSubtle;
+
+                if (ToolTips != null)
+                {
+                    ToolTips.SetToolTip(Login_btnSaveAccount, "Geçerli hesap bilgilerini kaydet / güncelle");
+                    ToolTips.SetToolTip(Login_btnDeleteAccount, "Seçili hesabı listeden sil");
+                    ToolTips.SetToolTip(Login_cmbxSavedAccounts, "Kayıtlı hesaplar arasından seçim yapın");
+                }
+
+                Login_cmbxSavedAccounts.SelectedIndexChanged += (s, e) => OnSavedAccountSelected();
+                Login_btnSaveAccount.Click += (s, e) => OnSaveAccountClicked();
+                Login_btnDeleteAccount.Click += (s, e) => OnDeleteAccountClicked();
+
+                Login_gbxLogin.Controls.Add(Login_lblAccount);
+                Login_gbxLogin.Controls.Add(Login_cmbxSavedAccounts);
+                Login_gbxLogin.Controls.Add(Login_btnSaveAccount);
+                Login_gbxLogin.Controls.Add(Login_btnDeleteAccount);
+            }
+        }
+
+        public void PopulateSavedAccounts(string selectUsername = null)
+        {
+            if (Login_cmbxSavedAccounts == null) return;
+
+            _isPopulatingSavedAccounts = true;
+            try
+            {
+                Login_cmbxSavedAccounts.Items.Clear();
+                Login_cmbxSavedAccounts.Items.Add("[Yeni / Özel Hesap]");
+
+                int selectIdx = 0;
+                string targetUser = selectUsername ?? AccountManager.SelectedAccountUsername;
+
+                for (int i = 0; i < AccountManager.Accounts.Count; i++)
+                {
+                    var acc = AccountManager.Accounts[i];
+                    Login_cmbxSavedAccounts.Items.Add(acc);
+                    if (!string.IsNullOrEmpty(targetUser) && acc.Username.Equals(targetUser, StringComparison.OrdinalIgnoreCase))
+                    {
+                        selectIdx = i + 1; // +1 for [Yeni / Özel Hesap]
+                    }
+                }
+
+                if (Login_cmbxSavedAccounts.Items.Count > 0)
+                {
+                    Login_cmbxSavedAccounts.SelectedIndex = selectIdx;
+                }
+            }
+            finally
+            {
+                _isPopulatingSavedAccounts = false;
+            }
+
+            if (Login_cmbxSavedAccounts != null && Login_cmbxSavedAccounts.SelectedItem is SavedAccount selAcc)
+            {
+                ApplySavedAccountToInputs(selAcc);
+            }
+        }
+
+        private void OnSavedAccountSelected()
+        {
+            if (_isPopulatingSavedAccounts || Login_cmbxSavedAccounts == null) return;
+
+            if (Login_cmbxSavedAccounts.SelectedItem is SavedAccount acc)
+            {
+                AccountManager.SelectedAccountUsername = acc.Username;
+                Settings.SaveBotSettings();
+                ApplySavedAccountToInputs(acc);
+                Log($"[Hesap] '{acc.Username}' seçildi. Client başlatıldığında otomatik giriş yapılacak.");
+            }
+        }
+
+        private void ApplySavedAccountToInputs(SavedAccount acc)
+        {
+            if (acc == null) return;
+
+            if (Login_tbxUsername != null)
+            {
+                Login_tbxUsername.Text = acc.Username;
+                Login_tbxUsername.SelectionStart = 0;
+            }
+            if (Login_tbxPassword != null)
+            {
+                Login_tbxPassword.Text = acc.Password;
+                Login_tbxPassword.SelectionStart = 0;
+            }
+
+            if (!string.IsNullOrWhiteSpace(acc.Silkroad) && Login_cmbxSilkroad != null)
+            {
+                if (Login_cmbxSilkroad.Items.Contains(acc.Silkroad))
+                    Login_cmbxSilkroad.Text = acc.Silkroad;
+            }
+
+            if (!string.IsNullOrWhiteSpace(acc.Server))
+            {
+                if (Login_cmbxServer != null)
+                {
+                    Login_cmbxServer.Tag = acc.Server;
+                    Login_cmbxServer.Text = acc.Server;
+                }
+                InfoManager.ServerName = acc.Server;
+            }
+
+            if (!string.IsNullOrWhiteSpace(acc.Character))
+            {
+                if (Login_cmbxCharacter != null)
+                {
+                    Login_cmbxCharacter.Tag = acc.Character;
+                    Login_cmbxCharacter.Text = acc.Character;
+                }
+            }
+        }
+
+        private void OnSaveAccountClicked()
+        {
+            if (Login_tbxUsername == null || string.IsNullOrWhiteSpace(Login_tbxUsername.Text))
+            {
+                Log("[Hesap Uyarısı] Kaydetmek için lütfen bir kullanıcı adı (ID) girin.", Theme.LogLevel.Warning);
+                return;
+            }
+
+            string user = Login_tbxUsername.Text.Trim();
+            string pass = Login_tbxPassword?.Text ?? string.Empty;
+            string server = Login_cmbxServer?.Text?.Trim() ?? string.Empty;
+            string character = Login_cmbxCharacter?.Text?.Trim() ?? string.Empty;
+            string sro = Login_cmbxSilkroad?.Text?.Trim() ?? string.Empty;
+
+            SavedAccount acc = new SavedAccount
+            {
+                Username = user,
+                Password = pass,
+                Server = server,
+                Character = character,
+                Silkroad = sro
+            };
+
+            AccountManager.SaveAccount(acc);
+            PopulateSavedAccounts(acc.Username);
+            Log($"[Hesap] '{acc.Username}' başarıyla kaydedildi.");
+        }
+
+        private void OnDeleteAccountClicked()
+        {
+            string targetUser = string.Empty;
+            if (Login_cmbxSavedAccounts?.SelectedItem is SavedAccount sa)
+            {
+                targetUser = sa.Username;
+            }
+            else if (Login_tbxUsername != null && !string.IsNullOrWhiteSpace(Login_tbxUsername.Text))
+            {
+                targetUser = Login_tbxUsername.Text.Trim();
+            }
+
+            if (string.IsNullOrEmpty(targetUser))
+            {
+                Log("[Hesap Uyarısı] Silinecek bir hesap seçilmedi.", Theme.LogLevel.Warning);
+                return;
+            }
+
+            if (AccountManager.DeleteAccount(targetUser))
+            {
+                PopulateSavedAccounts();
+                if (Login_tbxUsername != null) Login_tbxUsername.Text = string.Empty;
+                if (Login_tbxPassword != null) Login_tbxPassword.Text = string.Empty;
+                Log($"[Hesap] '{targetUser}' başarıyla silindi.");
+            }
+            else
+            {
+                Log($"[Hesap] '{targetUser}' kayıtlı hesaplar arasında bulunamadı.", Theme.LogLevel.Warning);
+            }
         }
 
         private void ScheduleAutomatedLogin()
         {
-            if ((!LoginStrategyManager.AutomatedLogin && !Bot.Get.hasAutoLoginMode)
+            // Only automated command-line launches (/sro ... /user ... /pass ...)
+            // should programmatically auto-click the START button.
+            // In regular UI usage, the user selects their account and clicks START.
+            if (!Bot.Get.hasAutoLoginMode
                 || InfoManager.inGame
                 || Login_btnStart == null
                 || Login_btnStart.Text != "START"
@@ -310,8 +529,7 @@ namespace xBot.App
                 || Login_tbxUsername == null
                 || string.IsNullOrWhiteSpace(Login_tbxUsername.Text)
                 || Login_tbxPassword == null
-                || string.IsNullOrWhiteSpace(Login_tbxPassword.Text)
-                || Login_rbnClientless == null)
+                || string.IsNullOrWhiteSpace(Login_tbxPassword.Text))
             {
                 if (automatedLoginTimer != null)
                     automatedLoginTimer.Stop();
@@ -324,11 +542,10 @@ namespace xBot.App
                 automatedLoginTimer.Tick += (s, e) =>
                 {
                     automatedLoginTimer.Stop();
-                    if ((LoginStrategyManager.AutomatedLogin || Bot.Get.hasAutoLoginMode)
-                        && Login_btnStart.Text == "START")
+                    if (Bot.Get.hasAutoLoginMode && Login_btnStart.Text == "START")
                     {
                         Bot.Get.LoggedFromBot = true;
-                        Log("Otomatik giriş başlatılıyor...");
+                        Log("Otomatik komut satırı girişi başlatılıyor...");
                         Control_Click(Login_btnStart, null);
                     }
                 };
@@ -1208,6 +1425,7 @@ namespace xBot.App
                 }
 
                 UpdateProtectionStatus();
+                UpdateModernStatusBars();
             }
             catch { }
         }

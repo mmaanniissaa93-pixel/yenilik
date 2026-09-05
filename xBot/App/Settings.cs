@@ -87,6 +87,8 @@ namespace xBot.App
 					// Custom managers
 					root["LoginStrategy"] = LoginStrategyManager.ToJson();
 					root["CombatAI"] = CombatAIEngine.ToJson();
+					root["Accounts"] = AccountManager.ToJson();
+					root["SelectedAccount"] = AccountManager.SelectedAccountUsername;
 
 					// Saving
 					File.WriteAllText("Settings.json", root.ToString());
@@ -225,6 +227,11 @@ namespace xBot.App
 					LoginStrategyManager.FromJson((Newtonsoft.Json.Linq.JObject)root["LoginStrategy"]);
 				if (root.ContainsKey("CombatAI"))
 					CombatAIEngine.FromJson((Newtonsoft.Json.Linq.JObject)root["CombatAI"]);
+				if (root.ContainsKey("Accounts"))
+				{
+					string selectedAcc = root.ContainsKey("SelectedAccount") ? (string)root["SelectedAccount"] : string.Empty;
+					AccountManager.FromJson((Newtonsoft.Json.Linq.JArray)root["Accounts"], selectedAcc);
+				}
 			}
 		}
 		/// <summary>

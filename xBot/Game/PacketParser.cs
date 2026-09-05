@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
 using xBot.App;
+using xBot.App.Theme;
 using xBot.Game.Objects;
 using xBot.Game.Objects.Common;
 using xBot.Game.Objects.Entity;
@@ -854,7 +855,25 @@ namespace xBot.Game
 			// byte unkByte01 = packet.ReadByte();
 			// End of Packet
 
-			if (w.Character_cbxMessageExp.Checked)
+			if (ExpReceived != 0 || SPExpReceived > 0)
+			{
+				double expPercent = (InfoManager.Character != null && InfoManager.Character.ExpMax > 0)
+					? ((double)ExpReceived / InfoManager.Character.ExpMax * 100.0)
+					: 0.0;
+
+				List<string> parts = new List<string>();
+				if (ExpReceived > 0)
+					parts.Add($"+{ExpReceived:N0} EXP (%{expPercent:F2})");
+				else if (ExpReceived < 0)
+					parts.Add($"{ExpReceived:N0} EXP (%{expPercent:F2})");
+
+				if (SPExpReceived > 0)
+					parts.Add($"+{SPExpReceived:N0} SP");
+
+				w?.Log($"[Kazanıldı] {string.Join(" | ", parts)}", LogLevel.Info);
+			}
+
+			if (w != null && w.Character_cbxMessageExp.Checked)
 			{
 				if (ExpReceived > 0)
 					w.LogMessageFilter(DataManager.GetUIFormat("UIIT_MSG_STATE_GAIN_EXP", ExpReceived));
@@ -873,7 +892,16 @@ namespace xBot.Game
 			switch (updateType)
 			{
 				case 1: // Gold
-					InfoManager.Character.Gold = packet.ReadULong();
+					ulong newGold = packet.ReadULong();
+					if (InfoManager.Character != null && InfoManager.inGame && newGold > InfoManager.Character.Gold)
+					{
+						ulong diff = newGold - InfoManager.Character.Gold;
+						if (diff > 0)
+						{
+							w?.Log($"[Toplandı] {diff:N0} Gold", LogLevel.Success);
+						}
+					}
+					InfoManager.Character.Gold = newGold;
 					w.Character_SetGold(InfoManager.Character.Gold);
 					break;
 				case 2: // SP

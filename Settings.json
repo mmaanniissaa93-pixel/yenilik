@@ -1,0 +1,101 @@
+{
+  "Silkroads": {},
+  "AutoMagically": {
+    "SelectFirstCharacter": false,
+    "CreateCharacter": false,
+    "CreateCharacterBelow40": false,
+    "CreateCustomName": "",
+    "CreateCustomSequence": "",
+    "CreateCustomRace": "CH",
+    "CreateCustomGenre": "Random",
+    "DeleteCharacterFrom40To50": false,
+    "LoadDefaultConfigs": false
+  },
+  "PacketAnalyzer": {
+    "Filter": [],
+    "FilterOnlyShow": false
+  },
+  "_xBot": "ProjexNET | Easy & Flexible. Design perfection!",
+  "_Version": "0.6.1",
+  "_ContactMe": "Engels [JellyBitz] Quintero | Discord: JellyBitz#7643",
+  "LoginStrategy": {
+    "AutomatedLogin": true,
+    "StaticCaptcha": false,
+    "StaticCaptchaCode": "",
+    "LoginDelaySeconds": 5,
+    "WaitAfterDCMinutes": 2,
+    "AutoStartBot": false,
+    "AutoHideClient": false,
+    "StayConnected": true,
+    "Strategy": 0
+  },
+  "CombatAI": {
+    "ZerkWhenHPFull": false,
+    "ZerkMonsterCountEnabled": true,
+    "ZerkMonsterCount": 4,
+    "ZerkAvoidanceBased": true,
+    "ZerkRarityBased": true,
+    "IgnoreDimensionPillars": true,
+    "AttackWeakerFirst": false,
+    "DoNotFollowMobs": true,
+    "TargetRules": {
+      "General": {
+        "Avoid": false,
+        "Prefer": false,
+        "Berserk": false
+      },
+      "Champion": {
+        "Avoid": false,
+        "Prefer": false,
+        "Berserk": false
+      },
+      "Giant": {
+        "Avoid": false,
+        "Prefer": true,
+        "Berserk": true
+      },
+      "PartyGeneral": {
+        "Avoid": false,
+        "Prefer": false,
+        "Berserk": false
+      },
+      "PartyChampion": {
+        "Avoid": false,
+        "Prefer": false,
+        "Berserk": false
+      },
+      "PartyGiant": {
+        "Avoid": false,
+        "Prefer": true,
+        "Berserk": true
+      },
+      "Elite": {
+        "Avoid": false,
+        "Prefer": true,
+        "Berserk": false
+      },
+      "Unique": {
+        "Avoid": false,
+        "Prefer": true,
+        "Berserk": true
+      }
+    }
+  },
+  "Accounts": [
+    {
+      "Username": "Farmer_01",
+      "Password": "TestPass123",
+      "Server": "Saturn",
+      "Character": "PureBow_Int",
+      "Silkroad": "vSRO 1.188"
+    },
+    {
+      "Username": "Trader_Main",
+      "Password": "Pass4567",
+      "Server": "Mars",
+      "Character": "Merchant_X",
+      "Silkroad": "vSRO 1.188"
+    }
+  ],
+  "SelectedAccount": "Trader_Main"
+}

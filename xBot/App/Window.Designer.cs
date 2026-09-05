@@ -9548,7 +9548,7 @@ namespace xBot.App
             this.Login_tbxPassword.Size = new System.Drawing.Size(136, 23);
             this.Login_tbxPassword.TabIndex = 3;
             this.Login_tbxPassword.Tag = "Source Sans Pro";
-            this.Login_tbxPassword.TextAlign = System.Windows.Forms.HorizontalAlignment.Center;
+            this.Login_tbxPassword.TextAlign = System.Windows.Forms.HorizontalAlignment.Left;
             this.Login_tbxPassword.Enter += new System.EventHandler(this.Control_Focus_Enter);
             this.Login_tbxPassword.Leave += new System.EventHandler(this.Control_Focus_Leave);
             // 
@@ -9603,7 +9603,7 @@ namespace xBot.App
             this.Login_tbxUsername.Size = new System.Drawing.Size(132, 23);
             this.Login_tbxUsername.TabIndex = 1;
             this.Login_tbxUsername.Tag = "Source Sans Pro";
-            this.Login_tbxUsername.TextAlign = System.Windows.Forms.HorizontalAlignment.Center;
+            this.Login_tbxUsername.TextAlign = System.Windows.Forms.HorizontalAlignment.Left;
             this.Login_tbxUsername.Enter += new System.EventHandler(this.Control_Focus_Enter);
             this.Login_tbxUsername.Leave += new System.EventHandler(this.Control_Focus_Leave);
             // 

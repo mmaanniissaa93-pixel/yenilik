@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Windows.Forms;
 using xBot.App;
+using xBot.App.Theme;
 using xBot.Game.Objects;
 using xBot.Game.Objects.Common;
 using xBot.Game.Objects.Entity;
@@ -542,6 +543,7 @@ namespace xBot.Game
 					});
 					w.LogMessageFilter(DataManager.GetUIFormat("UIIT_MSG_STRGERR_LEVEL", Character.Level));
 				}
+				w?.Log($"[Tebrikler] Seviye atladınız! Yeni Seviye: {Character.Level}", LogLevel.Success);
 				Bot.Get.OnLevelUp(Character.Level);
 				// Continue recursivity
 				OnExpReceived((Exp + ExpReceived) - ExpMax, 0L, (long)Character.ExpMax, Character.Level);
@@ -1604,18 +1606,27 @@ namespace xBot.Game
 		}
 		internal static void OnEntitySkillCast(SRTypes.SkillCast type, uint skillID, uint sourceUniqueID, uint targetUniqueID)
 		{
-			SRModel entity = (SRModel)GetEntity(sourceUniqueID);
-			if (entity != null)
-				entity.GetRealtimePosition(); // Force update the position
+			try
+			{
+				SREntity entity = GetEntity(sourceUniqueID);
+				if (entity is SRModel model)
+					model.GetRealtimePosition(); // Force update the position
+			}
+			catch { }
 
 			// Check if it's me
 			if (Character != null && sourceUniqueID == Character.UniqueID)
 			{
-				// Put skill at cooldown
-				SRSkill skill = Character.Skills != null && Character.Skills.ContainsKey(skillID) ? Character.Skills[skillID] : null;
-				// Avoid basic attacks
-				if (skill != null)
-					skill.StartCooldown();
+				try
+				{
+					// Put skill at cooldown
+					SRSkill skill = Character.Skills != null && Character.Skills.ContainsKey(skillID) ? Character.Skills[skillID] : null;
+					// Avoid basic attacks
+					if (skill != null)
+						skill.StartCooldown();
+				}
+				catch { }
+
 				m_MonitorSkillCast.Set();
 			}
 		}

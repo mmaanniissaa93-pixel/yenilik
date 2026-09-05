@@ -183,24 +183,17 @@ namespace xBot.App
         /// <summary>
         /// Creates a safe basic attack when the configured attack list is
         /// empty, on cooldown, or requires an unavailable weapon.
+        /// Silkroad Common Attack is an Action (opcode 0x7074 action 1) with ID 1,
+        /// never a database animation skill ID.
         /// </summary>
         public static SRSkill GetFallbackAttack(SRTypes.Weapon weapon)
         {
-            uint commonAttackID = 0;
-            if (weapon != SRTypes.Weapon.None)
-            {
-                try
-                {
-                    commonAttackID = DataManager.GetCommonAttack(weapon);
-                }
-                catch
-                {
-                    commonAttackID = 0;
-                }
-            }
-
-            SRSkill fallback = new SRSkill(commonAttackID > 0 ? commonAttackID : 1u);
+            SRSkill fallback = new SRSkill(1u);
             fallback.Name = "Common Attack";
+            fallback.CastingTime = 800;
+            fallback.MPUsage = 0;
+            fallback.RequiredWeaponPrimary = SRTypes.Weapon.None;
+            fallback.RequiredWeaponSecondary = SRTypes.Weapon.None;
             return fallback;
         }
 

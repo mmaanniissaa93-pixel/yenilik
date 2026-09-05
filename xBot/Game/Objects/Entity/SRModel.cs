@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Windows.Forms;
 using xBot.Game.Objects.Common;
@@ -118,7 +118,7 @@ namespace xBot.Game.Objects.Entity
 						if (P.inDungeon())
 							Position = new SRCoord(PQUnit.PosX * DistanceTillNow + P.PosX, PQUnit.PosY * DistanceTillNow + P.PosY, P.Region, P.Z);
 						else
-							Position = new SRCoord(PQUnit.PosX * DistanceTillNow + P.PosX, PQUnit.PosY * DistanceTillNow + P.PosY);
+							Position = new SRCoord(PQUnit.PosX * DistanceTillNow + P.PosX, PQUnit.PosY * DistanceTillNow + P.PosY, P.Z);
 					}
 					PositionUpdateTimer.Restart();
 				}

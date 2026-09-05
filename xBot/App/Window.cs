@@ -209,17 +209,17 @@ namespace xBot.App
 		public void LogProcess(string text = "Ready", ProcessState state = ProcessState.Default)
 		{
 			lblBotState.InvokeIfRequired(() => {
-				lblBotState.Text = text;
+				lblBotState.Text = "● " + text;
 				switch (state)
 				{
 					case ProcessState.Warning:
-						SetProcessColor(Color.FromArgb(202, 81, 0));
+						SetProcessColor(Color.FromArgb(245, 158, 11));
 						break;
 					case ProcessState.Disconnected:
-						SetProcessColor(Color.FromArgb(104, 33, 122));
+						SetProcessColor(Color.FromArgb(168, 85, 247));
 						break;
 					case ProcessState.Error:
-						SetProcessColor(Color.Red);
+						SetProcessColor(Color.FromArgb(239, 68, 68));
 						break;
 					default:
 						SetProcessColor(Color.FromArgb(0, 122, 204));
@@ -229,20 +229,25 @@ namespace xBot.App
 		}
 		private void SetProcessColor(Color newColor)
 		{
-			if (newColor == BackColor)
-				return;
-			lblBotState.BackColor = newColor;
 			this.InvokeIfRequired(() => {
-				BackColor = newColor;
+				lblBotState.BackColor = Theme.DarkTheme.BgDark;
+				lblBotState.ForeColor = (newColor == Color.FromArgb(0, 122, 204)) ? Theme.DarkTheme.Accent : newColor;
+				BackColor = Theme.DarkTheme.BorderSubtle;
 			});
 		}
 		public void Log(string text)
 		{
 			try
 			{
-				rtbxLogs.InvokeIfRequired(() => {
-					rtbxLogs.AppendText(Environment.NewLine + WinAPI.GetDate() + " " + text);
-				});
+				Theme.ModernLogger.Log(rtbxLogs, text);
+			}
+			catch { }
+		}
+		public void Log(string text, Theme.LogLevel level)
+		{
+			try
+			{
+				Theme.ModernLogger.Log(rtbxLogs, text, level);
 			}
 			catch { }
 		}
@@ -1541,7 +1546,7 @@ namespace xBot.App
 			}
 		}
 		/// <summary>
-		/// Color the label associated (by name) to the current control focused.
+		/// Highlight the label associated (by name) with the current focused control.
 		/// </summary>
 		private void Control_Focus_Enter(object sender, EventArgs e)
 		{
@@ -1551,12 +1556,20 @@ namespace xBot.App
 			{
 				if (c.Name.Contains(t))
 				{
-					if (c.Parent.Controls.ContainsKey(c.Name.Replace(t, "lbl")))
+					string lblName = c.Name.Replace(t, "lbl");
+					if (c.Parent != null && c.Parent.Controls.ContainsKey(lblName))
 					{
-						c.Parent.Controls[c.Name.Replace(t, "lbl")].BackColor = Color.FromArgb(30, 150, 220);
+						Control lbl = c.Parent.Controls[lblName];
+						lbl.BackColor = Color.Transparent;
+						lbl.ForeColor = Theme.DarkTheme.AccentHover;
 					}
 					break;
 				}
+			}
+			if (c is TextBox || c is ComboBox)
+			{
+				c.BackColor = Theme.DarkTheme.BgInputFocus;
+				if (c.Parent != null) c.Parent.Invalidate();
 			}
 		}
 		/// <summary>
@@ -1570,12 +1583,20 @@ namespace xBot.App
 			{
 				if (c.Name.Contains(t))
 				{
-					if (c.Parent.Controls.ContainsKey(c.Name.Replace(t, "lbl")))
+					string lblName = c.Name.Replace(t, "lbl");
+					if (c.Parent != null && c.Parent.Controls.ContainsKey(lblName))
 					{
-						c.Parent.Controls[c.Name.Replace(t, "lbl")].BackColor = c.Parent.BackColor;
+						Control lbl = c.Parent.Controls[lblName];
+						lbl.BackColor = Color.Transparent;
+						lbl.ForeColor = Theme.DarkTheme.TextMuted;
 					}
 					break;
 				}
+			}
+			if (c is TextBox || c is ComboBox)
+			{
+				c.BackColor = Theme.DarkTheme.BgInput;
+				if (c.Parent != null) c.Parent.Invalidate();
 			}
 		}
 		/// <summary>
@@ -1708,12 +1729,10 @@ namespace xBot.App
 			rtbxLogs.AppendText(string.Format("{0} Welcome to {1} v{2} | Made by Engels \"JellyBitz\" Quintero{3}{0} Discord : JellyBitz#7643 | FaceBook : @ImJellyBitz", WinAPI.GetDate(), base.ProductName, base.ProductVersion, Environment.NewLine));
 			LogProcess();
 			Settings.LoadBotSettings();
+			ApplyModernTheme();
+			PopulateSavedAccounts();
 			// Load basic
 			LoadCommandLine();
-			// The normal UI flow has no command-line arguments. Start the same
-			// automated Client/Clientless login path when the user has filled the fields
-			// and enabled the General > Automated Login option.
-			ScheduleAutomatedLogin();
 			// Force visible
 			Activate();
 			BringToFront();

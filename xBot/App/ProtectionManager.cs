@@ -44,6 +44,7 @@ namespace xBot.App
         private static DateTime nextSkillManaUtc = DateTime.MinValue;
         private static DateTime nextSkillCureUtc = DateTime.MinValue;
         private static DateTime nextPetProtectionUtc = DateTime.MinValue;
+        private static DateTime lastPetSummonAttemptUtc = DateTime.MinValue;
         private static DateTime characterDeadSinceUtc = DateTime.MinValue;
         private static bool stopAfterReturn;
         private static bool levelUpPending;
@@ -93,6 +94,7 @@ namespace xBot.App
                 nextSkillManaUtc = DateTime.MinValue;
                 nextSkillCureUtc = DateTime.MinValue;
                 nextPetProtectionUtc = DateTime.MinValue;
+                lastPetSummonAttemptUtc = DateTime.MinValue;
                 characterDeadSinceUtc = DateTime.MinValue;
                 stopAfterReturn = false;
                 levelUpPending = false;
@@ -234,14 +236,19 @@ namespace xBot.App
                 }
             }
 
-            // 2. Auto summon pet if none is summoned
+            // 2. Auto summon pet if none is summoned (with 15s throttle to prevent packet flooding)
             if (AutoSummonPet && InfoManager.MyPets.Count == 0 && InfoManager.inGame)
             {
-                byte slot = 0;
-                if (Bot.Get.FindItem(3, 1, 8, ref slot, "_SUMMON") || Bot.Get.FindItem(3, 1, 8, ref slot, "_PET_"))
+                DateTime nowUtc = DateTime.UtcNow;
+                if ((nowUtc - lastPetSummonAttemptUtc).TotalSeconds >= 15)
                 {
-                    PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot);
-                    Window.Get?.Log("Protection: Auto summoned Pet!");
+                    byte slot = 0;
+                    if (Bot.Get.FindItem(3, 1, 8, ref slot, "_SUMMON") || Bot.Get.FindItem(3, 1, 8, ref slot, "_PET_"))
+                    {
+                        lastPetSummonAttemptUtc = nowUtc;
+                        PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot);
+                        Window.Get?.Log("Protection: Auto summoned Pet!");
+                    }
                 }
             }
         }

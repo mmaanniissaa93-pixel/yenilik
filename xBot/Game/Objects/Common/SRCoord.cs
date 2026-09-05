@@ -101,7 +101,11 @@ namespace xBot.Game.Objects.Common
 		}
 		public int TimeTo(SRCoord Coord, double SpeedPerMs)
 		{
-			return (int)Math.Round(DistanceTo(Coord) / SpeedPerMs);
+			if (SpeedPerMs <= 0.00001) return 3000;
+			double val = DistanceTo(Coord) / SpeedPerMs;
+			if (double.IsNaN(val) || double.IsInfinity(val) || val > 60000.0) return 3000;
+			int t = (int)Math.Round(val);
+			return t <= 0 ? 500 : t;
 		}
 		public override string ToString()
 		{

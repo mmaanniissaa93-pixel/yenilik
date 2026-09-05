@@ -180,6 +180,7 @@ namespace xBot.Game
 		}
 		public static void MoveTo(ushort region, int x, int y, int z, uint petUniqueID = 0u)
 		{
+			if (Bot.Get.Proxy == null || Bot.Get.Proxy.Agent == null) return;
 			Packet p;
 			if (petUniqueID == 0)
 			{
@@ -201,14 +202,15 @@ namespace xBot.Game
 			}
 			else
 			{
-				p.WriteShort(x);
-				p.WriteShort(z);
-				p.WriteShort(y);
+				p.WriteUShort((ushort)x);
+				p.WriteUShort((ushort)z);
+				p.WriteUShort((ushort)y);
 			}
 			Bot.Get.Proxy.Agent.InjectToServer(p);
 		}
 		public static void MoveTo(SRCoord position, uint petUniqueID = 0u)
 		{
+			if (position == null) return;
 			int z = position.Z;
 			if (z == 0 && InfoManager.Character != null && InfoManager.Character.Position != null)
 				z = InfoManager.Character.Position.Z;
@@ -320,6 +322,7 @@ namespace xBot.Game
 		}
 		public static void SelectEntity(uint uniqueID)
 		{
+			if (uniqueID == 0 || Bot.Get.Proxy == null || Bot.Get.Proxy.Agent == null) return;
 			Packet p = new Packet(Agent.Opcode.CLIENT_ENTITY_SELECTION);
 			p.WriteUInt(uniqueID);
 			Bot.Get.Proxy.Agent.InjectToServer(p);
@@ -521,18 +524,23 @@ namespace xBot.Game
 			}
 			Bot.Get.Proxy.Agent.InjectToServer(p);
 		}
+		public static bool IsBaseSkillId(uint id)
+		{
+			return id == 2 || id == 40 || id == 70 || (id >= 8419 && id <= 8421) || id == 9354 || id == 9355 || id == 9944 || id == 10625 || id == 11162 || id == 11526;
+		}
 		public static void AttackTarget(uint targetUniqueID, uint skillID = 1)
 		{
+			if (targetUniqueID == 0 || Bot.Get.Proxy == null || Bot.Get.Proxy.Agent == null) return;
 			Packet p = new Packet(Agent.Opcode.CLIENT_CHARACTER_ACTION_REQUEST);
 			p.WriteByte(1);
-			// Check if is common attack
-			if (skillID == 1)
+			// Check if is common attack or animation base reference
+			if (skillID <= 1 || IsBaseSkillId(skillID))
 			{
-				p.WriteByte(1);
+				p.WriteByte((byte)SRTypes.CharacterAction.CommonAttack);
 			}
 			else
 			{
-				p.WriteByte(SRTypes.CharacterAction.SkillCast);
+				p.WriteByte((byte)SRTypes.CharacterAction.SkillCast);
 				p.WriteUInt(skillID);
 			}
 			p.WriteByte(1); // has target? always.

@@ -6,7 +6,9 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Threading;
+using System.Linq;
 using xBot.App;
+using xBot.App.Theme;
 using xBot.Game;
 
 namespace xBot.Network
@@ -194,7 +196,12 @@ namespace xBot.Network
 				{
 					gws.Add(Gateway.Local);
 				}
+				if (PingHandler != null && PingHandler.IsAlive)
+				{
+					try { PingHandler.Abort(); } catch { }
+				}
 				PingHandler = new Thread(ThreadPing);
+				PingHandler.IsBackground = true;
 				PingHandler.Start();
 				// Running process
 				while (isRunning)
@@ -475,7 +482,12 @@ namespace xBot.Network
 				{
 					ags.Add(Agent.Local);
 				}
+				if (PingHandler != null && PingHandler.IsAlive)
+				{
+					try { PingHandler.Abort(); } catch { }
+				}
 				PingHandler = new Thread(ThreadPing);
+				PingHandler.IsBackground = true;
 				PingHandler.Start();
 				while (isRunning)
 				{
@@ -489,6 +501,7 @@ namespace xBot.Network
 								int count = context.Socket.Receive(context.Buffer.Buffer);
 								if (count == 0)
 								{
+									DumpDisconnectDiagnostic(w, "Sunucu soketi kapattı (Receive count == 0)");
 									throw new Exception("The remote connection has been lost.");
 								}
 								context.Security.Recv(context.Buffer.Buffer, 0, count);
@@ -502,6 +515,7 @@ namespace xBot.Network
 								}
 								else
 								{
+									DumpDisconnectDiagnostic(w, $"Recv Hatası: {ex.Message}");
 									w.Log($"[Proxy -> Server Recv Error] {ex.Message}");
 									throw ex;
 								}
@@ -516,6 +530,15 @@ namespace xBot.Network
 						{
 							foreach (Packet packet in packets)
 							{
+								if (context == Agent.Remote)
+								{
+									ModernLogger.TracePacket("Server->Client", packet.Opcode, packet.GetBytes().Length);
+								}
+								else if (context == Agent.Local)
+								{
+									ModernLogger.TracePacket("Client->Server", packet.Opcode, packet.GetBytes().Length);
+								}
+
 								// Show all incoming packets on analizer
 								if (context == Agent.Remote && w.Settings_cbxShowPacketServer.Checked)
 								{
@@ -528,17 +551,6 @@ namespace xBot.Network
 									{
 										w.LogPacket(string.Format("[A][{0}][{1:X4}][{2} bytes]{3}{4}{6}{5}", "S->C", packet.Opcode, packet.GetBytes().Length, packet.Encrypted ? "[Encrypted]" : "", packet.Massive ? "[Massive]" : "", Utility.HexDump(packet.GetBytes()), Environment.NewLine));
 									}
-								}
-								if (!InfoManager.inGame || packet.Opcode == 0x165A || packet.Opcode == 0x165B || packet.Opcode == 0xA341 
-									|| packet.Opcode == 0x7001 || packet.Opcode == 0xB001 || packet.Opcode == 0xB007)
-								{
-									string dir = (context == Agent.Remote) ? "Server -> Proxy" : "Client -> Proxy";
-									byte[] pBytes = packet.GetBytes();
-									string encStr = packet.Encrypted ? " [Encrypted]" : "";
-									if (pBytes.Length <= 32)
-										w.Log($"[Packet] {dir} [0x{packet.Opcode:X4}]{encStr} ({pBytes.Length} bytes): {BitConverter.ToString(pBytes)}");
-									else
-										w.Log($"[Packet] {dir} [0x{packet.Opcode:X4}]{encStr} ({pBytes.Length} bytes)");
 								}
 
 								if (!Agent.PacketHandler(context, packet) && !Agent.IgnoreOpcode(packet.Opcode, context))
@@ -563,6 +575,10 @@ namespace xBot.Network
 									Packet packet = kvp.Value;
 
 									byte[] packet_bytes = packet.GetBytes();
+									if (context == Agent.Remote)
+									{
+										ModernLogger.TracePacket("Proxy->Server", packet.Opcode, buffer.Size);
+									}
 									// Show outcoming packets on analizer
 									if (context == Agent.Remote && w.Settings_cbxShowPacketClient.Checked)
 									{
@@ -575,17 +591,6 @@ namespace xBot.Network
 										{
 											w.LogPacket(string.Format("[A][{0}][{1:X4}][{2} bytes]{3}{4}{6}{5}", "C->S", packet.Opcode, packet.GetBytes().Length, packet.Encrypted ? "[Encrypted]" : "", packet.Massive ? "[Massive]" : "", Utility.HexDump(packet.GetBytes()), Environment.NewLine));
 										}
-									}
-									if (!InfoManager.inGame || packet.Opcode == 0x165A || packet.Opcode == 0x165B || packet.Opcode == 0xA341 
-										|| packet.Opcode == 0x7001 || packet.Opcode == 0xB001 || packet.Opcode == 0xB007)
-									{
-										string dir = (context == Agent.Remote) ? "Proxy -> Server" : "Proxy -> Client";
-										byte[] pBytes = packet.GetBytes();
-										string encStr = packet.Encrypted ? " [Encrypted]" : "";
-										if (pBytes.Length <= 32)
-											w.Log($"[Packet] {dir} [0x{packet.Opcode:X4}]{encStr} ({pBytes.Length} bytes): {BitConverter.ToString(pBytes)}");
-										else
-											w.Log($"[Packet] {dir} [0x{packet.Opcode:X4}]{encStr} ({pBytes.Length} bytes)");
 									}
 									
 									while (true)
@@ -604,6 +609,7 @@ namespace xBot.Network
 											}
 											else
 											{
+												DumpDisconnectDiagnostic(w, $"Send Hatası: Opcode 0x{packet.Opcode:X4} - {ex.Message}");
 												w.Log($"[Proxy -> Server Send Error] Opcode: 0x{packet.Opcode:X4}, Error: {ex.Message}");
 												throw ex;
 											}
@@ -625,6 +631,27 @@ namespace xBot.Network
 				w.Log("[Agent Error] " + ex.Message);
 				Stop();
 			}
+		}
+		private void DumpDisconnectDiagnostic(Window w, string reason)
+		{
+			try
+			{
+				var recent = ModernLogger.GetRecentPackets();
+				ModernLogger.LogToFile($"=== DISCONNECT DIAGNOSTIC [{reason}] ===");
+				w?.Log("========== DISCONNECT DIAGNOSTIC ==========", LogLevel.Warning);
+				w?.Log($"[Sunucu Bağlantıyı Kesti] Neden: {reason}", LogLevel.Warning);
+				w?.Log("Kopma anından hemen önceki son paketler:", LogLevel.Warning);
+				int start = Math.Max(0, recent.Count - 15);
+				for (int i = start; i < recent.Count; i++)
+				{
+					var t = recent[i];
+					string line = $"  #{i - start + 1} [{t.Timestamp:HH:mm:ss.fff}] [{t.Direction}] 0x{t.Opcode:X4} ({t.Length}B) {t.Summary}";
+					ModernLogger.LogToFile(line);
+					w?.Log(line, LogLevel.Info);
+				}
+				w?.Log("===========================================", LogLevel.Warning);
+			}
+			catch { }
 		}
 		private Socket BindGatewaySocket(string ip)
         {
@@ -710,6 +737,10 @@ namespace xBot.Network
 		}
 		private void CloseGateway()
 		{
+			if (PingHandler != null && PingHandler.IsAlive && Agent == null)
+			{
+				try { PingHandler.Abort(); } catch { }
+			}
 			if (Gateway != null)
 			{
 				if (Gateway.Local.Socket != null)
@@ -811,7 +842,7 @@ namespace xBot.Network
 				ReloginIntervalCounter += (int)timer.Interval;
 
 				Window w = Window.Get;
-				if (w.Login_cbxRelogin.Checked && !Bot.Get.Proxy.isRunning)
+				if ((w.Login_cbxRelogin.Checked || LoginStrategyManager.AutomatedLogin) && !Bot.Get.Proxy.isRunning)
 				{
 					// Check Countdown
 					if (ReloginIntervalCounter % 1000 == 0)

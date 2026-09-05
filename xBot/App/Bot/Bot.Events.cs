@@ -10,6 +10,7 @@ using xBot.Game.Objects.Entity;
 using xBot.Game.Objects.Item;
 using xBot.Game.Objects.Party;
 using xBot.Network;
+using xBot.App.Theme;
 
 namespace xBot.App
 {
@@ -265,12 +266,19 @@ namespace xBot.App
 		/// <summary>
 		/// Called if any item or quantity is picked up.
 		/// </summary>
-		public void OnItemPickedUp(SRItem item,ushort quantity)
+		public void OnItemPickedUp(SRItem item, ushort quantity)
 		{
 			Window w = Window.Get;
-			if (w.Character_cbxMessagePicks.Checked)
+			if (item != null)
 			{
-				if(!item.isEquipable())
+				string itemName = !string.IsNullOrEmpty(item.Name) ? item.Name : "Bilinmeyen Eşya";
+				string qtyStr = quantity > 1 ? $" (x{quantity})" : "";
+				w?.Log($"[Toplandı] {itemName}{qtyStr}", LogLevel.Success);
+			}
+
+			if (w != null && w.Character_cbxMessagePicks.Checked && item != null)
+			{
+				if (!item.isEquipable())
 					w.LogMessageFilter(DataManager.GetUIFormat("UIIT_MSG_STATE_GET_ITEM_NONEXPENDABLE", item.Name));
 				else
 					w.LogMessageFilter(DataManager.GetUIFormat("UIIT_MSG_STATE_GET_ITEM_EXPENDABLE", item.Name, quantity));

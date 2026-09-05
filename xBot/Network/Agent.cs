@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using xBot.App;
+using xBot.App.Theme;
 using xBot.Game;
 using xBot.Game.Objects.Common;
 
@@ -660,6 +661,14 @@ namespace xBot.Network
 					PacketParser.NpcCloseResponse(packet);
 					break;
 				case Opcode.SERVER_CHARACTER_ACTION_RESPONSE:
+					try
+					{
+						if (packet.ReadByte() == 1) // 1 = Success
+						{
+							InfoManager.MonitorSkillCast.Set();
+						}
+					}
+					catch { }
 					break;
             }
 			return false;
@@ -671,7 +680,10 @@ namespace xBot.Network
 		/// <param name="delay">Delay in miliseconds to be executed in other thread</param>
 		public void InjectToServer(Packet p, int delay = 0)
 		{
-			App.Window.Get?.Log($"[Bot -> Server] Injected Opcode: 0x{p.Opcode:X4} (len: {p.GetBytes().Length}, enc: {p.Encrypted})");
+			byte[] bytes = p.GetBytes();
+			string hexPreview = Utility.HexDump(bytes).Replace("\r", "").Replace("\n", " ").Trim();
+			if (hexPreview.Length > 80) hexPreview = hexPreview.Substring(0, 80) + "...";
+			ModernLogger.TracePacket("Bot->Server", p.Opcode, bytes.Length, hexPreview);
 			if(delay > 0)
 			{
 				Thread delayedSend = new Thread((ThreadStart)delegate{
