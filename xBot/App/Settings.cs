@@ -89,6 +89,7 @@ namespace xBot.App
 					root["CombatAI"] = CombatAIEngine.ToJson();
 					root["Accounts"] = AccountManager.ToJson();
 					root["SelectedAccount"] = AccountManager.SelectedAccountUsername;
+					CommandCenter.CommandCenterManager.SaveSettings(root);
 
 					// Saving
 					File.WriteAllText("Settings.json", root.ToString());
@@ -232,6 +233,8 @@ namespace xBot.App
 					string selectedAcc = root.ContainsKey("SelectedAccount") ? (string)root["SelectedAccount"] : string.Empty;
 					AccountManager.FromJson((Newtonsoft.Json.Linq.JArray)root["Accounts"], selectedAcc);
 				}
+				if (root.ContainsKey("CommandCenter"))
+					CommandCenter.CommandCenterManager.LoadSettings(root);
 			}
 		}
 		/// <summary>
@@ -388,15 +391,15 @@ namespace xBot.App
 						foreach (ListViewItem item in w.Training_lstvAreas.Items)
 						{
 							JObject area = new JObject();
-							area["Region"] = (ushort)item.SubItems[1].Tag;
-							area["X"] = (int)item.SubItems[2].Tag;
-							area["Y"] = (int)item.SubItems[3].Tag;
-							area["Z"] = (int)item.SubItems[4].Tag;
-							area["Radius"] = (int)item.SubItems[5].Tag;
-							area["Path"] = item.SubItems[6].Text;
+							area["Region"] = item.SubItems.Count > 1 && item.SubItems[1].Tag != null ? (ushort)item.SubItems[1].Tag : (ushort)0;
+							area["X"] = item.SubItems.Count > 2 && item.SubItems[2].Tag != null ? (int)item.SubItems[2].Tag : 0;
+							area["Y"] = item.SubItems.Count > 3 && item.SubItems[3].Tag != null ? (int)item.SubItems[3].Tag : 0;
+							area["Z"] = item.SubItems.Count > 4 && item.SubItems[4].Tag != null ? (int)item.SubItems[4].Tag : 0;
+							area["Radius"] = item.SubItems.Count > 5 && item.SubItems[5].Tag is int r && r > 0 ? r : 50;
+							area["Path"] = item.SubItems.Count > 6 ? item.SubItems[6].Text ?? "" : "";
 							Area[item.Name] = area;
 						}
-						Training["AreaActivated"] = w.Training_lstvAreas.Tag != null ? ((ListViewItem)w.Training_lstvAreas.Tag).Name : "";
+						Training["AreaActivated"] = (w.Training_lstvAreas.Tag is ListViewItem activatedItem) ? activatedItem.Name : "";
 
 						JObject Trace = new JObject();
 						Training["Trace"] = Trace;

@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using xBot.App;
+using xBot.App.CommandCenter;
 
 internal static class Program
 {
@@ -71,13 +73,36 @@ internal static class Program
         RunActiveImbue("Çin Fire imbue buff'ı aktif kabul edilir", "SKILL_CH_FIRE_01_GIGONGTA_01", "Fire", true);
         RunActiveImbue("Yanlış element aktif buff kabul edilmez", "BUFF_CH_COLD_GIGONGTA", "Fire", false);
 
+        // Command Center (Emote & Chat Commands) Tests
+        RunCommandCenter("Emote No -> stop", CommandCenterPolicy.ResolveDefaultCommandForEmote(EmoteType.No), "stop");
+        RunCommandCenter("Emote Joy -> none", CommandCenterPolicy.ResolveDefaultCommandForEmote(EmoteType.Joy), "none");
+        RunCommandCenter("Emote Rush -> area", CommandCenterPolicy.ResolveDefaultCommandForEmote(EmoteType.Rush), "area");
+        RunCommandCenter("Emote Yes -> start", CommandCenterPolicy.ResolveDefaultCommandForEmote(EmoteType.Yes), "start");
+        RunCommandCenter("Emote Greeting -> area", CommandCenterPolicy.ResolveDefaultCommandForEmote(EmoteType.Greeting), "area");
+        RunCommandCenter("Emote Smile -> show", CommandCenterPolicy.ResolveDefaultCommandForEmote(EmoteType.Smile), "show");
+        RunCommandCenter("Emote Hi -> none", CommandCenterPolicy.ResolveDefaultCommandForEmote(EmoteType.Hi), "none");
+
+        var customMap = new Dictionary<string, string> { { "Greeting", "buff" }, { "Smile", "here" }, { "No", "invalid_cmd" } };
+        RunCommandCenter("Custom Greeting -> buff", CommandCenterPolicy.ResolveAssignedEmoteCommand(EmoteType.Greeting, customMap), "buff");
+        RunCommandCenter("Custom Smile -> here", CommandCenterPolicy.ResolveAssignedEmoteCommand(EmoteType.Smile, customMap), "here");
+        RunCommandCenter("Invalid mapping fallback -> default stop", CommandCenterPolicy.ResolveAssignedEmoteCommand(EmoteType.No, customMap), "stop");
+
+        RunChatCommand("Chat \\start -> start", "\\start", true, "start");
+        RunChatCommand("Chat \\stop -> stop", "\\stop", true, "stop");
+        RunChatCommand("Chat \\area -> area", "\\area", true, "area");
+        RunChatCommand("Chat \\buff -> buff", "\\buff", true, "buff");
+        RunChatCommand("Chat \\show -> show", "\\show", true, "show");
+        RunChatCommand("Chat \\here -> here", "\\here", true, "here");
+        RunChatCommand("Chat normal text -> false", "hello bot", false, null);
+        RunChatCommand("Chat unknown cmd -> false", "\\randomcmd", false, null);
+
         if (failures != 0)
         {
             Console.WriteLine("Protection senaryoları başarısız: " + failures);
             return 1;
         }
 
-        Console.WriteLine("Koruma, item filtre, combat, skill ve imbue senaryoları başarılı: 44");
+        Console.WriteLine("Koruma, item filtre, combat, skill, imbue ve command center senaryoları başarılı: 62");
         return 0;
     }
 
@@ -241,5 +266,30 @@ internal static class Program
 
         failures++;
         Console.WriteLine("FAIL: " + name + " | beklenen=" + expected + ", gerçek=" + actual);
+    }
+
+    private static void RunCommandCenter(string name, string actual, string expected)
+    {
+        if (actual == expected)
+        {
+            Console.WriteLine("PASS: " + name);
+            return;
+        }
+
+        failures++;
+        Console.WriteLine("FAIL: " + name + " | beklenen=" + expected + ", gerçek=" + actual);
+    }
+
+    private static void RunChatCommand(string name, string message, bool expectedResult, string expectedCmd)
+    {
+        bool actualResult = CommandCenterPolicy.ParseChatCommand(message, out string actualCmd);
+        if (actualResult == expectedResult && actualCmd == expectedCmd)
+        {
+            Console.WriteLine("PASS: " + name);
+            return;
+        }
+
+        failures++;
+        Console.WriteLine("FAIL: " + name + " | beklenenResult=" + expectedResult + ", gerçekResult=" + actualResult + " | beklenenCmd=" + expectedCmd + ", gerçekCmd=" + actualCmd);
     }
 }

@@ -444,8 +444,21 @@ namespace xBot.App
                 btnQuickHideClient.FlatAppearance.BorderColor = DarkTheme.BorderSubtle;
             }
 
+            if (btnCommandCenter != null)
+            {
+                btnCommandCenter.Location = new Point(pnlHeader.Width - 338, 10);
+                btnCommandCenter.Size = new Size(68, 24);
+                btnCommandCenter.Text = "KOMUT";
+                btnCommandCenter.Font = DarkTheme.GetFont(7.5f, FontStyle.Bold);
+                btnCommandCenter.BackColor = DarkTheme.BgCardHeader;
+                btnCommandCenter.ForeColor = Color.FromArgb(56, 189, 248);
+                btnCommandCenter.FlatStyle = FlatStyle.Flat;
+                btnCommandCenter.FlatAppearance.BorderSize = 1;
+                btnCommandCenter.FlatAppearance.BorderColor = DarkTheme.BorderSubtle;
+            }
+
             // Custom-Drawn Modern Status Bars (LVL / HP / MP)
-            int statRightX = pnlHeader.Width - 274;
+            int statRightX = pnlHeader.Width - 348;
 
             modernHeaderMP = new ModernStatusBar
             {

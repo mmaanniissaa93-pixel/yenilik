@@ -14,6 +14,7 @@ namespace xBot.App
         private Button btnLangEN;
         private Button btnQuickSave;
         private Button btnQuickHideClient;
+        private Button btnCommandCenter;
         private Label lblHeaderLevel;
         private Label lblHeaderHP;
         private Label lblHeaderMP;
@@ -193,6 +194,24 @@ namespace xBot.App
                 Log("All settings saved successfully.");
             };
             pnlHeader.Controls.Add(btnQuickSave);
+
+            // Command Center button
+            btnCommandCenter = new Button();
+            btnCommandCenter.Text = "KOMUT";
+            btnCommandCenter.Size = new Size(62, 22);
+            btnCommandCenter.Location = new Point(pnlHeader.Width - 330, 4);
+            btnCommandCenter.FlatStyle = FlatStyle.Flat;
+            btnCommandCenter.FlatAppearance.BorderSize = 0;
+            btnCommandCenter.BackColor = Color.FromArgb(45, 45, 48);
+            btnCommandCenter.ForeColor = Color.FromArgb(56, 189, 248);
+            btnCommandCenter.Click += (s, e) =>
+            {
+                using (var form = new CommandCenter.CommandCenterForm())
+                {
+                    form.ShowDialog(this);
+                }
+            };
+            pnlHeader.Controls.Add(btnCommandCenter);
 
             // Header mini stat labels
             lblHeaderLevel = new Label();

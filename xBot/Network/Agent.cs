@@ -281,6 +281,13 @@ namespace xBot.Network
 					if (!ClientlessMode)
 						InfoManager.OnTeleported();
 					break;
+				case Opcode.CLIENT_CHARACTER_EMOTE_USE:
+					{
+						byte emoteByte = packet.ReadByte();
+						packet.SeekRead(0, System.IO.SeekOrigin.Begin);
+						App.CommandCenter.CommandCenterManager.OnEmoteUsed(emoteByte);
+					}
+					return false;
 				case Opcode.CLIENT_CHAT_REQUEST:
 					{
 						// Keep on track all private messages sent
@@ -289,6 +296,8 @@ namespace xBot.Network
 						if (t == SRTypes.Chat.All)
 						{
 							string message = packet.ReadAscii();
+							if (App.CommandCenter.CommandCenterManager.HandleChatCommand(message))
+								return true;
 							return Bot.Get.OnChatSending(message);
 						}
 						else if (t == SRTypes.Chat.Private)

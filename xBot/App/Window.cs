@@ -114,6 +114,9 @@ namespace xBot.App
 			Town_cmbxHpType.SelectedIndex = 3;
 			Town_cmbxMpType.SelectedIndex = 3;
 
+			// Clear Designer string tags on listviews used for objects
+			Training_lstvAreas.Tag = null;
+
 			// Initialize Custom UBOT Features
 			InitializeCustomUBOTFeatures();
 		}
@@ -1111,10 +1114,18 @@ namespace xBot.App
 		public SRCoord TrainingArea_GetPosition()
 		{
 			SRCoord result = null;
-			Training_lstvAreas.InvokeIfRequired(() =>
+			this.InvokeIfRequired(() =>
 			{
-				if (this.Training_lstvAreas.Tag != null){
-					ListViewItem item = (ListViewItem)this.Training_lstvAreas.Tag;
+				ListViewItem item = null;
+				if (this.Training_lstvAreas.Tag is ListViewItem activeItem)
+					item = activeItem;
+				else if (this.Training_lstvAreas.SelectedItems.Count > 0)
+					item = this.Training_lstvAreas.SelectedItems[0];
+				else if (this.Training_lstvAreas.Items.Count > 0)
+					item = this.Training_lstvAreas.Items[0];
+
+				if (item != null && item.SubItems.Count > 4 && item.SubItems[1].Tag != null && item.SubItems[2].Tag != null && item.SubItems[3].Tag != null && item.SubItems[4].Tag != null)
+				{
 					result = new SRCoord((ushort)item.SubItems[1].Tag, (int)item.SubItems[2].Tag, (int)item.SubItems[4].Tag, (int)item.SubItems[3].Tag);
 				}
 			});
@@ -1122,21 +1133,193 @@ namespace xBot.App
 		}
 		public int TrainingArea_GetRadius()
 		{
-			int result = 0;
-			Training_lstvAreas.InvokeIfRequired(() => {
-				if (this.Training_lstvAreas.Tag != null)
-					result = (int)((ListViewItem)this.Training_lstvAreas.Tag).SubItems[5].Tag;
+			int result = 50;
+			this.InvokeIfRequired(() => {
+				ListViewItem item = null;
+				if (this.Training_lstvAreas.Tag is ListViewItem activeItem)
+					item = activeItem;
+				else if (this.Training_lstvAreas.SelectedItems.Count > 0)
+					item = this.Training_lstvAreas.SelectedItems[0];
+				else if (this.Training_lstvAreas.Items.Count > 0)
+					item = this.Training_lstvAreas.Items[0];
+
+				if (item != null && item.SubItems.Count > 5 && item.SubItems[5].Tag is int r && r > 0)
+					result = r;
 			});
 			return result;
 		}
 		public string TrainingArea_GetScript()
 		{
 			string result = "";
-			this.Training_lstvAreas.InvokeIfRequired(() => {
-				if (this.Training_lstvAreas.Tag != null)
-					result = ((ListViewItem)this.Training_lstvAreas.Tag).SubItems[6].Text;
+			this.InvokeIfRequired(() => {
+				ListViewItem item = null;
+				if (this.Training_lstvAreas.Tag is ListViewItem activeItem)
+					item = activeItem;
+				else if (this.Training_lstvAreas.SelectedItems.Count > 0)
+					item = this.Training_lstvAreas.SelectedItems[0];
+				else if (this.Training_lstvAreas.Items.Count > 0)
+					item = this.Training_lstvAreas.Items[0];
+
+				if (item != null && item.SubItems.Count > 6)
+					result = item.SubItems[6].Text ?? "";
 			});
 			return result;
+		}
+		/// <summary>
+		/// Sets or updates the active training area to the given position.
+		/// </summary>
+		public void TrainingArea_SetFromCurrent(SRCoord currentPos)
+		{
+			if (currentPos == null)
+				return;
+
+			this.InvokeIfRequired(() =>
+			{
+				try
+				{
+					ListViewItem targetItem = null;
+
+					if (Training_lstvAreas.Tag is ListViewItem activeItem)
+					{
+						targetItem = activeItem;
+					}
+					else if (Training_lstvAreas.SelectedItems.Count > 0)
+					{
+						targetItem = Training_lstvAreas.SelectedItems[0];
+					}
+					else if (Training_lstvAreas.Items.Count > 0)
+					{
+						targetItem = Training_lstvAreas.Items[0];
+					}
+					else
+					{
+						// Create new area if list is completely empty
+						string areaName = "Area #1";
+						targetItem = new ListViewItem(areaName);
+						targetItem.Name = areaName;
+						targetItem.SubItems.Add(new ListViewItem.ListViewSubItem { Tag = (ushort)currentPos.Region, Text = currentPos.Region.ToString() });
+						targetItem.SubItems.Add(new ListViewItem.ListViewSubItem { Tag = (int)currentPos.X, Text = currentPos.X.ToString() });
+						targetItem.SubItems.Add(new ListViewItem.ListViewSubItem { Tag = (int)currentPos.Y, Text = currentPos.Y.ToString() });
+						targetItem.SubItems.Add(new ListViewItem.ListViewSubItem { Tag = (int)currentPos.Z, Text = currentPos.Z.ToString() });
+						targetItem.SubItems.Add(new ListViewItem.ListViewSubItem { Tag = 50, Text = "50" });
+						targetItem.SubItems.Add(new ListViewItem.ListViewSubItem { Text = "" });
+						Training_lstvAreas.Items.Add(targetItem);
+					}
+
+					// Ensure targetItem has at least 7 subitems (Name, Region, X, Y, Z, Radius, Script)
+					while (targetItem.SubItems.Count < 7)
+					{
+						targetItem.SubItems.Add(new ListViewItem.ListViewSubItem());
+					}
+
+					targetItem.SubItems[1].Tag = (ushort)currentPos.Region;
+					targetItem.SubItems[1].Text = currentPos.Region.ToString();
+					targetItem.SubItems[2].Tag = (int)currentPos.X;
+					targetItem.SubItems[2].Text = currentPos.X.ToString();
+					targetItem.SubItems[3].Tag = (int)currentPos.Y;
+					targetItem.SubItems[3].Text = currentPos.Y.ToString();
+					targetItem.SubItems[4].Tag = (int)currentPos.Z;
+					targetItem.SubItems[4].Text = currentPos.Z.ToString();
+
+					int radius = 50;
+					if (targetItem.SubItems[5].Tag is int r && r > 0)
+						radius = r;
+					else if (int.TryParse(targetItem.SubItems[5].Text, out int rParsed) && rParsed > 0)
+						radius = rParsed;
+
+					targetItem.SubItems[5].Tag = radius;
+					targetItem.SubItems[5].Text = radius.ToString();
+
+					// Highlight active item and reset others
+					foreach (ListViewItem item in Training_lstvAreas.Items)
+					{
+						if (item == targetItem)
+							item.ForeColor = Color.FromArgb(0, 180, 255);
+						else
+							item.ForeColor = Training_lstvAreas.ForeColor;
+					}
+					Training_lstvAreas.Tag = targetItem;
+
+					// Ensure targetItem is selected in the list view
+					if (Training_lstvAreas.SelectedItems.Count != 1 || Training_lstvAreas.SelectedItems[0] != targetItem)
+					{
+						Training_lstvAreas.SelectedItems.Clear();
+						targetItem.Selected = true;
+					}
+					targetItem.Focused = true;
+					targetItem.EnsureVisible();
+
+					// Explicitly update all textboxes in the training area tab
+					Training_tbxRegion.Text = currentPos.Region.ToString();
+					Training_tbxX.Text = currentPos.X.ToString();
+					Training_tbxY.Text = currentPos.Y.ToString();
+					Training_tbxZ.Text = currentPos.Z.ToString();
+					Training_tbxRadius.Text = radius.ToString();
+					if (targetItem.SubItems.Count > 6)
+						Training_tbxScriptPath.Text = targetItem.SubItems[6].Text ?? "";
+
+					// Force visual repainting
+					Training_lstvAreas.Invalidate();
+					Training_lstvAreas.Update();
+					Training_tbxRegion.Invalidate();
+					Training_tbxRegion.Update();
+					Training_tbxX.Invalidate();
+					Training_tbxX.Update();
+					Training_tbxY.Invalidate();
+					Training_tbxY.Update();
+					Training_tbxZ.Invalidate();
+					Training_tbxZ.Update();
+					Training_tbxRadius.Invalidate();
+					Training_tbxRadius.Update();
+
+					// Save character settings
+					if (InfoManager.inGame || InfoManager.Character != null)
+					{
+						Settings.SaveCharacterSettings();
+					}
+				}
+				catch (Exception ex)
+				{
+					Log("[Command Center] Error setting training area: " + ex.ToString(), Theme.LogLevel.Error);
+				}
+			});
+		}
+		/// <summary>
+		/// Casts all enabled buffs for the character asynchronously.
+		/// </summary>
+		public void CastAllBuffs()
+		{
+			System.Threading.ThreadPool.QueueUserWorkItem(_ =>
+			{
+				try
+				{
+					SRSkill[] buffs = Skills_GetBuffs(SRMob.Mob.General);
+					if (buffs == null || buffs.Length == 0)
+						return;
+
+					for (int i = 0; i < buffs.Length; i++)
+					{
+						SRSkill buff = buffs[i];
+						if (buff == null || !buff.isCastingEnabled)
+							continue;
+
+						bool hasBuff = false;
+						if (InfoManager.Character?.Buffs != null)
+							hasBuff = InfoManager.Character.Buffs.ContainsKey(buff.GroupID);
+
+						if (!hasBuff)
+						{
+							LogProcess("[Command Center] Casting buff: " + buff.Name + "...");
+							PacketBuilder.CastSkill(buff.ID);
+							System.Threading.Thread.Sleep(Math.Max(600, buff.CastingTime + 150));
+						}
+					}
+				}
+				catch (Exception ex)
+				{
+					Log("[Command Center] Error casting buffs: " + ex.Message);
+				}
+			});
 		}
 		/// <summary>
 		/// Get all skillshots used for an specific mob type. If it's an empty list, it will try to add from a lower mob type.
