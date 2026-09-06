@@ -16,6 +16,7 @@ namespace xBot.App
 
         private bool _isModernThemeApplied = false;
         private static readonly System.Collections.Generic.Dictionary<GroupBox, string> _originalGroupBoxTitles = new System.Collections.Generic.Dictionary<GroupBox, string>();
+        private static readonly System.Collections.Generic.HashSet<Control> _skinnedControls = new System.Collections.Generic.HashSet<Control>();
 
         /// <summary>
         /// Applies the modern dark mode theme, expanded 980x640 window dimensions,
@@ -49,14 +50,14 @@ namespace xBot.App
                 // 3. Modernize Sidebar (Categorized with Active Bar)
                 ApplyModernSidebar();
 
-                // 4. Modernize Content Panels & Dimensions
+                // 4. Automatically style all GroupBoxes into Cards, Buttons, and Inputs
+                SkinControlHierarchy(pnlWindow);
+
+                // 5. Modernize Content Panels & Dimensions
                 ApplyModernContentPanels();
 
-                // 5. Modernize Bottom Console & Action Buttons
+                // 6. Modernize Bottom Console & Action Buttons
                 ApplyModernConsoleAndActions();
-
-                // 6. Automatically style all GroupBoxes into Cards, Buttons, and Inputs
-                SkinControlHierarchy(pnlWindow);
 
                 this.ResumeLayout(true);
             }
@@ -69,25 +70,38 @@ namespace xBot.App
         private void SkinControlHierarchy(Control parent)
         {
             if (parent == null) return;
+            SkinSingleControl(parent);
 
             foreach (Control c in parent.Controls)
             {
-                if (c is GroupBox gbx)
+                if (!(c is ModernSidebar))
                 {
-                    string title;
-                    if (!_originalGroupBoxTitles.TryGetValue(gbx, out title) || string.IsNullOrEmpty(title))
+                    SkinControlHierarchy(c);
+                }
+            }
+        }
+
+        private void SkinSingleControl(Control c)
+        {
+            if (c == null || _skinnedControls.Contains(c)) return;
+            _skinnedControls.Add(c);
+
+            if (c is GroupBox gbx)
+            {
+                string title;
+                if (!_originalGroupBoxTitles.TryGetValue(gbx, out title) || string.IsNullOrEmpty(title))
+                {
+                    title = gbx.Text;
+                    if (gbx == Login_gbxLogin)
                     {
-                        title = gbx.Text;
-                        if (gbx == Login_gbxLogin)
-                        {
-                            title = "Giriş Bilgileri (Login)";
-                        }
-                        if (!string.IsNullOrEmpty(title))
-                        {
-                            _originalGroupBoxTitles[gbx] = title;
-                        }
+                        title = "Giriş Bilgileri (Login)";
                     }
-                    gbx.Text = string.Empty; // Prevent default WinForms GroupBox text from ever rendering
+                    if (!string.IsNullOrEmpty(title))
+                    {
+                        _originalGroupBoxTitles[gbx] = title;
+                    }
+                }
+                gbx.Text = string.Empty; // Prevent default WinForms GroupBox text from ever rendering
                     gbx.ForeColor = DarkTheme.TextPrimary;
                     gbx.BackColor = Color.Transparent;
                     gbx.Font = DarkTheme.FontHeader;
@@ -203,6 +217,7 @@ namespace xBot.App
                 }
                 else if (c is Button btn)
                 {
+                    FixButtonGlyph(btn);
                     if (btn != btnWinMinimize && btn != btnWinExit && btn != btnWinRestore && btn != btnBotStart && btn != btnClientOptions)
                     {
                         btn.FlatStyle = FlatStyle.Flat;
@@ -307,10 +322,8 @@ namespace xBot.App
                     lv.ForeColor = DarkTheme.TextPrimary;
                     lv.BorderStyle = BorderStyle.FixedSingle;
                     lv.Font = DarkTheme.FontBody;
-                    if (lv.Columns.Count == 1 && lv.Width > 20)
-                    {
-                        lv.Columns[0].Width = Math.Max(lv.Columns[0].Width, lv.Width - 6);
-                    }
+                    AutoFitListView(lv);
+                    lv.Resize += (s, e) => AutoFitListView(lv);
                     lv.OwnerDraw = true;
                     lv.DrawColumnHeader += (s, e) =>
                     {
@@ -332,12 +345,6 @@ namespace xBot.App
                     lv.DrawItem += (s, e) => { e.DrawDefault = true; };
                     lv.DrawSubItem += (s, e) => { e.DrawDefault = true; };
                 }
-
-                if (c.HasChildren && !(c is ModernSidebar))
-                {
-                    SkinControlHierarchy(c);
-                }
-            }
         }
 
         private void ApplyModernHeader()
@@ -670,17 +677,17 @@ namespace xBot.App
 
                     // Row 2: Client mode radio + Start
                     int btnColW = col1W - 240;
-                    if (Login_rbnClient != null) { Login_rbnClient.Location = new Point(14, 76); Login_rbnClient.AutoSize = true; }
+                    if (Login_rbnClient != null) { Login_rbnClient.Location = new Point(14, 76); Login_rbnClient.AutoSize = false; Login_rbnClient.Size = new Size(205, 26); }
                     if (Login_btnStart != null) { Login_btnStart.Location = new Point(226, 70); Login_btnStart.Size = new Size(btnColW, 34); }
 
                     // Row 3: Clientless radio + Launcher
-                    if (Login_rbnClientless != null) { Login_rbnClientless.Location = new Point(14, 122); Login_rbnClientless.AutoSize = true; }
+                    if (Login_rbnClientless != null) { Login_rbnClientless.Location = new Point(14, 122); Login_rbnClientless.AutoSize = false; Login_rbnClientless.Size = new Size(205, 26); }
                     if (Login_btnLauncher != null) { Login_btnLauncher.Location = new Point(226, 116); Login_btnLauncher.Size = new Size(btnColW, 34); }
 
                     // Row 4..6: Checkboxes
-                    if (Login_cbxGoClientless != null) { Login_cbxGoClientless.Location = new Point(14, 172); Login_cbxGoClientless.Size = new Size(col1W - 28, 24); Login_cbxGoClientless.AutoSize = true; }
-                    if (Login_cbxUseReturnScroll != null) { Login_cbxUseReturnScroll.Location = new Point(14, 212); Login_cbxUseReturnScroll.Size = new Size(col1W - 28, 24); Login_cbxUseReturnScroll.AutoSize = true; }
-                    if (Login_cbxRelogin != null) { Login_cbxRelogin.Location = new Point(14, 252); Login_cbxRelogin.Size = new Size(col1W - 28, 24); Login_cbxRelogin.AutoSize = true; }
+                    if (Login_cbxGoClientless != null) { Login_cbxGoClientless.Location = new Point(14, 172); Login_cbxGoClientless.AutoSize = false; Login_cbxGoClientless.Size = new Size(col1W - 28, 24); }
+                    if (Login_cbxUseReturnScroll != null) { Login_cbxUseReturnScroll.Location = new Point(14, 212); Login_cbxUseReturnScroll.AutoSize = false; Login_cbxUseReturnScroll.Size = new Size(col1W - 28, 24); }
+                    if (Login_cbxRelogin != null) { Login_cbxRelogin.Location = new Point(14, 252); Login_cbxRelogin.AutoSize = false; Login_cbxRelogin.Size = new Size(col1W - 28, 24); }
                 }
 
                 // Left Col 2: Login Credentials Card
@@ -879,7 +886,7 @@ namespace xBot.App
             }
 
             // 3. Universal Layout Pass for all other subtab-based panels
-            LayoutSubTabs(TabPageV_Control01_Training_Panel, TabPageH_Training, TabPageH_Training_Option01_Panel, TabPageH_Training_Option02_Panel, TabPageH_Training_Option03_Panel);
+            LayoutSubTabs(TabPageV_Control01_Training_Panel, TabPageH_Training, TabPageH_Training_Option01_Panel, TabPageH_Training_Option02_Panel, TabPageH_Training_Option03_Panel, pnlTrainingCombat);
             LayoutSubTabs(TabPageV_Control01_Character_Panel, TabPageH_Character, TabPageH_Character_Option01_Panel, TabPageH_Character_Option02_Panel, TabPageH_Character_Option03_Panel, TabPageH_Character_Option04_Panel);
             LayoutSubTabs(TabPageV_Control01_Town_Panel, TabPageH_Town, TabPageH_Town_Option01_Panel, TabPageH_Town_Option02_Panel, TabPageH_Town_Option03_Panel);
             LayoutSubTabs(TabPageV_Control01_Inventory_Panel, TabPageH_Inventory, TabPageH_Inventory_Option01_Panel, TabPageH_Inventory_Option02_Panel, TabPageH_Inventory_Option03_Panel, TabPageH_Inventory_Option04_Panel);
@@ -889,6 +896,163 @@ namespace xBot.App
             LayoutSubTabs(TabPageV_Control01_Settings_Panel, TabPageH_Settings, TabPageH_Settings_Option01_Panel, TabPageH_Settings_Option02_Panel, TabPageH_Settings_Option03_Panel, TabPageH_Settings_Option04_Panel);
             LayoutSubTabs(TabPageV_Control01_Players_Panel, TabPageH_Players, TabPageH_Players_Option01_Panel, TabPageH_Players_Option02_Panel);
             LayoutSubTabs(TabPageV_Control01_Stall_Panel, TabPageH_Stall, TabPageH_Stall_Option01_Panel, TabPageH_Stall_Option02_Panel);
+
+            // 4. Tab-specific detailed layout and modernization passes
+            ApplyModernCharacterLayout();
+            ApplyModernTrainingLayout();
+            ApplyModernTownLayout();
+            ApplyModernInventoryLayout();
+            ApplyModernPartyLayout();
+            ApplyModernGuildLayout();
+            ApplyModernPlayersLayout();
+            ApplyModernChatLayout();
+            ApplyModernStallLayout();
+            ApplyModernGameInfoLayout();
+            ApplyModernMinimapLayout();
+            ApplyModernAcademyLayout();
+        }
+
+        private void FixButtonGlyph(Button btn)
+        {
+            if (btn == null) return;
+
+            string name = btn.Name ?? string.Empty;
+            string text = btn.Text ?? string.Empty;
+
+            if (name.IndexOf("btnAddSTR", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("btnAddINT", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("btnAddAttack", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("btnAddBuff", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("btnAddSilkroad", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("AreaAdd", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("btnAddArea", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                btn.Text = "+";
+                btn.Font = DarkTheme.FontBodyBold;
+                return;
+            }
+
+            if (name.IndexOf("btnRemAttack", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("btnRemBuff", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("AreaRemove", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("btnRemArea", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                btn.Text = "-";
+                btn.Font = DarkTheme.FontBodyBold;
+                return;
+            }
+
+            if (name.IndexOf("ScriptPath", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("LoadScript", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                btn.Text = "...";
+                btn.Font = DarkTheme.FontBodyBold;
+                return;
+            }
+
+            if (name.IndexOf("Refresh", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                if (btn.Width >= 70 || (btn.Text != null && btn.Text.Length > 2)) return;
+                btn.Text = "↻";
+                btn.Font = DarkTheme.FontBodyBold;
+                return;
+            }
+
+            if (name.IndexOf("Sort", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                if (btn.Width >= 70 || (btn.Text != null && btn.Text.Length > 2)) return;
+                btn.Text = "⇅";
+                btn.Font = DarkTheme.FontBodyBold;
+                return;
+            }
+
+            if (name.IndexOf("NextPage", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                btn.Text = "▶";
+                btn.Font = DarkTheme.FontBody;
+                return;
+            }
+
+            if (name.IndexOf("LastPage", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("PrevPage", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                btn.Text = "◀";
+                btn.Font = DarkTheme.FontBody;
+                return;
+            }
+
+            string tag = (btn.Tag as string) ?? string.Empty;
+            if (tag.IndexOf("Font Awesome", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                text.Contains("🔄") ||
+                text.Any(ch => (ch >= 0xE000 && ch <= 0xF8FF) || ch == '' || ch == ''))
+            {
+                if (text == "" || text.Contains("\uF067") || text.Contains("\uF0FE"))
+                {
+                    btn.Text = "+";
+                }
+                else if (text.Contains("\uF068"))
+                {
+                    btn.Text = "-";
+                }
+                else if (text == "" || text.Contains("\uF07C") || text.Contains("\uF114") || text.Contains("\uF07B"))
+                {
+                    btn.Text = "...";
+                }
+                else if (text == "🔄" || text.Contains("\uF021") || text.Contains("\uF01E") || text.Contains("\uF2F9") || text.Contains("\uF2F1"))
+                {
+                    btn.Text = "↻";
+                }
+                else if (text.Contains("\uF0DC") || text.Contains("\uF160") || text.Contains("\uF161"))
+                {
+                    btn.Text = "⇅";
+                }
+                else if (text.Contains("\uF054") || text.Contains("\uF105"))
+                {
+                    btn.Text = "▶";
+                }
+                else if (text.Contains("\uF053") || text.Contains("\uF104"))
+                {
+                    btn.Text = "◀";
+                }
+                else if (text.Contains("\uF00C"))
+                {
+                    btn.Text = "✓";
+                }
+                else if (text.Contains("\uF00D"))
+                {
+                    btn.Text = "✕";
+                }
+                btn.Font = DarkTheme.FontBody;
+            }
+        }
+
+        private void AutoFitListView(ListView lv)
+        {
+            if (lv == null || lv.Columns.Count == 0) return;
+            try
+            {
+                int totalWidth = lv.ClientSize.Width;
+                if (totalWidth <= 0) return;
+
+                if (lv.Columns.Count == 1)
+                {
+                    lv.Columns[0].Width = Math.Max(50, totalWidth - 4);
+                    return;
+                }
+
+                int otherColumnsWidth = 0;
+                for (int i = 0; i < lv.Columns.Count - 1; i++)
+                {
+                    otherColumnsWidth += lv.Columns[i].Width;
+                }
+
+                int lastColWidth = totalWidth - otherColumnsWidth - 4;
+                if (lastColWidth > 30)
+                {
+                    lv.Columns[lv.Columns.Count - 1].Width = lastColWidth;
+                }
+            }
+            catch { }
         }
 
         private void LayoutSubTabs(Panel mainPanel, Panel tabStrip, params Panel[] optionPanels)
@@ -900,18 +1064,63 @@ namespace xBot.App
             if (tabStrip != null)
             {
                 tabStrip.Location = new Point(0, 0);
-                tabStrip.Size = new Size(tabW, 30);
+                tabStrip.Size = new Size(tabW, 32);
+                tabStrip.BackColor = DarkTheme.BgSidebar;
 
-                var tabButtons = tabStrip.Controls.OfType<Button>().OrderBy(b => b.Location.X).ToList();
+                // Hide placeholder buttons like ". . ."
+                foreach (Control c in tabStrip.Controls)
+                {
+                    if (c is Button b)
+                    {
+                        string t = (b.Text ?? "").Trim();
+                        if (t == ". . ." || t == "..." || b.Name == "TabPageH_Party_Option04")
+                        {
+                            b.Visible = false;
+                        }
+                    }
+                }
+
+                var tabButtons = tabStrip.Controls.OfType<Button>().Where(b => b.Visible).OrderBy(b => b.TabIndex).ToList();
                 if (tabButtons.Count > 0)
                 {
-                    int btnW = Math.Max(120, tabW / tabButtons.Count);
+                    int btnW = Math.Min(180, Math.Max(120, (tabW - 20) / tabButtons.Count));
                     for (int i = 0; i < tabButtons.Count; i++)
                     {
-                        tabButtons[i].Location = new Point(i * btnW, 0);
-                        tabButtons[i].Size = new Size(btnW, 28);
-                        tabButtons[i].FlatStyle = FlatStyle.Flat;
-                        tabButtons[i].FlatAppearance.BorderSize = 0;
+                        var btn = tabButtons[i];
+                        btn.Location = new Point(i * (btnW + 4), 0);
+                        btn.Size = new Size(btnW, 30);
+                        btn.FlatStyle = FlatStyle.Flat;
+                        btn.FlatAppearance.BorderSize = 0;
+                        btn.Font = DarkTheme.FontBodyBold;
+
+                        bool isActive = (tabStrip.Tag == btn || (tabStrip.Tag == null && i == 0));
+                        btn.BackColor = isActive ? DarkTheme.BgCard : DarkTheme.BgCardHeader;
+                        btn.ForeColor = isActive ? DarkTheme.Accent : DarkTheme.TextSecondary;
+
+                        btn.Paint += (s, pe) =>
+                        {
+                            Button b = s as Button;
+                            if (b == null) return;
+                            bool active = (tabStrip.Tag == b || (tabStrip.Tag == null && b.TabIndex == tabButtons[0].TabIndex));
+                            if (active)
+                            {
+                                using (SolidBrush accentBrush = new SolidBrush(DarkTheme.Accent))
+                                {
+                                    pe.Graphics.FillRectangle(accentBrush, 0, b.Height - 3, b.Width, 3);
+                                }
+                            }
+                        };
+
+                        btn.Click += (s, e) =>
+                        {
+                            foreach (var b in tabButtons)
+                            {
+                                bool active = (tabStrip.Tag == b);
+                                b.BackColor = active ? DarkTheme.BgCard : DarkTheme.BgCardHeader;
+                                b.ForeColor = active ? DarkTheme.Accent : DarkTheme.TextSecondary;
+                                b.Invalidate();
+                            }
+                        };
                     }
                 }
             }
@@ -920,8 +1129,10 @@ namespace xBot.App
             {
                 if (opt != null)
                 {
-                    opt.Location = new Point(0, 32);
-                    opt.Size = new Size(tabW, tabH - 32);
+                    opt.Location = new Point(0, 34);
+                    opt.Size = new Size(tabW, tabH - 34);
+                    opt.BackColor = DarkTheme.BgDark;
+                    opt.BorderStyle = BorderStyle.None;
 
                     foreach (Control child in opt.Controls)
                     {
@@ -929,12 +1140,1170 @@ namespace xBot.App
                         {
                             gb.Width = tabW - gb.Left - 12;
                         }
-                        else if (child is ListView lv && lv.Width > 500)
+                        else if (child is ListView lv)
                         {
-                            lv.Width = tabW - lv.Left - 12;
+                            if (lv.Width > 500)
+                            {
+                                lv.Width = tabW - lv.Left - 12;
+                            }
+                            AutoFitListView(lv);
                         }
                     }
                 }
+            }
+        }
+
+        private void ApplyModernCharacterLayout()
+        {
+            if (TabPageV_Control01_Character_Panel == null) return;
+            int tabW = TabPageV_Control01_Character_Panel.Width;
+            int tabH = TabPageV_Control01_Character_Panel.Height;
+            int col1W = 595;
+            int col2X = 605;
+            int col2W = tabW - col2X - 8;
+
+            // --- Option 01: Info Panel ---
+            if (TabPageH_Character_Option01_Panel != null)
+            {
+                int barW = col1W - 20;
+
+                if (Character_lblLevel != null)
+                {
+                    Character_lblLevel.Location = new Point(10, 8);
+                    Character_lblLevel.Size = new Size(120, 22);
+                    Character_lblLevel.Font = DarkTheme.FontHeader;
+                    Character_lblLevel.ForeColor = DarkTheme.TextPrimary;
+                }
+
+                if (Character_pgbHP != null)
+                {
+                    Character_pgbHP.Location = new Point(10, 32);
+                    Character_pgbHP.Size = new Size(barW, 22);
+                    Character_pgbHP.BackColor = DarkTheme.Success;
+                }
+
+                if (Character_pgbMP != null)
+                {
+                    Character_pgbMP.Location = new Point(10, 58);
+                    Character_pgbMP.Size = new Size(barW, 22);
+                    Character_pgbMP.BackColor = DarkTheme.Mana;
+                }
+
+                if (Character_pgbExp != null)
+                {
+                    Character_pgbExp.Location = new Point(10, 84);
+                    Character_pgbExp.Size = new Size(barW, 22);
+                    Character_pgbExp.BackColor = DarkTheme.Warning;
+                }
+
+                if (Character_lblJobLevel != null)
+                {
+                    Character_lblJobLevel.Location = new Point(10, 110);
+                    Character_lblJobLevel.Size = new Size(120, 22);
+                    Character_lblJobLevel.Font = DarkTheme.FontBodyBold;
+                    Character_lblJobLevel.ForeColor = DarkTheme.TextPrimary;
+                }
+
+                if (Character_pgbJobExp != null)
+                {
+                    Character_pgbJobExp.Location = new Point(135, 110);
+                    Character_pgbJobExp.Size = new Size(barW - 125, 22);
+                    Character_pgbJobExp.BackColor = DarkTheme.SystemPurple;
+                }
+
+                int gridY = 140;
+                if (Character_lblGoldText != null) { Character_lblGoldText.Location = new Point(10, gridY); Character_lblGoldText.AutoSize = true; }
+                if (Character_lblGold != null) { Character_lblGold.Location = new Point(70, gridY); Character_lblGold.Size = new Size(180, 20); }
+                if (Character_lblSPText != null) { Character_lblSPText.Location = new Point(270, gridY); Character_lblSPText.AutoSize = true; }
+                if (Character_lblSP != null) { Character_lblSP.Location = new Point(315, gridY); Character_lblSP.Size = new Size(160, 20); }
+
+                gridY += 26;
+                if (Character_lblLocationText != null) { Character_lblLocationText.Location = new Point(10, gridY); Character_lblLocationText.AutoSize = true; }
+                if (Character_lblLocation != null) { Character_lblLocation.Location = new Point(90, gridY); Character_lblLocation.Size = new Size(barW - 90, 20); }
+
+                gridY += 26;
+                if (Character_lblCoords != null) { Character_lblCoords.Location = new Point(10, gridY); Character_lblCoords.AutoSize = true; }
+                if (Character_lblCoordX != null) { Character_lblCoordX.Location = new Point(120, gridY); Character_lblCoordX.Size = new Size(100, 20); }
+                if (Character_lblCoordY != null) { Character_lblCoordY.Location = new Point(230, gridY); Character_lblCoordY.Size = new Size(100, 20); }
+
+                if (Character_pnlBuffs != null)
+                {
+                    Character_pnlBuffs.Location = new Point(10, 222);
+                    Character_pnlBuffs.Size = new Size(barW, 160);
+                    Character_pnlBuffs.BackColor = DarkTheme.BgCard;
+                }
+
+                if (Character_gbxStatPoints != null)
+                {
+                    Character_gbxStatPoints.Location = new Point(10, 390);
+                    Character_gbxStatPoints.Size = new Size(barW, 160);
+
+                    if (Character_lblAddSTR != null) Character_lblAddSTR.Location = new Point(16, 32);
+                    if (Character_lblSTR != null) Character_lblSTR.Location = new Point(65, 32);
+                    if (Character_btnAddSTR != null) { Character_btnAddSTR.Location = new Point(115, 30); Character_btnAddSTR.Size = new Size(30, 26); Character_btnAddSTR.Text = "+"; }
+
+                    if (Character_lblAddINT != null) Character_lblAddINT.Location = new Point(165, 32);
+                    if (Character_lblINT != null) Character_lblINT.Location = new Point(210, 32);
+                    if (Character_btnAddINT != null) { Character_btnAddINT.Location = new Point(255, 30); Character_btnAddINT.Size = new Size(30, 26); Character_btnAddINT.Text = "+"; }
+
+                    if (Character_lblStatPoints != null) { Character_lblStatPoints.Location = new Point(310, 30); Character_lblStatPoints.Size = new Size(100, 26); }
+
+                    if (Character_cbxAutoStat != null) { Character_cbxAutoStat.Location = new Point(16, 75); Character_cbxAutoStat.AutoSize = true; }
+                    if (Character_rbnAutoSTR != null) { Character_rbnAutoSTR.Location = new Point(140, 75); Character_rbnAutoSTR.AutoSize = true; }
+                    if (Character_rbnAutoINT != null) { Character_rbnAutoINT.Location = new Point(240, 75); Character_rbnAutoINT.AutoSize = true; }
+                }
+
+                if (Character_gbxMessageFilter != null)
+                {
+                    Character_gbxMessageFilter.Location = new Point(col2X, 8);
+                    Character_gbxMessageFilter.Size = new Size(col2W, 550);
+
+                    if (Character_cbxMessageEvents != null) { Character_cbxMessageEvents.Location = new Point(16, 28); Character_cbxMessageEvents.AutoSize = true; }
+                    if (Character_cbxMessagePicks != null) { Character_cbxMessagePicks.Location = new Point(115, 28); Character_cbxMessagePicks.AutoSize = true; }
+                    if (Character_cbxMessageUniques != null) { Character_cbxMessageUniques.Location = new Point(205, 28); Character_cbxMessageUniques.AutoSize = true; }
+                    if (Character_cbxMessageExp != null) { Character_cbxMessageExp.Location = new Point(305, 28); Character_cbxMessageExp.AutoSize = true; }
+
+                    if (Character_rtbxMessageFilter != null)
+                    {
+                        Character_rtbxMessageFilter.Location = new Point(12, 60);
+                        Character_rtbxMessageFilter.Size = new Size(col2W - 24, 475);
+                        Character_rtbxMessageFilter.BackColor = DarkTheme.BgSidebar;
+                        Character_rtbxMessageFilter.ForeColor = DarkTheme.TextSecondary;
+                    }
+                }
+            }
+
+            // --- Option 02: Potions Panel ---
+            if (TabPageH_Character_Option02_Panel != null)
+            {
+                if (Character_gbxPotionsPlayer != null)
+                {
+                    Character_gbxPotionsPlayer.Location = new Point(6, 6);
+                    Character_gbxPotionsPlayer.Size = new Size(col1W, 550);
+
+                    int py = 32;
+                    int rowH = 46;
+
+                    AlignPotionRow(Character_cbxUseHP, Character_tbxUseHP, "Sağlık İksiri (HP):", py); py += rowH;
+                    AlignPotionRow(Character_cbxUseMP, Character_tbxUseMP, "Mana İksiri (MP):", py); py += rowH;
+                    AlignPotionRow(Character_cbxUseHPVigor, Character_tbxUseHPVigor, "Vigor İksiri (HP Vigor):", py); py += rowH;
+                    AlignPotionRow(Character_cbxUseMPVigor, Character_tbxUseMPVigor, "Vigor İksiri (MP Vigor):", py); py += rowH;
+
+                    if (Character_cbxUseHPGrain != null) { Character_cbxUseHPGrain.Text = "HP Tanesi (HP Grain)"; Character_cbxUseHPGrain.Location = new Point(16, py); Character_cbxUseHPGrain.Size = new Size(260, 24); } py += rowH;
+                    if (Character_cbxUseMPGrain != null) { Character_cbxUseMPGrain.Text = "MP Tanesi (MP Grain)"; Character_cbxUseMPGrain.Location = new Point(16, py); Character_cbxUseMPGrain.Size = new Size(260, 24); } py += rowH;
+                    if (Character_cbxUsePillUniversal != null) { Character_cbxUsePillUniversal.Text = "Evrensel Hap (Universal Pill)"; Character_cbxUsePillUniversal.Location = new Point(16, py); Character_cbxUsePillUniversal.Size = new Size(260, 24); } py += rowH;
+                    if (Character_cbxUsePillPurification != null) { Character_cbxUsePillPurification.Text = "Arındırma Hapı (Purification Pill)"; Character_cbxUsePillPurification.Location = new Point(16, py); Character_cbxUsePillPurification.Size = new Size(260, 24); }
+                }
+
+                if (Character_gbxPotionPet != null)
+                {
+                    Character_gbxPotionPet.Location = new Point(col2X, 6);
+                    Character_gbxPotionPet.Size = new Size(col2W, 550);
+
+                    int py = 32;
+                    int rowH = 46;
+
+                    AlignPotionRow(Character_cbxUsePetHP, Character_tbxUsePetHP, "Pet Sağlık İksiri (Pet HP):", py); py += rowH;
+                    AlignPotionRow(Character_cbxUseTransportHP, Character_tbxUseTransportHP, "Taşıma Bineği HP:", py); py += rowH;
+                    if (Character_cbxUsePetsPill != null) { Character_cbxUsePetsPill.Text = "Pet Durum Hapı (Pet Pills)"; Character_cbxUsePetsPill.Location = new Point(16, py); Character_cbxUsePetsPill.Size = new Size(260, 24); } py += rowH;
+                    AlignPotionRow(Character_cbxUsePetHGP, Character_tbxUsePetHGP, "Pet Açlık İksiri (Pet HGP):", py);
+                }
+            }
+
+            // --- Option 03: Koruma / Protection Panel ---
+            if (TabPageH_Character_Option03_Panel != null)
+            {
+                if (gbxProtectionSkillPet != null)
+                {
+                    gbxProtectionSkillPet.Location = new Point(6, 6);
+                    gbxProtectionSkillPet.Size = new Size(col1W, 240);
+
+                    if (cbxProtectionSkillHP != null) { cbxProtectionSkillHP.Location = new Point(16, 30); cbxProtectionSkillHP.Size = new Size(180, 24); cbxProtectionSkillHP.Text = "Acil HP Skilli:"; }
+                    if (nudProtectionSkillHP != null) { nudProtectionSkillHP.Location = new Point(200, 29); nudProtectionSkillHP.Size = new Size(50, 24); }
+                    if (lblProtectionSkillHPSuffix != null) { lblProtectionSkillHPSuffix.Location = new Point(258, 32); lblProtectionSkillHPSuffix.Text = "% veya altındayken"; lblProtectionSkillHPSuffix.AutoSize = true; }
+
+                    if (cbxProtectionSkillMP != null) { cbxProtectionSkillMP.Location = new Point(16, 68); cbxProtectionSkillMP.Size = new Size(180, 24); cbxProtectionSkillMP.Text = "Acil MP Skilli:"; }
+                    if (nudProtectionSkillMP != null) { nudProtectionSkillMP.Location = new Point(200, 67); nudProtectionSkillMP.Size = new Size(50, 24); }
+                    if (lblProtectionSkillMPSuffix != null) { lblProtectionSkillMPSuffix.Location = new Point(258, 70); lblProtectionSkillMPSuffix.Text = "% veya altındayken"; lblProtectionSkillMPSuffix.AutoSize = true; }
+
+                    if (cbxProtectionCure != null) { cbxProtectionCure.Location = new Point(16, 106); cbxProtectionCure.Size = new Size(350, 24); cbxProtectionCure.Text = "Kötü durumu (debuff) skill ile temizle"; }
+                    if (cbxProtectionPetRevive != null) { cbxProtectionPetRevive.Location = new Point(16, 144); cbxProtectionPetRevive.Size = new Size(350, 24); cbxProtectionPetRevive.Text = "Ölen peti dirilt (Grass of Life ile)"; }
+                    if (cbxProtectionPetSummon != null) { cbxProtectionPetSummon.Location = new Point(16, 182); cbxProtectionPetSummon.Size = new Size(350, 24); cbxProtectionPetSummon.Text = "Peti otomatik çağır (Auto Summon)"; }
+                }
+
+                if (gbxProtectionAutoStat != null)
+                {
+                    gbxProtectionAutoStat.Location = new Point(6, 256);
+                    gbxProtectionAutoStat.Size = new Size(col1W, 300);
+
+                    if (cbxAutoStatEnabled != null) { cbxAutoStatEnabled.Location = new Point(16, 30); cbxAutoStatEnabled.Size = new Size(350, 24); cbxAutoStatEnabled.Text = "Level atlayınca otomatik stat dağıt"; }
+
+                    if (lblProtectionStr != null) { lblProtectionStr.Location = new Point(16, 68); lblProtectionStr.AutoSize = true; }
+                    if (nudAutoStatSTR != null) { nudAutoStatSTR.Location = new Point(60, 66); nudAutoStatSTR.Size = new Size(50, 24); }
+
+                    if (lblProtectionInt != null) { lblProtectionInt.Location = new Point(130, 68); lblProtectionInt.AutoSize = true; }
+                    if (nudAutoStatINT != null) { nudAutoStatINT.Location = new Point(175, 66); nudAutoStatINT.Size = new Size(50, 24); }
+
+                    if (btnProtectionDistributeNow != null) { btnProtectionDistributeNow.Location = new Point(250, 64); btnProtectionDistributeNow.Size = new Size(140, 28); }
+
+                    if (lblProtectionStatGuidance != null) { lblProtectionStatGuidance.Location = new Point(16, 110); lblProtectionStatGuidance.Size = new Size(col1W - 32, 60); }
+                    if (lblProtectionRemainInfo != null) { lblProtectionRemainInfo.Location = new Point(16, 185); lblProtectionRemainInfo.AutoSize = true; }
+                    if (lblProtectionStatPointsRemain != null) { lblProtectionStatPointsRemain.Location = new Point(180, 185); lblProtectionStatPointsRemain.AutoSize = true; }
+                }
+
+                if (gbxProtectionReturn != null)
+                {
+                    gbxProtectionReturn.Location = new Point(col2X, 6);
+                    gbxProtectionReturn.Size = new Size(col2W, 330);
+
+                    int sub1X = 16;
+                    int sub2X = 290;
+
+                    if (cbxProtectionNoArrows != null) { cbxProtectionNoArrows.Location = new Point(sub1X, 30); cbxProtectionNoArrows.Size = new Size(240, 24); cbxProtectionNoArrows.Text = "Ok / bolt bitince kasabaya dön"; }
+                    if (cbxProtectionFullInventory != null) { cbxProtectionFullInventory.Location = new Point(sub1X, 68); cbxProtectionFullInventory.Size = new Size(240, 24); cbxProtectionFullInventory.Text = "Çanta dolunca kasabaya dön"; }
+                    if (cbxProtectionFullPetInventory != null) { cbxProtectionFullPetInventory.Location = new Point(sub1X, 106); cbxProtectionFullPetInventory.Size = new Size(240, 24); cbxProtectionFullPetInventory.Text = "Pet çantası dolunca dön"; }
+
+                    if (cbxProtectionLowHP != null) { cbxProtectionLowHP.Location = new Point(sub1X, 144); cbxProtectionLowHP.Size = new Size(120, 24); cbxProtectionLowHP.Text = "HP stoğu düşük:"; }
+                    if (nudProtectionHP != null) { nudProtectionHP.Location = new Point(sub1X + 130, 143); nudProtectionHP.Size = new Size(50, 24); }
+
+                    if (cbxProtectionLowMP != null) { cbxProtectionLowMP.Location = new Point(sub1X, 182); cbxProtectionLowMP.Size = new Size(120, 24); cbxProtectionLowMP.Text = "MP stoğu düşük:"; }
+                    if (nudProtectionMP != null) { nudProtectionMP.Location = new Point(sub1X + 130, 181); nudProtectionMP.Size = new Size(50, 24); }
+
+                    if (cbxProtectionDurability != null) { cbxProtectionDurability.Location = new Point(sub2X, 30); cbxProtectionDurability.Size = new Size(130, 24); cbxProtectionDurability.Text = "Durability düşük:"; }
+                    if (nudProtectionDurability != null) { nudProtectionDurability.Location = new Point(sub2X + 135, 29); nudProtectionDurability.Size = new Size(50, 24); }
+
+                    if (cbxProtectionLevelUp != null) { cbxProtectionLevelUp.Location = new Point(sub2X, 68); cbxProtectionLevelUp.Size = new Size(240, 24); cbxProtectionLevelUp.Text = "Level atlayınca kasabaya dön"; }
+                    if (cbxProtectionStopInTown != null) { cbxProtectionStopInTown.Location = new Point(sub2X, 106); cbxProtectionStopInTown.Size = new Size(240, 24); cbxProtectionStopInTown.Text = "Şehirde botu durdur"; }
+                    if (cbxProtectionDead != null) { cbxProtectionDead.Location = new Point(sub2X, 144); cbxProtectionDead.Size = new Size(240, 24); cbxProtectionDead.Text = "Ölüm sonrası kasabaya dön"; }
+
+                    if (lblProtectionDeadDelay != null) { lblProtectionDeadDelay.Location = new Point(sub2X, 184); lblProtectionDeadDelay.AutoSize = true; }
+                    if (nudProtectionDeadDelay != null) { nudProtectionDeadDelay.Location = new Point(sub2X + 110, 182); nudProtectionDeadDelay.Size = new Size(60, 24); }
+                }
+
+                if (gbxProtectionSummary != null)
+                {
+                    gbxProtectionSummary.Location = new Point(col2X, 346);
+                    gbxProtectionSummary.Size = new Size(col2W, 210);
+
+                    if (btnProtectionManualPet != null) { btnProtectionManualPet.Location = new Point(16, 32); btnProtectionManualPet.Size = new Size(220, 34); }
+                    if (btnProtectionSave != null) { btnProtectionSave.Location = new Point(250, 32); btnProtectionSave.Size = new Size(140, 34); }
+                    if (lblProtectionOverview != null) { lblProtectionOverview.Location = new Point(16, 80); lblProtectionOverview.Size = new Size(col2W - 32, 100); }
+                }
+            }
+
+            // --- Option 04: Misc Panel ---
+            if (TabPageH_Character_Option04_Panel != null)
+            {
+                GroupBox gbxMiscRessExchange = TabPageH_Character_Option04_Panel.Controls["gbxMiscRessExchange"] as GroupBox;
+                if (gbxMiscRessExchange == null)
+                {
+                    gbxMiscRessExchange = new GroupBox
+                    {
+                        Name = "gbxMiscRessExchange",
+                        Text = LocalizationManager.CurrentLanguage == "TR" ? "Dirilme & Takas Ayarları" : "Resurrection & Exchange"
+                    };
+                    TabPageH_Character_Option04_Panel.Controls.Add(gbxMiscRessExchange);
+                    SkinControlHierarchy(gbxMiscRessExchange);
+                }
+                gbxMiscRessExchange.Location = new Point(6, 6);
+                gbxMiscRessExchange.Size = new Size(col1W, tabH - 46);
+
+                Control[] ressControls = new Control[] {
+                    Character_cbxAcceptRess, Character_cbxAcceptRessPartyOnly,
+                    Character_cbxAcceptExchange, Character_cbxAcceptExchangeLeaderOnly,
+                    Character_cbxConfirmExchange, Character_cbxApproveExchange, Character_cbxRefuseExchange
+                };
+                int my = 32;
+                int rowH = 34;
+                foreach (var c in ressControls)
+                {
+                    if (c != null)
+                    {
+                        if (c.Parent != gbxMiscRessExchange)
+                        {
+                            c.Parent?.Controls.Remove(c);
+                            gbxMiscRessExchange.Controls.Add(c);
+                        }
+                        int x = (c == Character_cbxAcceptRessPartyOnly || c == Character_cbxAcceptExchangeLeaderOnly ||
+                                 c == Character_cbxConfirmExchange || c == Character_cbxApproveExchange) ? 36 : 16;
+                        c.Location = new Point(x, my);
+                        c.Size = new Size(col1W - 44, 24);
+                        my += (c == Character_cbxAcceptRessPartyOnly) ? rowH + 12 : rowH;
+                    }
+                }
+
+                GroupBox gbxMiscPVP = TabPageH_Character_Option04_Panel.Controls["gbxMiscPVP"] as GroupBox;
+                if (gbxMiscPVP == null)
+                {
+                    gbxMiscPVP = new GroupBox
+                    {
+                        Name = "gbxMiscPVP",
+                        Text = LocalizationManager.CurrentLanguage == "TR" ? "PvP & Silah Değişimi" : "PvP & Weapon Switching"
+                    };
+                    TabPageH_Character_Option04_Panel.Controls.Add(gbxMiscPVP);
+                    SkinControlHierarchy(gbxMiscPVP);
+                }
+                gbxMiscPVP.Location = new Point(col2X, 6);
+                gbxMiscPVP.Size = new Size(col2W, 140);
+
+                Control[] pvpControls = new Control[] { Character_cbxPVPMode, Character_cbxPVPModeUseShield };
+                int py = 32;
+                foreach (var c in pvpControls)
+                {
+                    if (c != null)
+                    {
+                        if (c.Parent != gbxMiscPVP)
+                        {
+                            c.Parent?.Controls.Remove(c);
+                            gbxMiscPVP.Controls.Add(c);
+                        }
+                        c.Location = new Point(16, py);
+                        c.Size = new Size(col2W - 32, 24);
+                        py += rowH;
+                    }
+                }
+            }
+        }
+
+        private void AlignPotionRow(CheckBox cbx, TextBox tbx, string text, int y)
+        {
+            if (cbx == null) return;
+            cbx.Text = text;
+            cbx.Location = new Point(16, y);
+            cbx.Size = new Size(210, 24);
+            if (tbx != null)
+            {
+                tbx.Location = new Point(232, y);
+                tbx.Size = new Size(50, 24);
+                tbx.TextAlign = HorizontalAlignment.Center;
+            }
+        }
+
+        private void ApplyModernTrainingLayout()
+        {
+            if (TabPageV_Control01_Training_Panel == null) return;
+            int tabW = TabPageV_Control01_Training_Panel.Width;
+            int tabH = TabPageV_Control01_Training_Panel.Height;
+            int col1W = 595;
+            int col2X = 605;
+            int col2W = tabW - col2X - 8;
+
+            // --- Option 01: Area Panel ---
+            if (TabPageH_Training_Option01_Panel != null)
+            {
+                int listW = 460;
+                if (Training_lstvAreas != null)
+                {
+                    Training_lstvAreas.Location = new Point(6, 6);
+                    Training_lstvAreas.Size = new Size(listW, tabH - 46);
+                    if (Training_lstvAreas.Columns.Count > 0)
+                        Training_lstvAreas.Columns[0].Width = listW - 6;
+                    AutoFitListView(Training_lstvAreas);
+                }
+
+                int rightX = listW + 16;
+                int rightW = tabW - rightX - 8;
+
+                GroupBox gbxAreaDetails = TabPageH_Training_Option01_Panel.Controls["gbxAreaDetails"] as GroupBox;
+                if (gbxAreaDetails == null)
+                {
+                    gbxAreaDetails = new GroupBox
+                    {
+                        Name = "gbxAreaDetails",
+                        Text = LocalizationManager.CurrentLanguage == "TR" ? "Kasılma Alanı Koordinatları & Script" : "Training Area Coordinates & Script"
+                    };
+                    TabPageH_Training_Option01_Panel.Controls.Add(gbxAreaDetails);
+                    SkinControlHierarchy(gbxAreaDetails);
+                }
+                gbxAreaDetails.Location = new Point(rightX, 6);
+                gbxAreaDetails.Size = new Size(rightW, tabH - 46);
+
+                Control[] areaControls = new Control[] {
+                    Training_btnGetCoordinates, Training_lblRegion, Training_tbxRegion,
+                    Training_lblX, Training_tbxX, Training_lblY, Training_tbxY,
+                    Training_lblZ, Training_tbxZ, Training_lblRadius, Training_tbxRadius,
+                    Training_lblScriptPath, Training_tbxScriptPath, Training_btnLoadScriptPath
+                };
+                foreach (var c in areaControls)
+                {
+                    if (c != null && c.Parent != gbxAreaDetails)
+                    {
+                        c.Parent?.Controls.Remove(c);
+                        gbxAreaDetails.Controls.Add(c);
+                    }
+                }
+
+                if (Training_btnGetCoordinates != null)
+                {
+                    Training_btnGetCoordinates.Location = new Point(16, 30);
+                    Training_btnGetCoordinates.Size = new Size(220, 34);
+                    Training_btnGetCoordinates.BackColor = DarkTheme.Accent;
+                    Training_btnGetCoordinates.ForeColor = Color.White;
+                    Training_btnGetCoordinates.FlatStyle = FlatStyle.Flat;
+                }
+
+                int coordY = 82;
+                if (Training_lblRegion != null) { Training_lblRegion.Location = new Point(16, coordY + 2); Training_lblRegion.AutoSize = true; }
+                if (Training_tbxRegion != null) { Training_tbxRegion.Location = new Point(70, coordY); Training_tbxRegion.Size = new Size(60, 24); }
+
+                if (Training_lblX != null) { Training_lblX.Location = new Point(145, coordY + 2); Training_lblX.AutoSize = true; }
+                if (Training_tbxX != null) { Training_tbxX.Location = new Point(165, coordY); Training_tbxX.Size = new Size(60, 24); }
+
+                if (Training_lblY != null) { Training_lblY.Location = new Point(240, coordY + 2); Training_lblY.AutoSize = true; }
+                if (Training_tbxY != null) { Training_tbxY.Location = new Point(260, coordY); Training_tbxY.Size = new Size(60, 24); }
+
+                if (Training_lblZ != null) { Training_lblZ.Location = new Point(335, coordY + 2); Training_lblZ.AutoSize = true; }
+                if (Training_tbxZ != null) { Training_tbxZ.Location = new Point(355, coordY); Training_tbxZ.Size = new Size(60, 24); }
+
+                int radY = 126;
+                if (Training_lblRadius != null) { Training_lblRadius.Location = new Point(16, radY + 2); Training_lblRadius.AutoSize = true; }
+                if (Training_tbxRadius != null) { Training_tbxRadius.Location = new Point(70, radY); Training_tbxRadius.Size = new Size(60, 24); }
+
+                int scriptY = 170;
+                if (Training_lblScriptPath != null) { Training_lblScriptPath.Location = new Point(16, scriptY); Training_lblScriptPath.AutoSize = true; }
+                if (Training_tbxScriptPath != null) { Training_tbxScriptPath.Location = new Point(16, scriptY + 26); Training_tbxScriptPath.Size = new Size(rightW - 74, 26); }
+                if (Training_btnLoadScriptPath != null)
+                {
+                    Training_btnLoadScriptPath.Location = new Point(rightW - 52, scriptY + 25);
+                    Training_btnLoadScriptPath.Size = new Size(36, 28);
+                    Training_btnLoadScriptPath.Text = "...";
+                    Training_btnLoadScriptPath.Font = DarkTheme.FontBodyBold;
+                }
+
+                Label lblAreaGuide = gbxAreaDetails.Controls["lblAreaGuide"] as Label;
+                if (lblAreaGuide == null)
+                {
+                    lblAreaGuide = new Label
+                    {
+                        Name = "lblAreaGuide",
+                        ForeColor = DarkTheme.TextMuted,
+                        Font = DarkTheme.FontCaption,
+                        Location = new Point(16, scriptY + 68),
+                        Size = new Size(rightW - 32, 100),
+                        Text = LocalizationManager.CurrentLanguage == "TR"
+                            ? "Kasılma alanı tanımlamak için karakterinizi oyunda istediğiniz noktaya götürüp 'Get coordinates' butonuna basın. Yarıçap (Radius) karakterin alandan ne kadar uzaklaşacağını belirler. Yürüme rotası için script (.txt) dosyası seçebilirsiniz."
+                            : "To define a training area, navigate your character to the desired spot in-game and click 'Get coordinates'. Radius defines the movement perimeter. You can optionally select a script (.txt) path for walk routes."
+                    };
+                    gbxAreaDetails.Controls.Add(lblAreaGuide);
+                }
+            }
+
+            // --- Option 02: Script Panel ---
+            if (TabPageH_Training_Option02_Panel != null)
+            {
+                if (Training_gbxRecord != null)
+                {
+                    Training_gbxRecord.Location = new Point(6, 6);
+                    Training_gbxRecord.Size = new Size(col1W, 70);
+                    if (Training_btnRecordStartStop != null) { Training_btnRecordStartStop.Location = new Point(16, 26); Training_btnRecordStartStop.Size = new Size(130, 30); }
+                    if (Training_btnRecordPause != null) { Training_btnRecordPause.Location = new Point(155, 26); Training_btnRecordPause.Size = new Size(130, 30); }
+                }
+
+                if (Training_gbxOutput != null)
+                {
+                    Training_gbxOutput.Location = new Point(6, 82);
+                    Training_gbxOutput.Size = new Size(col1W, tabH - 128);
+
+                    if (Training_rtbxRecordOutput != null)
+                    {
+                        Training_rtbxRecordOutput.Location = new Point(12, 26);
+                        Training_rtbxRecordOutput.Size = new Size(col1W - 24, Training_gbxOutput.Height - 38);
+                        Training_rtbxRecordOutput.BackColor = DarkTheme.BgInput;
+                        Training_rtbxRecordOutput.ForeColor = DarkTheme.TextPrimary;
+                        Training_rtbxRecordOutput.BorderStyle = BorderStyle.None;
+                    }
+                }
+
+                if (groupBox2 != null)
+                {
+                    groupBox2.Location = new Point(col2X, 6);
+                    groupBox2.Size = new Size(col2W, tabH - 46);
+
+                    Label lblScriptGuide = groupBox2.Controls["lblScriptGuide"] as Label;
+                    if (lblScriptGuide == null)
+                    {
+                        lblScriptGuide = new Label
+                        {
+                            Name = "lblScriptGuide",
+                            ForeColor = DarkTheme.TextSecondary,
+                            Font = DarkTheme.FontBody,
+                            Location = new Point(16, 32),
+                            Size = new Size(col2W - 32, 260),
+                            Text = LocalizationManager.CurrentLanguage == "TR"
+                                ? "Script Kayıt ve Kullanım Kılavuzu:\n\n" +
+                                  "1. Karakteriniz şehirdeyken 'START' butonuna basın.\n" +
+                                  "2. Kasılma alanınıza doğru karakterinizi yürütün.\n" +
+                                  "3. Yolda yapılan NPC etkileşimleri, pot alımları ve koordinatlar otomatik kaydedilir.\n" +
+                                  "4. Kasılma alanına ulaştığınızda 'PAUSE' veya 'STOP' ile kaydı sonlandırın.\n" +
+                                  "5. Kaydedilen dosyayı Kasılma -> Alan sekmesindeki 'Script Path' kısmından seçin.\n\n" +
+                                  "Bot kasabaya döndüğünde bu rota üzerinden geri yürüyecektir."
+                                : "Script Recording Guide:\n\n" +
+                                  "1. Stand in town and click 'START'.\n" +
+                                  "2. Walk your character toward the designated training spot.\n" +
+                                  "3. NPC interactions, potion purchases, and walk coordinates are recorded.\n" +
+                                  "4. Upon arriving at the training spot, click 'PAUSE' or 'STOP'.\n" +
+                                  "5. Select the saved script file in Training -> Area -> 'Script Path'.\n\n" +
+                                  "The bot will automatically re-walk this route upon returning to town."
+                        };
+                        groupBox2.Controls.Add(lblScriptGuide);
+                    }
+                }
+            }
+
+            // --- Option 04: Combat AI Panel ---
+            if (pnlTrainingCombat != null)
+            {
+                if (btnTrainingCombat != null)
+                {
+                    btnTrainingCombat.Text = LocalizationManager.Get("UI_CombatAI_Tab", "Combat AI");
+                }
+
+                if (Combat_gbxAI != null)
+                {
+                    Combat_gbxAI.Location = new Point(6, 6);
+                    Combat_gbxAI.Size = new Size(col1W, tabH - 46);
+
+                    int cy = 30;
+                    int rowH = 34;
+
+                    // Section 1: Combat & Targeting Strategy
+                    if (Combat_cbxMobPriority != null) { Combat_cbxMobPriority.Location = new Point(16, cy); Combat_cbxMobPriority.Size = new Size(col1W - 32, 24); } cy += rowH;
+                    if (cbxCombatWeakerFirst != null) { cbxCombatWeakerFirst.Location = new Point(16, cy); cbxCombatWeakerFirst.Size = new Size(col1W - 32, 24); } cy += rowH;
+                    if (cbxCombatDoNotFollow != null) { cbxCombatDoNotFollow.Location = new Point(16, cy); cbxCombatDoNotFollow.Size = new Size(col1W - 32, 24); } cy += rowH;
+                    if (cbxCombatIgnorePillars != null) { cbxCombatIgnorePillars.Location = new Point(16, cy); cbxCombatIgnorePillars.Size = new Size(col1W - 32, 24); } cy += rowH + 6;
+
+                    // Section 2: Survival & Kiting
+                    if (Combat_cbxKiting != null) { Combat_cbxKiting.Location = new Point(16, cy); Combat_cbxKiting.Size = new Size(col1W - 32, 24); } cy += rowH;
+                    if (Combat_cbxPanicEscape != null) { Combat_cbxPanicEscape.Location = new Point(16, cy); Combat_cbxPanicEscape.Size = new Size(col1W - 32, 24); } cy += rowH + 6;
+
+                    // Section 3: Berserk Controls
+                    if (Combat_cbxAutoBerserk != null) { Combat_cbxAutoBerserk.Location = new Point(16, cy); Combat_cbxAutoBerserk.Size = new Size(col1W - 32, 24); } cy += rowH;
+                    if (cbxCombatZerkFullHP != null) { cbxCombatZerkFullHP.Location = new Point(16, cy); cbxCombatZerkFullHP.Size = new Size(col1W - 32, 24); } cy += rowH;
+                    if (cbxCombatZerkRarity != null) { cbxCombatZerkRarity.Location = new Point(16, cy); cbxCombatZerkRarity.Size = new Size(col1W - 32, 24); } cy += rowH;
+                    if (cbxCombatZerkAvoidance != null) { cbxCombatZerkAvoidance.Location = new Point(16, cy); cbxCombatZerkAvoidance.Size = new Size(col1W - 32, 24); } cy += rowH;
+
+                    if (cbxCombatZerkCount != null) { cbxCombatZerkCount.Location = new Point(16, cy); cbxCombatZerkCount.Size = new Size(260, 24); }
+                    if (nudCombatZerkCount != null) { nudCombatZerkCount.Location = new Point(285, cy); nudCombatZerkCount.Size = new Size(55, 24); }
+                    cy += rowH + 8;
+
+                    if (Combat_lblInfo != null) { Combat_lblInfo.Location = new Point(16, cy); Combat_lblInfo.Size = new Size(col1W - 32, 50); }
+                }
+
+                if (Combat_gbxMobFilter != null)
+                {
+                    Combat_gbxMobFilter.Location = new Point(col2X, 6);
+                    Combat_gbxMobFilter.Size = new Size(col2W, tabH - 46);
+                }
+            }
+        }
+
+        private void ApplyModernTownLayout()
+        {
+            if (TabPageV_Control01_Town_Panel == null) return;
+            int tabW = TabPageV_Control01_Town_Panel.Width;
+            int tabH = TabPageV_Control01_Town_Panel.Height;
+            int col1W = 595;
+            int col2X = 605;
+            int col2W = tabW - col2X - 8;
+
+            // --- Option 01: Logistics & Auto-Buy ---
+            if (TabPageH_Town_Option01_Panel != null)
+            {
+                if (Town_gbxLogistics != null)
+                {
+                    Town_gbxLogistics.Location = new Point(6, 6);
+                    Town_gbxLogistics.Size = new Size(col1W, tabH - 46);
+
+                    int ty = 32;
+                    int rowH = 38;
+                    if (Town_cbxEnableTownLoop != null) { Town_cbxEnableTownLoop.Location = new Point(16, ty); Town_cbxEnableTownLoop.Size = new Size(col1W - 32, 24); } ty += rowH;
+                    if (Town_cbxRepair != null) { Town_cbxRepair.Location = new Point(16, ty); Town_cbxRepair.Size = new Size(col1W - 32, 24); } ty += rowH;
+                    if (Town_cbxStorage != null) { Town_cbxStorage.Location = new Point(16, ty); Town_cbxStorage.Size = new Size(col1W - 32, 24); } ty += rowH;
+                    if (Town_cbxSellTrash != null) { Town_cbxSellTrash.Location = new Point(16, ty); Town_cbxSellTrash.Size = new Size(col1W - 32, 24); } ty += rowH;
+                    if (Town_cbxReturnNavMesh != null) { Town_cbxReturnNavMesh.Location = new Point(16, ty); Town_cbxReturnNavMesh.Size = new Size(col1W - 32, 24); } ty += rowH + 10;
+                    if (Town_lblInfo != null) { Town_lblInfo.Location = new Point(16, ty); Town_lblInfo.Size = new Size(col1W - 32, 120); }
+                }
+
+                if (Town_gbxAutoBuy != null)
+                {
+                    Town_gbxAutoBuy.Location = new Point(col2X, 6);
+                    Town_gbxAutoBuy.Size = new Size(col2W, tabH - 46);
+
+                    int ay = 32;
+                    int rowH = 46;
+                    if (Town_cbxAutoBuy != null) { Town_cbxAutoBuy.Location = new Point(16, ay); Town_cbxAutoBuy.Size = new Size(col2W - 32, 24); } ay += rowH;
+
+                    // HP Potions
+                    if (Town_lblHpType != null) { Town_lblHpType.Location = new Point(16, ay + 4); Town_lblHpType.AutoSize = true; }
+                    if (Town_cmbxHpType != null) { Town_cmbxHpType.Location = new Point(115, ay); Town_cmbxHpType.Size = new Size(140, 24); }
+                    if (Town_lblHpAmount != null) { Town_lblHpAmount.Location = new Point(275, ay + 4); Town_lblHpAmount.AutoSize = true; }
+                    if (Town_nudHpAmount != null) { Town_nudHpAmount.Location = new Point(375, ay); Town_nudHpAmount.Size = new Size(75, 24); }
+                    ay += rowH;
+
+                    // MP Potions
+                    if (Town_lblMpType != null) { Town_lblMpType.Location = new Point(16, ay + 4); Town_lblMpType.AutoSize = true; }
+                    if (Town_cmbxMpType != null) { Town_cmbxMpType.Location = new Point(115, ay); Town_cmbxMpType.Size = new Size(140, 24); }
+                    if (Town_lblMpAmount != null) { Town_lblMpAmount.Location = new Point(275, ay + 4); Town_lblMpAmount.AutoSize = true; }
+                    if (Town_nudMpAmount != null) { Town_nudMpAmount.Location = new Point(375, ay); Town_nudMpAmount.Size = new Size(75, 24); }
+                    ay += rowH;
+
+                    if (Town_cbxBuyPills != null) { Town_cbxBuyPills.Location = new Point(16, ay); Town_cbxBuyPills.Size = new Size(col2W - 32, 24); }
+                }
+            }
+
+            // --- Option 03: Item Filter ---
+            if (TabPageH_Town_Option03_Panel != null)
+            {
+                if (Filter_gbxPick != null)
+                {
+                    Filter_gbxPick.Location = new Point(6, 6);
+                    Filter_gbxPick.Size = new Size(col1W, tabH - 46);
+                }
+
+                if (gbxItemFilterRules != null)
+                {
+                    gbxItemFilterRules.Location = new Point(col2X, 6);
+                    gbxItemFilterRules.Size = new Size(col2W, 195);
+
+                    // Degree controls
+                    if (lblFilterDegree != null) { lblFilterDegree.Location = new Point(16, 32); lblFilterDegree.AutoSize = true; }
+                    if (nudFilterMinDegree != null) { nudFilterMinDegree.Location = new Point(155, 30); nudFilterMinDegree.Size = new Size(50, 24); }
+                    if (gbxItemFilterRules.Controls.OfType<Label>().FirstOrDefault(l => l.Text == "-") is Label dash) { dash.Location = new Point(212, 32); dash.AutoSize = true; }
+                    if (nudFilterMaxDegree != null) { nudFilterMaxDegree.Location = new Point(228, 30); nudFilterMaxDegree.Size = new Size(50, 24); }
+                    if (cbxFilterSox != null) { cbxFilterSox.Location = new Point(295, 30); cbxFilterSox.Size = new Size(col2W - 305, 24); }
+
+                    // 2x2 grid for China/Europe/Male/Female
+                    if (cbxFilterChina != null) { cbxFilterChina.Location = new Point(16, 64); cbxFilterChina.Size = new Size(220, 24); }
+                    if (cbxFilterEurope != null) { cbxFilterEurope.Location = new Point(250, 64); cbxFilterEurope.Size = new Size(220, 24); }
+                    if (cbxFilterMale != null) { cbxFilterMale.Location = new Point(16, 94); cbxFilterMale.Size = new Size(220, 24); }
+                    if (cbxFilterFemale != null) { cbxFilterFemale.Location = new Point(250, 94); cbxFilterFemale.Size = new Size(220, 24); }
+
+                    if (lblFilterInfo != null) { lblFilterInfo.Location = new Point(16, 126); lblFilterInfo.Size = new Size(col2W - 32, 58); }
+                }
+
+                if (gbxItemFilterRulesCustom != null)
+                {
+                    gbxItemFilterRulesCustom.Location = new Point(col2X, 208);
+                    gbxItemFilterRulesCustom.Size = new Size(col2W, tabH - 248);
+
+                    if (tbxItemRuleName != null) { tbxItemRuleName.Location = new Point(16, 28); tbxItemRuleName.Size = new Size(col2W - 200, 26); }
+                    if (btnItemFilterSaveRule != null)
+                    {
+                        btnItemFilterSaveRule.Location = new Point(col2W - 176, 27);
+                        btnItemFilterSaveRule.Size = new Size(88, 28);
+                        btnItemFilterSaveRule.Text = LocalizationManager.CurrentLanguage == "TR" ? "Kural Ekle" : "Add Rule";
+                    }
+                    if (btnItemFilterRemoveRule != null)
+                    {
+                        btnItemFilterRemoveRule.Location = new Point(col2W - 84, 27);
+                        btnItemFilterRemoveRule.Size = new Size(70, 28);
+                        btnItemFilterRemoveRule.Text = LocalizationManager.CurrentLanguage == "TR" ? "Sil" : "Delete";
+                    }
+
+                    if (cbxItemRulePickup != null) { cbxItemRulePickup.Location = new Point(16, 62); cbxItemRulePickup.Size = new Size(100, 24); }
+                    if (cbxItemRuleSell != null) { cbxItemRuleSell.Location = new Point(130, 62); cbxItemRuleSell.Size = new Size(100, 24); }
+                    if (cbxItemRuleStore != null) { cbxItemRuleStore.Location = new Point(244, 62); cbxItemRuleStore.Size = new Size(100, 24); }
+
+                    if (lstvItemRules != null)
+                    {
+                        lstvItemRules.Location = new Point(16, 92);
+                        lstvItemRules.Size = new Size(col2W - 32, gbxItemFilterRulesCustom.Height - 104);
+                        if (lstvItemRules.Columns.Count >= 2)
+                        {
+                            lstvItemRules.Columns[0].Width = lstvItemRules.Width - 90;
+                            lstvItemRules.Columns[1].Width = 70;
+                        }
+                        AutoFitListView(lstvItemRules);
+                    }
+                }
+            }
+        }
+
+        private void ApplyModernInventoryLayout()
+        {
+            if (TabPageV_Control01_Inventory_Panel == null) return;
+            int tabW = TabPageV_Control01_Inventory_Panel.Width;
+            int tabH = TabPageV_Control01_Inventory_Panel.Height;
+
+            Action<Panel, ListView, Button, Button> setupInvSubTab = (panel, lv, btnRefresh, btnSort) =>
+            {
+                if (panel == null) return;
+                int listH = tabH - 85;
+
+                if (lv != null)
+                {
+                    lv.Location = new Point(6, 6);
+                    lv.Size = new Size(tabW - 12, listH);
+                    AutoFitListView(lv);
+                }
+
+                int btnY = listH + 10;
+                if (btnRefresh != null)
+                {
+                    btnRefresh.Location = new Point(6, btnY);
+                    btnRefresh.Size = new Size(95, 28);
+                    btnRefresh.Text = LocalizationManager.CurrentLanguage == "TR" ? "↻ Yenile" : "↻ Refresh";
+                    btnRefresh.Font = DarkTheme.FontBodyBold;
+                }
+                if (btnSort != null)
+                {
+                    btnSort.Location = new Point(108, btnY);
+                    btnSort.Size = new Size(95, 28);
+                    btnSort.Text = LocalizationManager.CurrentLanguage == "TR" ? "⇅ Sırala" : "⇅ Sort";
+                    btnSort.Font = DarkTheme.FontBodyBold;
+                }
+            };
+
+            setupInvSubTab(TabPageH_Inventory_Option01_Panel, Inventory_lstvItems, Inventory_btnItemsRefresh, Inventory_btnItemsSort);
+            setupInvSubTab(TabPageH_Inventory_Option02_Panel, Inventory_lstvStorageItems, Inventory_btnStorageRefresh, Inventory_btnStorageSort);
+            setupInvSubTab(TabPageH_Inventory_Option03_Panel, Inventory_lstvPet, Inventory_btnPetRefresh, null);
+            setupInvSubTab(TabPageH_Inventory_Option04_Panel, Inventory_lstvAvatarItems, Inventory_btnAvatarItemsRefresh, null);
+        }
+
+        private void ApplyModernPartyLayout()
+        {
+            if (TabPageV_Control01_Party_Panel == null) return;
+            int tabW = TabPageV_Control01_Party_Panel.Width;
+            int tabH = TabPageV_Control01_Party_Panel.Height;
+            int col1W = 595;
+            int col2X = 605;
+            int col2W = tabW - col2X - 8;
+
+            // Option 01: Members
+            if (TabPageH_Party_Option01_Panel != null)
+            {
+                if (Party_lblCurrentSetup != null) { Party_lblCurrentSetup.Location = new Point(6, 8); Party_lblCurrentSetup.AutoSize = true; }
+                if (Party_cbxShowFGWInvites != null) { Party_cbxShowFGWInvites.Location = new Point(tabW - 250, 6); Party_cbxShowFGWInvites.Size = new Size(240, 24); }
+                if (Party_lstvPartyMembers != null)
+                {
+                    Party_lstvPartyMembers.Location = new Point(6, 36);
+                    Party_lstvPartyMembers.Size = new Size(tabW - 12, tabH - 78);
+                    AutoFitListView(Party_lstvPartyMembers);
+                }
+            }
+
+            // Option 02: Settings
+            if (TabPageH_Party_Option02_Panel != null)
+            {
+                if (Party_gbxSetup != null)
+                {
+                    Party_gbxSetup.Location = new Point(6, 6);
+                    Party_gbxSetup.Size = new Size(col1W, 175);
+                }
+                if (Party_gbxAcceptInvite != null)
+                {
+                    Party_gbxAcceptInvite.Location = new Point(6, 188);
+                    Party_gbxAcceptInvite.Size = new Size(col1W, tabH - 230);
+                }
+                int halfH = (tabH - 52) / 2;
+                if (Party_gbxLeaderList != null)
+                {
+                    Party_gbxLeaderList.Location = new Point(col2X, 6);
+                    Party_gbxLeaderList.Size = new Size(col2W, halfH);
+                }
+                if (Party_gbxPlayerList != null)
+                {
+                    Party_gbxPlayerList.Location = new Point(col2X, halfH + 14);
+                    Party_gbxPlayerList.Size = new Size(col2W, tabH - halfH - 52);
+                }
+            }
+
+            // Option 03: Match
+            if (TabPageH_Party_Option03_Panel != null)
+            {
+                if (Party_pnlAutoFormMatch != null)
+                {
+                    Party_pnlAutoFormMatch.Location = new Point(6, 6);
+                    Party_pnlAutoFormMatch.Size = new Size(tabW - 12, 60);
+                    Party_pnlAutoFormMatch.BackColor = DarkTheme.BgCard;
+                }
+
+                if (Party_lstvPartyMatch != null)
+                {
+                    Party_lstvPartyMatch.Location = new Point(6, 72);
+                    Party_lstvPartyMatch.Size = new Size(tabW - 12, tabH - 120);
+                    AutoFitListView(Party_lstvPartyMatch);
+                }
+
+                int bY = tabH - 40;
+                if (Party_btnLastPage != null)
+                {
+                    Party_btnLastPage.Location = new Point(6, bY);
+                    Party_btnLastPage.Size = new Size(36, 28);
+                    Party_btnLastPage.Text = "◀";
+                    Party_btnLastPage.Font = DarkTheme.FontBodyBold;
+                }
+                if (Party_lblPageNumber != null)
+                {
+                    Party_lblPageNumber.Location = new Point(48, bY + 4);
+                    Party_lblPageNumber.AutoSize = true;
+                }
+                if (Party_btnNextPage != null)
+                {
+                    Party_btnNextPage.Location = new Point(95, bY);
+                    Party_btnNextPage.Size = new Size(36, 28);
+                    Party_btnNextPage.Text = "▶";
+                    Party_btnNextPage.Font = DarkTheme.FontBodyBold;
+                }
+                if (Party_btnRefreshMatch != null)
+                {
+                    Party_btnRefreshMatch.Location = new Point(140, bY);
+                    Party_btnRefreshMatch.Size = new Size(85, 28);
+                    Party_btnRefreshMatch.Text = LocalizationManager.CurrentLanguage == "TR" ? "↻ Yenile" : "↻ Refresh";
+                    Party_btnRefreshMatch.Font = DarkTheme.FontBodyBold;
+                }
+                if (Party_lblJoinToNumber != null)
+                {
+                    Party_lblJoinToNumber.Location = new Point(245, bY + 4);
+                    Party_lblJoinToNumber.AutoSize = true;
+                }
+                if (Party_tbxJoinToNumber != null)
+                {
+                    Party_tbxJoinToNumber.Location = new Point(350, bY);
+                    Party_tbxJoinToNumber.Size = new Size(70, 24);
+                }
+                if (Party_btnJoinMatch != null)
+                {
+                    Party_btnJoinMatch.Location = new Point(430, bY);
+                    Party_btnJoinMatch.Size = new Size(90, 28);
+                }
+            }
+        }
+
+        private void ApplyModernGuildLayout()
+        {
+            if (TabPageV_Control01_Guild_Panel == null) return;
+            int tabW = TabPageV_Control01_Guild_Panel.Width;
+            int tabH = TabPageV_Control01_Guild_Panel.Height;
+
+            if (TabPageH_Guild_Option01_Panel != null)
+            {
+                int optH = TabPageH_Guild_Option01_Panel.Height;
+                int optW = TabPageH_Guild_Option01_Panel.Width;
+
+                if (Guild_lblName != null) { Guild_lblName.Location = new Point(8, 8); Guild_lblName.AutoSize = true; Guild_lblName.Font = DarkTheme.FontHeader; Guild_lblName.ForeColor = DarkTheme.Accent; }
+                if (Guild_lblLevel != null) { Guild_lblLevel.Location = new Point(180, 8); Guild_lblLevel.AutoSize = true; Guild_lblLevel.Font = DarkTheme.FontBody; Guild_lblLevel.ForeColor = DarkTheme.TextSecondary; }
+                if (Guild_lblNotice != null) { Guild_lblNotice.Location = new Point(320, 8); Guild_lblNotice.AutoSize = true; Guild_lblNotice.Font = DarkTheme.FontBody; Guild_lblNotice.ForeColor = DarkTheme.TextMuted; }
+
+                if (Guild_lstvInfo != null)
+                {
+                    Guild_lstvInfo.Location = new Point(4, 34);
+                    Guild_lstvInfo.Size = new Size(optW - 8, optH - 74);
+                    if (Guild_lstvInfo.Columns.Count >= 4)
+                    {
+                        int usable = optW - 24;
+                        Guild_lstvInfo.Columns[0].Width = (int)(usable * 0.35);
+                        Guild_lstvInfo.Columns[1].Width = (int)(usable * 0.15);
+                        Guild_lstvInfo.Columns[2].Width = (int)(usable * 0.25);
+                        Guild_lstvInfo.Columns[3].Width = (int)(usable * 0.25);
+                    }
+                }
+
+                if (Guild_btnInfoRefresh != null)
+                {
+                    Guild_btnInfoRefresh.Location = new Point(optW - 98, optH - 34);
+                    Guild_btnInfoRefresh.Size = new Size(90, 28);
+                    Guild_btnInfoRefresh.Text = LocalizationManager.CurrentLanguage == "TR" ? "↻ Yenile" : "↻ Refresh";
+                    Guild_btnInfoRefresh.Font = DarkTheme.FontBodyBold;
+                }
+            }
+
+            if (TabPageH_Guild_Option02_Panel != null)
+            {
+                int optH = TabPageH_Guild_Option02_Panel.Height;
+                int optW = TabPageH_Guild_Option02_Panel.Width;
+
+                if (Guild_lstvStorage != null)
+                {
+                    Guild_lstvStorage.Location = new Point(4, 4);
+                    Guild_lstvStorage.Size = new Size(optW - 8, optH - 44);
+                    if (Guild_lstvStorage.Columns.Count >= 4)
+                    {
+                        int usable = optW - 24;
+                        Guild_lstvStorage.Columns[0].Width = (int)(usable * 0.15);
+                        Guild_lstvStorage.Columns[1].Width = (int)(usable * 0.45);
+                        Guild_lstvStorage.Columns[2].Width = (int)(usable * 0.20);
+                        Guild_lstvStorage.Columns[3].Width = (int)(usable * 0.20);
+                    }
+                }
+
+                if (Guild_lblStorageCapacity != null)
+                {
+                    Guild_lblStorageCapacity.Location = new Point(8, optH - 32);
+                    Guild_lblStorageCapacity.AutoSize = true;
+                }
+
+                if (Guild_btnStorageRefresh != null)
+                {
+                    Guild_btnStorageRefresh.Location = new Point(optW - 98, optH - 34);
+                    Guild_btnStorageRefresh.Size = new Size(90, 28);
+                    Guild_btnStorageRefresh.Text = LocalizationManager.CurrentLanguage == "TR" ? "↻ Yenile" : "↻ Refresh";
+                    Guild_btnStorageRefresh.Font = DarkTheme.FontBodyBold;
+                }
+            }
+        }
+
+        private void ApplyModernPlayersLayout()
+        {
+            if (TabPageV_Control01_Players_Panel == null) return;
+
+            if (TabPageH_Players_Option01_Panel != null)
+            {
+                int optH = TabPageH_Players_Option01_Panel.Height;
+                int optW = TabPageH_Players_Option01_Panel.Width;
+
+                if (Players_tvwPlayers != null)
+                {
+                    Players_tvwPlayers.Location = new Point(4, 4);
+                    Players_tvwPlayers.Size = new Size(optW - 8, optH - 44);
+                    Players_tvwPlayers.BackColor = DarkTheme.BgCard;
+                    Players_tvwPlayers.ForeColor = DarkTheme.TextPrimary;
+                    Players_tvwPlayers.BorderStyle = BorderStyle.None;
+                }
+
+                if (Players_lblPlayerCount != null)
+                {
+                    Players_lblPlayerCount.Location = new Point(8, optH - 32);
+                    Players_lblPlayerCount.AutoSize = true;
+                }
+
+                if (Players_btnRefreshPlayers != null)
+                {
+                    Players_btnRefreshPlayers.Location = new Point(optW - 98, optH - 34);
+                    Players_btnRefreshPlayers.Size = new Size(90, 28);
+                    Players_btnRefreshPlayers.Text = LocalizationManager.CurrentLanguage == "TR" ? "↻ Yenile" : "↻ Refresh";
+                    Players_btnRefreshPlayers.Font = DarkTheme.FontBodyBold;
+                }
+            }
+        }
+
+        private void ApplyModernChatLayout()
+        {
+            if (TabPageV_Control01_Chat_Panel == null) return;
+
+            Panel[] chatPanels = new Panel[]
+            {
+                TabPageH_Chat_Option01_Panel, TabPageH_Chat_Option02_Panel, TabPageH_Chat_Option03_Panel,
+                TabPageH_Chat_Option04_Panel, TabPageH_Chat_Option05_Panel, TabPageH_Chat_Option06_Panel,
+                TabPageH_Chat_Option07_Panel, TabPageH_Chat_Option08_Panel
+            };
+
+            foreach (var pnl in chatPanels)
+            {
+                if (pnl == null) continue;
+                int optW = pnl.Width;
+                int optH = pnl.Height;
+
+                foreach (Control c in pnl.Controls)
+                {
+                    if (c is RichTextBox || c is TextBox)
+                    {
+                        c.Location = new Point(4, 4);
+                        c.Size = new Size(optW - 8, optH - 8);
+                        c.BackColor = DarkTheme.BgCard;
+                        c.ForeColor = DarkTheme.TextPrimary;
+                        c.Font = DarkTheme.FontBody;
+                    }
+                }
+            }
+        }
+
+        private void ApplyModernStallLayout()
+        {
+            if (TabPageV_Control01_Stall_Panel == null) return;
+
+            if (TabPageH_Stall_Option01_Panel != null)
+            {
+                int optH = TabPageH_Stall_Option01_Panel.Height;
+                int optW = TabPageH_Stall_Option01_Panel.Width;
+                int leftW = 290;
+                int rightX = leftW + 12;
+                int rightW = optW - rightX - 6;
+
+                if (Stall_lblInventoryStall != null)
+                {
+                    Stall_lblInventoryStall.Location = new Point(6, 6);
+                    Stall_lblInventoryStall.Size = new Size(leftW, 26);
+                    Stall_lblInventoryStall.TextAlign = ContentAlignment.MiddleLeft;
+                    Stall_lblInventoryStall.ForeColor = DarkTheme.TextMuted;
+                    Stall_lblInventoryStall.BorderStyle = BorderStyle.None;
+                }
+
+                if (Stall_lstvInventoryStall != null)
+                {
+                    Stall_lstvInventoryStall.Location = new Point(6, 36);
+                    Stall_lstvInventoryStall.Size = new Size(leftW, optH - 80);
+                    if (Stall_lstvInventoryStall.Columns.Count >= 1)
+                    {
+                        Stall_lstvInventoryStall.Columns[0].Width = leftW - 12;
+                    }
+                }
+
+                if (Stall_lstvStall != null)
+                {
+                    Stall_lstvStall.Location = new Point(rightX, 36);
+                    Stall_lstvStall.Size = new Size(rightW, optH - 80);
+                    if (Stall_lstvStall.Columns.Count >= 3)
+                    {
+                        int usable = rightW - 20;
+                        Stall_lstvStall.Columns[0].Width = (int)(usable * 0.50);
+                        Stall_lstvStall.Columns[1].Width = (int)(usable * 0.25);
+                        Stall_lstvStall.Columns[2].Width = (int)(usable * 0.25);
+                    }
+                }
+
+                int bY = optH - 36;
+                if (Stall_tbxPrice != null) { Stall_tbxPrice.Location = new Point(6, bY); Stall_tbxPrice.Size = new Size(95, 24); }
+                if (Stall_tbxQuantity != null) { Stall_tbxQuantity.Location = new Point(106, bY); Stall_tbxQuantity.Size = new Size(60, 24); }
+                if (Stall_btnAddItem != null)
+                {
+                    Stall_btnAddItem.Location = new Point(172, bY - 2);
+                    Stall_btnAddItem.Size = new Size(124, 28);
+                    Stall_btnAddItem.Text = LocalizationManager.CurrentLanguage == "TR" ? "+ Tezgaha Koy" : "+ Add to Stall";
+                    Stall_btnAddItem.Font = DarkTheme.FontBodyBold;
+                }
+
+                if (Stall_btnIGCreateModify != null)
+                {
+                    Stall_btnIGCreateModify.Location = new Point(rightX, bY - 2);
+                    Stall_btnIGCreateModify.Size = new Size(130, 28);
+                    Stall_btnIGCreateModify.Font = DarkTheme.FontBodyBold;
+                }
+                if (Stall_lblState != null)
+                {
+                    Stall_lblState.Location = new Point(rightX + 138, bY);
+                    Stall_lblState.Size = new Size(rightW - 176, 24);
+                    Stall_lblState.TextAlign = ContentAlignment.MiddleLeft;
+                }
+                if (Stall_btnClose != null)
+                {
+                    Stall_btnClose.Location = new Point(optW - 36, bY - 2);
+                    Stall_btnClose.Size = new Size(28, 28);
+                    Stall_btnClose.Text = "✕";
+                    Stall_btnClose.Font = DarkTheme.FontBodyBold;
+                }
+            }
+
+            if (TabPageH_Stall_Option02_Panel != null)
+            {
+                if (Stall_lblStallTitle != null) { Stall_lblStallTitle.Location = new Point(16, 16); Stall_lblStallTitle.AutoSize = true; }
+                if (Stall_tbxStallTitle != null) { Stall_tbxStallTitle.Location = new Point(16, 42); Stall_tbxStallTitle.Size = new Size(400, 24); }
+                if (Stall_lblStallNote != null) { Stall_lblStallNote.Location = new Point(16, 82); Stall_lblStallNote.AutoSize = true; }
+                if (Stall_tbxStallNote != null) { Stall_tbxStallNote.Location = new Point(16, 108); Stall_tbxStallNote.Size = new Size(400, 24); }
+            }
+        }
+
+        private void ApplyModernGameInfoLayout()
+        {
+            if (TabPageV_Control01_GameInfo_Panel == null) return;
+            int tabW = TabPageV_Control01_GameInfo_Panel.Width;
+            int tabH = TabPageV_Control01_GameInfo_Panel.Height;
+
+            if (GameInfo_tvwObjects != null)
+            {
+                GameInfo_tvwObjects.Location = new Point(4, 4);
+                GameInfo_tvwObjects.Size = new Size(tabW - 8, tabH - 46);
+                GameInfo_tvwObjects.BackColor = DarkTheme.BgCard;
+                GameInfo_tvwObjects.ForeColor = DarkTheme.TextPrimary;
+                GameInfo_tvwObjects.BorderStyle = BorderStyle.None;
+            }
+
+            int bY = tabH - 34;
+            if (GameInfo_lblServerTime != null) { GameInfo_lblServerTime.Location = new Point(8, bY + 4); GameInfo_lblServerTime.AutoSize = true; }
+            if (GameInfo_tbxServerTime != null) { GameInfo_tbxServerTime.Location = new Point(95, bY + 1); GameInfo_tbxServerTime.Size = new Size(150, 24); }
+
+            int cbX = 256;
+            int cbGap = 8;
+            Control[] infoChecks = new Control[] { GameInfo_cbxPlayer, GameInfo_cbxPet, GameInfo_cbxMob, GameInfo_cbxNPC, GameInfo_cbxDrop, GameInfo_cbxOthers };
+            int[] checkWidths = new int[] { 72, 62, 68, 68, 72, 78 };
+
+            for (int i = 0; i < infoChecks.Length; i++)
+            {
+                var cb = infoChecks[i];
+                if (cb != null)
+                {
+                    cb.Location = new Point(cbX, bY);
+                    cb.AutoSize = false;
+                    cb.Size = new Size(checkWidths[i], 26);
+                    cbX += checkWidths[i] + cbGap;
+                }
+            }
+
+            if (GameInfo_btnRefresh != null)
+            {
+                GameInfo_btnRefresh.Location = new Point(tabW - 98, bY);
+                GameInfo_btnRefresh.Size = new Size(90, 28);
+                GameInfo_btnRefresh.Text = LocalizationManager.CurrentLanguage == "TR" ? "↻ Yenile" : "↻ Refresh";
+                GameInfo_btnRefresh.Font = DarkTheme.FontBodyBold;
+            }
+        }
+
+        private void ApplyModernMinimapLayout()
+        {
+            if (TabPageV_Control01_Minimap_Panel == null) return;
+            int tabW = TabPageV_Control01_Minimap_Panel.Width;
+            int tabH = TabPageV_Control01_Minimap_Panel.Height;
+
+            if (Minimap_pnlMap != null)
+            {
+                Minimap_pnlMap.Location = new Point(0, 0);
+                Minimap_pnlMap.Size = new Size(tabW, tabH);
+            }
+
+            if (Minimap_panelCoords != null)
+            {
+                Minimap_panelCoords.Location = new Point(tabW - 320, 6);
+                Minimap_panelCoords.BringToFront();
+            }
+
+            if (Minimap_tbrZoom != null)
+            {
+                Minimap_tbrZoom.Location = new Point(tabW - 36, 45);
+                Minimap_tbrZoom.Size = new Size(30, 160);
+                Minimap_tbrZoom.BringToFront();
+            }
+        }
+
+        private void ApplyModernAcademyLayout()
+        {
+            if (TabPageV_Control01_Academy_Panel == null) return;
+            int tabW = TabPageV_Control01_Academy_Panel.Width;
+            int tabH = TabPageV_Control01_Academy_Panel.Height;
+
+            GroupBox gbxAcademy = TabPageV_Control01_Academy_Panel.Controls["gbxAcademyInfo"] as GroupBox;
+            if (gbxAcademy == null)
+            {
+                gbxAcademy = new GroupBox
+                {
+                    Name = "gbxAcademyInfo",
+                    Text = LocalizationManager.CurrentLanguage == "TR" ? "Akademi Durumu ve Bilgisi" : "Academy Status & Information",
+                    Location = new Point(6, 6),
+                    Size = new Size(tabW - 12, tabH - 12)
+                };
+
+                Label lblAcademyGuide = new Label
+                {
+                    Name = "lblAcademyGuide",
+                    Text = LocalizationManager.CurrentLanguage == "TR"
+                        ? "★ Silkroad Akademi Sistemi:\n\n" +
+                          "• Kurulu olan bir Akademiye üye olduğunuzda seviye atladıkça mezuniyet puanı kazanırsınız.\n" +
+                          "• Karakteriniz 40. seviyeye ulaştığında otomatik mezuniyet şartları sağlanır.\n" +
+                          "• Akademi buffları ve mezuniyet durumları bot arka planında otomatik takip edilmektedir.\n" +
+                          "• Kurucu (Guardian) olduğunuzda asistan ve çırak davetleri topluluk sekmesinden yönetilir."
+                        : "★ Silkroad Academy System:\n\n" +
+                          "• When joined to an Academy, graduation points are gained as your character levels up.\n" +
+                          "• Upon reaching level 40, graduation conditions are fulfilled automatically.\n" +
+                          "• Academy buffs and graduation statuses are tracked automatically in the background.\n" +
+                          "• When acting as Guardian, apprentice invitations can be managed via the community panel.",
+                    Location = new Point(20, 36),
+                    Size = new Size(tabW - 52, 200),
+                    ForeColor = DarkTheme.TextSecondary,
+                    Font = DarkTheme.FontBody
+                };
+
+                gbxAcademy.Controls.Add(lblAcademyGuide);
+                TabPageV_Control01_Academy_Panel.Controls.Add(gbxAcademy);
+                SkinControlHierarchy(gbxAcademy);
             }
         }
 

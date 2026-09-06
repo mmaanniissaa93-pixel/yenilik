@@ -160,6 +160,7 @@ namespace xBot.App.Theme
             if (cbx == null) return;
             cbx.ForeColor = TextPrimary;
             cbx.Font = FontBody;
+            cbx.Padding = new Padding(0, 0, 16, 0);
 
             lock (s_styledControls)
             {
@@ -172,9 +173,16 @@ namespace xBot.App.Theme
                 var cb = (CheckBox)sender;
                 var g = e.Graphics;
                 g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+
+                Color bg = (cb.Parent is GroupBox) ? BgCard : (cb.Parent != null && cb.Parent.BackColor != Color.Transparent ? cb.Parent.BackColor : BgDark);
+                using (SolidBrush bgBrush = new SolidBrush(bg))
+                {
+                    g.FillRectangle(bgBrush, cb.ClientRectangle);
+                }
 
                 int boxSize = 14;
-                int boxX = cb.Padding.Left > 0 ? cb.Padding.Left : 1;
+                int boxX = 2;
                 int boxY = (cb.Height - boxSize) / 2;
                 Rectangle boxRect = new Rectangle(boxX, boxY, boxSize, boxSize);
 
@@ -208,6 +216,14 @@ namespace xBot.App.Theme
                         g.DrawRectangle(borderPen, boxRect);
                     }
                 }
+
+                if (!string.IsNullOrEmpty(cb.Text))
+                {
+                    int textX = boxX + boxSize + 8;
+                    Rectangle textRect = new Rectangle(textX, 0, Math.Max(0, cb.Width - textX), cb.Height);
+                    TextRenderer.DrawText(g, cb.Text, cb.Font, textRect, cb.Enabled ? TextPrimary : TextMuted,
+                        TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis);
+                }
             };
         }
 
@@ -216,6 +232,7 @@ namespace xBot.App.Theme
             if (rbn == null) return;
             rbn.ForeColor = TextPrimary;
             rbn.Font = FontBody;
+            rbn.Padding = new Padding(0, 0, 16, 0);
 
             lock (s_styledControls)
             {
@@ -228,9 +245,16 @@ namespace xBot.App.Theme
                 var rb = (RadioButton)sender;
                 var g = e.Graphics;
                 g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+
+                Color bg = (rb.Parent is GroupBox) ? BgCard : (rb.Parent != null && rb.Parent.BackColor != Color.Transparent ? rb.Parent.BackColor : BgDark);
+                using (SolidBrush bgBrush = new SolidBrush(bg))
+                {
+                    g.FillRectangle(bgBrush, rb.ClientRectangle);
+                }
 
                 int circleSize = 14;
-                int circleX = rb.Padding.Left > 0 ? rb.Padding.Left : 1;
+                int circleX = 2;
                 int circleY = (rb.Height - circleSize) / 2;
                 Rectangle circleRect = new Rectangle(circleX, circleY, circleSize, circleSize);
 
@@ -257,6 +281,14 @@ namespace xBot.App.Theme
                     {
                         g.DrawEllipse(borderPen, circleRect);
                     }
+                }
+
+                if (!string.IsNullOrEmpty(rb.Text))
+                {
+                    int textX = circleX + circleSize + 8;
+                    Rectangle textRect = new Rectangle(textX, 0, Math.Max(0, rb.Width - textX), rb.Height);
+                    TextRenderer.DrawText(g, rb.Text, rb.Font, textRect, rb.Enabled ? TextPrimary : TextMuted,
+                        TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis);
                 }
             };
         }

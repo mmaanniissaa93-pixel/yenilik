@@ -79,6 +79,7 @@ namespace xBot.App
             // Combat AI & Training
             StringsEN["UI_Training"] = "Training";
             StringsEN["UI_CombatAI_Title"] = "COMBAT AI";
+            StringsEN["UI_CombatAI_Tab"] = "Combat AI";
             StringsEN["UI_Berserk"] = "Berserk";
             StringsEN["UI_ZerkHPFull"] = "Berserk When HP is Full";
             StringsEN["UI_ZerkMobCount"] = "Berserk When Surrounding Mobs >=";
@@ -266,7 +267,8 @@ namespace xBot.App
 
             // Combat AI & Training
             StringsTR["UI_Training"] = "Kasılma";
-            StringsTR["UI_CombatAI_Title"] = "SAVAŞ YAPAY ZEKASI (COMBAT AI)";
+            StringsTR["UI_CombatAI_Title"] = "Savaş Zekası (Combat AI)";
+            StringsTR["UI_CombatAI_Tab"] = "Savaş Zekası";
             StringsTR["UI_Berserk"] = "Berserk";
             StringsTR["UI_ZerkHPFull"] = "Can (HP) Tam Olduğunda Berserk Bas";
             StringsTR["UI_ZerkMobCount"] = "Etrafta Mob Sayısı Eşiği Geçince Berserk:";

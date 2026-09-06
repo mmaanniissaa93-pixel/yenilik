@@ -1963,10 +1963,10 @@ namespace xBot.App
 			Activate();
 			BringToFront();
 			// Check for updates
-			AutoUpdater.ReportErrors = true;
-			AutoUpdater.OpenDownloadPage = true;
-			AutoUpdater.CheckForUpdateEvent += new AutoUpdater.CheckForUpdateEventHandler(this.CheckUpdates_Completed);
-			AutoUpdater.Start("http://bit.ly/xBot-update-check");
+			AutoUpdater.ReportErrors = false;
+			AutoUpdater.OpenDownloadPage = false;
+			// AutoUpdater.CheckForUpdateEvent += new AutoUpdater.CheckForUpdateEventHandler(this.CheckUpdates_Completed);
+			// AutoUpdater.Start("http://bit.ly/xBot-update-check");
 		}
 		/// <summary>
 		/// Close all necessary to not leaving any background process.

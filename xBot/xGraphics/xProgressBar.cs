@@ -75,7 +75,16 @@ namespace xGraphics
 
 			Rectangle rect = base.ClientRectangle;
 			Graphics g = e.Graphics;
-			ProgressBarRenderer.DrawHorizontalBar(g, rect);
+
+			// Sleek modern dark track
+			using (SolidBrush trackBrush = new SolidBrush(Color.FromArgb(24, 28, 38)))
+			{
+				g.FillRectangle(trackBrush, rect);
+			}
+			using (Pen borderPen = new Pen(Color.FromArgb(45, 51, 69), 1f))
+			{
+				g.DrawRectangle(borderPen, rect.X, rect.Y, Math.Max(0, rect.Width - 1), Math.Max(0, rect.Height - 1));
+			}
 
 			rect.Inflate(-2, -2);
 			if (Value != 0 && ValueMaximum > 0 && rect.Width > 0 && rect.Height > 0)
@@ -85,27 +94,10 @@ namespace xGraphics
 				int xf = Math.Max(x0, Math.Min(rect.Right, x0 + fillWidth));
 				if (xf > x0)
 				{
-					int _r = FillColor.Color.R;
-					int _g = FillColor.Color.G;
-					int _b = FillColor.Color.B;
-					for (int y = rect.Y; y < rect.Bottom; y++)
+					Rectangle fillRect = new Rectangle(x0, rect.Y, xf - x0, rect.Height);
+					using (SolidBrush barBrush = new SolidBrush(BackColor))
 					{
-						using (Pen p = new Pen(Color.FromArgb(_r, _g, _b)))
-						{
-							g.DrawLine(p, x0, y, xf, y);
-						}
-						if (_r + BackColorDegradationLevel < 256)
-						{
-							_r += BackColorDegradationLevel;
-						}
-						if (_g + BackColorDegradationLevel < 256)
-						{
-							_g += BackColorDegradationLevel;
-						}
-						if (_b + BackColorDegradationLevel < 256)
-						{
-							_b += BackColorDegradationLevel;
-						}
+						g.FillRectangle(barBrush, fillRect);
 					}
 				}
 			}
@@ -113,17 +105,14 @@ namespace xGraphics
 			SizeF len = g.MeasureString(text, Font);
 			int px = Convert.ToInt32((base.Width / 2) - len.Width / 2f);
 			int py = Convert.ToInt32((base.Height / 2) - len.Height / 2f);
-			if (TextShadowBrush.Color != TextColorBrush.Color)
+			using (SolidBrush shadowBrush = new SolidBrush(Color.FromArgb(160, 0, 0, 0)))
 			{
-				for (int j = -1; j <= 1; j++)
-				{
-					for (int i = -1; i <= 1; i++)
-					{
-						g.DrawString(text, Font, TextShadowBrush, px + j, py + i);
-					}
-				}
+				g.DrawString(text, Font, shadowBrush, px + 1, py + 1);
 			}
-			g.DrawString(text, Font, TextColorBrush, px, py);
+			using (SolidBrush textBrush = new SolidBrush(Color.White))
+			{
+				g.DrawString(text, Font, textBrush, px, py);
+			}
 		}
 		private string GetDisplayText()
 		{

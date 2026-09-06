@@ -390,8 +390,8 @@ namespace xBot.App
                 ToolTips.SetToolTip(cbxGeneralStayConnected, "İstemci aniden çökerse sunucu bağlantısını koparmadan Clientless moda geçer");
 
             lblGeneralCharStrategy = new Label { Text = LocalizationManager.Get("UI_CharSelectStrategy", "Karakter Seçim Stratejisi:"), Location = new Point(16, 178), AutoSize = true, ForeColor = Theme.DarkTheme.TextMuted };
-            rbnGeneralFirstFound = new RadioButton { Text = LocalizationManager.Get("UI_CharFirstFound", "1. Karakter"), Location = new Point(210, 176), AutoSize = true, Checked = (LoginStrategyManager.Strategy == CharacterSelectionStrategy.FirstFound), ForeColor = Theme.DarkTheme.TextPrimary };
-            rbnGeneralHighestLevel = new RadioButton { Text = LocalizationManager.Get("UI_CharHighestLevel", "En Yüksek Seviyeli Karakter"), Location = new Point(340, 176), AutoSize = true, Checked = (LoginStrategyManager.Strategy == CharacterSelectionStrategy.HighestLevel), ForeColor = Theme.DarkTheme.Warning };
+            rbnGeneralFirstFound = new RadioButton { Text = LocalizationManager.Get("UI_CharFirstFound", "1. Karakter"), Location = new Point(185, 176), AutoSize = true, Checked = (LoginStrategyManager.Strategy == CharacterSelectionStrategy.FirstFound), ForeColor = Theme.DarkTheme.TextPrimary };
+            rbnGeneralHighestLevel = new RadioButton { Text = LocalizationManager.Get("UI_CharHighestLevel", "En Yüksek Seviyeli Karakter"), Location = new Point(365, 176), AutoSize = true, Checked = (LoginStrategyManager.Strategy == CharacterSelectionStrategy.HighestLevel), ForeColor = Theme.DarkTheme.Warning };
 
             rbnGeneralFirstFound.CheckedChanged += (s, e) => { if (rbnGeneralFirstFound.Checked) { LoginStrategyManager.Strategy = CharacterSelectionStrategy.FirstFound; Settings.SaveBotSettings(); } };
             rbnGeneralHighestLevel.CheckedChanged += (s, e) => { if (rbnGeneralHighestLevel.Checked) { LoginStrategyManager.Strategy = CharacterSelectionStrategy.HighestLevel; Settings.SaveBotSettings(); } };
@@ -525,8 +525,8 @@ namespace xBot.App
 
             // Row 4: Character Selection Strategy
             if (lblGeneralCharStrategy != null) { lblGeneralCharStrategy.Location = new Point(16, 178); lblGeneralCharStrategy.AutoSize = true; }
-            if (rbnGeneralFirstFound != null) { rbnGeneralFirstFound.Location = new Point(210, 176); rbnGeneralFirstFound.AutoSize = true; }
-            if (rbnGeneralHighestLevel != null) { rbnGeneralHighestLevel.Location = new Point(340, 176); rbnGeneralHighestLevel.AutoSize = true; }
+            if (rbnGeneralFirstFound != null) { rbnGeneralFirstFound.Location = new Point(185, 176); rbnGeneralFirstFound.AutoSize = true; }
+            if (rbnGeneralHighestLevel != null) { rbnGeneralHighestLevel.Location = new Point(365, 176); rbnGeneralHighestLevel.AutoSize = true; }
 
             // Row 5: Strategy Info Box
             if (lblGeneralStrategyInfo != null)
@@ -800,7 +800,7 @@ namespace xBot.App
             btnAlchemyRefreshItems = new Button
             {
                 Name = "btnAlchemyRefreshItems",
-                Text = "🔄",
+                Text = "↻",
                 Location = new Point(314, 64),
                 Size = new Size(40, 24),
                 BackColor = Theme.DarkTheme.BgInput,
@@ -2275,13 +2275,6 @@ namespace xBot.App
             cbxProtectionStopInTown = CreateProtectionCheck("Şehirde botu durdur", new Point(165, 70), ProtectionManager.StopBotInTown, value => { ProtectionManager.StopBotInTown = value; Settings.SaveCharacterSettings(); });
             cbxProtectionDead = CreateProtectionCheck("Ölüm sonrası dön", new Point(165, 94), ProtectionManager.ReturnDeadWithDelay, value => { ProtectionManager.ReturnDeadWithDelay = value; Settings.SaveCharacterSettings(); });
 
-            cbxProtectionLowHP.Size = new Size(110, 20);
-            cbxProtectionLowMP.Size = new Size(110, 20);
-            cbxProtectionDurability.Size = new Size(90, 20);
-            cbxProtectionLevelUp.Size = new Size(130, 20);
-            cbxProtectionStopInTown.Size = new Size(130, 20);
-            cbxProtectionDead.Size = new Size(100, 20);
-
             nudProtectionHP = CreateProtectionNumber(new Point(125, 93), 0, 100, ProtectionManager.HPLowThreshold, value => { ProtectionManager.HPLowThreshold = value; Settings.SaveCharacterSettings(); });
             nudProtectionMP = CreateProtectionNumber(new Point(125, 117), 0, 100, ProtectionManager.MPLowThreshold, value => { ProtectionManager.MPLowThreshold = value; Settings.SaveCharacterSettings(); });
             nudProtectionDurability = CreateProtectionNumber(new Point(260, 21), 0, 100, ProtectionManager.DurabilityLowThreshold, value => { ProtectionManager.DurabilityLowThreshold = value; Settings.SaveCharacterSettings(); });
@@ -2364,8 +2357,7 @@ namespace xBot.App
             {
                 Text = text,
                 Location = location,
-                AutoSize = false,
-                Size = new Size(150, 20),
+                AutoSize = true,
                 Checked = isChecked,
                 ForeColor = Color.White
             };
@@ -2847,7 +2839,7 @@ namespace xBot.App
                     }
 
                     // Combat AI & Training
-                    if (btnTrainingCombat != null) btnTrainingCombat.Text = LocalizationManager.Get("UI_CombatAI_Title", "Combat AI");
+                    if (btnTrainingCombat != null) btnTrainingCombat.Text = LocalizationManager.Get("UI_CombatAI_Tab", "Combat AI");
                     if (Combat_gbxAI != null) Combat_gbxAI.Text = LocalizationManager.Get("UI_CombatAI_Title", "COMBAT AI");
                     if (cbxCombatZerkFullHP != null) cbxCombatZerkFullHP.Text = LocalizationManager.Get("UI_ZerkHPFull", "Berserk When HP is Full");
                     if (cbxCombatIgnorePillars != null) cbxCombatIgnorePillars.Text = LocalizationManager.Get("UI_IgnoreDimensionPillars", "Ignore Dimension Pillars");
