@@ -75,9 +75,11 @@ namespace xBot.App
 					foreach (ListViewItem opcode in w.Settings_lstvOpcodes.Items)
 						opcodes.Add(opcode.Text);
 
-					packetAnalyzer["Filter"] = opcodes;
-					packetAnalyzer["FilterOnlyShow"] = w.Settings_rbnPacketOnlyShow.Checked;
-					#endregion
+				packetAnalyzer["Filter"] = opcodes;
+				packetAnalyzer["FilterOnlyShow"] = w.Settings_rbnPacketOnlyShow.Checked;
+				packetAnalyzer["InjectMassive"] = w.Settings_cbxInjectMassive.Checked;
+				packetAnalyzer["InjectEncrypted"] = w.Settings_cbxInjectEncrypted.Checked;
+				#endregion
 
 					// File info
 					root["_xBot"] = "ProjexNET | Easy & Flexible. Design perfection!";
@@ -153,25 +155,25 @@ namespace xBot.App
 						item.Name = item.Text;
 
 						if (!server.ContainsKey("Locale"))
-							break;
+							continue;
 						ListViewItem.ListViewSubItem subitem = new ListViewItem.ListViewSubItem();
 						subitem.Tag = (byte)server["Locale"];
 						item.SubItems.Add(subitem);
 
 						if (!server.ContainsKey("Version"))
-							break;
+							continue;
 						subitem = new ListViewItem.ListViewSubItem();
 						subitem.Tag = (uint)server["Version"];
 						item.SubItems.Add(subitem);
 
 						if (!server.ContainsKey("Port"))
-							break;
+							continue;
 						subitem = new ListViewItem.ListViewSubItem();
 						subitem.Tag = (ushort)server["Port"];
 						item.SubItems.Add(subitem);
 
 						if (!server.ContainsKey("Gateways"))
-							break;
+							continue;
 						subitem = new ListViewItem.ListViewSubItem();
 						System.Collections.Generic.List<string> gws = new System.Collections.Generic.List<string>();
 						foreach (JToken gw in (JArray)server["Gateways"])
@@ -224,8 +226,12 @@ namespace xBot.App
 						w.Settings_lstvOpcodes.Items.Add(item);
 					}
 				}
-				w.Settings_rbnPacketOnlyShow.Checked = (bool)packetAnalyzer["FilterOnlyShow"];
-				#endregion
+			w.Settings_rbnPacketOnlyShow.Checked = (bool)packetAnalyzer["FilterOnlyShow"];
+			if (packetAnalyzer.ContainsKey("InjectMassive"))
+				w.Settings_cbxInjectMassive.Checked = (bool)packetAnalyzer["InjectMassive"];
+			if (packetAnalyzer.ContainsKey("InjectEncrypted"))
+				w.Settings_cbxInjectEncrypted.Checked = (bool)packetAnalyzer["InjectEncrypted"];
+			#endregion
 
 				// Custom managers
 				if (root.ContainsKey("LoginStrategy"))
@@ -394,6 +400,42 @@ namespace xBot.App
 							skills.Add(item.Text);
 						Attack["Event"] = skills;
 						Attack["WalkToCenter"] = w.Training_cbxWalkToCenter.Checked;
+
+						JObject Buff = new JObject();
+						Skills["Buff"] = Buff;
+
+						skills = new JArray();
+						foreach (ListViewItem item in w.Skills_lstvBuffMobType_General.Items)
+							skills.Add(item.Text);
+						Buff["General"] = skills;
+						skills = new JArray();
+						foreach (ListViewItem item in w.Skills_lstvBuffMobType_Champion.Items)
+							skills.Add(item.Text);
+						Buff["Champion"] = skills;
+						skills = new JArray();
+						foreach (ListViewItem item in w.Skills_lstvBuffMobType_Giant.Items)
+							skills.Add(item.Text);
+						Buff["Giant"] = skills;
+						skills = new JArray();
+						foreach (ListViewItem item in w.Skills_lstvBuffMobType_PartyGeneral.Items)
+							skills.Add(item.Text);
+						Buff["PartyGeneral"] = skills;
+						skills = new JArray();
+						foreach (ListViewItem item in w.Skills_lstvBuffMobType_PartyChampion.Items)
+							skills.Add(item.Text);
+						Buff["PartyChampion"] = skills;
+						skills = new JArray();
+						foreach (ListViewItem item in w.Skills_lstvBuffMobType_PartyGiant.Items)
+							skills.Add(item.Text);
+						Buff["PartyGiant"] = skills;
+						skills = new JArray();
+						foreach (ListViewItem item in w.Skills_lstvBuffMobType_Unique.Items)
+							skills.Add(item.Text);
+						Buff["Unique"] = skills;
+						skills = new JArray();
+						foreach (ListViewItem item in w.Skills_lstvBuffMobType_Elite.Items)
+							skills.Add(item.Text);
+						Buff["Elite"] = skills;
 					}
 					#endregion
 
@@ -424,16 +466,35 @@ namespace xBot.App
 					}
 					#endregion
 
-					#region (Stall Tab)
-					JObject Stall = new JObject();
-					root["Stall"] = Stall;
-					{
-						JObject Options = new JObject();
-						Stall["Options"] = Options;
-						Options["Title"] = w.Stall_tbxStallTitle.Text;
-						Options["Note"] = w.Stall_tbxStallNote.Text;
-					}
-					#endregion
+				#region (Stall Tab)
+				JObject Stall = new JObject();
+				root["Stall"] = Stall;
+				{
+					JObject Options = new JObject();
+					Stall["Options"] = Options;
+					Options["Title"] = w.Stall_tbxStallTitle.Text;
+					Options["Note"] = w.Stall_tbxStallNote.Text;
+					try { Options["Price"] = w.Stall_tbxPrice.Text; } catch { }
+				}
+				#endregion
+
+				#region (Town Tab)
+				JObject Town = new JObject();
+				root["Town"] = Town;
+				{
+					Town["EnableTownLoop"] = w.Town_cbxEnableTownLoop.Checked;
+					Town["Repair"] = w.Town_cbxRepair.Checked;
+					Town["Storage"] = w.Town_cbxStorage.Checked;
+					Town["SellTrash"] = w.Town_cbxSellTrash.Checked;
+					Town["ReturnNavMesh"] = w.Town_cbxReturnNavMesh.Checked;
+					Town["AutoBuy"] = w.Town_cbxAutoBuy.Checked;
+					try { Town["HpType"] = w.Town_cmbxHpType.Text; } catch { Town["HpType"] = ""; }
+					try { Town["HpAmount"] = w.Town_nudHpAmount.Value; } catch { Town["HpAmount"] = 150; }
+					try { Town["MpType"] = w.Town_cmbxMpType.Text; } catch { Town["MpType"] = ""; }
+					try { Town["MpAmount"] = w.Town_nudMpAmount.Value; } catch { Town["MpAmount"] = 150; }
+					Town["BuyPills"] = w.Town_cbxBuyPills.Checked;
+				}
+				#endregion
 
 					// Custom character managers
 					root["SkillManager"] = SkillManager.ToJson();
@@ -738,6 +799,136 @@ namespace xBot.App
 						}
 					}
 					w.Training_cbxWalkToCenter.Checked = Attack.ContainsKey("WalkToCenter") ? (bool)Attack["WalkToCenter"] : false;
+
+					JObject Buff = Skills.ContainsKey("Buff") ? (JObject)Skills["Buff"] : new JObject();
+					w.Skills_lstvBuffMobType_General.Items.Clear();
+					if (Buff.ContainsKey("General"))
+					{
+						foreach (JToken token in (JArray)Buff["General"])
+						{
+							string skillName = (string)token;
+							SRSkill skill = mySkills.Find(s => s.Name == skillName);
+							if (skill != null)
+							{
+								ListViewItem item = new ListViewItem(skillName);
+								item.Name = skill.ID.ToString();
+								item.Tag = skill;
+								w.Skills_lstvBuffMobType_General.Items.Add(item);
+							}
+						}
+					}
+					w.Skills_lstvBuffMobType_Champion.Items.Clear();
+					if (Buff.ContainsKey("Champion"))
+					{
+						foreach (JToken token in (JArray)Buff["Champion"])
+						{
+							string skillName = (string)token;
+							SRSkill skill = mySkills.Find(s => s.Name == skillName);
+							if (skill != null)
+							{
+								ListViewItem item = new ListViewItem(skillName);
+								item.Name = skill.ID.ToString();
+								item.Tag = skill;
+								w.Skills_lstvBuffMobType_Champion.Items.Add(item);
+							}
+						}
+					}
+					w.Skills_lstvBuffMobType_Giant.Items.Clear();
+					if (Buff.ContainsKey("Giant"))
+					{
+						foreach (JToken token in (JArray)Buff["Giant"])
+						{
+							string skillName = (string)token;
+							SRSkill skill = mySkills.Find(s => s.Name == skillName);
+							if (skill != null)
+							{
+								ListViewItem item = new ListViewItem(skillName);
+								item.Name = skill.ID.ToString();
+								item.Tag = skill;
+								w.Skills_lstvBuffMobType_Giant.Items.Add(item);
+							}
+						}
+					}
+					w.Skills_lstvBuffMobType_PartyGeneral.Items.Clear();
+					if (Buff.ContainsKey("PartyGeneral"))
+					{
+						foreach (JToken token in (JArray)Buff["PartyGeneral"])
+						{
+							string skillName = (string)token;
+							SRSkill skill = mySkills.Find(s => s.Name == skillName);
+							if (skill != null)
+							{
+								ListViewItem item = new ListViewItem(skillName);
+								item.Name = skill.ID.ToString();
+								item.Tag = skill;
+								w.Skills_lstvBuffMobType_PartyGeneral.Items.Add(item);
+							}
+						}
+					}
+					w.Skills_lstvBuffMobType_PartyChampion.Items.Clear();
+					if (Buff.ContainsKey("PartyChampion"))
+					{
+						foreach (JToken token in (JArray)Buff["PartyChampion"])
+						{
+							string skillName = (string)token;
+							SRSkill skill = mySkills.Find(s => s.Name == skillName);
+							if (skill != null)
+							{
+								ListViewItem item = new ListViewItem(skillName);
+								item.Name = skill.ID.ToString();
+								item.Tag = skill;
+								w.Skills_lstvBuffMobType_PartyChampion.Items.Add(item);
+							}
+						}
+					}
+					w.Skills_lstvBuffMobType_PartyGiant.Items.Clear();
+					if (Buff.ContainsKey("PartyGiant"))
+					{
+						foreach (JToken token in (JArray)Buff["PartyGiant"])
+						{
+							string skillName = (string)token;
+							SRSkill skill = mySkills.Find(s => s.Name == skillName);
+							if (skill != null)
+							{
+								ListViewItem item = new ListViewItem(skillName);
+								item.Name = skill.ID.ToString();
+								item.Tag = skill;
+								w.Skills_lstvBuffMobType_PartyGiant.Items.Add(item);
+							}
+						}
+					}
+					w.Skills_lstvBuffMobType_Unique.Items.Clear();
+					if (Buff.ContainsKey("Unique"))
+					{
+						foreach (JToken token in (JArray)Buff["Unique"])
+						{
+							string skillName = (string)token;
+							SRSkill skill = mySkills.Find(s => s.Name == skillName);
+							if (skill != null)
+							{
+								ListViewItem item = new ListViewItem(skillName);
+								item.Name = skill.ID.ToString();
+								item.Tag = skill;
+								w.Skills_lstvBuffMobType_Unique.Items.Add(item);
+							}
+						}
+					}
+					w.Skills_lstvBuffMobType_Elite.Items.Clear();
+					if (Buff.ContainsKey("Elite"))
+					{
+						foreach (JToken token in (JArray)Buff["Elite"])
+						{
+							string skillName = (string)token;
+							SRSkill skill = mySkills.Find(s => s.Name == skillName);
+							if (skill != null)
+							{
+								ListViewItem item = new ListViewItem(skillName);
+								item.Name = skill.ID.ToString();
+								item.Tag = skill;
+								w.Skills_lstvBuffMobType_Elite.Items.Add(item);
+							}
+						}
+					}
 				}
 				#endregion
 
@@ -786,14 +977,35 @@ namespace xBot.App
 				}
 				#endregion
 
-				#region (Stall Tab)
-				JObject Stall = root.ContainsKey("Stall") ? (JObject)root["Stall"] : new JObject();
+			#region (Stall Tab)
+			JObject Stall = root.ContainsKey("Stall") ? (JObject)root["Stall"] : new JObject();
+			{
+				JObject Options = Stall.ContainsKey("Options") ? (JObject)Stall["Options"] : new JObject();
+				w.Stall_tbxStallTitle.Text = Options.ContainsKey("Title") ? (string)Options["Title"] : "[xBot] The things I do for love..";
+				w.Stall_tbxStallNote.Text = Options.ContainsKey("Note") ? (string)Options["Note"] : "[xBot] Fear cuts deeper than swords..";
+				if (Options.ContainsKey("Price"))
 				{
-					JObject Options = Stall.ContainsKey("Options") ? (JObject)Stall["Options"] : new JObject();
-					w.Stall_tbxStallTitle.Text = Options.ContainsKey("Title") ? (string)Options["Title"] : "[xBot] The things I do for love..";
-					w.Stall_tbxStallNote.Text = Options.ContainsKey("Note") ? (string)Options["Note"] : "[xBot] Fear cuts deeper than swords..";
+					try { w.Stall_tbxPrice.Text = (string)Options["Price"]; } catch { }
 				}
-				#endregion
+			}
+			#endregion
+
+			#region (Town Tab)
+			JObject Town = root.ContainsKey("Town") ? (JObject)root["Town"] : new JObject();
+			{
+				if (Town.ContainsKey("EnableTownLoop")) w.Town_cbxEnableTownLoop.Checked = (bool)Town["EnableTownLoop"];
+				if (Town.ContainsKey("Repair")) w.Town_cbxRepair.Checked = (bool)Town["Repair"];
+				if (Town.ContainsKey("Storage")) w.Town_cbxStorage.Checked = (bool)Town["Storage"];
+				if (Town.ContainsKey("SellTrash")) w.Town_cbxSellTrash.Checked = (bool)Town["SellTrash"];
+				if (Town.ContainsKey("ReturnNavMesh")) w.Town_cbxReturnNavMesh.Checked = (bool)Town["ReturnNavMesh"];
+				if (Town.ContainsKey("AutoBuy")) w.Town_cbxAutoBuy.Checked = (bool)Town["AutoBuy"];
+				if (Town.ContainsKey("HpType")) { try { w.Town_cmbxHpType.Text = (string)Town["HpType"]; } catch { } }
+				if (Town.ContainsKey("HpAmount")) { try { w.Town_nudHpAmount.Value = System.Convert.ToDecimal(Town["HpAmount"]); } catch { } }
+				if (Town.ContainsKey("MpType")) { try { w.Town_cmbxMpType.Text = (string)Town["MpType"]; } catch { } }
+				if (Town.ContainsKey("MpAmount")) { try { w.Town_nudMpAmount.Value = System.Convert.ToDecimal(Town["MpAmount"]); } catch { } }
+				if (Town.ContainsKey("BuyPills")) w.Town_cbxBuyPills.Checked = (bool)Town["BuyPills"];
+			}
+			#endregion
 
 				// Custom character managers
 				if (root.ContainsKey("SkillManager"))

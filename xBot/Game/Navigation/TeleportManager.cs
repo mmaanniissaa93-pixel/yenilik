@@ -61,14 +61,19 @@ namespace xBot.Game.Navigation
 		{
 			try
 			{
-				// Check Database.sqlite3 in active data directory
-				string[] candidatePaths = new string[]
+				// Aktif Data dizinine göre relative çözümle, hardcoded dev yolu yok
+				var candidates = new System.Collections.Generic.List<string>();
+				string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+				string silk = Game.DataManager.SilkroadName;
+				if (!string.IsNullOrEmpty(silk))
 				{
-					Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "Silkroad #2", "Database.sqlite3"),
-					Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "Silkroad #1", "Database.sqlite3"),
-					Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "Database.sqlite3"),
-					@"C:\Users\auguu\Desktop\xBot-WinForms\xBot\bin\Debug\Data\Silkroad #2\Database.sqlite3"
-				};
+					candidates.Add(Path.Combine(baseDir, "Data", silk, "Database.sqlite3"));
+					candidates.Add(Path.Combine(Environment.CurrentDirectory, "Data", silk, "Database.sqlite3"));
+				}
+				candidates.Add(Path.Combine(baseDir, "Data", "Silkroad #2", "Database.sqlite3"));
+				candidates.Add(Path.Combine(baseDir, "Data", "Silkroad #1", "Database.sqlite3"));
+				candidates.Add(Path.Combine(baseDir, "Data", "Database.sqlite3"));
+				string[] candidatePaths = candidates.ToArray();
 
 				string dbPath = null;
 				foreach (string p in candidatePaths)

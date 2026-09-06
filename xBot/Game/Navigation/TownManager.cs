@@ -82,8 +82,20 @@ namespace xBot.Game.Navigation
 			// 5. Constantinople (Europe)
 			m_services.Add(new TownServiceInfo("Constantinople", TownServiceType.Blacksmith, 22680, "Eastern Europe Blacksmith", new SRCoord(-10220.0, 2550.0)));
 			m_services.Add(new TownServiceInfo("Constantinople", TownServiceType.Storage, 7497, "Constantinople Storage", new SRCoord(-10240.0, 2530.0)));
-			m_services.Add(new TownServiceInfo("Constantinople", TownServiceType.PotionMerchant, 7497, "Nun Retaldi", new SRCoord(-10210.0, 2540.0)));
+			m_services.Add(new TownServiceInfo("Constantinople", TownServiceType.PotionMerchant, 7496, "Nun Retaldi", new SRCoord(-10210.0, 2540.0)));
 			m_services.Add(new TownServiceInfo("Constantinople", TownServiceType.GroceryMerchant, 7498, "Constantinople Grocery", new SRCoord(-10230.0, 2545.0)));
+
+			// 6. Alexandria (Europe South)
+			m_services.Add(new TownServiceInfo("Alexandria", TownServiceType.Blacksmith, 22681, "Alexandria Blacksmith", new SRCoord(-10500.0, 2700.0)));
+			m_services.Add(new TownServiceInfo("Alexandria", TownServiceType.Storage, 7505, "Alexandria Storage", new SRCoord(-10520.0, 2680.0)));
+			m_services.Add(new TownServiceInfo("Alexandria", TownServiceType.PotionMerchant, 7506, "Alexandria Potion", new SRCoord(-10490.0, 2690.0)));
+			m_services.Add(new TownServiceInfo("Alexandria", TownServiceType.GroceryMerchant, 7507, "Alexandria Grocery", new SRCoord(-10510.0, 2695.0)));
+
+			// 7. Roc Mountain (China high level)
+			m_services.Add(new TownServiceInfo("Roc Mountain", TownServiceType.Blacksmith, 22682, "Roc Blacksmith", new SRCoord(1800.0, 900.0)));
+			m_services.Add(new TownServiceInfo("Roc Mountain", TownServiceType.Storage, 7510, "Roc Storage", new SRCoord(1820.0, 880.0)));
+			m_services.Add(new TownServiceInfo("Roc Mountain", TownServiceType.PotionMerchant, 7511, "Roc Potion", new SRCoord(1790.0, 890.0)));
+			m_services.Add(new TownServiceInfo("Roc Mountain", TownServiceType.GroceryMerchant, 7512, "Roc Grocery", new SRCoord(1810.0, 895.0)));
 		}
 
 		/// <summary>
@@ -110,7 +122,8 @@ namespace xBot.Game.Navigation
 				}
 			}
 
-			// If NPC is already spawned nearby, update with precise live coordinates
+			// If NPC is already spawned nearby, return a CLONE with precise live coordinates
+			// (paylaşılan TownServiceInfo'yu mutate etme - thread-unsafe drift yapar)
 			if (best != null)
 			{
 				SRNpc liveNpc = InfoManager.Npcs.Find(n => n.ID == best.NpcId ||
@@ -118,7 +131,8 @@ namespace xBot.Game.Navigation
 
 				if (liveNpc != null && liveNpc.Position != null)
 				{
-					best.Coord = liveNpc.Position;
+					return new TownServiceInfo(best.TownName, best.ServiceType, best.NpcId, best.NpcName,
+						new SRCoord(liveNpc.Position.PosX, liveNpc.Position.PosY, liveNpc.Position.Region, liveNpc.Position.Z));
 				}
 			}
 

@@ -206,7 +206,7 @@ namespace xBot.Network
 				}
 				if (PingHandler != null && PingHandler.IsAlive)
 				{
-					try { PingHandler.Abort(); } catch { }
+					try { PingHandler.Interrupt(); } catch { }
 				}
 				PingHandler = new Thread(ThreadPing);
 				PingHandler.IsBackground = true;
@@ -265,7 +265,7 @@ namespace xBot.Network
 									if (result == 1)
 									{
 										// Stop ping while switch
-										PingHandler.Abort();
+										try { if (PingHandler != null) PingHandler.Interrupt(); } catch { }
 
 										uint loginID = packet.ReadUInt();
 										string remoteAgentHost = packet.ReadAscii();
@@ -500,7 +500,7 @@ namespace xBot.Network
 				}
 				if (PingHandler != null && PingHandler.IsAlive)
 				{
-					try { PingHandler.Abort(); } catch { }
+					try { PingHandler.Interrupt(); } catch { }
 				}
 				PingHandler = new Thread(ThreadPing);
 				PingHandler.IsBackground = true;
@@ -708,34 +708,44 @@ namespace xBot.Network
 			int refCurrentAttempts = CurrentAttempts;
 			int refMaxAttempts = MaxAttempts;
 			ThreadProxyReconnection = (new Thread((ThreadStart)delegate {
-				while (true)
+				try
 				{
-					if (Seconds == 0)
+					while (true)
 					{
-						if(refCurrentAttempts < refMaxAttempts)
+						if (Seconds == 0)
 						{
-							Reset();
-							Start();
-							refCurrentAttempts++;
+							if(refCurrentAttempts < refMaxAttempts)
+							{
+								Reset();
+								Start();
+								refCurrentAttempts++;
+							}
+							return;
 						}
-						return;
+						Thread.Sleep(1000);
+						Seconds--;
 					}
-					Thread.Sleep(1000);
-					Seconds--;
 				}
+				catch (ThreadInterruptedException) { return; }
+				catch { return; }
 			}));
 			ThreadProxyReconnection.Start();
 		}
 		private void ProxyReconnectionStop()
 		{
 			if (ThreadProxyReconnection != null)
-				ThreadProxyReconnection.Abort();
+			{
+				try { ThreadProxyReconnection.Interrupt(); } catch { }
+				ThreadProxyReconnection = null;
+			}
 		}
 		private void ThreadPing()
 		{
 			while (isRunning)
 			{
-				Thread.Sleep(6666);
+				try { Thread.Sleep(6666); }
+				catch (ThreadInterruptedException) { return; }
+				catch { return; }
 				// Keep connection alive
 				if (Agent != null)
 				{
@@ -761,7 +771,7 @@ namespace xBot.Network
 		{
 			if (PingHandler != null && PingHandler.IsAlive && Agent == null)
 			{
-				try { PingHandler.Abort(); } catch { }
+				try { PingHandler.Interrupt(); } catch { }
 			}
 			if (Gateway != null)
 			{
@@ -809,7 +819,7 @@ namespace xBot.Network
 		{
 			isRunning = false;
 			if (PingHandler != null)
-				PingHandler.Abort();
+				try { PingHandler.Interrupt(); } catch { }
 			CloseClient();
 			CloseGateway();
 			CloseAgent();

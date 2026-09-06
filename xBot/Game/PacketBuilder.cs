@@ -1,4 +1,6 @@
 using SecurityAPI;
+using System;
+using System.Collections.Generic;
 using xBot.App;
 using xBot.Game.Objects;
 using xBot.Game.Objects.Common;
@@ -185,7 +187,7 @@ namespace xBot.Game
 		}
 		public static void SendChatGlobal(byte slotGlobal,SRItem item,string message)
 		{
-			Packet p = new Packet(Agent.Opcode.CLIENT_INVENTORY_ITEM_USE);
+			Packet p = new Packet(Agent.Opcode.CLIENT_INVENTORY_ITEM_USE, true);
 			p.WriteByte(slotGlobal);
 			p.WriteUShort(item.GetUsageType());
 			p.WriteAscii(message);
@@ -370,14 +372,74 @@ namespace xBot.Game
 			p.WriteUInt(uniqueID);
 			Bot.Get.Proxy.Agent.InjectToServer(p);
 		}
-		public static void UseItem(SRItem item,byte slot,uint uniqueID = 0)
+		private static readonly Dictionary<uint, ushort> s_learnedUsage = new Dictionary<uint, ushort>();
+		private static readonly object s_learnedUsageLock = new object();
+		/// <summary>
+		/// Gercek clientin 0x704C paketinden itemID->usage ogren (Sevar gibi custom
+		/// TID'li serverlarda botun DB'den hesapladigi usage tutmayabilir).
+		/// </summary>
+		public static void LearnItemUsage(uint itemId, ushort usage)
 		{
-			Packet p = new Packet(Agent.Opcode.CLIENT_INVENTORY_ITEM_USE);
-			p.WriteByte(slot);
-			p.WriteUShort(item.GetUsageType());
-			if (uniqueID != 0)
-				p.WriteUInt(uniqueID);
-			Bot.Get.Proxy.Agent.InjectToServer(p);
+			if (itemId == 0) return;
+			lock (s_learnedUsageLock)
+			{
+				ushort prev;
+				if (!s_learnedUsage.TryGetValue(itemId, out prev) || prev != usage)
+				{
+					s_learnedUsage[itemId] = usage;
+					Window.Get?.Log($"[Item] Ogrenildi: itemId={itemId} usage=0x{usage:X4} (client kaynagli)");
+				}
+			}
+		}
+		private static ushort ResolveUsage(uint itemId, ushort computed)
+		{
+			if (itemId == 0) return computed;
+			lock (s_learnedUsageLock)
+			{
+				ushort learned;
+				if (s_learnedUsage.TryGetValue(itemId, out learned) && learned != computed)
+					return learned;
+				return computed;
+			}
+		}
+		public static bool UseItem(SRItem item,byte slot,uint uniqueID = 0)
+		{
+			try
+			{
+				var chr = InfoManager.Character;
+				if (chr == null || chr.Inventory == null || slot >= chr.Inventory.Capacity)
+					return false;
+				SRItem cur = chr.Inventory[slot];
+				// Timer ile paket arasinda envanter degismis olabilir (loot/siralama);
+				// yanlis slotu kullanmak serverda reject + DC'ye yol acar.
+				if (cur == null || (item != null && cur.ID != item.ID))
+				{
+					Window.Get?.LogProcess($"[Item] Slot {slot} senkron disi, kullanim atlandi.");
+					return false;
+				}
+				if (!cur.isEquipable() && cur.Quantity == 0)
+					return false;
+				// Giris sonrasi ilk saniyelerde server item kullanimini reddedip
+				// baglantiyi kesebiliyor (Sevar 0x1889); spawn penceresinde bekle.
+				if ((DateTime.UtcNow - InfoManager.JoinedGameUtc).TotalSeconds < 15)
+				{
+					Window.Get?.LogProcess("[Item] Giris sonrasi bekleme (15sn), kullanim atlandi.");
+					return false;
+				}
+				if (!Bot.Get.CheckUseItemThrottle(slot))
+					return false;
+				ushort usage = ResolveUsage(cur.ID, item != null ? item.GetUsageType() : cur.GetUsageType());
+				Packet p = new Packet(Agent.Opcode.CLIENT_INVENTORY_ITEM_USE, true);
+				p.WriteByte(slot);
+				p.WriteUShort(usage);
+				if (uniqueID != 0)
+					p.WriteUInt(uniqueID);
+				Bot.Get.Proxy.Agent.InjectToServer(p);
+				Bot.Get.MarkUseItemSent(slot, cur.ID);
+				Window.Get?.Log($"[Item] Kullanildi: [{cur.Name}] slot={slot} adet={cur.Quantity} ({Packet.ToStringHexadecimal(p.GetBytes())})" + (uniqueID != 0 ? " hedef=" + uniqueID : ""));
+				return true;
+			}
+			catch { return false; }
 		}
 		public static void MoveItem(byte slotInitial,byte slotFinal, SRTypes.InventoryItemMovement type,ushort quantity = 0)
 		{

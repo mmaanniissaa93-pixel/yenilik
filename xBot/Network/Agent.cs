@@ -219,6 +219,8 @@ namespace xBot.Network
 			// Setup cycle : (Client < > Proxy < > Server)
 			Remote.RelaySecurity = Local.Security; // Client < Proxy < Server
 			Local.RelaySecurity = Remote.Security; // Client > Proxy > Server
+			Remote.Security.AddEncryptedOpcode(Opcode.CLIENT_INVENTORY_ITEM_USE);
+			Local.Security.AddEncryptedOpcode(Opcode.CLIENT_INVENTORY_ITEM_USE);
 																						 
 			IgnoreOpcodeClient = new List<ushort>(); // ignore list
 			IgnoreOpcodeClient.Add(Opcode.GLOBAL_HANDSHAKE);
@@ -311,6 +313,24 @@ namespace xBot.Network
 							Window w = Window.Get;
 							w.LogChatMessage(w.Chat_rtbxPrivate, packet.ReadAscii() + "(To)", packet.ReadAscii());
 						}
+					}
+					break;
+				case Opcode.CLIENT_INVENTORY_ITEM_USE:
+					{
+						// Gercek clientin gonderdigi kullanim: slot+usage ogren (Sevar custom TID uyumu)
+						// + bot timer/blackout senkronu (cooldown yarisini engelle). Relay bozulmaz.
+						try
+						{
+							byte[] rawUse = packet.GetBytes();
+							if (rawUse != null && rawUse.Length >= 3)
+							{
+								byte useSlot = rawUse[0];
+								ushort useUsage = (ushort)(rawUse[1] | (rawUse[2] << 8));
+								Bot.Get.NotifyExternalItemUse(useSlot, useUsage);
+								Window.Get?.Log($"[Item] Client kullanimi: slot={useSlot} ({Packet.ToStringHexadecimal(rawUse)}) ({rawUse.Length}B)");
+							}
+						}
+						catch { }
 					}
 					break;
 				case Opcode.CLIENT_CHARACTER_ACTION_REQUEST:
@@ -702,14 +722,10 @@ namespace xBot.Network
 		/// <param name="delay">Delay in miliseconds to be executed in other thread</param>
 		public void InjectToServer(Packet p, int delay = 0)
 		{
-			byte[] bytes = p.GetBytes();
-			string hexPreview = Utility.HexDump(bytes).Replace("\r", "").Replace("\n", " ").Trim();
-			if (hexPreview.Length > 80) hexPreview = hexPreview.Substring(0, 80) + "...";
-			ModernLogger.TracePacket("Bot->Server", p.Opcode, bytes.Length, hexPreview);
-			if(delay > 0)
+			if (delay > 0)
 			{
-				Thread delayedSend = new Thread((ThreadStart)delegate{
-					Thread.Sleep(delay);
+				System.Threading.ThreadPool.QueueUserWorkItem(delegate {
+					System.Threading.Thread.Sleep(delay);
 					try
 					{
 						if (Remote != null && Remote.Socket != null && Remote.Socket.Connected)
@@ -720,13 +736,13 @@ namespace xBot.Network
 						App.Window.Get?.Log($"[Delayed packet warning] {ex.Message}");
 					}
 				});
-				delayedSend.IsBackground = true;
-				delayedSend.Start();
+				return;
 			}
-			else
-			{
-				Remote.Security.Send(p);
-			}
+			byte[] bytes = p.GetBytes();
+			string hexPreview = Utility.HexDump(bytes).Replace("\r", "").Replace("\n", " ").Trim();
+			if (hexPreview.Length > 80) hexPreview = hexPreview.Substring(0, 80) + "...";
+			ModernLogger.TracePacket("Bot->Server", p.Opcode, bytes.Length, hexPreview);
+			Remote.Security.Send(p);
 		}
 		public void InjectToClient(Packet p)
 		{

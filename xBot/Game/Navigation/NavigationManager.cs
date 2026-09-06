@@ -52,13 +52,13 @@ namespace xBot.Game.Navigation
 			if (m_initialized)
 				return;
 
-			// Check potential paths for navdata
+			// Check potential paths for navdata (relative first, no hardcoded dev paths)
 			string[] candidateDirs = new string[]
 			{
 				Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "navdata"),
 				Path.Combine(Environment.CurrentDirectory, "navdata"),
-				@"C:\Users\auguu\Desktop\xBot-WinForms\navdata",
-				@"C:\Users\auguu\Desktop\navdata"
+				Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "navdata"),
+				Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "navdata")
 			};
 
 			foreach (string dir in candidateDirs)
@@ -235,10 +235,12 @@ namespace xBot.Game.Navigation
 			NavRegion loaded = NavDataReader.Read(entry.FilePath, entry.RegionId);
 			if (loaded != null)
 			{
-				// Keep cache small (max 5 regions in memory to save RAM)
-				if (m_cache.Count > 5)
+				// LRU: en eski ekleneni at, tamamını Clear() ile atma (ping-pong rotada disk+zlib cezası olur)
+				if (m_cache.Count >= 5)
 				{
-					m_cache.Clear();
+					int oldest = -1;
+					foreach (var k in m_cache.Keys) { oldest = k; break; }
+					if (oldest != -1) m_cache.Remove(oldest);
 				}
 				m_cache[entry.RegionId] = loaded;
 			}

@@ -7250,6 +7250,7 @@ namespace xBot.App
             this.ToolTips.SetToolTip(this.Skills_btnAddBuff, "Add buffing skill");
             this.Skills_btnAddBuff.UseCompatibleTextRendering = true;
             this.Skills_btnAddBuff.UseVisualStyleBackColor = false;
+            this.Skills_btnAddBuff.Click += new System.EventHandler(this.Control_Click);
             // 
             // Skills_btnRemBuff
             // 
@@ -7270,6 +7271,7 @@ namespace xBot.App
             this.ToolTips.SetToolTip(this.Skills_btnRemBuff, "Remove buffing skill");
             this.Skills_btnRemBuff.UseCompatibleTextRendering = true;
             this.Skills_btnRemBuff.UseVisualStyleBackColor = false;
+            this.Skills_btnRemBuff.Click += new System.EventHandler(this.Control_Click);
             // 
             // Skills_cmbxBuffMobType
             // 
@@ -7320,6 +7322,8 @@ namespace xBot.App
             this.Skills_lstvBuffMobType_General.TileSize = new System.Drawing.Size(201, 30);
             this.Skills_lstvBuffMobType_General.UseCompatibleStateImageBehavior = false;
             this.Skills_lstvBuffMobType_General.View = System.Windows.Forms.View.Details;
+            this.Skills_lstvBuffMobType_General.DragItemAdding += new System.EventHandler<xGraphics.xListView.DragItemEventArgs>(this.xListView_DragItemAdding_BuffSkill);
+            this.Skills_lstvBuffMobType_General.DragItemsChanged += new System.EventHandler(this.xListView_DragItemsChanged);
             this.Skills_lstvBuffMobType_General.Visible = false;
             // 
             // columnHeader65
@@ -7352,6 +7356,8 @@ namespace xBot.App
             this.Skills_lstvBuffMobType_Champion.TileSize = new System.Drawing.Size(201, 30);
             this.Skills_lstvBuffMobType_Champion.UseCompatibleStateImageBehavior = false;
             this.Skills_lstvBuffMobType_Champion.View = System.Windows.Forms.View.Details;
+            this.Skills_lstvBuffMobType_Champion.DragItemAdding += new System.EventHandler<xGraphics.xListView.DragItemEventArgs>(this.xListView_DragItemAdding_BuffSkill);
+            this.Skills_lstvBuffMobType_Champion.DragItemsChanged += new System.EventHandler(this.xListView_DragItemsChanged);
             this.Skills_lstvBuffMobType_Champion.Visible = false;
             // 
             // columnHeader66
@@ -7384,6 +7390,8 @@ namespace xBot.App
             this.Skills_lstvBuffMobType_Giant.TileSize = new System.Drawing.Size(201, 30);
             this.Skills_lstvBuffMobType_Giant.UseCompatibleStateImageBehavior = false;
             this.Skills_lstvBuffMobType_Giant.View = System.Windows.Forms.View.Details;
+            this.Skills_lstvBuffMobType_Giant.DragItemAdding += new System.EventHandler<xGraphics.xListView.DragItemEventArgs>(this.xListView_DragItemAdding_BuffSkill);
+            this.Skills_lstvBuffMobType_Giant.DragItemsChanged += new System.EventHandler(this.xListView_DragItemsChanged);
             this.Skills_lstvBuffMobType_Giant.Visible = false;
             // 
             // columnHeader67
@@ -7416,6 +7424,8 @@ namespace xBot.App
             this.Skills_lstvBuffMobType_PartyGeneral.TileSize = new System.Drawing.Size(201, 30);
             this.Skills_lstvBuffMobType_PartyGeneral.UseCompatibleStateImageBehavior = false;
             this.Skills_lstvBuffMobType_PartyGeneral.View = System.Windows.Forms.View.Details;
+            this.Skills_lstvBuffMobType_PartyGeneral.DragItemAdding += new System.EventHandler<xGraphics.xListView.DragItemEventArgs>(this.xListView_DragItemAdding_BuffSkill);
+            this.Skills_lstvBuffMobType_PartyGeneral.DragItemsChanged += new System.EventHandler(this.xListView_DragItemsChanged);
             this.Skills_lstvBuffMobType_PartyGeneral.Visible = false;
             // 
             // columnHeader68
@@ -7448,6 +7458,8 @@ namespace xBot.App
             this.Skills_lstvBuffMobType_PartyChampion.TileSize = new System.Drawing.Size(201, 30);
             this.Skills_lstvBuffMobType_PartyChampion.UseCompatibleStateImageBehavior = false;
             this.Skills_lstvBuffMobType_PartyChampion.View = System.Windows.Forms.View.Details;
+            this.Skills_lstvBuffMobType_PartyChampion.DragItemAdding += new System.EventHandler<xGraphics.xListView.DragItemEventArgs>(this.xListView_DragItemAdding_BuffSkill);
+            this.Skills_lstvBuffMobType_PartyChampion.DragItemsChanged += new System.EventHandler(this.xListView_DragItemsChanged);
             this.Skills_lstvBuffMobType_PartyChampion.Visible = false;
             // 
             // columnHeader69
@@ -7479,6 +7491,8 @@ namespace xBot.App
             this.Skills_lstvBuffMobType_PartyGiant.TileSize = new System.Drawing.Size(201, 30);
             this.Skills_lstvBuffMobType_PartyGiant.UseCompatibleStateImageBehavior = false;
             this.Skills_lstvBuffMobType_PartyGiant.View = System.Windows.Forms.View.Details;
+            this.Skills_lstvBuffMobType_PartyGiant.DragItemAdding += new System.EventHandler<xGraphics.xListView.DragItemEventArgs>(this.xListView_DragItemAdding_BuffSkill);
+            this.Skills_lstvBuffMobType_PartyGiant.DragItemsChanged += new System.EventHandler(this.xListView_DragItemsChanged);
             this.Skills_lstvBuffMobType_PartyGiant.Visible = false;
             // 
             // columnHeader70
@@ -7511,6 +7525,8 @@ namespace xBot.App
             this.Skills_lstvBuffMobType_Unique.TileSize = new System.Drawing.Size(201, 30);
             this.Skills_lstvBuffMobType_Unique.UseCompatibleStateImageBehavior = false;
             this.Skills_lstvBuffMobType_Unique.View = System.Windows.Forms.View.Details;
+            this.Skills_lstvBuffMobType_Unique.DragItemAdding += new System.EventHandler<xGraphics.xListView.DragItemEventArgs>(this.xListView_DragItemAdding_BuffSkill);
+            this.Skills_lstvBuffMobType_Unique.DragItemsChanged += new System.EventHandler(this.xListView_DragItemsChanged);
             this.Skills_lstvBuffMobType_Unique.Visible = false;
             // 
             // columnHeader71
@@ -7543,6 +7559,8 @@ namespace xBot.App
             this.Skills_lstvBuffMobType_Elite.TileSize = new System.Drawing.Size(201, 30);
             this.Skills_lstvBuffMobType_Elite.UseCompatibleStateImageBehavior = false;
             this.Skills_lstvBuffMobType_Elite.View = System.Windows.Forms.View.Details;
+            this.Skills_lstvBuffMobType_Elite.DragItemAdding += new System.EventHandler<xGraphics.xListView.DragItemEventArgs>(this.xListView_DragItemAdding_BuffSkill);
+            this.Skills_lstvBuffMobType_Elite.DragItemsChanged += new System.EventHandler(this.xListView_DragItemsChanged);
             this.Skills_lstvBuffMobType_Elite.Visible = false;
             // 
             // columnHeader72
@@ -11161,9 +11179,9 @@ namespace xBot.App
 
 		private TextBox Settings_tbxInjectData;
 
-		private CheckBox Settings_cbxInjectMassive;
+		public CheckBox Settings_cbxInjectMassive;
 
-		private CheckBox Settings_cbxInjectEncrypted;
+		public CheckBox Settings_cbxInjectEncrypted;
 
 		private ColumnHeader columnHeader10;
 

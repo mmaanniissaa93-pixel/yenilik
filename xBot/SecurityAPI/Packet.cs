@@ -511,7 +511,7 @@ namespace SecurityAPI
 				{
 					ushort length = m_reader.ReadUInt16();
 					byte[] bytes = m_reader.ReadBytes(length);
-					values[x] = Encoding.UTF7.GetString(bytes);
+					values[x] = Encoding.GetEncoding(codepage).GetString(bytes);
 				}
 				return values;
 			}
@@ -686,9 +686,8 @@ namespace SecurityAPI
 					throw new Exception("Cannot Write to a locked Packet.");
 				}
 
-				byte[] codepage_bytes = Encoding.GetEncoding(codepage).GetBytes(value);
-				string utf7_value = Encoding.UTF7.GetString(codepage_bytes);
-				byte[] bytes = Encoding.Default.GetBytes(utf7_value);
+				if (value == null) value = "";
+				byte[] bytes = Encoding.GetEncoding(codepage).GetBytes(value);
 
 				m_writer.Write((ushort)bytes.Length);
 				m_writer.Write(bytes);
@@ -832,9 +831,8 @@ namespace SecurityAPI
 					throw new Exception("Cannot Write to a locked Packet.");
 				}
 
-				byte[] codepage_bytes = Encoding.GetEncoding(code_page).GetBytes(value.ToString());
-				string utf7_value = Encoding.UTF7.GetString(codepage_bytes);
-				byte[] bytes = Encoding.Default.GetBytes(utf7_value);
+				string s = value == null ? "" : value.ToString();
+				byte[] bytes = Encoding.GetEncoding(code_page).GetBytes(s);
 
 				m_writer.Write((ushort)bytes.Length);
 				m_writer.Write(bytes);
@@ -858,11 +856,14 @@ namespace SecurityAPI
 
 		public void WriteByteArray(byte[] values)
 		{
-			if (m_locked)
+			lock (m_lock)
 			{
-				throw new Exception("Cannot Write to a locked Packet.");
+				if (m_locked)
+				{
+					throw new Exception("Cannot Write to a locked Packet.");
+				}
+				m_writer.Write(values);
 			}
-			m_writer.Write(values);
 		}
 		public void WriteUInt8Array(byte[] values, int index, int count)
 		{

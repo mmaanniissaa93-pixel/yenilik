@@ -20,6 +20,7 @@ namespace xBot.App
         /// </summary>
         Thread tBotting;
         Script currentScript;
+        private volatile bool m_stopBottingRequested;
 
         #region (Handle everything about botting)
         /// <summary>
@@ -29,8 +30,10 @@ namespace xBot.App
         {
             if (InfoManager.inGame && !isBotting)
             {
+                m_stopBottingRequested = false;
                 tBotting = new Thread(this.ThreadBotting);
-                tBotting.Priority = ThreadPriority.AboveNormal;
+                tBotting.IsBackground = true;
+                tBotting.Priority = ThreadPriority.Normal;
                 tBotting.Start();
                 // ...
                 Window w = Window.Get;
@@ -49,7 +52,7 @@ namespace xBot.App
         {
             if (isBotting)
             {
-                tBotting.Abort();
+                m_stopBottingRequested = true;
                 tBotting = null;
                 // ...
                 Window w = Window.Get;
@@ -81,7 +84,7 @@ namespace xBot.App
             // 1.3.2 Use return scroll
 
             Window w = Window.Get;
-            while (true)
+            while (!m_stopBottingRequested && tBotting != null)
             {
                 // Checking where am I ?
                 w.LogProcess("Checking current location...");

@@ -231,26 +231,26 @@ namespace SecurityAPI
         #endregion
 
         #region Random
-        static Random random = new Random();
+        static System.Security.Cryptography.RNGCryptoServiceProvider rng = new System.Security.Cryptography.RNGCryptoServiceProvider();
 
         static UInt64 NextUInt64()
         {
             var buffer = new byte[sizeof(UInt64)];
-            random.NextBytes(buffer);
+            rng.GetBytes(buffer);
             return BitConverter.ToUInt64(buffer, 0);
         }
 
         static UInt32 NextUInt32()
         {
             var buffer = new byte[sizeof(UInt32)];
-            random.NextBytes(buffer);
+            rng.GetBytes(buffer);
             return BitConverter.ToUInt32(buffer, 0);
         }
 
         static UInt16 NextUInt16()
         {
             var buffer = new byte[sizeof(UInt16)];
-            random.NextBytes(buffer);
+            rng.GetBytes(buffer);
             return BitConverter.ToUInt16(buffer, 0);
         }
 
@@ -881,6 +881,7 @@ namespace SecurityAPI
             m_enc_opcodes.Add(0x6102);
             m_enc_opcodes.Add(0x6103);
             m_enc_opcodes.Add(0x6107);
+            m_enc_opcodes.Add(0x704C); // CLIENT_INVENTORY_ITEM_USE
 
             m_blowfish = new Blowfish();
 

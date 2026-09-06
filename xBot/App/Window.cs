@@ -354,17 +354,28 @@ namespace xBot.App
 			});
 		}
 		/// <summary>
-		/// Add an skill (learned) to the skill list
+		/// Add an skill (learned) to the skill list. Pasif (kullanilamayan) skill'ler
+		/// listeye alinmaz; liste isme gore sirali tutulur.
 		/// </summary>
 		public void AddSkill(SRSkill Skill)
 		{
+			if (Skill == null)
+				return;
+			if (!Skill.isUsableSkill())
+				return;
 			ListViewItem item = new ListViewItem(Skill.Name);
 			item.Name = Skill.ID.ToString();
 			// Keep a whole reference, easier skill checks
 			item.Tag = Skill;
 			item.ImageKey = GetImageKeyIcon(Skill.Icon);
 			Skills_lstvSkills.InvokeIfRequired(() => {
-				Skills_lstvSkills.Items.Add(item);
+				if (Skills_lstvSkills.Items.ContainsKey(item.Name))
+					return;
+				int at = 0;
+				while (at < Skills_lstvSkills.Items.Count &&
+					string.Compare(Skills_lstvSkills.Items[at].Text, item.Text, StringComparison.OrdinalIgnoreCase) < 0)
+					at++;
+				Skills_lstvSkills.Items.Insert(at, item);
 			});
 		}
 		public void UpdateSkill(uint lastSkillID, SRSkill newSkill)
@@ -375,7 +386,15 @@ namespace xBot.App
 			// Invoke the TabPageV - contains all skill lists
 			Skills_lstvSkills.Parent.InvokeIfRequired(() => {
 				if ((temp = this.Skills_lstvSkills.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; }
+				{
+					temp.Name = newkey; temp.Tag = newSkill;
+					if (temp.Text != newSkill.Name)
+					{
+						// Isim degistiyse sirali konuma tekrar yerlestir
+						temp.Remove();
+						AddSkill(newSkill);
+					}
+				}
 				// An array of references cannot be possible.. Using the long way "copy & paste" code :(
 				if ((temp = this.Skills_lstvAttackMobType_General.Items[key]) != null)
 				{ temp.Name = newkey; temp.Tag = newSkill; }
@@ -395,6 +414,22 @@ namespace xBot.App
 				{ temp.Name = newkey; temp.Tag = newSkill; }
 				if ((temp = this.Skills_lstvAttackMobType_Event.Items[key]) != null)
 				{ temp.Name = newkey; temp.Tag = newSkill; }
+				if ((temp = this.Skills_lstvBuffMobType_General.Items[key]) != null)
+				{ temp.Name = newkey; temp.Tag = newSkill; }
+				if ((temp = this.Skills_lstvBuffMobType_Champion.Items[key]) != null)
+				{ temp.Name = newkey; temp.Tag = newSkill; }
+				if ((temp = this.Skills_lstvBuffMobType_Giant.Items[key]) != null)
+				{ temp.Name = newkey; temp.Tag = newSkill; }
+				if ((temp = this.Skills_lstvBuffMobType_PartyGeneral.Items[key]) != null)
+				{ temp.Name = newkey; temp.Tag = newSkill; }
+				if ((temp = this.Skills_lstvBuffMobType_PartyChampion.Items[key]) != null)
+				{ temp.Name = newkey; temp.Tag = newSkill; }
+				if ((temp = this.Skills_lstvBuffMobType_PartyGiant.Items[key]) != null)
+				{ temp.Name = newkey; temp.Tag = newSkill; }
+				if ((temp = this.Skills_lstvBuffMobType_Unique.Items[key]) != null)
+				{ temp.Name = newkey; temp.Tag = newSkill; }
+				if ((temp = this.Skills_lstvBuffMobType_Elite.Items[key]) != null)
+				{ temp.Name = newkey; temp.Tag = newSkill; }
 			});
 		}
 		public void RemoveSkill(uint SkillID)
@@ -413,6 +448,14 @@ namespace xBot.App
 				this.Skills_lstvAttackMobType_Unique.Items.RemoveByKey(key);
 				this.Skills_lstvAttackMobType_Elite.Items.RemoveByKey(key);
 				this.Skills_lstvAttackMobType_Event.Items.RemoveByKey(key);
+				this.Skills_lstvBuffMobType_General.Items.RemoveByKey(key);
+				this.Skills_lstvBuffMobType_Champion.Items.RemoveByKey(key);
+				this.Skills_lstvBuffMobType_Giant.Items.RemoveByKey(key);
+				this.Skills_lstvBuffMobType_PartyGeneral.Items.RemoveByKey(key);
+				this.Skills_lstvBuffMobType_PartyChampion.Items.RemoveByKey(key);
+				this.Skills_lstvBuffMobType_PartyGiant.Items.RemoveByKey(key);
+				this.Skills_lstvBuffMobType_Unique.Items.RemoveByKey(key);
+				this.Skills_lstvBuffMobType_Elite.Items.RemoveByKey(key);
 			});
 			Skills_lstvSkills.InvokeIfRequired(() => {
 				Skills_lstvSkills.Items.RemoveByKey(key);
@@ -1935,7 +1978,7 @@ namespace xBot.App
 			if (Bot.Get.Proxy != null && Bot.Get.Proxy.isRunning)
 				Bot.Get.Proxy.Stop();
 			if(tAdsWindow != null && tAdsWindow.ThreadState == System.Threading.ThreadState.Running)
-				tAdsWindow.Abort();
+				try { tAdsWindow.Interrupt(); } catch { }
 		}
 		/// <summary>
 		/// Updates checked.
@@ -1994,7 +2037,7 @@ namespace xBot.App
 							// Check if database has been generated previously
 							if (!DataManager.ConnectToDatabase(Login_cmbxSilkroad.Text))
 							{
-								MessageBox.Show(this, "The database \"" + Login_cmbxSilkroad.Text + "\" needs to be created.", "xBot", MessageBoxButtons.OK);
+								MessageBox.Show(this, "Veritabanı bulunamadı/eksik: \"" + Login_cmbxSilkroad.Text + "\".\n\nAyarlar > PK2 Extractor ile Media.pk2'den Database üret (items/skills/models tabloları şart).\nDB olmadan item/skill/mob listeleri boş gelir.", "xBot", MessageBoxButtons.OK);
 								TabPageV_Option_Click(TabPageV_Control01_Settings, null);
 								TabPageH_Option_Click(TabPageH_Settings_Option01, null);
 								return;
@@ -2310,23 +2353,79 @@ namespace xBot.App
 					{
 						if (Skills_lstvSkills.SelectedItems.Count > 0) {
 							ListView lstvAttackMobType = (ListView)Skills_cmbxAttackMobType.Tag;
+							if (lstvAttackMobType == null) lstvAttackMobType = Skills_lstvAttackMobType_General;
 							bool itemUpdated = false;
 							foreach (ListViewItem item in Skills_lstvSkills.SelectedItems)
 							{
 								if (!lstvAttackMobType.Items.ContainsKey(item.Name))
 								{
 									SRSkill skill = (SRSkill)item.Tag;
-									// Check if is an attacking skill
-									if (skill.isAttackingSkill())
+									// DB eksikse (SKILL_UNKNOWN) siniflanamaz; eklemeye izin ver.
+									if (skill == null || skill.isAttackingSkill() || skill.IsDatabaseMissing())
 									{
 										ListViewItem copy = (ListViewItem)item.Clone();
 										copy.Name = item.Name;
 										lstvAttackMobType.Items.Add(copy);
 										itemUpdated = true;
 									}
+									else if (skill.isBuffSkill())
+									{
+										Log("[" + skill.Name + "] buff skili, Attack listesine eklenmedi (Buff sekmesini kullan).");
+									}
+									else
+									{
+										Log("[" + skill.Name + "] saldırı skili değil, Attack listesine eklenmedi.");
+									}
 								}
 							}
 							if (itemUpdated)
+								Settings.SaveCharacterSettings();
+						}
+					}
+					break;
+				case "Skills_btnAddBuff":
+					{
+						if (Skills_lstvSkills.SelectedItems.Count > 0) {
+							ListView lstvBuffMobType = (ListView)Skills_cmbxBuffMobType.Tag;
+							if (lstvBuffMobType == null) lstvBuffMobType = Skills_lstvBuffMobType_General;
+							bool itemUpdated = false;
+							foreach (ListViewItem item in Skills_lstvSkills.SelectedItems)
+							{
+								if (!lstvBuffMobType.Items.ContainsKey(item.Name))
+								{
+									SRSkill skill = (SRSkill)item.Tag;
+									// DB eksikse (SKILL_UNKNOWN) siniflanamaz; eklemeye izin ver.
+									if (skill == null || skill.isBuffSkill() || skill.IsDatabaseMissing())
+									{
+										ListViewItem copy = (ListViewItem)item.Clone();
+										copy.Name = item.Name;
+										lstvBuffMobType.Items.Add(copy);
+										itemUpdated = true;
+									}
+									else if (skill.isAttackingSkill())
+									{
+										Log("[" + skill.Name + "] saldırı skili, Buff listesine eklenmedi (Attack sekmesini kullan).");
+									}
+									else
+									{
+										Log("[" + skill.Name + "] buff skili değil, Buff listesine eklenmedi.");
+									}
+								}
+							}
+							if (itemUpdated)
+								Settings.SaveCharacterSettings();
+						}
+					}
+					break;
+				case "Skills_btnRemBuff":
+					{
+						ListView lstvBuffMobType = (ListView)Skills_cmbxBuffMobType.Tag;
+						if (lstvBuffMobType == null) lstvBuffMobType = Skills_lstvBuffMobType_General;
+						if (lstvBuffMobType.SelectedItems.Count > 0)
+						{
+							foreach (ListViewItem item in lstvBuffMobType.SelectedItems)
+								item.Remove();
+							if(InfoManager.inGame)
 								Settings.SaveCharacterSettings();
 						}
 					}
@@ -3859,9 +3958,29 @@ namespace xBot.App
 		{
 			xListView l = (xListView)sender;
 			SRSkill skill = (SRSkill)e.Item.Tag;
-			// Check if is an attacking skill
-			if (!skill.isAttackingSkill() || l.Items.ContainsKey(e.Item.Name))
-				e.Cancel = true;
+			// Attack listesine sadece attack skill (DB eksikse siniflanamaz, izin ver)
+			if (skill != null && (skill.isAttackingSkill() || skill.IsDatabaseMissing()))
+			{
+				if (l.Items.ContainsKey(e.Item.Name))
+					e.Cancel = true;
+				return;
+			}
+			// Buff/pasif skill Attack'a giremez
+			e.Cancel = true;
+		}
+		private void xListView_DragItemAdding_BuffSkill(object sender, xListView.DragItemEventArgs e)
+		{
+			xListView l = (xListView)sender;
+			SRSkill skill = (SRSkill)e.Item.Tag;
+			// Buff listesine sadece buff skill (DB eksikse siniflanamaz, izin ver)
+			if (skill != null && (skill.isBuffSkill() || skill.IsDatabaseMissing()))
+			{
+				if (l.Items.ContainsKey(e.Item.Name))
+					e.Cancel = true;
+				return;
+			}
+			// Saldiri/pasif skill Buff'a giremez
+			e.Cancel = true;
 		}
 		private void xListView_DragItemsChanged(object sender, EventArgs e)
 		{

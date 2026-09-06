@@ -1,6 +1,11 @@
 # Changelog
 
 ### Unreleased
+- `0x3013` karakter verisi: summoned fellow pet'i olan serverlarda (SevarOnline) pet
+  blogu standarttan uzun geldiginde akis kaymasi oluyordu; skill listesi bos kaliyor
+  ve paket sonu tasmasiyla karakter null yukleniyordu. Envanter sonrasi avatar +
+  mastery + skill capalariyla dogrulanan otomatik resync eklendi; skill listesi artik
+  otomatik doluyor.
 - ProtectionManager kontrolleri merkezi bot tick akışına bağlandı.
 - Ölüm gecikmesi, şehirde dönüş sonrası durma, level-up, pet envanteri, ok/bolt,
   HP/MP stoğu, dayanıklılık ve envanter dönüş kararları eklendi.

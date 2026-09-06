@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json.Linq;
@@ -27,8 +28,8 @@ namespace xBot.App
         public static bool AttackWeakerFirst { get; set; } = false;
         public static bool DoNotFollowMobs { get; set; } = true;
 
-        // Avoidance & Preference Table per Rarity
-        private static readonly Dictionary<SRMob.Mob, MobTargetRule> TargetRules = new Dictionary<SRMob.Mob, MobTargetRule>();
+        // Avoidance & Preference Table per Rarity (thread-safe: UI + botting thread)
+        private static readonly ConcurrentDictionary<SRMob.Mob, MobTargetRule> TargetRules = new ConcurrentDictionary<SRMob.Mob, MobTargetRule>();
 
         static CombatAIEngine()
         {
@@ -102,7 +103,7 @@ namespace xBot.App
                 return false;
 
             string name = mob.ServerName.ToUpperInvariant();
-            return name.Contains("DIMENSION") || name.Contains("GATE") || name.Contains("ENVY") || name.Contains("PILLAR");
+            return name.Contains("DIMENSION_PILLAR") || name.Contains("DIMENSIONPILLAR") || name.Contains("PILLAR");
         }
 
         public static bool CheckBerserkTrigger(List<SRMob> nearbyMobs, double currentHPPercent)

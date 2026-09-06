@@ -321,7 +321,9 @@ namespace xBot.Game
 				if (p == null) return;
 				try
 				{
-					System.IO.File.WriteAllBytes("chardata_last.bin", p.GetBytes());
+					string dumpPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "chardata_last.bin");
+					System.IO.File.WriteAllBytes(dumpPath, p.GetBytes());
+					App.Window.Get?.Log($"[CharacterData] Ham veri kaydedildi: {dumpPath} ({p.GetBytes().Length} byte)");
 				}
 				catch { }
 				p.Lock();
@@ -365,6 +367,11 @@ namespace xBot.Game
 					inventory[slot] = ItemParsing(p);
 				}
 				character.Inventory = inventory;
+				// SevarOnline gibi private serverlar, cagrilmis (summoned) fellow pet'e
+				// standarttan uzun ozel blok yazar. Standart parse kisa kalirsa akis kayar:
+				// mastery/skill bolumleri cop okunur, liste bos gelir ve paket sonu tasmasiyla
+				// karakter null kalir. Avatar+mastery+skill capalariyla dogrula, gerekirse resync yap.
+				ResyncAfterInventory(p);
 				// Inventory Avatar
 				inventory = new xList<SRItem>(p.ReadByte());
 				itemCount = p.ReadByte();
@@ -393,13 +400,21 @@ namespace xBot.Game
 				// Skills
 				character.unkByte02 = p.ReadByte();
 				xDictionary<uint, SRSkill> skills = new xDictionary<uint, SRSkill>();
-				while (p.ReadBool())
+				try
 				{
-					SRSkill skill = new SRSkill(p.ReadUInt());
-					skill.Enabled = p.ReadBool();
-					skills[skill.ID] = skill;
+					while (p.ReadBool())
+					{
+						SRSkill skill = new SRSkill(p.ReadUInt());
+						skill.Enabled = p.ReadBool();
+						skills[skill.ID] = skill;
+					}
+				}
+				catch (Exception ex)
+				{
+					App.Window.Get?.Log($"[CharacterData] Skill bölümü okunamadı ({skills.Count} okundu): {ex.Message}");
 				}
 				character.Skills = skills;
+				App.Window.Get?.Log($"[CharacterData] Mastery={masteries.Count}, Skill={skills.Count} (offset={p.RemainingRead()} kalan byte).");
 				// Quests
 				if (isSilkroadR)
 				{
@@ -599,6 +614,146 @@ namespace xBot.Game
 				}
 				Bot.Get.LogError("CharacterDataEnd Error", ex);
 			}
+		}
+
+		private static readonly HashSet<uint> KnownMasteryIds = new HashSet<uint>
+		{
+			257, 258, 259, 273, 274, 275, 276, // CH
+			513, 514, 515, 516, 517, 518       // EU
+		};
+
+		/// <summary>
+		/// Envanter sonrasi akis hizalamasini dogrular. Standart pet blogu kisa kalmissa
+		/// (Sevar summoned fellow verisi gibi), avatar+mastery+skill capalarini arayarak
+		/// ileri dogru resync yapar ve dogru offsete seek eder. Hizli yol: hizaliysa no-op.
+		/// </summary>
+		private static void ResyncAfterInventory(Packet p)
+		{
+			byte[] buf;
+			int cur;
+			try
+			{
+				buf = p.GetBytes();
+				cur = buf.Length - p.RemainingRead();
+			}
+			catch { return; }
+			if (TryValidateInventoryAnchor(buf, cur))
+				return; // hizli yol: zaten hizali
+			int limit = Math.Min(cur + 96, buf.Length - 8);
+			for (int off = cur + 1; off <= limit; off++)
+			{
+				if (TryValidateInventoryAnchor(buf, off))
+				{
+					p.SeekRead(off, System.IO.SeekOrigin.Begin);
+					App.Window.Get?.Log($"[CharacterData] Envanter sonrasi hizalama duzeltildi: {cur}->{off} (+{off - cur} fellow bayt atlandi).");
+					return;
+				}
+			}
+			App.Window.Get?.LogProcess("[CharacterData] Uyarı: envanter sonrasi hiza bulunamadi, standart parse ile devam ediliyor.", Window.ProcessState.Warning);
+		}
+
+		private static bool TryValidateInventoryAnchor(byte[] buf, int off)
+		{
+			try
+			{
+				// Avatar: cap + count + itemlar (tipler DB'den, tumu taninmali)
+				if (off + 2 > buf.Length)
+					return false;
+				int cap = buf[off], cnt = buf[off + 1];
+				if (cap > 100 || cnt > 30 || cnt > cap)
+					return false;
+				off += 2;
+				for (int i = 0; i < cnt; i++)
+				{
+					if (off + 9 > buf.Length)
+						return false;
+					uint iid = BitConverter.ToUInt32(buf, off + 5);
+					var row = DataManager.GetItemData(iid);
+					if (row == null)
+						return false;
+					byte t2;
+					if (!byte.TryParse(row["tid2"], out t2))
+						return false;
+					off += 9;
+					if (t2 == 1) // equip: plus+var+dura+magic+sock+adv (sayilar stream'den)
+					{
+						if (off + 14 > buf.Length)
+							return false;
+						off += 1 + 8 + 4;
+						int mc = buf[off]; off += 1;
+						if (mc > 20 || off + mc * 8 + 2 > buf.Length)
+							return false;
+						off += mc * 8;
+						off += 1; // socket flag
+						int sc = buf[off]; off += 1;
+						if (sc > 10 || off + sc * 9 + 2 > buf.Length)
+							return false;
+						off += sc * 9;
+						off += 1; // adv flag
+						int ac = buf[off]; off += 1;
+						if (ac > 10 || off + ac * 9 > buf.Length)
+							return false;
+						off += ac * 9;
+					}
+					else if (t2 == 2) // CoS: avatar icinde fellow cikmaz; sadece 1 bayt state kabul et
+					{
+						if (off + 1 > buf.Length || buf[off] != (byte)SRCoS.State.NeverSummoned)
+							return false;
+						off += 1;
+					}
+					else if (t2 == 3) // etc: quantity
+					{
+						if (off + 2 > buf.Length)
+							return false;
+						off += 2;
+					}
+					else
+						return false;
+				}
+				// Mastery: unk + bool dongu (ID'ler evrensel mastery setinden, level 0..130)
+				if (off + 1 > buf.Length)
+					return false;
+				off += 1; // unkByte01
+				int mr = 0;
+				while (off < buf.Length && buf[off] == 1)
+				{
+					if (off + 6 > buf.Length)
+						return false;
+					uint mid = BitConverter.ToUInt32(buf, off + 1);
+					byte ml = buf[off + 5];
+					if (!KnownMasteryIds.Contains(mid) || ml > 130 || ++mr > 20)
+						return false;
+					off += 6;
+				}
+				if (off >= buf.Length)
+					return false;
+				off += 1; // terminator (00/02)
+				if (mr < 1)
+					return false;
+				// Skills: unk + bool dongu (enabled 0/1)
+				if (off + 1 > buf.Length)
+					return false;
+				off += 1; // unkByte02
+				int sr = 0;
+				while (off < buf.Length && buf[off] == 1)
+				{
+					if (off + 6 > buf.Length)
+						return false;
+					if (buf[off + 5] > 1 || ++sr > 200)
+						return false;
+					off += 6;
+				}
+				if (off >= buf.Length)
+					return false;
+				off += 1; // terminator
+				if (sr < 1)
+					return false;
+				// Quest sanity: completed sayisi kucuk olmali
+				if (off + 2 > buf.Length || BitConverter.ToUInt16(buf, off) > 30)
+					return false;
+				return true;
+			}
+			catch { return false; }
 		}
 
 		private static bool TryRecoverQuestSection(Packet p, ushort completedQuestCount, out int questSectionOffset)
@@ -2048,6 +2203,8 @@ namespace xBot.Game
         }
 		private static void InventoryItemMovement_FromSameInventory(xList<SRItem> inventory, byte slotSrc, byte slotDst, ushort quantity)
 		{
+			if (inventory == null || inventory[slotSrc] == null)
+				return;
             /// Empty destination
             if (inventory[slotDst] == null)
             {
@@ -2088,12 +2245,14 @@ namespace xBot.Game
                 }
             }
         }
-        private static void InventoryItemMovement_InventoryToInventory(Packet p)
-        {
-            byte slotSrc = p.ReadByte();
-            byte slotDst = p.ReadByte();
-            ushort quantityMoved = p.ReadUShort();
+		private static void InventoryItemMovement_InventoryToInventory(Packet p)
+		{
+			byte slotSrc = p.ReadByte();
+			byte slotDst = p.ReadByte();
+			ushort quantityMoved = p.ReadUShort();
 
+			if (InfoManager.Character?.Inventory == null)
+				return;
 			// Make movement
 			InventoryItemMovement_FromSameInventory(InfoManager.Character.Inventory, slotSrc, slotDst, quantityMoved);
             
@@ -2185,7 +2344,9 @@ namespace xBot.Game
 		{
 			byte slotInventory = p.ReadByte();
 			// End of Packet
-			
+
+			if (InfoManager.Character?.Inventory == null)
+				return;
 			InfoManager.Character.Inventory[slotInventory] = null;
 		}
 		private static void InventoryItemMovement_ShopToInventory(Packet p)
@@ -2194,11 +2355,15 @@ namespace xBot.Game
 			byte tabSlot = p.ReadByte();
 			byte packageCount = p.ReadByte();
 
-			xList<SRItem> inventory = InfoManager.Character.Inventory;
+			xList<SRItem> inventory = InfoManager.Character?.Inventory;
+			if (inventory == null)
+				return;
 
 			// Select the item from the shop specified
 			SREntity NPCEntity = InfoManager.GetEntity(InfoManager.SelectedEntityUniqueID);
-			SRItem item = DataManager.GetItemFromShop(NPCEntity.ServerName, tabNumber, tabSlot);
+			SRItem item = NPCEntity != null ? DataManager.GetItemFromShop(NPCEntity.ServerName, tabNumber, tabSlot) : null;
+			if (item == null)
+				return;
 
 			if (packageCount == 1)
 			{
@@ -2370,7 +2535,9 @@ namespace xBot.Game
 			//uint unkByte01 = p.ReadByte();
 
 			SRCoService pet = InfoManager.MyPets[uniqueID];
-			xList<SRItem> inventory = pet.Inventory;
+			xList<SRItem> inventory = pet?.Inventory;
+			if (inventory == null || inventory[slotInventory] == null)
+				return;
 			if (inventory[slotInventory].Quantity == quantitySold)
 				inventory[slotInventory] = null;
 			else
@@ -2383,8 +2550,11 @@ namespace xBot.Game
 			byte slotDst = p.ReadByte();
 			ushort quantityMoved = p.ReadUShort();
 
+			SRCoService pet = InfoManager.MyPets[uniqueID];
+			if (pet?.Inventory == null)
+				return;
             // Make movement
-            InventoryItemMovement_FromSameInventory(InfoManager.MyPets[uniqueID].Inventory, slotSrc, slotDst, quantityMoved);
+            InventoryItemMovement_FromSameInventory(pet.Inventory, slotSrc, slotDst, quantityMoved);
         }
 		private static void InventoryItemMovement_PetToInventory(Packet p)
 		{
@@ -2393,9 +2563,13 @@ namespace xBot.Game
 			byte slotMyInventory = p.ReadByte();
 			// End of Packet
 
+			if (InfoManager.Character?.Inventory == null)
+				return;
 			xList<SRItem> myInventory = InfoManager.Character.Inventory;
 			SRCoService pet = InfoManager.MyPets[uniqueID];
-			xList<SRItem> petInventory = pet.Inventory;
+			xList<SRItem> petInventory = pet?.Inventory;
+			if (petInventory == null || petInventory[slotPetInventory] == null)
+				return;
 
 			myInventory[slotMyInventory] = petInventory[slotPetInventory];
 			petInventory[slotPetInventory] = null;
@@ -2554,17 +2728,29 @@ namespace xBot.Game
 				if (InfoManager.Character?.Inventory == null || slotInventory >= InfoManager.Character.Inventory.Capacity) return;
 				xList<SRItem> inventory = InfoManager.Character.Inventory;
 
+				SRItem usedItem = inventory[slotInventory];
+				if (usedItem != null)
+					Bot.Get.LearnItemUsable(usedItem.ID, true, "0xB04C success");
 				if (quantityUpdate == 0)
 					inventory[slotInventory] = null; // Item consumed
-				else if (inventory[slotInventory] != null)
-					inventory[slotInventory].Quantity = quantityUpdate;
+				else if (usedItem != null)
+					usedItem.Quantity = quantityUpdate;
 			}
 			else
 			{
 				try
 				{
 					ushort errorCode = packet.ReadUShort();
-					Window.Get?.Log($"[Item Use Warning] 0xB04C rejected by server (Error code: 0x{errorCode:X4})", xBot.App.Theme.LogLevel.Warning);
+					Bot.Get.MarkLastUseRejected();
+					string forensic = "";
+					try
+					{
+						var chr = InfoManager.Character;
+						if (chr != null)
+							forensic = $" HP={chr.GetHPPercent()}% MP={chr.GetMPPercent()}%";
+					}
+					catch { }
+					Window.Get?.Log($"[Item Use Warning] 0xB04C rejected by server (Error code: 0x{errorCode:X4}).{forensic} Item kullanimi 15sn duraklatildi, slot 30sn bloklandi.", xBot.App.Theme.LogLevel.Warning);
 				}
 				catch { }
 			}

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Timers;
+using Newtonsoft.Json.Linq;
 using xBot.Game;
 using xBot.Game.Objects;
 using xBot.Game.Objects.Entity;
@@ -27,6 +29,213 @@ namespace xBot.App
         public bool IsSwitchingWeapon { get; set; }
         public Timer TimerSwitchingWeapon { get; set; } = null;
         public SRTypes.Weapon MainWeaponType { get; set; } = SRTypes.Weapon.None;
+
+        private static byte ParsePercentSafe(string text, byte fallback = 50)
+        {
+            byte v;
+            if (byte.TryParse((text ?? "").Trim(), out v)) return v;
+            return fallback;
+        }
+
+        #region (0x704C item-use guard: desync + throttle + reject-block)
+        // Server reddedilen kullanimdan hemen sonra baglantiyi kesebiliyor (Sevar 0x1889).
+        // Ayni slotun ust uste gonderilmesini engelle + slot/envarter senkronunu gondermeden dogrula.
+        private static readonly Dictionary<byte, DateTime> m_rejectedUseSlots = new Dictionary<byte, DateTime>();
+        private static DateTime m_lastUseItemUtc = DateTime.MinValue;
+        private static byte m_lastUseItemSlot;
+        private static uint m_lastUseItemId;
+        private static DateTime m_lastItemSuccessUtc = DateTime.MinValue;
+        private static readonly object m_useItemLock = new object();
+        private const int UseItemMinIntervalMs = 1000;
+        private const int RejectedSlotBlockSeconds = 30;
+        private const int RejectLinkWindowSeconds = 5;
+        private const int RejectGlobalBlackoutSeconds = 15;
+        private static DateTime m_rejectBlackoutUntil = DateTime.MinValue;
+        private static DateTime m_externalUseBlackoutUntil = DateTime.MinValue;
+        private const int ExternalUseBlackoutMs = 2500;
+        private const int SuccessLinkWindowSeconds = 10;
+
+        // itemID -> usable. 0xB04C success gorulen calisir, son 10sn'de success yokken
+        // gelen reject ise icerigi kara listeye alir (oturumlar arasi Config'de saklanir).
+        private static readonly Dictionary<uint, bool> s_learnedUsable = new Dictionary<uint, bool>();
+        private static readonly object s_learnedLock = new object();
+        private static bool s_learnedLoaded = false;
+        private const string LearnedItemsFile = "Config\\LearnedItems.json";
+
+        public static bool IsItemBlockedFromUse(xBot.Game.Objects.Item.SRItem item)
+        {
+            if (item == null)
+                return true;
+            EnsureLearnedItemsLoaded();
+            lock (s_learnedLock)
+            {
+                bool ok;
+                return s_learnedUsable.TryGetValue(item.ID, out ok) && !ok;
+            }
+        }
+        public void LearnItemUsable(uint itemId, bool usable, string why)
+        {
+            if (itemId == 0)
+                return;
+            bool changed = false;
+            lock (s_learnedLock)
+            {
+                EnsureLearnedItemsLoaded();
+                bool cur;
+                if (!s_learnedUsable.TryGetValue(itemId, out cur) || cur != usable)
+                {
+                    s_learnedUsable[itemId] = usable;
+                    changed = true;
+                }
+            }
+            lock (m_useItemLock)
+            {
+                if (usable)
+                    m_lastItemSuccessUtc = DateTime.UtcNow;
+            }
+            if (changed)
+            {
+                Window.Get?.Log($"[Item] Ogrenildi: item {itemId} {(usable ? "calisiyor" : "CALISMIYOR (kara liste)")} [{why}]");
+                SaveLearnedItems();
+            }
+        }
+        private static void EnsureLearnedItemsLoaded()
+        {
+            lock (s_learnedLock)
+            {
+                if (s_learnedLoaded)
+                    return;
+                s_learnedLoaded = true;
+                try
+                {
+                    if (!File.Exists(LearnedItemsFile))
+                        return;
+                    JObject root = JObject.Parse(File.ReadAllText(LearnedItemsFile));
+                    JObject items = root["Items"] as JObject;
+                    if (items == null)
+                        return;
+                    foreach (var kv in items)
+                    {
+                        uint id;
+                        if (uint.TryParse(kv.Key, out id))
+                            s_learnedUsable[id] = (bool)kv.Value;
+                    }
+                    if (s_learnedUsable.Count > 0)
+                        Window.Get?.Log($"[Item] Ogrenilmis kullanim bilgisi yuklendi ({s_learnedUsable.Count} kayit).");
+                }
+                catch { }
+            }
+        }
+        private static void SaveLearnedItems()
+        {
+            try
+            {
+                Dictionary<uint, bool> snap;
+                lock (s_learnedLock)
+                {
+                    snap = new Dictionary<uint, bool>(s_learnedUsable);
+                }
+                string dir = Path.GetDirectoryName(LearnedItemsFile);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                    Directory.CreateDirectory(dir);
+                JObject items = new JObject();
+                foreach (var kv in snap)
+                    items[kv.Key.ToString()] = kv.Value;
+                File.WriteAllText(LearnedItemsFile, new JObject { ["Items"] = items }.ToString());
+            }
+            catch { }
+        }
+
+        public bool CheckUseItemThrottle(byte slot)
+        {
+            lock (m_useItemLock)
+            {
+                DateTime now = DateTime.UtcNow;
+                DateTime blockedUntil;
+                if (m_rejectedUseSlots.TryGetValue(slot, out blockedUntil))
+                {
+                    if (now < blockedUntil)
+                        return false;
+                    m_rejectedUseSlots.Remove(slot);
+                }
+                if ((now - m_lastUseItemUtc).TotalMilliseconds < UseItemMinIntervalMs)
+                    return false;
+                if (now < m_rejectBlackoutUntil)
+                    return false;
+                if (now < m_externalUseBlackoutUntil)
+                    return false;
+                return true;
+            }
+        }
+        public void MarkUseItemSent(byte slot, uint itemId)
+        {
+            lock (m_useItemLock)
+            {
+                m_lastUseItemUtc = DateTime.UtcNow;
+                m_lastUseItemSlot = slot;
+                m_lastUseItemId = itemId;
+            }
+        }
+        public void MarkLastUseRejected()
+        {
+            uint suspectId = 0;
+            lock (m_useItemLock)
+            {
+                if ((DateTime.UtcNow - m_lastUseItemUtc).TotalSeconds <= RejectLinkWindowSeconds)
+                    m_rejectedUseSlots[m_lastUseItemSlot] = DateTime.UtcNow.AddSeconds(RejectedSlotBlockSeconds);
+                m_rejectBlackoutUntil = DateTime.UtcNow.AddSeconds(RejectGlobalBlackoutSeconds);
+                // Son 10sn'de hic basarili kullanim yoksa reject gecici degil, icerik sorunudur:
+                // ayni item bir daha denenmesin (oturumlar arasi kalici).
+                if ((DateTime.UtcNow - m_lastItemSuccessUtc).TotalSeconds > SuccessLinkWindowSeconds)
+                    suspectId = m_lastUseItemId;
+            }
+            if (suspectId != 0)
+                LearnItemUsable(suspectId, false, "0xB04C reject, yakin zamanda success yok");
+        }
+        /// <summary>
+        /// Gercek client potion bastiginda bot timer'larini oteleyip global blackout baslatir.
+        /// Boylece bot, client'in actigi server cooldown penceresine ates etmez (0x1889+DC).
+        /// </summary>
+        public void NotifyExternalItemUse(byte slot, ushort usage)
+        {
+            var chr = InfoManager.Character;
+            if (chr != null && chr.Inventory != null && slot < chr.Inventory.Capacity)
+            {
+                var cur = chr.Inventory[slot];
+                if (cur != null)
+                    xBot.Game.PacketBuilder.LearnItemUsage(cur.ID, usage);
+            }
+            lock (m_useItemLock)
+            {
+                m_lastUseItemUtc = DateTime.UtcNow;
+                m_externalUseBlackoutUntil = DateTime.UtcNow.AddMilliseconds(ExternalUseBlackoutMs);
+            }
+            try
+            {
+                // usage duzeni: ID1<<2 | ID2<<5 | ID3<<7 | ID4<<11 ; ID4: 1=HP 2=MP 3=vigor
+                int id4 = (usage >> 11) & 0x1F;
+                if (id4 == 1 && tUsingHP != null)
+                {
+                    tUsingHP.Stop(); tUsingHP.Start();
+                }
+                else if (id4 == 2 && tUsingMP != null)
+                {
+                    tUsingMP.Stop(); tUsingMP.Start();
+                }
+                else if (id4 == 3 && tUsingVigor != null)
+                {
+                    tUsingVigor.Stop(); tUsingVigor.Start();
+                }
+                else
+                {
+                    if (tUsingHP != null) { tUsingHP.Stop(); tUsingHP.Start(); }
+                    if (tUsingMP != null) { tUsingMP.Stop(); tUsingMP.Start(); }
+                    if (tUsingVigor != null) { tUsingVigor.Stop(); tUsingVigor.Start(); }
+                }
+            }
+            catch { }
+        }
+        #endregion
 
 
         private void InitializeTimers()
@@ -81,13 +290,13 @@ namespace xBot.App
                 {
                     byte useHP = 0; // dummy
                     w.Character_tbxUseHP.InvokeIfRequired(() => {
-                        useHP = byte.Parse(w.Character_tbxUseHP.Text);
+                        useHP = ParsePercentSafe(w.Character_tbxUseHP.Text);
                     });
                     if (InfoManager.Character.GetHPPercent() <= useHP)
                     {
                         byte slot = 0;
                         if (w.Character_cbxUseHPGrain.Checked && FindItem(3, 1, 1, ref slot, "_SPOTION_")
-                            || w.Character_cbxUseHP.Checked && FindItem(3, 1, 1, ref slot))
+                            || w.Character_cbxUseHP.Checked && FindItem(3, 1, 1, ref slot, "", "_SPOTION_"))
                         {
                             PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot);
                             tUsingHP.Start();
@@ -111,13 +320,13 @@ namespace xBot.App
                 {
                     byte useMP = 0; // dummy
                     WinAPI.InvokeIfRequired(w.Character_tbxUseMP, () => {
-                        useMP = byte.Parse(w.Character_tbxUseMP.Text);
+                        useMP = ParsePercentSafe(w.Character_tbxUseMP.Text);
                     });
                     if (InfoManager.Character.GetMPPercent() <= useMP)
                     {
                         byte slot = 0;
                         if (w.Character_cbxUseMPGrain.Checked && FindItem(3, 1, 2, ref slot, "_SPOTION_")
-                            || w.Character_cbxUseMP.Checked && FindItem(3, 1, 2, ref slot))
+                            || w.Character_cbxUseMP.Checked && FindItem(3, 1, 2, ref slot, "", "_SPOTION_"))
                         {
                             PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot);
                             tUsingMP.Start();
@@ -141,7 +350,7 @@ namespace xBot.App
                 {
                     byte usePercent = 0;
                     WinAPI.InvokeIfRequired(w.Character_tbxUseHPVigor, () => {
-                        usePercent = byte.Parse(w.Character_tbxUseHPVigor.Text);
+                        usePercent = ParsePercentSafe(w.Character_tbxUseHPVigor.Text);
                     });
                     // Check hp %
                     if (InfoManager.Character.GetHPPercent() <= usePercent)
@@ -157,7 +366,7 @@ namespace xBot.App
                     {
                         // Check mp %
                         WinAPI.InvokeIfRequired(w.Character_tbxUseMPVigor, () => {
-                            usePercent = byte.Parse(w.Character_tbxUseMPVigor.Text);
+                            usePercent = ParsePercentSafe(w.Character_tbxUseMPVigor.Text);
                         });
                         if (InfoManager.Character.GetMPPercent() <= usePercent)
                         {
@@ -403,7 +612,7 @@ namespace xBot.App
                 {
                     byte useHP = 0; // dummy
                     w.Character_tbxUseTransportHP.InvokeIfRequired(() => {
-                        useHP = byte.Parse(w.Character_tbxUseTransportHP.Text);
+                        useHP = ParsePercentSafe(w.Character_tbxUseTransportHP.Text);
                     });
                     if (pet.GetHPPercent() <= useHP)
                     {
@@ -427,7 +636,7 @@ namespace xBot.App
                 {
                     byte useHP = 0; // dummy
                     w.Character_tbxUsePetHP.InvokeIfRequired(() => {
-                        useHP = byte.Parse(w.Character_tbxUsePetHP.Text);
+                        useHP = ParsePercentSafe(w.Character_tbxUsePetHP.Text);
                     });
                     if (pet.GetHPPercent() <= useHP)
                     {
@@ -489,7 +698,7 @@ namespace xBot.App
 
                     byte usePercent = 0;
                     w.Character_tbxUsePetHGP.InvokeIfRequired(() => {
-                        usePercent = byte.Parse(w.Character_tbxUsePetHGP.Text);
+                        usePercent = ParsePercentSafe(w.Character_tbxUsePetHGP.Text);
                     });
                     // Check hgp %
                     int HGPPercent = (int)(atkPet.HGP * 0.01); // 10000 = 100%

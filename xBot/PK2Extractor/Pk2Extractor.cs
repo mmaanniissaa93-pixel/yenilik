@@ -328,6 +328,13 @@ namespace xBot.PK2Extractor
 					this.Close();
 				});
 			}
+			catch (ThreadInterruptedException)
+			{
+				Log("Database generation cancelled.");
+				LogState("Cancelled");
+				if (db != null) db.Close();
+				if (pk2 != null) { pk2.Close(); pk2.Dispose(); }
+			}
 			catch (Exception ex)
 			{
 				Log("Error generating database: " + ex.ToString());
@@ -352,7 +359,8 @@ namespace xBot.PK2Extractor
 							if(MessageBox.Show(this, "The process still running. Are you sure?", "xBot - Pk2 Extractor", MessageBoxButtons.YesNo) != DialogResult.Yes)
 								return;
 						}
-						tGenerateData.Abort();
+						try { tGenerateData.Interrupt(); } catch { }
+						tGenerateData = null;
 						if (db != null)
 						{
 							db.Close();
@@ -367,7 +375,8 @@ namespace xBot.PK2Extractor
 				case "btnStart":
 					btnStart.Enabled = false;
 					tGenerateData = new Thread(ThreadGenerateData);
-					tGenerateData.Priority = ThreadPriority.Highest;
+					tGenerateData.IsBackground = true;
+					tGenerateData.Priority = ThreadPriority.Normal;
 					tGenerateData.Start();
 					break;
 			}

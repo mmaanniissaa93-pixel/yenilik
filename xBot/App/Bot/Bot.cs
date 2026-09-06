@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using xBot.Network;
 using SecurityAPI;
 using System.Collections.Generic;
@@ -50,6 +50,7 @@ namespace xBot.App
 		/// </summary>
 		public bool isSorting { get { return tSorting != null; } }
 		private Thread tSorting;
+		private volatile bool m_stopSortingRequested;
 		/// <summary>
 		/// Ping check by command
 		/// </summary>
@@ -254,9 +255,14 @@ namespace xBot.App
         /// <param name="ID4">type id #4</param>
         /// <param name="slot">Inventory slot found</param>
         /// <param name="servername">Rule the search to contains string specified</param>
-        public bool FindItem(byte ID2, byte ID3, byte ID4, ref byte slot, string servername = "")
+        /// <param name="excludeServername">Exclude items whose servername contains this string</param>
+		public bool FindItem(byte ID2, byte ID3, byte ID4, ref byte slot, string servername = "", string excludeServername = "")
 		{
-			int index = InfoManager.Character.Inventory.FindIndex(i => i != null  && i.isType(ID2, ID3, ID4) && i.ServerName.Contains(servername),13);
+			int index = InfoManager.Character.Inventory.FindIndex(i => i != null 
+				&& i.isType(ID2, ID3, ID4) 
+				&& (string.IsNullOrEmpty(servername) || i.ServerName.Contains(servername))
+				&& (string.IsNullOrEmpty(excludeServername) || !i.ServerName.Contains(excludeServername))
+				&& !IsItemBlockedFromUse(i), 13);
 			if(index == -1)
 				return false;
 			else
@@ -287,6 +293,7 @@ namespace xBot.App
 							w.LogProcess("Closing client...");
 							Proxy.CloseClient();
 							CloseClient.Stop();
+							CloseClient.Dispose();
 						}
 					}
 					catch{ }
@@ -570,8 +577,10 @@ namespace xBot.App
 		{
 			if (InfoManager.inGame && !isSorting)
 			{
+				m_stopSortingRequested = false;
 				tSorting = new Thread(InventorySort);
-				tSorting.Priority = ThreadPriority.AboveNormal;
+				tSorting.IsBackground = true;
+				tSorting.Priority = ThreadPriority.BelowNormal;
 				tSorting.Start();
 
 				Window w = Window.Get;
@@ -588,7 +597,7 @@ namespace xBot.App
 			Window w = Window.Get;
 
 			bool sort = true;
-			while (InfoManager.inGame && sort)
+			while (InfoManager.inGame && sort && !m_stopSortingRequested)
 			{
 				sort = false;
 				xList<SRItem> inventory =InfoManager.Character.Inventory;
@@ -644,7 +653,7 @@ namespace xBot.App
 		{
 			if (isSorting)
 			{
-				tSorting.Abort();
+				m_stopSortingRequested = true;
 				tSorting = null;
 
 				Window w = Window.Get;

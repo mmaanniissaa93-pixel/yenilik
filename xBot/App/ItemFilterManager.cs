@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using Newtonsoft.Json.Linq;
 using xBot.Game.Objects.Item;
@@ -17,8 +18,8 @@ namespace xBot.App
         public static bool FilterMale { get; set; } = true;
         public static bool FilterFemale { get; set; } = true;
 
-        // In-memory Rules Map (O(1) lookup by item ServerName or Name)
-        private static readonly Dictionary<string, ItemFilterRule> Rules = new Dictionary<string, ItemFilterRule>(StringComparer.OrdinalIgnoreCase);
+        // In-memory Rules Map (O(1) lookup by item ServerName or Name) - thread-safe
+        private static readonly ConcurrentDictionary<string, ItemFilterRule> Rules = new ConcurrentDictionary<string, ItemFilterRule>(StringComparer.OrdinalIgnoreCase);
 
         public static void SetRule(string itemName, bool pickup, bool sell, bool store)
         {
@@ -49,7 +50,10 @@ namespace xBot.App
         public static void RemoveRule(string itemName)
         {
             if (!string.IsNullOrEmpty(itemName))
-                Rules.Remove(itemName);
+            {
+                ItemFilterRule dummy;
+                Rules.TryRemove(itemName, out dummy);
+            }
         }
 
         public static IEnumerable<ItemFilterRule> GetAllRules()

@@ -42,7 +42,7 @@ namespace xBot.App
 			{
 				db = new SQLiteConnection("Data Source=" + Path + ";Version=3;");
 				q = new SQLiteCommand(db);
-				q.CommandTimeout = 1000; // Wait for queue to execute query
+				q.CommandTimeout = 30; // 30sn: kilitlenmede 16dk bekleme yerine hızlı fail
 				db.Open();
 				return true;
 			}
@@ -112,14 +112,41 @@ namespace xBot.App
 			List<NameValueCollection> result = new List<NameValueCollection>();
 			if (db != null)
 			{
-				SQLiteCommand q = new SQLiteCommand(sql,db);
-				q.CommandTimeout = 1000;
-				q.ExecuteNonQuery();
-				SQLiteDataReader reader = q.ExecuteReader();
-				while (reader.Read())
-					result.Add(reader.GetValues());
-				reader.Close();
-        q.Dispose();
+				using (SQLiteCommand cmd = new SQLiteCommand(sql, db))
+				{
+					cmd.CommandTimeout = 30;
+					using (SQLiteDataReader reader = cmd.ExecuteReader())
+					{
+						while (reader.Read())
+							result.Add(reader.GetValues());
+					}
+				}
+			}
+			return result;
+		}
+		/// <summary>
+		/// Parametreli sorgu: SQL injection ve quote patlamasını önler.
+		/// Örn: GetResultFromQuery("SELECT * FROM items WHERE servername=@p0", servername)
+		/// </summary>
+		public List<NameValueCollection> GetResultFromQuery(string sql, params object[] args)
+		{
+			List<NameValueCollection> result = new List<NameValueCollection>();
+			if (db != null)
+			{
+				using (SQLiteCommand cmd = new SQLiteCommand(sql, db))
+				{
+					cmd.CommandTimeout = 30;
+					if (args != null)
+					{
+						for (int i = 0; i < args.Length; i++)
+							cmd.Parameters.AddWithValue("@p" + i, args[i] ?? DBNull.Value);
+					}
+					using (SQLiteDataReader reader = cmd.ExecuteReader())
+					{
+						while (reader.Read())
+							result.Add(reader.GetValues());
+					}
+				}
 			}
 			return result;
 		}

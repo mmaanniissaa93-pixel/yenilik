@@ -27,7 +27,7 @@ Son kaynak taraması: 2026-09-05
 | F-005 | Otomatik giriş ve karakter seçimi | ✅ | `App/Bot/Bot.Events.cs`, `Game/PacketParser.cs`, `App/LoginStrategyManager.cs`; Client ve Clientless akışlarında bağlantı → server → karakter adımları otomatik ilerliyor; karakter verisi parser’ı özel server yerleşimlerini de doğruluyor |
 | F-006 | En yüksek seviyeli karakteri otomatik seçme | ✅ | `App/LoginStrategyManager.cs`, `App/Window.CustomTabs.cs`; otomatik girişte FirstFound/HighestLevel seçimi uygulanıyor ve test edildi |
 | F-007 | Relogin ve bağlantı sonrası clientless geçiş | ✅ | `Network/Proxy.cs`, `App/Bot/Bot.Events.cs` |
-| F-008 | Sabit captcha ayarı | ✅ | `App/LoginStrategyManager.cs`, `App/Window.CustomTabs.cs`; Sabit kod girişi ve UI bağlı |
+| F-008 | Sabit captcha ayarı | ⚠️ | `App/LoginStrategyManager.cs`, `App/Window.CustomTabs.cs`; kod/UI var ama `0x6323` paket gönderimi bağlı değil - sadece textbox doldurur |
 | F-009 | Client gizleme/gösterme ve hızlı gizleme | ✅ | `App/ClientManager.cs`, `App/Window.CustomTabs.cs` |
 | F-010 | Otomatik bot başlatma ve bağlantıda kalma | ✅ | `App/LoginStrategyManager.cs`, `App/Bot/Bot.Events.cs` |
 | F-011 | Otomatik karakter oluşturma/silme seçenekleri | ✅ | `App/Window.cs`, `Game/PacketBuilder.cs`, ayarlar |
@@ -96,7 +96,7 @@ Son kaynak taraması: 2026-09-05
 | F-062 | Party matching ve otomatik reform | ✅ | `SRPartyMatch`, `Bot.Checks.cs`, paket katmanı |
 | F-063 | Auto party / leader listesi | ✅ | Party ayarları, `Bot.Checks.cs` |
 | F-064 | Guild görüntüleme, davet ve guild storage | ✅ | `Game/Objects/Guild/`, Guild sekmesi |
-| F-065 | Academy daveti ve bilgisi | ✅ | `Game/PacketBuilder.cs`, `PacketParser.cs` |
+| F-065 | Academy daveti ve bilgisi | ⚠️ | `Game/PacketBuilder.cs`, `PacketParser.cs`; Players menü handler comment-out (`Window.cs:3588`), sadece paket altyapısı mevcut |
 | F-066 | Exchange ve otomatik exchange onayları | ✅ | Players sekmesi, paket katmanı |
 | F-067 | Stall oluşturma, düzenleme, kapatma ve alış | ✅ | Stall sekmesi ve `Game/PacketBuilder.cs` |
 | F-068 | Sohbet kanalları ve global item kullanımı | ✅ | `Game/PacketBuilder.cs`, `Bot.Events.cs` |
@@ -109,7 +109,7 @@ Son kaynak taraması: 2026-09-05
 | ID | Özellik | Durum | Kaynak / not |
 | :--- | :--- | :---: | :--- |
 | F-080 | Minimap, özel kontroller ve canlı oyun bilgisi | ✅ | `xGraphics/`, `App/Window.cs` |
-| F-081 | Game Info/Spy ekranı | ✅ | `App/Window.cs`, `App/Window.ModernTheme.cs`; etraftaki canlı nesneler ağaç görünümünde yenileniyor |
+| F-081 | Game Info/Spy ekranı | ⚠️ | `App/Window.cs`; manuel refresh ile ağaç doldurur, live/timer güncelleme yok (re-work) |
 | F-082 | Packet analyzer: filtre, sıralama ve injection | ✅ | Settings sekmesi, `Network/`, `PacketBuilder.cs` |
 | F-083 | PK2 veri çıkarma | ✅ | `PK2Extractor/` |
 | F-084 | Item/skill/model/mastery/teleport/region/minimap üretimi | ✅ | `PK2Extractor/PK2Extractor.Parser.cs`, `.Media.cs` |

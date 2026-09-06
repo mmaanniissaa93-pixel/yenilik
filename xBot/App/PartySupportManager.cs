@@ -38,6 +38,10 @@ namespace xBot.App
             if (!Monitor.TryEnter(supportLock))
                 return;
 
+            SRSkill pendingSkill = null;
+            uint pendingTarget = 0;
+            int pendingSleep = 0;
+            string pendingLog = null;
             try
             {
                 SRCoord myPos = InfoManager.Character.GetRealtimePosition();
@@ -61,13 +65,11 @@ namespace xBot.App
                                 SRSkill ressSkill = FindPartyRessSkill();
                                 if (ressSkill != null && ressSkill.isCastingEnabled)
                                 {
-                                    Window.Get?.LogProcess($"Party Support: Resurrecting [{member.Name}] with {ressSkill.Name}...");
-                                    Bot.Get.CheckWeaponSwitch(ressSkill);
-                                    PacketBuilder.CastSkill(ressSkill.ID, livePlayer.UniqueID);
+                                    pendingSkill = ressSkill; pendingTarget = livePlayer.UniqueID;
+                                    pendingSleep = Math.Max(500, ressSkill.CastingTime + 200);
+                                    pendingLog = $"Party Support: Resurrecting [{member.Name}] with {ressSkill.Name}...";
                                     lastSupportActionUtc = DateTime.UtcNow;
-                                    Thread.Sleep(Math.Max(500, ressSkill.CastingTime + 200));
-                                    Bot.Get.EnsureMainWeapon();
-                                    return;
+                                    break;
                                 }
                             }
                         }
@@ -75,7 +77,7 @@ namespace xBot.App
                 }
 
                 // 2. Check for Low HP Party Members to Heal
-                if (PartyHealEnabled)
+                if (pendingSkill == null && PartyHealEnabled)
                 {
                     for (int i = 0; i < InfoManager.Party.Members.Count; i++)
                     {
@@ -91,37 +93,57 @@ namespace xBot.App
                                 SRSkill healSkill = FindPartyHealSkill();
                                 if (healSkill != null && healSkill.isCastingEnabled)
                                 {
-                                    Window.Get?.LogProcess($"Party Support: Healing [{member.Name}] ({member.HPPercent}% HP) with {healSkill.Name}...");
-                                    Bot.Get.CheckWeaponSwitch(healSkill);
-                                    PacketBuilder.CastSkill(healSkill.ID, livePlayer.UniqueID);
+                                    pendingSkill = healSkill; pendingTarget = livePlayer.UniqueID;
+                                    pendingSleep = Math.Max(500, healSkill.CastingTime + 200);
+                                    pendingLog = $"Party Support: Healing [{member.Name}] ({member.HPPercent}% HP) with {healSkill.Name}...";
                                     lastSupportActionUtc = DateTime.UtcNow;
-                                    Thread.Sleep(Math.Max(500, healSkill.CastingTime + 200));
-                                    Bot.Get.EnsureMainWeapon();
-                                    return;
+                                    break;
                                 }
                             }
                         }
                     }
                 }
 
-                // 3. Check Cure Bad Status
-                if (PartyCureEnabled)
+                // 3. Check Cure Bad Status (sadece gerçekten kötü status varsa)
+                if (pendingSkill == null && PartyCureEnabled)
                 {
                     SRSkill cureSkill = FindPartyCureSkill();
-                    if (cureSkill != null && cureSkill.isCastingEnabled && (DateTime.UtcNow - lastSupportActionUtc).TotalSeconds > 15)
+                    bool needCure = InfoManager.Character.BadStatusFlags != SRModel.BadStatus.None;
+                    if (!needCure && InfoManager.Party.Members != null)
                     {
-                        Bot.Get.CheckWeaponSwitch(cureSkill);
-                        PacketBuilder.CastSkill(cureSkill.ID, 0);
+                        for (int i = 0; i < InfoManager.Party.Members.Count; i++)
+                        {
+                            var m = InfoManager.Party.Members.GetAt(i);
+                            if (m == null || m.Name == InfoManager.Character.Name) continue;
+                            var lp = InfoManager.Players.Find(p => p != null && p.Name == m.Name);
+                            if (lp != null && lp.BadStatusFlags != SRModel.BadStatus.None
+                                && lp.Position != null && InfoManager.Character.GetRealtimePosition() != null
+                                && InfoManager.Character.GetRealtimePosition().DistanceTo(lp.Position) <= 35.0)
+                            { needCure = true; break; }
+                        }
+                    }
+                    if (needCure && cureSkill != null && cureSkill.isCastingEnabled && (DateTime.UtcNow - lastSupportActionUtc).TotalSeconds > 15)
+                    {
+                        pendingSkill = cureSkill; pendingTarget = 0;
+                        pendingSleep = Math.Max(400, cureSkill.CastingTime + 100);
+                        pendingLog = "Party Support: Curing bad status...";
                         lastSupportActionUtc = DateTime.UtcNow;
-                        Thread.Sleep(Math.Max(400, cureSkill.CastingTime + 100));
-                        Bot.Get.EnsureMainWeapon();
-                        return;
                     }
                 }
             }
             finally
             {
                 Monitor.Exit(supportLock);
+            }
+
+            // Lock DIŞINDA cast+sleep: lock içeride Sleep yok, support tepkisi 2sn kitlenmez
+            if (pendingSkill != null)
+            {
+                if (pendingLog != null) Window.Get?.LogProcess(pendingLog);
+                Bot.Get.CheckWeaponSwitch(pendingSkill);
+                PacketBuilder.CastSkill(pendingSkill.ID, pendingTarget);
+                Thread.Sleep(pendingSleep);
+                Bot.Get.EnsureMainWeapon();
             }
         }
 

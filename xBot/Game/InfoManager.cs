@@ -64,6 +64,11 @@ namespace xBot.Game
 		/// </summary>
 		public static bool inGame { get; private set; }
 		/// <summary>
+		/// Dunyaya ilk giris zamani (UTC). Giris sonrasi spawn penceresinde bot
+		/// kaynakli item kullanimi serverca reddedilip DC'ye yol acabiliyor.
+		/// </summary>
+		public static DateTime JoinedGameUtc { get; private set; } = DateTime.MinValue;
+		/// <summary>
 		/// Get the last entity unique ID selected.
 		/// </summary>
 		public static uint SelectedEntityUniqueID { get; private set; }
@@ -435,12 +440,19 @@ namespace xBot.Game
 
 			w.Skills_lstvSkills.InvokeIfRequired(() => {
 				w.Skills_lstvSkills.BeginUpdate();
+				w.Skills_lstvSkills.Items.Clear();
 			});
 			for (int j = 0; j < Character.Skills.Count; j++)
 				w.AddSkill(Character.Skills.GetAt(j));
 			w.Skills_lstvSkills.InvokeIfRequired(() => {
 				w.Skills_lstvSkills.EndUpdate();
 			});
+			{
+				string dbName = string.IsNullOrEmpty(DataManager.SilkroadName) ? "(DB bağlı değil)" : DataManager.SilkroadName;
+				w.Log($"[Skills] {Character.Skills.Count} skill yüklendi (DB: {dbName}). Liste boşsa: 1) PK2'den Database oluşturulmamış, 2) server özel 0x3013 dizilimi.");
+				if (Character.Skills.Count <= 1)
+					w.LogProcess("Uyarı: Sadece Common Attack görünüyor. Ayarlar'dan DB yolunu kontrol et ve PK2 Extractor ile Database üret.", Window.ProcessState.Warning);
+			}
 			#endregion
 
 			#region (Minimap Tab)
@@ -471,6 +483,7 @@ namespace xBot.Game
 			if (!inGame)
 			{
 				inGame = true;
+				JoinedGameUtc = DateTime.UtcNow;
 				// Enable button
 				w.Login_btnStart.InvokeIfRequired(() => {
 					w.Login_btnStart.Text = "STOP";
