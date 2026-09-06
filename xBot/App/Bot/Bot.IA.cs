@@ -530,26 +530,43 @@ namespace xBot.App
 
                                 SRSkill[] skillshots = w.Skills_GetSkillShots(mob.MobType);
                                 SRSkill skillToCast = null;
+                                uint currentMP = InfoManager.Character != null ? InfoManager.Character.MP : 0;
 
                                 if (skillshots != null && skillshots.Length > 0)
                                 {
                                     if (SkillManager.InOrderCombo)
                                     {
-                                        int checkedCount = 0;
-                                        while (checkedCount < skillshots.Length)
+                                        // Sıralı kombo: imleçten başla, beklemede (cooldown) ya da
+                                        // MP'si yetmeyen skill'i beklemeden atlayıp altındakini
+                                        // kullan, liste biterse başa sar.
+                                        int remaining = skillshots.Length;
+                                        while (remaining-- > 0)
                                         {
-                                            int idx = (currentSkillIndex + checkedCount) % skillshots.Length;
-                                            SRSkill candidate = skillshots[idx];
-                                            if (candidate != null && (candidate.ID == 1 || candidate.Enabled) && candidate.isCastingEnabled)
-                                            {
-                                                if (TryPrepareAttackSkill(candidate, w))
+                                            int picked = SkillPolicy.SelectNextReadyIndex(
+                                                skillshots.Length,
+                                                idx =>
                                                 {
-                                                    skillToCast = candidate;
-                                                    currentSkillIndex = (idx + 1) % skillshots.Length;
-                                                    break;
-                                                }
+                                                    SRSkill candidate = skillshots[idx];
+                                                    if (candidate == null)
+                                                        return false;
+                                                    if (candidate.ID != 1)
+                                                    {
+                                                        if (!candidate.Enabled)
+                                                            return false;
+                                                        if (currentMP > 0 && candidate.MPUsage > currentMP)
+                                                            return false;
+                                                    }
+                                                    return candidate.isCastingEnabled;
+                                                },
+                                                ref currentSkillIndex);
+                                            if (picked < 0)
+                                                break;
+                                            if (TryPrepareAttackSkill(skillshots[picked], w))
+                                            {
+                                                skillToCast = skillshots[picked];
+                                                break;
                                             }
-                                            checkedCount++;
+                                            // Silah uygun değilse aynı turda altındaki skill'e devam et.
                                         }
                                     }
                                     else
@@ -558,7 +575,8 @@ namespace xBot.App
                                         for (int k = 0; k < skillshots.Length; k++)
                                         {
                                             SRSkill candidate = skillshots[k];
-                                            if (candidate != null && candidate.ID != 1 && candidate.Enabled && candidate.isCastingEnabled)
+                                            if (candidate != null && candidate.ID != 1 && candidate.Enabled && candidate.isCastingEnabled
+                                                && (currentMP == 0 || candidate.MPUsage <= currentMP))
                                             {
                                                 if (TryPrepareAttackSkill(candidate, w))
                                                 {

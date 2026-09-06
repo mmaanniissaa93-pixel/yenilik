@@ -66,6 +66,14 @@ internal static class Program
         RunSkillCombo("Sıralı combo başarılı cast sonrası devam eder", true, true, true);
         RunSkillCombo("Sırasız combo başarılı cast sonrası durur", true, false, false);
 
+        RunSkillOrder("Sıralı seçim sıradakini alır ve imleci ilerletir", new[] { true, true, true }, 0, 0, 1);
+        RunSkillOrder("Beklemedeki skill atlanıp altındaki kullanılır", new[] { false, true, true }, 0, 1, 2);
+        RunSkillOrder("Ortadaki beklemedeyse altındaki kullanılır", new[] { true, false, true }, 1, 2, 0);
+        RunSkillOrder("Liste biterse başa sarılır", new[] { true, false, false }, 2, 0, 1);
+        RunSkillOrder("Hiçbiri hazır değilse -1 döner, imleç değişmez", new[] { false, false, false }, 1, -1, 1);
+        RunSkillOrder("Bozuk imleç sıfırlanır", new[] { true, true }, 9, 0, 1);
+        RunSkillOrder("Boş liste -1 döner", new bool[0], 0, -1, 0);
+
         RunImbue("Çin Fire GIGONGTA skill'i tanınır", "SKILL_CH_FIRE_01_GIGONGTA_01", "Fire", true);
         RunImbue("Çin Lightning skill'i tanınır", "SKILL_CH_LIGHTNING_01_GIGONGTA_01", "Lightning", true);
         RunImbue("Kısa LIGHT varyantı tanınır", "SKILL_CH_LIGHT_01_ENCHANT_01", "Lightning", true);
@@ -439,7 +447,7 @@ internal static class Program
             return 1;
         }
 
-        Console.WriteLine("Koruma, item filtre, combat, skill, imbue, command center, lojistik, parti, PIN, SOCKS5, Auto Alchemy, Target Assist, Localization ve Potion senaryoları başarılı: 243");
+        Console.WriteLine("Koruma, item filtre, combat, skill, imbue, command center, lojistik, parti, PIN, SOCKS5, Auto Alchemy, Target Assist, Localization ve Potion senaryoları başarılı: 250");
         return 0;
     }
 
@@ -577,6 +585,20 @@ internal static class Program
 
         failures++;
         Console.WriteLine("FAIL: " + name + " | beklenen=" + expected + ", gerçek=" + actual);
+    }
+
+    private static void RunSkillOrder(string name, bool[] ready, int startCursor, int expectedPicked, int expectedCursor)
+    {
+        int cursor = startCursor;
+        int actual = SkillPolicy.SelectNextReadyIndex(ready.Length, idx => ready[idx], ref cursor);
+        if (actual == expectedPicked && cursor == expectedCursor)
+        {
+            Console.WriteLine("PASS: " + name);
+            return;
+        }
+
+        failures++;
+        Console.WriteLine("FAIL: " + name + " | beklenen=(" + expectedPicked + "," + expectedCursor + "), gerçek=(" + actual + "," + cursor + ")");
     }
 
     private static void RunImbue(string name, string serverName, string element, bool expected)
