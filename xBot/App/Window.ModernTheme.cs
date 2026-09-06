@@ -287,13 +287,11 @@ namespace xBot.App
                 }
                 else if (c is CheckBox cbx)
                 {
-                    cbx.ForeColor = DarkTheme.TextPrimary;
-                    cbx.Font = DarkTheme.FontBody;
+                    DarkTheme.StyleCheckBox(cbx);
                 }
                 else if (c is RadioButton rbn)
                 {
-                    rbn.ForeColor = DarkTheme.TextPrimary;
-                    rbn.Font = DarkTheme.FontBody;
+                    DarkTheme.StyleRadioButton(rbn);
                 }
                 else if (c is Label lbl)
                 {

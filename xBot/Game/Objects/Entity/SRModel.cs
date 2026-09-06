@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Windows.Forms;
+using xBot.App;
 using xBot.Game.Objects.Common;
 
 namespace xBot.Game.Objects.Entity
@@ -84,6 +85,14 @@ namespace xBot.Game.Objects.Entity
 		public bool isPlayer()
 		{
 			return ID2 == 1;
+		}
+		public bool IsEuropean()
+		{
+			return PotionPolicy.IsEuropean(ServerName);
+		}
+		public bool IsChinese()
+		{
+			return PotionPolicy.IsChinese(ServerName);
 		}
 		public bool isNPC()
 		{

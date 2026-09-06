@@ -15,6 +15,7 @@
     <NuGetPackageImportStamp>
     </NuGetPackageImportStamp>
     <CefSharpAnyCpuSupport>true</CefSharpAnyCpuSupport>
+    <GenerateResourceUsePreserializedResources>false</GenerateResourceUsePreserializedResources>
     <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
@@ -192,6 +193,7 @@
     </Compile>
     <Compile Include="App\Script.cs" />
     <Compile Include="App\Settings.cs" />
+    <Compile Include="App\PotionPolicy.cs" />
     <Compile Include="App\EdxLoader.cs" />
     <Compile Include="App\ClientManager.cs" />
     <Compile Include="App\SQLDatabase.cs" />

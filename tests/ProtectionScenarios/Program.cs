@@ -418,7 +418,20 @@ internal static class Program
         RunLocalizationCheck("TR dilinde HP terimi korunur", LocalizationManager.Get("UI_ZerkHPFull").Contains("HP"), true);
 
         // Reset to TR default
-        LocalizationManager.SetLanguage("TR");
+        // Potion Cooldown & 0x185B Handling Tests
+        RunPotionCheck("EU karakter ırkı tanınır (CHAR_EU_MAN_MERCHANT)", PotionPolicy.IsEuropean("CHAR_EU_MAN_MERCHANT"), true);
+        RunPotionCheck("EU karakter Çin sayılmaz", PotionPolicy.IsChinese("CHAR_EU_MAN_MERCHANT"), false);
+        RunPotionCheck("Çin karakter ırkı tanınır (CHAR_CH_MAN_WARRIOR)", PotionPolicy.IsChinese("CHAR_CH_MAN_WARRIOR"), true);
+        RunPotionCheck("Çin karakter EU sayılmaz", PotionPolicy.IsEuropean("CHAR_CH_MAN_WARRIOR"), false);
+        RunPotionInt("EU pot bekleme süresi 15000ms olmalı", PotionPolicy.GetPotionCooldownMs(true), 15000);
+        RunPotionInt("Çin pot bekleme süresi 1000ms olmalı", PotionPolicy.GetPotionCooldownMs(false), 1000);
+        RunPotionInt("Vigor pot bekleme süresi 15000ms olmalı", PotionPolicy.VigorPotionCooldownMs, 15000);
+        RunPotionCheck("0x185B (Cooldown) slot bloklamaz", PotionPolicy.ShouldBlockSlot(0x185B), false);
+        RunPotionInt("0x185B için slot bloklama süresi 0sn olmalı", PotionPolicy.GetSlotBlockSeconds(0x185B), 0);
+        RunPotionInt("0x185B için blackout süresi 500ms olmalı", PotionPolicy.GetBlackoutMs(0x185B), 500);
+        RunPotionCheck("0x1889 (Genel reject) slot bloklar", PotionPolicy.ShouldBlockSlot(0x1889), true);
+        RunPotionInt("0x1889 için slot bloklama süresi 5sn olmalı (30sn değil)", PotionPolicy.GetSlotBlockSeconds(0x1889), 5);
+        RunPotionInt("0x1889 için blackout süresi 2000ms olmalı (15sn değil)", PotionPolicy.GetBlackoutMs(0x1889), 2000);
 
         if (failures != 0)
         {
@@ -426,7 +439,7 @@ internal static class Program
             return 1;
         }
 
-        Console.WriteLine("Koruma, item filtre, combat, skill, imbue, command center, lojistik, parti, PIN, SOCKS5, Auto Alchemy, Target Assist ve Localization senaryoları başarılı: 230");
+        Console.WriteLine("Koruma, item filtre, combat, skill, imbue, command center, lojistik, parti, PIN, SOCKS5, Auto Alchemy, Target Assist, Localization ve Potion senaryoları başarılı: 243");
         return 0;
     }
 
@@ -764,6 +777,30 @@ internal static class Program
     }
 
     private static void RunLocalizationCheck(string name, bool actual, bool expected)
+    {
+        if (actual == expected)
+        {
+            Console.WriteLine("PASS: " + name);
+            return;
+        }
+
+        failures++;
+        Console.WriteLine("FAIL: " + name + " | beklenen=" + expected + ", gerçek=" + actual);
+    }
+
+    private static void RunPotionCheck(string name, bool actual, bool expected)
+    {
+        if (actual == expected)
+        {
+            Console.WriteLine("PASS: " + name);
+            return;
+        }
+
+        failures++;
+        Console.WriteLine("FAIL: " + name + " | beklenen=" + expected + ", gerçek=" + actual);
+    }
+
+    private static void RunPotionInt(string name, int actual, int expected)
     {
         if (actual == expected)
         {

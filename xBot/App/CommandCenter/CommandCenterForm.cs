@@ -118,6 +118,7 @@ namespace xBot.App.CommandCenter
                 Checked = CommandCenterManager.Enabled,
                 Cursor = Cursors.Hand
             };
+            DarkTheme.StyleCheckBox(chkEnable);
 
             pnlBottom.Controls.Add(btnReset);
             pnlBottom.Controls.Add(chkEnable);

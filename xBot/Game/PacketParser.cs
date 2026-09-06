@@ -2741,7 +2741,7 @@ namespace xBot.Game
 				try
 				{
 					ushort errorCode = packet.ReadUShort();
-					Bot.Get.MarkLastUseRejected();
+					Bot.Get.MarkLastUseRejected(errorCode);
 					string forensic = "";
 					try
 					{
@@ -2750,7 +2750,14 @@ namespace xBot.Game
 							forensic = $" HP={chr.GetHPPercent()}% MP={chr.GetMPPercent()}%";
 					}
 					catch { }
-					Window.Get?.Log($"[Item Use Warning] 0xB04C rejected by server (Error code: 0x{errorCode:X4}).{forensic} Item kullanimi 15sn duraklatildi, slot 30sn bloklandi.", xBot.App.Theme.LogLevel.Warning);
+					if (errorCode == 0x185B)
+					{
+						Window.Get?.Log($"[Item] 0xB04C: Sunucu bekleme süresi aktif (Cooldown: 0x185B).{forensic}", xBot.App.Theme.LogLevel.Info);
+					}
+					else
+					{
+						Window.Get?.Log($"[Item Use Warning] 0xB04C rejected by server (Error code: 0x{errorCode:X4}).{forensic} Slot 5sn gecici bekletildi.", xBot.App.Theme.LogLevel.Warning);
+					}
 				}
 				catch { }
 			}

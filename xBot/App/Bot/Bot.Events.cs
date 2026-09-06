@@ -175,6 +175,7 @@ namespace xBot.App
 		/// </summary>
 		public void OnGameJoined()
 		{
+			UpdatePotionCooldownIntervals();
 			Window w = Window.Get;
 			w.Log("You has been joined to the game");
 			w.LogChatMessage(w.Chat_rtbxAll, "(Welcome)", DataManager.GetUIFormat("UIIT_STT_STARTING_MSG").Replace("\\n", "\n"));

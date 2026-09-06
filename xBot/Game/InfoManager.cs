@@ -384,6 +384,7 @@ namespace xBot.Game
 				Character.StorageGold = InfoManager.Character.StorageGold;
 			}
 			InfoManager.Character = Character;
+			Bot.Get?.UpdatePotionCooldownIntervals();
 
 			// GUI
 			Window w = Window.Get;

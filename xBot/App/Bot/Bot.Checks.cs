@@ -47,9 +47,9 @@ namespace xBot.App
         private static DateTime m_lastItemSuccessUtc = DateTime.MinValue;
         private static readonly object m_useItemLock = new object();
         private const int UseItemMinIntervalMs = 1000;
-        private const int RejectedSlotBlockSeconds = 30;
+        private const int RejectedSlotBlockSeconds = 5;
         private const int RejectLinkWindowSeconds = 5;
-        private const int RejectGlobalBlackoutSeconds = 15;
+        private const int RejectGlobalBlackoutSeconds = 2;
         private static DateTime m_rejectBlackoutUntil = DateTime.MinValue;
         private static DateTime m_externalUseBlackoutUntil = DateTime.MinValue;
         private const int ExternalUseBlackoutMs = 2500;
@@ -176,8 +176,52 @@ namespace xBot.App
                 m_lastUseItemId = itemId;
             }
         }
-        public void MarkLastUseRejected()
+        public void MarkLastUseRejected(ushort errorCode = 0)
         {
+            if (errorCode == 0x185B)
+            {
+                // 0x185B = Silkroad sunucu hatasi: Pot veya esya bekleme suresinde (cooldown active).
+                // Bu durum normal cooldown senkronizasyonudur, esya veya slot arizasi degildir.
+                // Kesinlikle slot bloklanmaz, esya kara listeye alinmaz.
+                bool isEu = InfoManager.Character != null && InfoManager.Character.IsEuropean();
+                int cooldownMs = isEu ? 15000 : 1000;
+
+                lock (m_useItemLock)
+                {
+                    m_rejectBlackoutUntil = DateTime.UtcNow.AddMilliseconds(500);
+                }
+
+                // Ilgili pot timer'ini sunucu bekleme suresine gore senkronize et
+                try
+                {
+                    var item = xBot.Game.DataManager.GetItemData(m_lastUseItemId);
+                    if (item != null)
+                    {
+                        byte id4 = byte.Parse(item["tid4"]);
+                        if (id4 == 1 && tUsingHP != null)
+                        {
+                            tUsingHP.Interval = cooldownMs;
+                            tUsingHP.Stop();
+                            tUsingHP.Start();
+                        }
+                        else if (id4 == 2 && tUsingMP != null)
+                        {
+                            tUsingMP.Interval = cooldownMs;
+                            tUsingMP.Stop();
+                            tUsingMP.Start();
+                        }
+                        else if (id4 == 3 && tUsingVigor != null)
+                        {
+                            tUsingVigor.Interval = 15000;
+                            tUsingVigor.Stop();
+                            tUsingVigor.Start();
+                        }
+                    }
+                }
+                catch { }
+                return;
+            }
+
             uint suspectId = 0;
             lock (m_useItemLock)
             {
@@ -190,8 +234,19 @@ namespace xBot.App
                     suspectId = m_lastUseItemId;
             }
             if (suspectId != 0)
-                LearnItemUsable(suspectId, false, "0xB04C reject, yakin zamanda success yok");
+                LearnItemUsable(suspectId, false, $"0xB04C reject 0x{errorCode:X4}, yakin zamanda success yok");
         }
+
+        public void UpdatePotionCooldownIntervals()
+        {
+            bool isEu = InfoManager.Character != null && InfoManager.Character.IsEuropean();
+            int potionInterval = isEu ? 15000 : 1000;
+
+            if (tUsingHP != null) tUsingHP.Interval = potionInterval;
+            if (tUsingMP != null) tUsingMP.Interval = potionInterval;
+            if (tUsingVigor != null) tUsingVigor.Interval = 15000;
+        }
+
         /// <summary>
         /// Gercek client potion bastiginda bot timer'larini oteleyip global blackout baslatir.
         /// Boylece bot, client'in actigi server cooldown penceresine ates etmez (0x1889+DC).
@@ -214,23 +269,29 @@ namespace xBot.App
             {
                 // usage duzeni: ID1<<2 | ID2<<5 | ID3<<7 | ID4<<11 ; ID4: 1=HP 2=MP 3=vigor
                 int id4 = (usage >> 11) & 0x1F;
+                bool isEu = InfoManager.Character != null && InfoManager.Character.IsEuropean();
+                int potionInterval = isEu ? 15000 : 1000;
+
                 if (id4 == 1 && tUsingHP != null)
                 {
+                    tUsingHP.Interval = potionInterval;
                     tUsingHP.Stop(); tUsingHP.Start();
                 }
                 else if (id4 == 2 && tUsingMP != null)
                 {
+                    tUsingMP.Interval = potionInterval;
                     tUsingMP.Stop(); tUsingMP.Start();
                 }
                 else if (id4 == 3 && tUsingVigor != null)
                 {
+                    tUsingVigor.Interval = 15000;
                     tUsingVigor.Stop(); tUsingVigor.Start();
                 }
                 else
                 {
-                    if (tUsingHP != null) { tUsingHP.Stop(); tUsingHP.Start(); }
-                    if (tUsingMP != null) { tUsingMP.Stop(); tUsingMP.Start(); }
-                    if (tUsingVigor != null) { tUsingVigor.Stop(); tUsingVigor.Start(); }
+                    if (tUsingHP != null) { tUsingHP.Interval = potionInterval; tUsingHP.Stop(); tUsingHP.Start(); }
+                    if (tUsingMP != null) { tUsingMP.Interval = potionInterval; tUsingMP.Stop(); tUsingMP.Start(); }
+                    if (tUsingVigor != null) { tUsingVigor.Interval = 15000; tUsingVigor.Stop(); tUsingVigor.Start(); }
                 }
             }
             catch { }
@@ -257,8 +318,11 @@ namespace xBot.App
             tUsingRecoveryKit.AutoReset = tUsingAbnormalPill.AutoReset =
             tCycleAutoParty.AutoReset = false;
 
-            // Potion & pill cooldowns: In Silkroad, pills have a 10-15s server cooldown.
-            tUsingHP.Interval = tUsingMP.Interval = tUsingVigor.Interval = 1000;
+            // Potion & pill cooldowns: EU 15s, CH 1s, Vigor 15s, pills 12s.
+            bool isEu = InfoManager.Character != null && InfoManager.Character.IsEuropean();
+            int potInterval = isEu ? 15000 : 1000;
+            tUsingHP.Interval = tUsingMP.Interval = potInterval;
+            tUsingVigor.Interval = 15000;
             tUsingUniversal.Interval = tUsingPurification.Interval = 12000;
             tUsingRecoveryKit.Interval = 1000;
             tUsingAbnormalPill.Interval = 12000;
@@ -298,6 +362,9 @@ namespace xBot.App
                         if (w.Character_cbxUseHPGrain.Checked && FindItem(3, 1, 1, ref slot, "_SPOTION_")
                             || w.Character_cbxUseHP.Checked && FindItem(3, 1, 1, ref slot, "", "_SPOTION_"))
                         {
+                            int requiredInterval = (InfoManager.Character != null && InfoManager.Character.IsEuropean()) ? 15000 : 1000;
+                            if (tUsingHP.Interval != requiredInterval)
+                                tUsingHP.Interval = requiredInterval;
                             PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot);
                             tUsingHP.Start();
                         }
@@ -328,6 +395,9 @@ namespace xBot.App
                         if (w.Character_cbxUseMPGrain.Checked && FindItem(3, 1, 2, ref slot, "_SPOTION_")
                             || w.Character_cbxUseMP.Checked && FindItem(3, 1, 2, ref slot, "", "_SPOTION_"))
                         {
+                            int requiredInterval = (InfoManager.Character != null && InfoManager.Character.IsEuropean()) ? 15000 : 1000;
+                            if (tUsingMP.Interval != requiredInterval)
+                                tUsingMP.Interval = requiredInterval;
                             PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot);
                             tUsingMP.Start();
                         }
@@ -348,6 +418,8 @@ namespace xBot.App
                 Window w = Window.Get;
                 if (w.Character_cbxUseHPVigor.Checked || w.Character_cbxUseMPVigor.Checked)
                 {
+                    if (tUsingVigor.Interval != 15000)
+                        tUsingVigor.Interval = 15000;
                     byte usePercent = 0;
                     WinAPI.InvokeIfRequired(w.Character_tbxUseHPVigor, () => {
                         usePercent = ParsePercentSafe(w.Character_tbxUseHPVigor.Text);

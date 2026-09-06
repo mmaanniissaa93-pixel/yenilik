@@ -152,5 +152,113 @@ namespace xBot.App.Theme
             path.CloseFigure();
             return path;
         }
+
+        private static readonly System.Collections.Generic.HashSet<Control> s_styledControls = new System.Collections.Generic.HashSet<Control>();
+
+        public static void StyleCheckBox(CheckBox cbx)
+        {
+            if (cbx == null) return;
+            cbx.ForeColor = TextPrimary;
+            cbx.Font = FontBody;
+
+            lock (s_styledControls)
+            {
+                if (!s_styledControls.Add(cbx))
+                    return;
+            }
+
+            cbx.Paint += (sender, e) =>
+            {
+                var cb = (CheckBox)sender;
+                var g = e.Graphics;
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+
+                int boxSize = 14;
+                int boxX = cb.Padding.Left > 0 ? cb.Padding.Left : 1;
+                int boxY = (cb.Height - boxSize) / 2;
+                Rectangle boxRect = new Rectangle(boxX, boxY, boxSize, boxSize);
+
+                if (cb.Checked)
+                {
+                    using (SolidBrush fillBrush = new SolidBrush(cb.Enabled ? Accent : BorderSubtle))
+                    {
+                        g.FillRectangle(fillBrush, boxRect);
+                    }
+                    using (Pen borderPen = new Pen(cb.Enabled ? BorderFocus : BorderSubtle, 1.0f))
+                    {
+                        g.DrawRectangle(borderPen, boxRect);
+                    }
+                    using (Pen checkPen = new Pen(cb.Enabled ? Color.White : TextMuted, 2.0f))
+                    {
+                        PointF p1 = new PointF(boxX + 2.5f, boxY + 7.0f);
+                        PointF p2 = new PointF(boxX + 5.5f, boxY + 10.5f);
+                        PointF p3 = new PointF(boxX + 11.5f, boxY + 3.5f);
+                        g.DrawLine(checkPen, p1, p2);
+                        g.DrawLine(checkPen, p2, p3);
+                    }
+                }
+                else
+                {
+                    using (SolidBrush fillBrush = new SolidBrush(BgInput))
+                    {
+                        g.FillRectangle(fillBrush, boxRect);
+                    }
+                    using (Pen borderPen = new Pen(BorderBright, 1.0f))
+                    {
+                        g.DrawRectangle(borderPen, boxRect);
+                    }
+                }
+            };
+        }
+
+        public static void StyleRadioButton(RadioButton rbn)
+        {
+            if (rbn == null) return;
+            rbn.ForeColor = TextPrimary;
+            rbn.Font = FontBody;
+
+            lock (s_styledControls)
+            {
+                if (!s_styledControls.Add(rbn))
+                    return;
+            }
+
+            rbn.Paint += (sender, e) =>
+            {
+                var rb = (RadioButton)sender;
+                var g = e.Graphics;
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+
+                int circleSize = 14;
+                int circleX = rb.Padding.Left > 0 ? rb.Padding.Left : 1;
+                int circleY = (rb.Height - circleSize) / 2;
+                Rectangle circleRect = new Rectangle(circleX, circleY, circleSize, circleSize);
+
+                using (SolidBrush fillBrush = new SolidBrush(BgInput))
+                {
+                    g.FillEllipse(fillBrush, circleRect);
+                }
+
+                if (rb.Checked)
+                {
+                    using (Pen borderPen = new Pen(rb.Enabled ? BorderFocus : BorderSubtle, 1.5f))
+                    {
+                        g.DrawEllipse(borderPen, circleRect);
+                    }
+                    Rectangle innerRect = new Rectangle(circleX + 3, circleY + 3, circleSize - 6, circleSize - 6);
+                    using (SolidBrush innerBrush = new SolidBrush(rb.Enabled ? Accent : TextMuted))
+                    {
+                        g.FillEllipse(innerBrush, innerRect);
+                    }
+                }
+                else
+                {
+                    using (Pen borderPen = new Pen(BorderBright, 1.0f))
+                    {
+                        g.DrawEllipse(borderPen, circleRect);
+                    }
+                }
+            };
+        }
     }
 }
