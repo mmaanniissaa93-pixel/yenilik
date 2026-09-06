@@ -387,49 +387,53 @@ namespace xBot.App
 			Skills_lstvSkills.Parent.InvokeIfRequired(() => {
 				if ((temp = this.Skills_lstvSkills.Items[key]) != null)
 				{
+					bool nameChanged = temp.Text != newSkill.Name;
 					temp.Name = newkey; temp.Tag = newSkill;
-					if (temp.Text != newSkill.Name)
+					temp.Text = newSkill.Name;
+					try { temp.ImageKey = GetImageKeyIcon(newSkill.Icon); } catch { }
+					if (nameChanged)
 					{
 						// Isim degistiyse sirali konuma tekrar yerlestir
 						temp.Remove();
+						// AddSkill yeni SRSkill ile yeniden ekler (sıralı)
 						AddSkill(newSkill);
 					}
 				}
 				// An array of references cannot be possible.. Using the long way "copy & paste" code :(
 				if ((temp = this.Skills_lstvAttackMobType_General.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; }
+				{ temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name; }
 				if ((temp = this.Skills_lstvAttackMobType_Champion.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; }
+				{ temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name; }
 				if ((temp = this.Skills_lstvAttackMobType_Giant.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; }
+				{ temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name; }
 				if ((temp = this.Skills_lstvAttackMobType_PartyGeneral.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; }
+				{ temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name; }
 				if ((temp = this.Skills_lstvAttackMobType_PartyChampion.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; }
+				{ temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name; }
 				if ((temp = this.Skills_lstvAttackMobType_PartyGiant.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; }
+				{ temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name; }
 				if ((temp = this.Skills_lstvAttackMobType_Unique.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; }
+				{ temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name; }
 				if ((temp = this.Skills_lstvAttackMobType_Elite.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; }
+				{ temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name; }
 				if ((temp = this.Skills_lstvAttackMobType_Event.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; }
+				{ temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name; }
 				if ((temp = this.Skills_lstvBuffMobType_General.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; }
+				{ temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name; }
 				if ((temp = this.Skills_lstvBuffMobType_Champion.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; }
+				{ temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name; }
 				if ((temp = this.Skills_lstvBuffMobType_Giant.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; }
+				{ temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name; }
 				if ((temp = this.Skills_lstvBuffMobType_PartyGeneral.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; }
+				{ temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name; }
 				if ((temp = this.Skills_lstvBuffMobType_PartyChampion.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; }
+				{ temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name; }
 				if ((temp = this.Skills_lstvBuffMobType_PartyGiant.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; }
+				{ temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name; }
 				if ((temp = this.Skills_lstvBuffMobType_Unique.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; }
+				{ temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name; }
 				if ((temp = this.Skills_lstvBuffMobType_Elite.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; }
+				{ temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name; }
 			});
 		}
 		public void RemoveSkill(uint SkillID)

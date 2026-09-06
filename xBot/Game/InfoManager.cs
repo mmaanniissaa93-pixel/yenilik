@@ -1720,20 +1720,39 @@ namespace xBot.Game
 		internal static void OnSkillLevelUp(uint newSkillID)
 		{
 			SRSkill skill = new SRSkill(newSkillID);
-			
+
 			// Look for the skill with the last group ID
 			uint lastSkillID = DataManager.GetLastSkillID(skill);
 			if (lastSkillID == 0)
 			{
-				// Add new skill
+				// Add new skill (server'dan Enabled bayrağı gelmediği için öğrenilen skill'i aktif aç)
+				skill.Enabled = true;
 				Character.Skills[skill.ID] = skill;
 				Window.Get.AddSkill(skill);
 			}
 			else
 			{
+				// Eski skill'in Enabled durumunu koru; yeni SRSkill() default false gelir.
+				// Bunu kopyalamazsak bot skill'i atlar ve Common Attack fallback'a düşer.
+				SRSkill oldSkill = Character.Skills != null && Character.Skills.ContainsKey(lastSkillID)
+					? Character.Skills[lastSkillID]
+					: null;
+				skill.Enabled = oldSkill != null ? oldSkill.Enabled : true;
+				if (skill.isUsableSkill())
+					skill.Enabled = true;
+
 				// Update if the skill is sharing the same group
 				Character.Skills.RemoveKey(lastSkillID);
 				Character.Skills[skill.ID] = skill;
+
+				// Imbue seçimi eski ID'yi tutuyorsa yeni ID'ye taşı (yoksa imbue hiç basılmaz)
+				try
+				{
+					if (App.SkillManager.SelectedImbueSkillId == lastSkillID)
+						App.SkillManager.SelectedImbueSkillId = skill.ID;
+				}
+				catch { }
+
 				// Update the skill from every list
 				Window.Get.UpdateSkill(lastSkillID, skill);
 			}
@@ -1749,19 +1768,34 @@ namespace xBot.Game
 			Window w = Window.Get;
 			if (nextSkillID != 0) // Just in case
 			{
-				SRSkill nextSkill = Character.Skills[nextSkillID];
+				SRSkill nextSkill = Character.Skills != null && Character.Skills.ContainsKey(nextSkillID)
+					? Character.Skills[nextSkillID]
+					: null;
 				// Check if doesn't exists, then it's the last skill point to remove
-				if (skill == null)
+				if (nextSkill == null)
 				{
-					// Remove skill
-					Character.Skills.RemoveKey(skill.ID);
-					Window.Get.RemoveSkill(skill.ID);
+					// Eski yüksek seviye zaten yoksa yeni (düşük) skill'i yine aktif ekle
+					skill.Enabled = true;
+					Character.Skills[skill.ID] = skill;
+					Window.Get.AddSkill(skill);
 				}
 				else
 				{
+					skill.Enabled = nextSkill.Enabled;
+					if (skill.isUsableSkill())
+						skill.Enabled = true;
+
 					// Update if the skill is sharing the same group
 					Character.Skills.RemoveKey(nextSkillID);
 					Character.Skills[skill.ID] = skill;
+
+					try
+					{
+						if (App.SkillManager.SelectedImbueSkillId == nextSkillID)
+							App.SkillManager.SelectedImbueSkillId = skill.ID;
+					}
+					catch { }
+
 					// Update the skill from every list
 					Window.Get.UpdateSkill(nextSkillID, skill);
 				}
