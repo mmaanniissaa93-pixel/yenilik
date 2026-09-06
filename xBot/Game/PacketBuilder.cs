@@ -501,28 +501,34 @@ namespace xBot.Game
 		}
 		private static void EnsureLearnedUsageLoaded()
 		{
-			if (s_learnedUsageLoaded)
-				return;
-			s_learnedUsageLoaded = true;
-			try
+			lock (s_learnedUsageLock)
 			{
-				if (!System.IO.File.Exists(LearnedUsageFile))
+				if (s_learnedUsageLoaded)
 					return;
-				Newtonsoft.Json.Linq.JObject root = Newtonsoft.Json.Linq.JObject.Parse(System.IO.File.ReadAllText(LearnedUsageFile));
-				Newtonsoft.Json.Linq.JObject items = root["Items"] as Newtonsoft.Json.Linq.JObject;
-				if (items == null)
-					return;
-				foreach (var kv in items)
+				s_learnedUsageLoaded = true;
+				try
 				{
-					uint id;
-					int usage;
-					if (uint.TryParse(kv.Key, out id) && int.TryParse(kv.Value.ToString(), out usage))
-						s_learnedUsage[id] = (ushort)usage;
+					if (!System.IO.File.Exists(LearnedUsageFile))
+						return;
+					Newtonsoft.Json.Linq.JObject root = Newtonsoft.Json.Linq.JObject.Parse(System.IO.File.ReadAllText(LearnedUsageFile));
+					Newtonsoft.Json.Linq.JObject items = root["Items"] as Newtonsoft.Json.Linq.JObject;
+					if (items == null)
+						return;
+					foreach (var kv in items)
+					{
+						uint id;
+						int usage;
+						if (uint.TryParse(kv.Key, out id) && int.TryParse(kv.Value.ToString(), out usage))
+							s_learnedUsage[id] = (ushort)usage;
+					}
+					if (s_learnedUsage.Count > 0)
+						Window.Get?.Log($"[Item] Ogrenilmis usage bilgisi yuklendi ({s_learnedUsage.Count} kayit).");
 				}
-				if (s_learnedUsage.Count > 0)
-					Window.Get?.Log($"[Item] Ogrenilmis usage bilgisi yuklendi ({s_learnedUsage.Count} kayit).");
+				catch (Exception ex)
+				{
+					System.Diagnostics.Debug.WriteLine("[PacketBuilder.EnsureLearnedUsageLoaded] " + ex.Message);
+				}
 			}
-			catch { }
 		}
 		private static void SaveLearnedUsage()
 		{
@@ -550,7 +556,10 @@ namespace xBot.Game
 					items[kv.Key.ToString()] = kv.Value;
 				System.IO.File.WriteAllText(LearnedUsageFile, new Newtonsoft.Json.Linq.JObject { ["Items"] = items }.ToString());
 			}
-			catch { }
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine("[PacketBuilder.SaveLearnedUsage] " + ex.Message);
+			}
 		}
 		public static bool UseItem(SRItem item,byte slot,uint uniqueID = 0)
 		{
@@ -590,7 +599,11 @@ namespace xBot.Game
 				Window.Get?.Log($"[Item] Kullanildi: [{cur.Name}] slot={slot} adet={cur.Quantity} ({Packet.ToStringHexadecimal(p.GetBytes())})" + (uniqueID != 0 ? " hedef=" + uniqueID : ""));
 				return true;
 			}
-			catch { return false; }
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine("[PacketBuilder.UseItem] " + ex.Message);
+				return false;
+			}
 		}
 		public static void MoveItem(byte slotInitial,byte slotFinal, SRTypes.InventoryItemMovement type,ushort quantity = 0)
 		{
@@ -1021,13 +1034,13 @@ namespace xBot.Game
 		}
 		public static void ActivateBerserk()
 		{
-			Packet p = new Packet(0x70A7);
+			Packet p = new Packet(Agent.Opcode.CLIENT_CHARACTER_BERSERK_ACTIVATE);
 			p.WriteByte(1);
 			Bot.Get.Proxy.Agent.InjectToServer(p);
 		}
 		public static void RepairAllEquipments(uint npcUniqueID)
 		{
-			Packet p = new Packet(0x703E);
+			Packet p = new Packet(Agent.Opcode.CLIENT_REPAIR_ALL_EQUIPMENTS);
 			p.WriteUInt(npcUniqueID);
 			p.WriteByte(2); // 2 = Repair all equipped items
 			Bot.Get.Proxy.Agent.InjectToServer(p);

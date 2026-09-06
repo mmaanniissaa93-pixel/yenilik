@@ -248,7 +248,10 @@ namespace xBot.App
 			{
 				Theme.ModernLogger.Log(rtbxLogs, text);
 			}
-			catch { }
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine("[Window.Log] " + ex.Message);
+			}
 		}
 		public void Log(string text, Theme.LogLevel level)
 		{
@@ -256,7 +259,10 @@ namespace xBot.App
 			{
 				Theme.ModernLogger.Log(rtbxLogs, text, level);
 			}
-			catch { }
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine("[Window.Log] " + ex.Message);
+			}
 		}
 		public void SetTitle()
 		{
@@ -285,7 +291,10 @@ namespace xBot.App
 					Character_rtbxMessageFilter.AppendText(WinAPI.GetDate() + " " + message + Environment.NewLine);
 				});
 			}
-			catch { }
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine("[Window.LogMessageFilter] " + ex.Message);
+			}
 		}
 		public void LogPacket(string text)
 		{
@@ -300,7 +309,10 @@ namespace xBot.App
 					Settings_rtbxPackets.AppendText(sb.ToString());
 				});
 			}
-			catch { }
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine("[Window.LogPacket] " + ex.Message);
+			}
 		}
 		public void LogChatMessage(RichTextBox chat, string player, string message)
 		{
@@ -310,7 +322,10 @@ namespace xBot.App
 					chat.AppendText(WinAPI.GetDate() + " " + player + ": " + message + Environment.NewLine);
 				});
 			}
-			catch { }
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine("[Window.LogChatMessage] " + ex.Message);
+			}
 		}
 		private bool isValidFilename(string FileName)
 		{
@@ -387,86 +402,80 @@ namespace xBot.App
 			ListViewItem temp;
 			string key = lastSkillID.ToString();
 			string newkey = newSkill.ID.ToString();
-			// Invoke the TabPageV - contains all skill lists
+			// All skill list views that need updating
+			ListView[] skillLists = new ListView[]
+			{
+				Skills_lstvSkills,
+				Skills_lstvAttackMobType_General,
+				Skills_lstvAttackMobType_Champion,
+				Skills_lstvAttackMobType_Giant,
+				Skills_lstvAttackMobType_PartyGeneral,
+				Skills_lstvAttackMobType_PartyChampion,
+				Skills_lstvAttackMobType_PartyGiant,
+				Skills_lstvAttackMobType_Unique,
+				Skills_lstvAttackMobType_Elite,
+				Skills_lstvAttackMobType_Event,
+				Skills_lstvBuffMobType_General,
+				Skills_lstvBuffMobType_Champion,
+				Skills_lstvBuffMobType_Giant,
+				Skills_lstvBuffMobType_PartyGeneral,
+				Skills_lstvBuffMobType_PartyChampion,
+				Skills_lstvBuffMobType_PartyGiant,
+				Skills_lstvBuffMobType_Unique,
+				Skills_lstvBuffMobType_Elite
+			};
+
 			Skills_lstvSkills.Parent.InvokeIfRequired(() => {
-				if ((temp = this.Skills_lstvSkills.Items[key]) != null)
+				foreach (var list in skillLists)
 				{
-					bool nameChanged = temp.Text != newSkill.Name;
-					temp.Name = newkey; temp.Tag = newSkill;
-					temp.Text = newSkill.Name;
-					try { temp.ImageKey = GetImageKeyIcon(newSkill.Icon); } catch { }
-					if (nameChanged)
+					if ((temp = list.Items[key]) != null)
 					{
-						// Isim degistiyse sirali konuma tekrar yerlestir
-						temp.Remove();
-						// AddSkill yeni SRSkill ile yeniden ekler (sıralı)
-						AddSkill(newSkill);
+						bool nameChanged = (list == Skills_lstvSkills) && temp.Text != newSkill.Name;
+						temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name;
+						if (list == Skills_lstvSkills)
+						{
+							try { temp.ImageKey = GetImageKeyIcon(newSkill.Icon); } catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[Window.UpdateSkill] " + ex.Message); }
+							if (nameChanged)
+							{
+								temp.Remove();
+								AddSkill(newSkill);
+							}
+						}
 					}
 				}
-				// An array of references cannot be possible.. Using the long way "copy & paste" code :(
-				if ((temp = this.Skills_lstvAttackMobType_General.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name; }
-				if ((temp = this.Skills_lstvAttackMobType_Champion.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name; }
-				if ((temp = this.Skills_lstvAttackMobType_Giant.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name; }
-				if ((temp = this.Skills_lstvAttackMobType_PartyGeneral.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name; }
-				if ((temp = this.Skills_lstvAttackMobType_PartyChampion.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name; }
-				if ((temp = this.Skills_lstvAttackMobType_PartyGiant.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name; }
-				if ((temp = this.Skills_lstvAttackMobType_Unique.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name; }
-				if ((temp = this.Skills_lstvAttackMobType_Elite.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name; }
-				if ((temp = this.Skills_lstvAttackMobType_Event.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name; }
-				if ((temp = this.Skills_lstvBuffMobType_General.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name; }
-				if ((temp = this.Skills_lstvBuffMobType_Champion.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name; }
-				if ((temp = this.Skills_lstvBuffMobType_Giant.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name; }
-				if ((temp = this.Skills_lstvBuffMobType_PartyGeneral.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name; }
-				if ((temp = this.Skills_lstvBuffMobType_PartyChampion.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name; }
-				if ((temp = this.Skills_lstvBuffMobType_PartyGiant.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name; }
-				if ((temp = this.Skills_lstvBuffMobType_Unique.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name; }
-				if ((temp = this.Skills_lstvBuffMobType_Elite.Items[key]) != null)
-				{ temp.Name = newkey; temp.Tag = newSkill; temp.Text = newSkill.Name; }
 			});
 		}
 		public void RemoveSkill(uint SkillID)
 		{
 			string key = SkillID.ToString();
-			// Invoke the TabPageV that contains the Skill list to drag
+			// All skill list views that need updating
+			ListView[] skillLists = new ListView[]
+			{
+				Skills_lstvSkills,
+				Skills_lstvAttackMobType_General,
+				Skills_lstvAttackMobType_Champion,
+				Skills_lstvAttackMobType_Giant,
+				Skills_lstvAttackMobType_PartyGeneral,
+				Skills_lstvAttackMobType_PartyChampion,
+				Skills_lstvAttackMobType_PartyGiant,
+				Skills_lstvAttackMobType_Unique,
+				Skills_lstvAttackMobType_Elite,
+				Skills_lstvAttackMobType_Event,
+				Skills_lstvBuffMobType_General,
+				Skills_lstvBuffMobType_Champion,
+				Skills_lstvBuffMobType_Giant,
+				Skills_lstvBuffMobType_PartyGeneral,
+				Skills_lstvBuffMobType_PartyChampion,
+				Skills_lstvBuffMobType_PartyGiant,
+				Skills_lstvBuffMobType_Unique,
+				Skills_lstvBuffMobType_Elite
+			};
+
 			Skills_lstvSkills.Parent.InvokeIfRequired(() => {
-				this.Skills_lstvSkills.Items.RemoveByKey(key);
-				// An array of references cannot be possible.. Using the long way "copy & paste" code :(
-				this.Skills_lstvAttackMobType_General.Items.RemoveByKey(key);
-				this.Skills_lstvAttackMobType_Champion.Items.RemoveByKey(key);
-				this.Skills_lstvAttackMobType_Giant.Items.RemoveByKey(key);
-				this.Skills_lstvAttackMobType_PartyGeneral.Items.RemoveByKey(key);
-				this.Skills_lstvAttackMobType_PartyChampion.Items.RemoveByKey(key);
-				this.Skills_lstvAttackMobType_PartyGiant.Items.RemoveByKey(key);
-				this.Skills_lstvAttackMobType_Unique.Items.RemoveByKey(key);
-				this.Skills_lstvAttackMobType_Elite.Items.RemoveByKey(key);
-				this.Skills_lstvAttackMobType_Event.Items.RemoveByKey(key);
-				this.Skills_lstvBuffMobType_General.Items.RemoveByKey(key);
-				this.Skills_lstvBuffMobType_Champion.Items.RemoveByKey(key);
-				this.Skills_lstvBuffMobType_Giant.Items.RemoveByKey(key);
-				this.Skills_lstvBuffMobType_PartyGeneral.Items.RemoveByKey(key);
-				this.Skills_lstvBuffMobType_PartyChampion.Items.RemoveByKey(key);
-				this.Skills_lstvBuffMobType_PartyGiant.Items.RemoveByKey(key);
-				this.Skills_lstvBuffMobType_Unique.Items.RemoveByKey(key);
-				this.Skills_lstvBuffMobType_Elite.Items.RemoveByKey(key);
-			});
-			Skills_lstvSkills.InvokeIfRequired(() => {
-				Skills_lstvSkills.Items.RemoveByKey(key);
+				foreach (var list in skillLists)
+				{
+					list.Items.RemoveByKey(key);
+				}
 			});
 		}
 		public void Skills_Clear()
@@ -1986,7 +1995,7 @@ namespace xBot.App
 			if (Bot.Get.Proxy != null && Bot.Get.Proxy.isRunning)
 				Bot.Get.Proxy.Stop();
 			if(tAdsWindow != null && tAdsWindow.ThreadState == System.Threading.ThreadState.Running)
-				try { tAdsWindow.Interrupt(); } catch { }
+				try { tAdsWindow.Interrupt(); } catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[Window.Window_Closing] " + ex.Message); }
 		}
 		/// <summary>
 		/// Updates checked.

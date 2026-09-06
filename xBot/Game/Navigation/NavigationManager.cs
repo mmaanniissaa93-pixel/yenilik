@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using xBot.App;
 using xBot.Game.Objects.Common;
 
@@ -247,6 +248,50 @@ namespace xBot.Game.Navigation
 				m_cacheMap[entry.RegionId] = newNode;
 			}
 			return loaded;
+		}
+
+		/// <summary>
+		/// Preloads a region asynchronously into the cache.
+		/// Returns a Task that completes when the region is loaded.
+		/// </summary>
+		public System.Threading.Tasks.Task PreloadRegionAsync(int regionId)
+		{
+			return System.Threading.Tasks.Task.Run(() =>
+			{
+				var entry = m_boundsIndex.Find(e => e.RegionId == regionId);
+				if (entry != null)
+				{
+					GetOrLoadRegion(entry);
+				}
+			});
+		}
+
+		/// <summary>
+		/// Warms up the navigation cache by preloading regions near the given position.
+		/// Loads the containing region and adjacent regions within the specified radius.
+		/// </summary>
+		public void WarmupCacheNear(float x, float y, int adjacentRegionCount = 2)
+		{
+			if (!IsAvailable)
+				return;
+
+			var containing = m_boundsIndex.Find(e => e.Contains(x, y, 40f));
+			if (containing == null)
+				return;
+
+			// Load containing region first (synchronously for immediate use)
+			GetOrLoadRegion(containing);
+
+			// Then preload adjacent regions asynchronously
+			var adjacent = m_boundsIndex
+				.Where(e => e.RegionId != containing.RegionId)
+				.OrderBy(e => e.DistanceTo(x, y))
+				.Take(adjacentRegionCount);
+
+			foreach (var entry in adjacent)
+			{
+				PreloadRegionAsync(entry.RegionId);
+			}
 		}
 
 		private static int ParseRegionId(string fileName)

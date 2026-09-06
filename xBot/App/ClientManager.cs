@@ -302,7 +302,7 @@ namespace xBot.App
 
                 try
                 {
-                    PrepareTempConfigFile(pi.dwProcessId, redirectIp, redirectPort, gatewayHosts, gatewayPort, isDebug);
+                    PrepareTempConfigFile(pi.dwProcessId, redirectIp, redirectPort, gatewayHosts, gatewayPort, isDebug, false);
                     bool mainThreadResumedForPatch = false;
 
                     Process sroProcess = Process.GetProcessById((int)pi.dwProcessId);
@@ -380,13 +380,14 @@ namespace xBot.App
             }
         }
 
-        private static void PrepareTempConfigFile(
+private static void PrepareTempConfigFile(
             uint processId,
             string redirectIp,
             ushort redirectPort,
             List<string> gatewayHosts,
             ushort gatewayPort,
-            bool isDebug)
+            bool isDebug,
+            bool randomizeMac = false)
         {
             try
             {
@@ -410,6 +411,7 @@ namespace xBot.App
                     }
 
                     writer.Write(gatewayPort); // 2 bytes WORD
+                    writer.Write(randomizeMac); // 1 byte - MAC randomization flag
                 }
             }
             catch (Exception ex)

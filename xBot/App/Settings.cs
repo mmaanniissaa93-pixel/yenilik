@@ -568,7 +568,11 @@ namespace xBot.App
 					root["ItemFilterManager"] = ItemFilterManager.ToJson();
 
 					// Saving (atomic)
-					SaveJsonAtomic("Config\\" + DataManager.SilkroadName + "_" + InfoManager.ServerName + "_" + InfoManager.CharName + ".json", root.ToString());
+					string safeSilkroad = string.IsNullOrEmpty(DataManager.SilkroadName) ? "UnknownSilkroad" : DataManager.SilkroadName;
+					string safeServer = string.IsNullOrEmpty(InfoManager.ServerName) ? "UnknownServer" : InfoManager.ServerName;
+					string safeChar = string.IsNullOrEmpty(InfoManager.CharName) ? "UnknownChar" : InfoManager.CharName;
+					string cfgFile = "Config\\" + safeSilkroad + "_" + safeServer + "_" + safeChar + ".json";
+					SaveJsonAtomic(cfgFile, root.ToString());
 				}
 			}
 		}
@@ -581,10 +585,13 @@ namespace xBot.App
 			if (!Directory.Exists("Config"))
 				Directory.CreateDirectory("Config");
 
-			Window w = Window.Get;
-			// Check config path
-			string cfgPath = "Config\\"+DataManager.SilkroadName + "_" + InfoManager.ServerName + "_" + InfoManager.CharName + ".json";
-			try
+Window w = Window.Get;
+		// Check config path
+		string safeSilkroad = string.IsNullOrEmpty(DataManager.SilkroadName) ? "UnknownSilkroad" : DataManager.SilkroadName;
+		string safeServer = string.IsNullOrEmpty(InfoManager.ServerName) ? "UnknownServer" : InfoManager.ServerName;
+		string safeChar = string.IsNullOrEmpty(InfoManager.CharName) ? "UnknownChar" : InfoManager.CharName;
+		string cfgPath = "Config\\" + safeSilkroad + "_" + safeServer + "_" + safeChar + ".json";
+		try
 			{
 				if (File.Exists(cfgPath))
 				{

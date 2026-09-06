@@ -5,6 +5,7 @@ using System.Collections.Specialized;
 using System.Globalization;
 using System.Timers;
 using xBot.Game;
+using xBot.Game.Navigation;
 using xBot.Game.Objects.Common;
 using xBot.Game.Objects.Entity;
 using xBot.Game.Objects.Item;
@@ -213,6 +214,14 @@ namespace xBot.App
 				});
 			}
 
+			// Warmup NavMesh cache near character position
+			if (InfoManager.Character != null && InfoManager.Character.Position != null)
+			{
+				NavigationManager.Get.WarmupCacheNear(
+					(float)InfoManager.Character.Position.PosX,
+					(float)InfoManager.Character.Position.PosY);
+			}
+
 			// Start loop event
 			tJoinedLoop = new Timer(200);
 			tJoinedLoop.Elapsed += new ElapsedEventHandler(this.OnLoop);
@@ -262,14 +271,17 @@ namespace xBot.App
 		/// </summary>
 		public void OnSpawn(SREntity entity)
 		{
-
+			if (entity is SRMob)
+			{
+				m_mobsCacheDirty = true;
+			}
 		}
 		/// <summary>
 		/// Called when a near entity despawn.
 		/// </summary>
 		public void OnDespawn(uint uniqueID)
 		{
-
+			m_mobsCacheDirty = true;
 		}
 		/// <summary>
 		/// Called only when the maximum level has been increased.

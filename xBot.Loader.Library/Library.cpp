@@ -21,6 +21,7 @@ BYTE g_IsDebug;
 string g_RedirectIP = "127.0.0.1";
 WORD g_RedirectPort = 1500;
 bool g_Activated = false;
+bool g_RandomizeMac = false; // Config flag for MAC randomization (GetAdaptersInfo detour)
 
 vector<string> g_RealGatewayAddresses;
 WORD g_RealGatewayPort = 15779;
@@ -237,7 +238,9 @@ void Install()
 	//Multiclient
 	DetourAttach(&(PVOID&)Real_CreateMutexA,     User_CreateMutexA);
 	DetourAttach(&(PVOID&)Real_bind,             User_bind);
-	// DetourAttach(&(PVOID&)Real_GetAdaptersInfo,  User_GetAdaptersInfo); // Disabled: randomizing MAC breaks HWID on private servers with anti-cheat
+	if (g_RandomizeMac) {
+		DetourAttach(&(PVOID&)Real_GetAdaptersInfo,  User_GetAdaptersInfo);
+	}
 	DetourAttach(&(PVOID&)Real_CreateSemaphoreA, User_CreateSemaphoreA);
 	DetourAttach(&(PVOID&)Real_CreateSemaphoreW, User_CreateSemaphoreW);
 	DetourAttach(&(PVOID&)Real_connect,          Detour_connect);
@@ -251,7 +254,9 @@ void Uninstall()
 
 	DetourDetach(&(PVOID&)Real_CreateMutexA,     User_CreateMutexA);
 	DetourDetach(&(PVOID&)Real_bind,             User_bind);
-	// DetourDetach(&(PVOID&)Real_GetAdaptersInfo,  User_GetAdaptersInfo);
+	if (g_RandomizeMac) {
+		DetourDetach(&(PVOID&)Real_GetAdaptersInfo,  User_GetAdaptersInfo);
+	}
 	DetourDetach(&(PVOID&)Real_CreateSemaphoreA, User_CreateSemaphoreA);
 	DetourDetach(&(PVOID&)Real_CreateSemaphoreW, User_CreateSemaphoreW);
 	DetourDetach(&(PVOID&)Real_connect,          Detour_connect);
@@ -290,6 +295,7 @@ void LoadConfig()
 				g_RealGatewayAddresses.push_back(address);
 			}
 			PayloadRead(stream, g_RealGatewayPort);
+			PayloadRead(stream, g_RandomizeMac);
 
 			stream.close();
 			DeleteFileA(payloadPath.str().c_str());

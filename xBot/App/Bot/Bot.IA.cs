@@ -22,6 +22,11 @@ namespace xBot.App
         Script currentScript;
         private volatile bool m_stopBottingRequested;
         private System.Threading.CancellationTokenSource m_botCts;
+        // Cached mob list for training area to avoid FindAll allocation each tick
+        private List<SRMob> m_cachedMobsInRange = new List<SRMob>();
+        private bool m_mobsCacheDirty = true;
+        private SRCoord m_lastTrainingPosition;
+        private int m_lastTrainingRadius;
         /// <summary>
         /// Kesilebilir bekleme: Stop() çağrılırsa erken döner (uzun Sleep'lerin bloklamasını önler).
         /// </summary>
@@ -457,7 +462,22 @@ namespace xBot.App
                     SkillManager.CheckDevilSpirit();
 
                     // Attacking
-                    List<SRMob> mobs = InfoManager.Mobs.FindAll(m => trainingPosition.DistanceTo(m.GetRealtimePosition()) <= trainingRadius);
+                    // Update cached mob list if training area changed or cache is dirty
+                    if (m_mobsCacheDirty || !trainingPosition.Equals(m_lastTrainingPosition) || trainingRadius != m_lastTrainingRadius)
+                    {
+                        m_cachedMobsInRange.Clear();
+                        foreach (var m in InfoManager.Mobs.Snapshot())
+                        {
+                            if (m != null && trainingPosition.DistanceTo(m.GetRealtimePosition()) <= trainingRadius)
+                            {
+                                m_cachedMobsInRange.Add(m);
+                            }
+                        }
+                        m_lastTrainingPosition = trainingPosition;
+                        m_lastTrainingRadius = trainingRadius;
+                        m_mobsCacheDirty = false;
+                    }
+                    List<SRMob> mobs = m_cachedMobsInRange;
 
                     // Combat AI: Check Berserker activation
                     if (w.Combat_cbxAutoBerserk == null || w.Combat_cbxAutoBerserk.Checked)
@@ -475,7 +495,7 @@ namespace xBot.App
                     // Combat AI: Check if we need to return to town (no pots / full bag / durability)
                     if (w.Town_cbxEnableTownLoop == null || w.Town_cbxEnableTownLoop.Checked)
                     {
-                        if (CheckTownReturnConditions() || ProtectionManager.CheckTownReturnTriggers())
+                        if (ProtectionManager.CheckTownReturnTriggers())
                         {
                             TownLoop(null);
                             return;
