@@ -272,6 +272,50 @@ namespace xBot.App
 			}
 		}
 		/// <summary>
+		/// Pot/ilaç seçimi: eşleşen tüm slotları tarar, en güçlü NORMAL potu seçer.
+		/// Item Mall potu (MALL / X-large) sadece normal pot yoksa kullanılır.
+		/// </summary>
+		public bool FindBestItem(byte ID2, byte ID3, byte ID4, ref byte slot, string servername = "", string excludeServername = "")
+		{
+			var inv = InfoManager.Character == null ? null : InfoManager.Character.Inventory;
+			if (inv == null)
+				return false;
+
+			int bestSlot = -1;
+			bool bestMall = false;
+			int bestLevel = -1;
+			uint bestId = 0;
+			bool hasBest = false;
+
+			for (int s = 13; s < inv.Capacity; s++)
+			{
+				var it = inv[s];
+				if (it == null || !it.isType(ID2, ID3, ID4))
+					continue;
+				if (!string.IsNullOrEmpty(servername) && (it.ServerName == null || !it.ServerName.Contains(servername)))
+					continue;
+				if (!string.IsNullOrEmpty(excludeServername) && it.ServerName != null && it.ServerName.Contains(excludeServername))
+					continue;
+				if (IsItemBlockedFromUse(it))
+					continue;
+
+				bool mall = PotionPolicy.IsMallPotion(it.ServerName, it.Name);
+				if (!hasBest || PotionPolicy.ComparePotions(mall, it.LevelRequired, it.ID, bestMall, bestLevel, bestId) < 0)
+				{
+					hasBest = true;
+					bestSlot = s;
+					bestMall = mall;
+					bestLevel = it.LevelRequired;
+					bestId = it.ID;
+				}
+			}
+
+			if (!hasBest)
+				return false;
+			slot = (byte)bestSlot;
+			return true;
+		}
+		/// <summary>
 		/// Try to change to clientless mode.
 		/// </summary>
 		public void GoClientless()

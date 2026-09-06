@@ -374,21 +374,77 @@ namespace xBot.Game
 		}
 		private static readonly Dictionary<uint, ushort> s_learnedUsage = new Dictionary<uint, ushort>();
 		private static readonly object s_learnedUsageLock = new object();
+		private static bool s_learnedUsageLoaded = false;
+		private const string LearnedUsageFile = "Config\\LearnedUsage.json";
+		// itemID -> pes pese non-cooldown reject sayisi (parity ile bit0 alternatifi denenir)
+		private static readonly Dictionary<uint, int> s_usageRejectCount = new Dictionary<uint, int>();
+		private static uint s_lastSentItemId;
+		private static ushort s_lastSentUsage;
 		/// <summary>
 		/// Gercek clientin 0x704C paketinden itemID->usage ogren (Sevar gibi custom
 		/// TID'li serverlarda botun DB'den hesapladigi usage tutmayabilir).
+		/// Ogrenilen deger diske yazilir, oturumlar arasi korunur.
 		/// </summary>
 		public static void LearnItemUsage(uint itemId, ushort usage)
 		{
 			if (itemId == 0) return;
+			bool changed = false;
 			lock (s_learnedUsageLock)
 			{
+				EnsureLearnedUsageLoaded();
 				ushort prev;
 				if (!s_learnedUsage.TryGetValue(itemId, out prev) || prev != usage)
 				{
 					s_learnedUsage[itemId] = usage;
-					Window.Get?.Log($"[Item] Ogrenildi: itemId={itemId} usage=0x{usage:X4} (client kaynagli)");
+					changed = true;
 				}
+				s_usageRejectCount.Remove(itemId);
+			}
+			if (changed)
+			{
+				Window.Get?.Log($"[Item] Ogrenildi: itemId={itemId} usage=0x{usage:X4} (kalici)");
+				SaveLearnedUsage();
+			}
+		}
+		/// <summary>
+		/// 0xB04C success: calisan usage'i kalici ogren (gonderilen degerle).
+		/// </summary>
+		public static void ConfirmLastSentUsage(uint itemId)
+		{
+			uint sentId;
+			ushort sentUsage;
+			lock (s_learnedUsageLock)
+			{
+				sentId = s_lastSentItemId;
+				sentUsage = s_lastSentUsage;
+			}
+			if (itemId != 0 && sentId == itemId)
+				LearnItemUsage(itemId, sentUsage);
+			else if (itemId != 0)
+			{
+				lock (s_learnedUsageLock)
+				{
+					EnsureLearnedUsageLoaded();
+					s_usageRejectCount.Remove(itemId);
+				}
+			}
+		}
+		/// <summary>
+		/// Cooldown disi reject: parity sayacini artir. Tek sayida ResolveUsage
+		/// bit0 cevrilmis alternatifi dener (Sevar potion usage 0x..ED vs 0x..EC).
+		/// Hangi varyant dogruysa o tutar, sonrasi kalici ogrenilir.
+		/// </summary>
+		public static void NoteUsageReject(uint itemId)
+		{
+			if (itemId == 0) return;
+			lock (s_learnedUsageLock)
+			{
+				EnsureLearnedUsageLoaded();
+				if (s_learnedUsage.ContainsKey(itemId))
+					return;
+				int cur;
+				s_usageRejectCount.TryGetValue(itemId, out cur);
+				s_usageRejectCount[itemId] = cur + 1;
 			}
 		}
 		private static ushort ResolveUsage(uint itemId, ushort computed)
@@ -396,11 +452,57 @@ namespace xBot.Game
 			if (itemId == 0) return computed;
 			lock (s_learnedUsageLock)
 			{
+				EnsureLearnedUsageLoaded();
 				ushort learned;
-				if (s_learnedUsage.TryGetValue(itemId, out learned) && learned != computed)
-					return learned;
-				return computed;
+				bool has = s_learnedUsage.TryGetValue(itemId, out learned);
+				int rejects;
+				s_usageRejectCount.TryGetValue(itemId, out rejects);
+				return PotionPolicy.ResolveUsageWithFallback(computed, rejects, has, learned);
 			}
+		}
+		private static void EnsureLearnedUsageLoaded()
+		{
+			if (s_learnedUsageLoaded)
+				return;
+			s_learnedUsageLoaded = true;
+			try
+			{
+				if (!System.IO.File.Exists(LearnedUsageFile))
+					return;
+				Newtonsoft.Json.Linq.JObject root = Newtonsoft.Json.Linq.JObject.Parse(System.IO.File.ReadAllText(LearnedUsageFile));
+				Newtonsoft.Json.Linq.JObject items = root["Items"] as Newtonsoft.Json.Linq.JObject;
+				if (items == null)
+					return;
+				foreach (var kv in items)
+				{
+					uint id;
+					int usage;
+					if (uint.TryParse(kv.Key, out id) && int.TryParse(kv.Value.ToString(), out usage))
+						s_learnedUsage[id] = (ushort)usage;
+				}
+				if (s_learnedUsage.Count > 0)
+					Window.Get?.Log($"[Item] Ogrenilmis usage bilgisi yuklendi ({s_learnedUsage.Count} kayit).");
+			}
+			catch { }
+		}
+		private static void SaveLearnedUsage()
+		{
+			try
+			{
+				Dictionary<uint, ushort> snap;
+				lock (s_learnedUsageLock)
+				{
+					snap = new Dictionary<uint, ushort>(s_learnedUsage);
+				}
+				string dir = System.IO.Path.GetDirectoryName(LearnedUsageFile);
+				if (!string.IsNullOrEmpty(dir) && !System.IO.Directory.Exists(dir))
+					System.IO.Directory.CreateDirectory(dir);
+				Newtonsoft.Json.Linq.JObject items = new Newtonsoft.Json.Linq.JObject();
+				foreach (var kv in snap)
+					items[kv.Key.ToString()] = kv.Value;
+				System.IO.File.WriteAllText(LearnedUsageFile, new Newtonsoft.Json.Linq.JObject { ["Items"] = items }.ToString());
+			}
+			catch { }
 		}
 		public static bool UseItem(SRItem item,byte slot,uint uniqueID = 0)
 		{
@@ -436,6 +538,11 @@ namespace xBot.Game
 					p.WriteUInt(uniqueID);
 				Bot.Get.Proxy.Agent.InjectToServer(p);
 				Bot.Get.MarkUseItemSent(slot, cur.ID);
+				lock (s_learnedUsageLock)
+				{
+					s_lastSentItemId = cur.ID;
+					s_lastSentUsage = usage;
+				}
 				Window.Get?.Log($"[Item] Kullanildi: [{cur.Name}] slot={slot} adet={cur.Quantity} ({Packet.ToStringHexadecimal(p.GetBytes())})" + (uniqueID != 0 ? " hedef=" + uniqueID : ""));
 				return true;
 			}

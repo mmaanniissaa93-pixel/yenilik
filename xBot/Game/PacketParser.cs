@@ -2730,7 +2730,10 @@ namespace xBot.Game
 
 				SRItem usedItem = inventory[slotInventory];
 				if (usedItem != null)
+				{
 					Bot.Get.LearnItemUsable(usedItem.ID, true, "0xB04C success");
+					PacketBuilder.ConfirmLastSentUsage(usedItem.ID);
+				}
 				if (quantityUpdate == 0)
 					inventory[slotInventory] = null; // Item consumed
 				else if (usedItem != null)

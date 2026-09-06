@@ -66,6 +66,12 @@ namespace xBot.App
         {
             if (item == null)
                 return true;
+            // Tüketilebilirler (3,1,*) pot, (3,2,*) hap, (3,3,*) scroll asla kalıcı
+            // kara listeye girmez: reject'leri geçicidir (sunucu cooldown'u, hareket,
+            // senkron, usage). Slot blackout + global blackout spam'i zaten engeller.
+            // Bu aynı zamanda eskiden yanlışlıkla kara listeye giren potları da kurtarır.
+            if (item.ID2 == 3 && item.ID3 >= 1 && item.ID3 <= 3)
+                return false;
             EnsureLearnedItemsLoaded();
             lock (s_learnedLock)
             {
@@ -191,7 +197,10 @@ namespace xBot.App
                     m_rejectBlackoutUntil = DateTime.UtcNow.AddMilliseconds(500);
                 }
 
-                // Ilgili pot timer'ini sunucu bekleme suresine gore senkronize et
+                // Ilgili pot timer'ini sunucu bekleme suresine gore senkronize et.
+                // Tam pencereyi (EU 15sn) baştan kurmak "lazımken basmıyor" hissi
+                // verir; kısa tutup bir sonraki HP/MP güncellemesinde tekrar dene.
+                int retryMs = Math.Min(cooldownMs, 3000);
                 try
                 {
                     var item = xBot.Game.DataManager.GetItemData(m_lastUseItemId);
@@ -200,19 +209,19 @@ namespace xBot.App
                         byte id4 = byte.Parse(item["tid4"]);
                         if (id4 == 1 && tUsingHP != null)
                         {
-                            tUsingHP.Interval = cooldownMs;
+                            tUsingHP.Interval = retryMs;
                             tUsingHP.Stop();
                             tUsingHP.Start();
                         }
                         else if (id4 == 2 && tUsingMP != null)
                         {
-                            tUsingMP.Interval = cooldownMs;
+                            tUsingMP.Interval = retryMs;
                             tUsingMP.Stop();
                             tUsingMP.Start();
                         }
                         else if (id4 == 3 && tUsingVigor != null)
                         {
-                            tUsingVigor.Interval = 15000;
+                            tUsingVigor.Interval = Math.Min(15000, 3000);
                             tUsingVigor.Stop();
                             tUsingVigor.Start();
                         }
@@ -223,16 +232,42 @@ namespace xBot.App
             }
 
             uint suspectId = 0;
+            byte lastSlot;
+            uint lastId;
             lock (m_useItemLock)
             {
-                if ((DateTime.UtcNow - m_lastUseItemUtc).TotalSeconds <= RejectLinkWindowSeconds)
+                lastSlot = m_lastUseItemSlot;
+                lastId = m_lastUseItemId;
+            }
+            bool lastWasPotion = false;
+            try
+            {
+                var inv = InfoManager.Character != null ? InfoManager.Character.Inventory : null;
+                xBot.Game.Objects.Item.SRItem last = null;
+                if (inv != null && lastSlot < inv.Capacity)
+                    last = inv[lastSlot];
+                if (last != null && last.ID == lastId && last.ID2 == 3 && last.ID3 >= 1 && last.ID3 <= 3)
+                    lastWasPotion = true;
+            }
+            catch { }
+            bool linked;
+            lock (m_useItemLock)
+            {
+                linked = (DateTime.UtcNow - m_lastUseItemUtc).TotalSeconds <= RejectLinkWindowSeconds;
+                if (linked)
                     m_rejectedUseSlots[m_lastUseItemSlot] = DateTime.UtcNow.AddSeconds(RejectedSlotBlockSeconds);
                 m_rejectBlackoutUntil = DateTime.UtcNow.AddSeconds(RejectGlobalBlackoutSeconds);
                 // Son 10sn'de hic basarili kullanim yoksa reject gecici degil, icerik sorunudur:
                 // ayni item bir daha denenmesin (oturumlar arasi kalici).
-                if ((DateTime.UtcNow - m_lastItemSuccessUtc).TotalSeconds > SuccessLinkWindowSeconds)
+                // ANCAK pot/ilaç grubunda reject geçicidir (cooldown/hareket/usage); asla
+                // kalıcı kara listeye alınmaz, yoksa "MP hiç basılmıyor" olur.
+                if (!lastWasPotion && (DateTime.UtcNow - m_lastItemSuccessUtc).TotalSeconds > SuccessLinkWindowSeconds)
                     suspectId = m_lastUseItemId;
             }
+            // Hesaplanan usage tutmuyorsa (Sevar 0x..ED vs 0x..EC) parity ile bit0
+            // alternatifi denensin; tutan varyant kalici ogrenilir.
+            if (linked)
+                xBot.Game.PacketBuilder.NoteUsageReject(lastId);
             if (suspectId != 0)
                 LearnItemUsable(suspectId, false, $"0xB04C reject 0x{errorCode:X4}, yakin zamanda success yok");
         }
@@ -359,14 +394,16 @@ namespace xBot.App
                     if (InfoManager.Character.GetHPPercent() <= useHP)
                     {
                         byte slot = 0;
-                        if (w.Character_cbxUseHPGrain.Checked && FindItem(3, 1, 1, ref slot, "_SPOTION_")
-                            || w.Character_cbxUseHP.Checked && FindItem(3, 1, 1, ref slot, "", "_SPOTION_"))
+                        if (w.Character_cbxUseHPGrain.Checked && FindBestItem(3, 1, 1, ref slot, "_SPOTION_")
+                            || w.Character_cbxUseHP.Checked && FindBestItem(3, 1, 1, ref slot, "", "_SPOTION_"))
                         {
                             int requiredInterval = (InfoManager.Character != null && InfoManager.Character.IsEuropean()) ? 15000 : 1000;
                             if (tUsingHP.Interval != requiredInterval)
                                 tUsingHP.Interval = requiredInterval;
-                            PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot);
-                            tUsingHP.Start();
+                            // Paket gerçekten gönderilmediyse (throttle/senkron) timer kurma,
+                            // yoksa lazım olduğunda pot basılmıyor.
+                            if (PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot))
+                                tUsingHP.Start();
                         }
                     }
                 }
@@ -392,14 +429,14 @@ namespace xBot.App
                     if (InfoManager.Character.GetMPPercent() <= useMP)
                     {
                         byte slot = 0;
-                        if (w.Character_cbxUseMPGrain.Checked && FindItem(3, 1, 2, ref slot, "_SPOTION_")
-                            || w.Character_cbxUseMP.Checked && FindItem(3, 1, 2, ref slot, "", "_SPOTION_"))
+                        if (w.Character_cbxUseMPGrain.Checked && FindBestItem(3, 1, 2, ref slot, "_SPOTION_")
+                            || w.Character_cbxUseMP.Checked && FindBestItem(3, 1, 2, ref slot, "", "_SPOTION_"))
                         {
                             int requiredInterval = (InfoManager.Character != null && InfoManager.Character.IsEuropean()) ? 15000 : 1000;
                             if (tUsingMP.Interval != requiredInterval)
                                 tUsingMP.Interval = requiredInterval;
-                            PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot);
-                            tUsingMP.Start();
+                            if (PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot))
+                                tUsingMP.Start();
                         }
                     }
                 }
@@ -428,10 +465,10 @@ namespace xBot.App
                     if (InfoManager.Character.GetHPPercent() <= usePercent)
                     {
                         byte slot = 0;
-                        if (FindItem(3, 1, 3, ref slot))
+                        if (FindBestItem(3, 1, 3, ref slot))
                         {
-                            PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot);
-                            tUsingVigor.Start();
+                            if (PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot))
+                                tUsingVigor.Start();
                         }
                     }
                     else
@@ -443,10 +480,10 @@ namespace xBot.App
                         if (InfoManager.Character.GetMPPercent() <= usePercent)
                         {
                             byte slot = 0;
-                            if (FindItem(3, 1, 3, ref slot))
+                            if (FindBestItem(3, 1, 3, ref slot))
                             {
-                                PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot);
-                                tUsingVigor.Start();
+                                if (PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot))
+                                    tUsingVigor.Start();
                             }
                         }
                     }
@@ -475,8 +512,8 @@ namespace xBot.App
                         byte slot = 0;
                         if (FindItem(3, 2, 6, ref slot))
                         {
-                            PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot);
-                            tUsingUniversal.Start();
+                            if (PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot))
+                                tUsingUniversal.Start();
                         }
                     }
                 }
@@ -513,8 +550,8 @@ namespace xBot.App
                         byte slot = 0;
                         if (FindItem(3, 2, 1, ref slot))
                         {
-                            PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot);
-                            tUsingPurification.Start();
+                            if (PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot))
+                                tUsingPurification.Start();
                         }
                     }
                 }
@@ -691,8 +728,8 @@ namespace xBot.App
                         byte slot = 0;
                         if (FindItem(3, 1, 4, ref slot))
                         {
-                            PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot, pet.UniqueID);
-                            tUsingRecoveryKit.Start();
+                            if (PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot, pet.UniqueID))
+                                tUsingRecoveryKit.Start();
                         }
                         return; // Avoid checking other pets
                     }
@@ -715,8 +752,8 @@ namespace xBot.App
                         byte slot = 0;
                         if (FindItem(3, 1, 4, ref slot))
                         {
-                            PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot, pet.UniqueID);
-                            tUsingRecoveryKit.Start();
+                            if (PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot, pet.UniqueID))
+                                tUsingRecoveryKit.Start();
                         }
                         return; // Avoid checking other pets
                     }
@@ -745,8 +782,8 @@ namespace xBot.App
                     byte slot = 0; // dummy
                     if (FindItem(3, 2, 7, ref slot))
                     {
-                        PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot, pet.UniqueID);
-                        tUsingAbnormalPill.Start();
+                        if (PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot, pet.UniqueID))
+                            tUsingAbnormalPill.Start();
                     }
                 }
             }
@@ -779,9 +816,11 @@ namespace xBot.App
                         byte slot = 0;
                         if (FindItem(3, 1, 9, ref slot))
                         {
-                            PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot, pet.UniqueID);
-                            tUsingHGP.ResetTimer(1000);
-                            return;
+                            if (PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot, pet.UniqueID))
+                            {
+                                tUsingHGP.ResetTimer(1000);
+                                return;
+                            }
                         }
                     }
                     tUsingHGP.ResetTimer(300000); // 1% decrease : -100 HGP every 5min

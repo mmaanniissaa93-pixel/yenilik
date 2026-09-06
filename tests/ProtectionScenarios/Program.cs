@@ -440,6 +440,17 @@ internal static class Program
         RunPotionCheck("0x1889 (Genel reject) slot bloklar", PotionPolicy.ShouldBlockSlot(0x1889), true);
         RunPotionInt("0x1889 için slot bloklama süresi 5sn olmalı (30sn değil)", PotionPolicy.GetSlotBlockSeconds(0x1889), 5);
         RunPotionInt("0x1889 için blackout süresi 2000ms olmalı (15sn değil)", PotionPolicy.GetBlackoutMs(0x1889), 2000);
+        RunPotionCheck("ServerName MALL içeren pot mall sayılır", PotionPolicy.IsMallPotion("ITEM_MALL_HP_POTION_01", "HP Recovery potion (X-large)"), true);
+        RunPotionCheck("X-large adlı pot mall sayılır", PotionPolicy.IsMallPotion("ITEM_ETC_MP_POTION_99", "MP Recovery potion (X-large)"), true);
+        RunPotionCheck("Normal NPC potu mall sayılmaz", PotionPolicy.IsMallPotion("ITEM_ETC_HP_POTION_03", "HP Recovery Potion (Large)"), false);
+        RunPotionInt("Normal pot mall pottan önce gelir", PotionPolicy.ComparePotions(false, 1, 100, true, 99, 200), -1);
+        RunPotionInt("Güçlü pot (yüksek level) önce gelir", PotionPolicy.ComparePotions(false, 10, 100, false, 5, 200), -1);
+        RunPotionInt("Eşit güçte büyük ID önce gelir", PotionPolicy.ComparePotions(false, 5, 200, false, 5, 100), -1);
+        RunPotionInt("Aynı pot eşit sayılır", PotionPolicy.ComparePotions(true, 5, 100, true, 5, 100), 0);
+        RunPotionInt("Öğrenilmiş usage her zaman kazanır", PotionPolicy.ResolveUsageWithFallback(0x08EC, 5, true, 0x08ED), 0x08ED);
+        RunPotionInt("Tek sayıda reject bit0 alternatifini dener", PotionPolicy.ResolveUsageWithFallback(0x08EC, 1, false, 0), 0x08ED);
+        RunPotionInt("Çift rejectte hesaplanan usage döner", PotionPolicy.ResolveUsageWithFallback(0x08EC, 2, false, 0), 0x08EC);
+        RunPotionInt("Reject yoksa hesaplanan usage döner", PotionPolicy.ResolveUsageWithFallback(0x08EC, 0, false, 0), 0x08EC);
 
         if (failures != 0)
         {
@@ -447,7 +458,7 @@ internal static class Program
             return 1;
         }
 
-        Console.WriteLine("Koruma, item filtre, combat, skill, imbue, command center, lojistik, parti, PIN, SOCKS5, Auto Alchemy, Target Assist, Localization ve Potion senaryoları başarılı: 250");
+        Console.WriteLine("Koruma, item filtre, combat, skill, imbue, command center, lojistik, parti, PIN, SOCKS5, Auto Alchemy, Target Assist, Localization ve Potion senaryoları başarılı: 261");
         return 0;
     }
 

@@ -49,5 +49,50 @@ namespace xBot.App
                 return CooldownRejectBlackoutMs;
             return DefaultBlackoutSeconds * 1000;
         }
+
+        /// <summary>
+        /// Item Mall potu mu? ServerName locale-bağımsızdır ("MALL" içerir);
+        /// display adı yedeğidir (X-large potlar mall'dandır).
+        /// </summary>
+        public static bool IsMallPotion(string serverName, string displayName)
+        {
+            if (!string.IsNullOrEmpty(serverName)
+                && serverName.IndexOf("MALL", StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+            if (!string.IsNullOrEmpty(displayName)
+                && displayName.IndexOf("X-large", StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+            return false;
+        }
+
+        /// <summary>
+        /// Usage çözümü: öğrenilmiş değer varsa o; yoksa tek sayıda reject sonrası
+        /// bit0 çevrilmiş alternatif denenir (Sevar 0x..ED vs 0x..EC). Tutan varyant
+        /// kalıcı öğrenilir, sayaç sıfırlanır.
+        /// </summary>
+        public static ushort ResolveUsageWithFallback(ushort computed, int rejectCount, bool hasLearned, ushort learned)
+        {
+            if (hasLearned)
+                return learned;
+            if ((rejectCount & 1) == 1)
+                return (ushort)(computed ^ 0x0001);
+            return computed;
+        }
+
+        /// <summary>
+        /// Pot karşılaştırma: normal pot her zaman mall'dan önce; sonra güçlü
+        /// (yüksek LevelRequired) olan; sonra büyük model ID. Negatif = a önce kullanılmalı.
+        /// </summary>
+        public static int ComparePotions(bool aMall, int aLevelRequired, uint aId,
+                                         bool bMall, int bLevelRequired, uint bId)
+        {
+            if (aMall != bMall)
+                return aMall ? 1 : -1;
+            if (aLevelRequired != bLevelRequired)
+                return bLevelRequired.CompareTo(aLevelRequired);
+            if (aId != bId)
+                return bId.CompareTo(aId);
+            return 0;
+        }
     }
 }
