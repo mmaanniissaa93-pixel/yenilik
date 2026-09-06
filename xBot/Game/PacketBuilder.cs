@@ -1047,8 +1047,12 @@ namespace xBot.Game
 		}
 		public static void OpenStorage(uint npcUniqueID)
 		{
+			// 0x703C = UID(4) + storageType(1): 0 = personal storage.
+			// Eksik trailing byte ile gönderilen paket server'ı düşürüyordu
+			// (RequestStorageData ile aynı format olmalı).
 			Packet p = new Packet(Agent.Opcode.CLIENT_STORAGE_DATA_REQUEST);
 			p.WriteUInt(npcUniqueID);
+			p.WriteByte(0);
 			Bot.Get.Proxy.Agent.InjectToServer(p);
 		}
 		public static void BuyItemFromShop(byte tabNumber, byte tabSlot, ushort quantity, uint npcUniqueID)

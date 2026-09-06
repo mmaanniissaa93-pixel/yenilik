@@ -88,7 +88,11 @@ namespace xBot.Game.Navigation
 			double startDistSq = startPt.DistanceSquaredTo(startX, startY);
 			double targetDistSq = targetPt.DistanceSquaredTo(targetX, targetY);
 
-			if (startDistSq > 45.0 * 45.0 || targetDistSq > 55.0 * 55.0)
+			// Snap toleransı: mesh aralığı ~2-8m iken 45/55m çok genişti; vadinin
+			// karşısındaki dağın mesh'ine yapışıp duvarın içinden rota üretiyordu.
+			// 25m yeterli; tutmazsa null dönüp üst katman (multi-region/teleport)
+			// veya net hata mesajı devreye girer (takılıp sekme yerine).
+			if (startDistSq > 25.0 * 25.0 || targetDistSq > 30.0 * 30.0)
 			{
 				// Start or Target is not on this walkable mesh!
 				return null;
@@ -214,12 +218,23 @@ namespace xBot.Game.Navigation
 		}
 
 		/// <summary>
-		/// Simplifies the node chain by skipping unnecessary collinear nodes.
+		/// Simplifies the node chain by skipping unnecessary collinear nodes,
+		/// BUT only when the straight shortcut stays on the walkable mesh.
+		/// Eski kod sadece mesafeye (25m) bakıp ara düğümleri atlıyordu; viraj/dağ
+		/// etrafından dolaşan ham yolu düz çizgiyle kesip duvarın içinden geçiriyordu.
+		/// Bu yüzden karakter waypoint'e giderken takılıp geri çıkıyordu.
+		/// Yeni kod: kestirme en fazla 15m olur, aradaki ham düğümlerin hepsi
+		/// kestirme çizgisine en fazla ~4.5m uzakta olmalı (koridor testi) ve Z
+		/// farkı küçük olmalı (uçurum/duvar kesmesi engellenir).
 		/// </summary>
 		private List<NavPoint> SmoothPath(List<NavPoint> path, NavRegion region)
 		{
 			if (path.Count <= 2)
 				return path;
+
+			const double MaxStep = 15.0;
+			const double MaxDeviation = 4.5;
+			const double MaxZDiff = 4.0;
 
 			List<NavPoint> smoothed = new List<NavPoint>();
 			smoothed.Add(path[0]);
@@ -227,19 +242,40 @@ namespace xBot.Game.Navigation
 			int currentIndex = 0;
 			while (currentIndex < path.Count - 1)
 			{
-				// Step forward as far as possible without exceeding maximum waypoint step distance (~20m)
 				int nextIndex = currentIndex + 1;
 				for (int lookAhead = currentIndex + 2; lookAhead < path.Count; lookAhead++)
 				{
 					double dist = path[currentIndex].DistanceTo(path[lookAhead]);
-					if (dist <= 25.0)
-					{
-						nextIndex = lookAhead;
-					}
-					else
-					{
+					if (dist > MaxStep)
 						break;
+
+					// Z sıçraması varsa (kat/duvar) kestirme yapma
+					if (System.Math.Abs((int)path[currentIndex].Z - (int)path[lookAhead].Z) > MaxZDiff)
+						break;
+
+					// Koridor testi: aradaki tüm ham düğümler kestirme çizgisine yakın olmalı.
+					// Virajda/dönemeçte ara düğüm çizgiden uzaklaşır -> kestirme reddedilir,
+					// viraj korunur ve karakter duvara girmez.
+					bool insideCorridor = true;
+					for (int k = currentIndex + 1; k < lookAhead; k++)
+					{
+						double dev = DistancePointToSegment(path[k], path[currentIndex], path[lookAhead]);
+						if (dev > MaxDeviation)
+						{
+							insideCorridor = false;
+							break;
+						}
+						if (System.Math.Abs((int)path[k].Z - (int)path[currentIndex].Z) > MaxZDiff)
+						{
+							insideCorridor = false;
+							break;
+						}
 					}
+
+					if (insideCorridor)
+						nextIndex = lookAhead;
+					else
+						break; // Daha uzak düğüm daha da sapacağı için dur
 				}
 
 				smoothed.Add(path[nextIndex]);
@@ -247,6 +283,26 @@ namespace xBot.Game.Navigation
 			}
 
 			return smoothed;
+		}
+
+		/// <summary>
+		/// Point-to-segment distance in 2D (X/Y plane).
+		/// </summary>
+		private static double DistancePointToSegment(NavPoint p, NavPoint a, NavPoint b)
+		{
+			double dx = b.X - a.X;
+			double dy = b.Y - a.Y;
+			double lenSq = dx * dx + dy * dy;
+			if (lenSq < 1e-8)
+				return p.DistanceTo(a.X, a.Y);
+			double t = ((p.X - a.X) * dx + (p.Y - a.Y) * dy) / lenSq;
+			if (t < 0.0) t = 0.0;
+			else if (t > 1.0) t = 1.0;
+			double projX = a.X + t * dx;
+			double projY = a.Y + t * dy;
+			double ex = p.X - projX;
+			double ey = p.Y - projY;
+			return System.Math.Sqrt(ex * ex + ey * ey);
 		}
 	}
 }

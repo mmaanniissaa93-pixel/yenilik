@@ -27,6 +27,12 @@ namespace xBot.App
         private bool m_mobsCacheDirty = true;
         private SRCoord m_lastTrainingPosition;
         private int m_lastTrainingRadius;
+        // Town scriptleri loop şeklinde bitince (son nokta ilk noktaya yakın) aynı
+        // tick'te tekrar town algılanıp sonsuz döngüye girilmemesi için guard.
+        // SADECE son döngünün bittiği yerde (+80m) ve 90sn içinde duruluyorsa atlanır;
+        // bot yeniden başlatılsa bile şehirdeyse döngü HER ZAMAN yapılır.
+        private DateTime m_lastTownLoopFinished = DateTime.MinValue;
+        private SRCoord m_lastTownLoopEndPos = null;
         /// <summary>
         /// Kesilebilir bekleme: Stop() çağrılırsa erken döner (uzun Sleep'lerin bloklamasını önler).
         /// </summary>
@@ -126,7 +132,49 @@ namespace xBot.App
                 // Checking where am I ?
                 w.LogProcess("Checking current location...");
                 SRCoord myPosition = InfoManager.Character.GetRealtimePosition();
-                currentScript = Script.GetNearestTownScript(myPosition, 50);
+                currentScript = null;
+                // Döngü daha yeni bitti VE hâlâ bittiği yerde duruluyorsa tekrar girme
+                // (yoksa loop-script kendini sonsuz tetikler). Onun dışında şehirde
+                // yakalanırsa HER ZAMAN town döngüsü yapılır.
+                bool townJustFinished = false;
+                try
+                {
+                    townJustFinished = (DateTime.Now - m_lastTownLoopFinished).TotalSeconds < 90
+                        && m_lastTownLoopEndPos != null && myPosition != null
+                        && myPosition.DistanceTo(m_lastTownLoopEndPos) < 80.0;
+                }
+                catch { }
+                if (!townJustFinished)
+                {
+                    try
+                    {
+                        // 1) Bölge eşleşmesi: şehirde doğmuşsa noktalara uzak olsa da yakala
+                        //    (dosya adı = region, örn. 25000.rbs).
+                        currentScript = Script.GetTownScriptForRegion(myPosition.Region);
+                        if (currentScript != null)
+                            w.Log($"Town Script: bölge eşleşmesi [{myPosition.Region}] -> [{currentScript.FileName}]");
+                        else
+                        {
+                            // 2) Yakınlık eşleşmesi (şehir büyük, 150m tolerans).
+                            currentScript = Script.GetNearestTownScript(myPosition, 150);
+                            if (currentScript == null)
+                            {
+                                double nearest = Script.GetNearestTownMoveDistance(myPosition);
+                                string nearestTxt = nearest < 0 ? "yok (script klasörü boş?)" : ((int)nearest + "m");
+                                w.Log($"Town Script: eşleşme yok (region={myPosition.Region}, en yakın nokta={nearestTxt}). Town/ klasöründe {myPosition.Region}.rbs var mı?");
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        w.Log("Town Script algılama hatası: " + ex.Message + " — training rotasına geçiliyor.");
+                        currentScript = null;
+                    }
+                }
+                else
+                {
+                    w.Log("Town Script: döngü yeni bitti, aynı noktadayız — training rotasına çıkılıyor.");
+                }
                 if (currentScript != null)
                 {
                     // I'm near town loop script
@@ -194,12 +242,21 @@ namespace xBot.App
                                     if (!routeAborted)
                                         continue;
                                 }
+                                else
+                                {
+                                    w.LogProcess("NavMesh: No route found (FindCompoundRoute returned null/empty).", Window.ProcessState.Warning);
+                                }
+                            }
+                            else
+                            {
+                                w.LogProcess("NavMesh: Not available (navdata not indexed).", Window.ProcessState.Warning);
                             }
 
                             // 2. Fallback: User movement script
                             string scriptPath = w.TrainingArea_GetScript();
                             if (!string.IsNullOrEmpty(scriptPath) && File.Exists(scriptPath))
                             {
+                                w.LogProcess("Fallback: Using user movement script.");
                                 w.LogProcess("Loading training script...");
                                 currentScript = new Script(scriptPath);
                                 int nearIndex = currentScript.GetNearMovement(myPosition, 80);
@@ -214,24 +271,60 @@ namespace xBot.App
                                     currentScript.Run(0);
                                 }
 
-                                // Script bittikten sonra tekrar kontrol
+// Script bittikten sonra tekrar kontrol
                                 Thread.Sleep(1000);
                             }
                             else
                             {
+                                w.LogProcess("Fallback: No movement script configured, using direct walk.", Window.ProcessState.Warning);
                                 // 3. Fallback: Direct walk to training position with collision avoidance
-                                w.Log("Walking towards training area with collision avoidance...");
-                                if (!WaitMovement(trainingPosition, 15))
-                                {
-                                    w.Log("Cannot reach training area. Stopped.");
-                                    Stop();
-                                    return;
-                                }
+                            // Calculate attempts based on distance (more attempts for farther distances)
+                            double walkDistance = myPosition.DistanceTo(trainingPosition);
+                            // UZUN MESAFE GUARD: NavMesh yoksa/rota yoksa 120m+ düz yürüyüş dağ/duvar
+                            // arasından geçemez (örn. Spider Forest -> Ancient Remains ~800m, arada
+                            // Karakoram dağları var). Kör yürüyüş yerinde sağa-sola sekip takılır.
+                            const double MaxDirectWalkDistance = 120.0;
+                            if (walkDistance > MaxDirectWalkDistance)
+                            {
+                                w.Log($"Training area {walkDistance:F0}m uzakta. NavMesh rotası ve walk script yoksa düz yürüyüşle gidilemez (dağ/duvar takılır).");
+                                w.Log("Çözüm 1: 'navdata' klasörünü xBot.exe yanına kopyalayın ve botu yeniden başlatın (NavMesh rota bulur).");
+                                w.Log("Çözüm 2: Training sekmesine walk script (.txt) ekleyin (örn. Karakoram Entrance geçidi üzerinden).");
+                                w.Log("Çözüm 3: Karakteri training alanına yakın bir yere (120m içine) götürüp botu orada başlatın.");
+                                w.Log("Cannot reach training area (too far for direct walk). Stopped.");
+                                Stop();
+                                return;
+                            }
+                            int maxAttempts = Math.Max(15, (int)(walkDistance / 5.0) + 5); // ~1 attempt per 5m + buffer
+                            if (maxAttempts > 40) maxAttempts = 40; // Duvara 90sn vurmayı engelle
+                            w.Log($"Walking towards training area ({walkDistance:F0}m) with collision avoidance (max {maxAttempts} attempts)...");
+                            if (!WaitMovement(trainingPosition, maxAttempts))
+                            {
+                                w.Log("Cannot reach training area. Stopped.");
+                                Stop();
+                                return;
+                            }
                             }
                         }
                     }
                 }
             }
+        }
+        /// <summary>
+        /// FindLiveNpc bazen sadece "koordinata 35m yakın" diye alakasız NPC döndürür.
+        /// Yanlış NPC'ye Repair/OpenStorage paketi private server'da bağlantıyı kestirir,
+        /// o yüzden paket öncesi ID veya isim doğrulaması şart.
+        /// </summary>
+        private bool IsVerifiedTownNpc(TownServiceInfo service, SREntity npc, Window w, string action)
+        {
+            if (service == null || npc == null)
+                return false;
+            bool idOk = service.NpcId != 0 && npc.ID == service.NpcId;
+            bool nameOk = !string.IsNullOrEmpty(npc.Name) && !string.IsNullOrEmpty(service.NpcName)
+                && npc.Name.IndexOf(service.NpcName, StringComparison.OrdinalIgnoreCase) >= 0;
+            if (idOk || nameOk)
+                return true;
+            w.Log($"{action}: [{npc.Name}] beklenen [{service.NpcName}] değil (ID {npc.ID}/{service.NpcId}) — kick riski yüzünden atlanıyor.");
+            return false;
         }
         private void TownLoop(Script town)
         {
@@ -248,120 +341,33 @@ namespace xBot.App
             if (myPosition == null)
                 return;
 
-            // Step 1: Repair at Blacksmith
-            if (w.Town_cbxRepair == null || w.Town_cbxRepair.Checked)
-            {
-                TownServiceInfo blacksmith = TownManager.Get.FindNearestService(myPosition, TownServiceType.Blacksmith);
-                if (blacksmith != null)
-                {
-                    w.LogProcess($"Town Loop: Walking to [{blacksmith.NpcName}] for equipment repair...");
-                    List<SRCoord> pathToSmith = NavigationManager.Get.FindPath(myPosition, blacksmith.Coord);
-                    if (pathToSmith != null && pathToSmith.Count > 0)
-                    {
-                        for (int i = 0; i < pathToSmith.Count && isBotting; i++)
-                        {
-                            WaitMovement(pathToSmith[i], 8);
-                        }
-                    }
-                    else
-                    {
-                        WaitMovement(blacksmith.Coord, 8);
-                    }
-
-                    SREntity smithNpc = TownManager.Get.FindLiveNpc(blacksmith);
-                    if (smithNpc != null)
-                    {
-                        WaitSelectEntity(smithNpc.UniqueID, 8, 250, "Selecting Blacksmith...");
-                        Thread.Sleep(500);
-                        w.Log("Town Loop: Repairing all equipped weapons and armors...");
-                        PacketBuilder.RepairAllEquipments(smithNpc.UniqueID);
-                        Thread.Sleep(1000);
-                    }
-                }
-            }
-
-            // Step 2: Storage Deposit (Elixirs, Alchemy Stones, SOX)
-            myPosition = InfoManager.Character.GetRealtimePosition();
-            if (w.Town_cbxStorage == null || w.Town_cbxStorage.Checked)
-            {
-                TownServiceInfo storage = TownManager.Get.FindNearestService(myPosition, TownServiceType.Storage);
-                if (storage != null)
-                {
-                    w.LogProcess($"Town Loop: Walking to [{storage.NpcName}] for item storage...");
-                    List<SRCoord> pathToStorage = NavigationManager.Get.FindPath(myPosition, storage.Coord);
-                    if (pathToStorage != null && pathToStorage.Count > 0)
-                    {
-                        for (int i = 0; i < pathToStorage.Count && isBotting; i++)
-                        {
-                            WaitMovement(pathToStorage[i], 8);
-                        }
-                    }
-                    else
-                    {
-                        WaitMovement(storage.Coord, 8);
-                    }
-
-                    SREntity storageNpc = TownManager.Get.FindLiveNpc(storage);
-                    if (storageNpc != null)
-                    {
-                        WaitSelectEntity(storageNpc.UniqueID, 8, 250, "Selecting Storage Keeper...");
-                        Thread.Sleep(500);
-                        PacketBuilder.OpenStorage(storageNpc.UniqueID);
-                        Thread.Sleep(1200);
-
-                        ExecuteStorageDeposit();
-                    }
-                }
-            }
-
-            // Step 3: Potion Merchant (Sell trash equipment)
-            myPosition = InfoManager.Character.GetRealtimePosition();
-            if (w.Town_cbxSellTrash == null || w.Town_cbxSellTrash.Checked)
-            {
-                TownServiceInfo potionShop = TownManager.Get.FindNearestService(myPosition, TownServiceType.PotionMerchant);
-                if (potionShop != null)
-                {
-                    w.LogProcess($"Town Loop: Walking to [{potionShop.NpcName}] for pharmacy logistics...");
-                    List<SRCoord> pathToPotion = NavigationManager.Get.FindPath(myPosition, potionShop.Coord);
-                    if (pathToPotion != null && pathToPotion.Count > 0)
-                    {
-                        for (int i = 0; i < pathToPotion.Count && isBotting; i++)
-                        {
-                            WaitMovement(pathToPotion[i], 8);
-                        }
-                    }
-                    else
-                    {
-                        WaitMovement(potionShop.Coord, 8);
-                    }
-
-                    SREntity potionNpc = TownManager.Get.FindLiveNpc(potionShop);
-                    if (potionNpc != null)
-                    {
-                        WaitSelectEntity(potionNpc.UniqueID, 8, 250, "Selecting Potion Merchant...");
-                        Thread.Sleep(500);
-
-                        ExecuteSellTrash();
-                        Thread.Sleep(500);
-                        ExecuteAutoBuyPotions(potionNpc);
-                    }
-                }
-            }
-
-            // Step 4: Grocery Merchant (Ammunition for Bow / Crossbow users)
-            if (isBotting)
-            {
-                ExecuteAutoBuyAmmo();
-            }
-
-            // If user supplied custom town script, execute it too
+            // NOT: Şehir işlerinin tamamını town scripti yapar (move/store/buy/repair).
+            // UI tabanlı servis lojistiği (TownManager koordinatları) bu server'daki
+            // özel NPC'lerle uyuşmadığı için KALDIRILDI — yanlış NPC'ye paket atıp
+            // kick yediriyordu. Script adımları (Script.cs) kendi doğrulamasıyla çalışır.
             if (town != null)
             {
-                w.LogProcess("Running town script [" + town.FileName + "]...");
+                w.Log("Running town script [" + town.FileName + "] (script-only mode)...");
                 town.Run(0);
+            }
+            else
+            {
+                w.Log("Town Loop: town script bulunamadı, atlanıyor.", Theme.LogLevel.Warning);
             }
 
             w.Log("Town Loop: Logistics routine completed. Returning to training area...");
+            try
+            {
+                SRCoord tp = w.TrainingArea_GetPosition();
+                if (tp != null)
+                {
+                    SRCoord mp = InfoManager.Character.GetRealtimePosition();
+                    w.Log($"Town Loop: Route to training area ({(int)tp.PosX},{(int)tp.PosY}) from ({(int)mp.PosX},{(int)mp.PosY}, {mp.DistanceTo(tp):F0}m)...");
+                }
+            }
+            catch { }
+            m_lastTownLoopFinished = DateTime.Now;
+            try { m_lastTownLoopEndPos = InfoManager.Character.GetRealtimePosition(); } catch { m_lastTownLoopEndPos = null; }
             SleepInterruptible(1500);
         }
         private void AttackLoop()
@@ -563,9 +569,8 @@ namespace xBot.App
                                 if (SkillManager.NoAttackMode)
                                     break;
 
-                                SkillManager.EnsureImbueActive();
-                                SkillManager.CheckDevilSpirit();
-
+                                // NOT: Imbue/Devil zaten mob başında (dış döngüde) kontrol ediliyor;
+                                // her vuruşta tekrar taramak iç döngüde mikro-takılma yapıyordu.
                                 // Distance check to target
                                 myWeapon = GetMyWeaponType();
                                 maxAttackRange = GetWeaponAttackRange(myWeapon);
@@ -664,7 +669,7 @@ namespace xBot.App
                                     }
                                     else
                                     {
-                                        Thread.Sleep(150);
+                                        Thread.Sleep(60);
                                     }
                                     continue;
                                 }
@@ -681,48 +686,61 @@ namespace xBot.App
 
                                 w.LogProcess("Casting skill " + skillToCast.Name + " (" + skillToCast.CastingTime + "ms)...");
 
+                                long hpBefore = 0;
+                                try { hpBefore = mob.HP; } catch { }
+
                                 InfoManager.LastSkillCastSuccess = false;
                                 InfoManager.LastSkillCastErrorCode = 0;
                                 InfoManager.MonitorSkillCast.Reset();
 
                                 PacketBuilder.AttackTarget(mob.UniqueID, skillToCast.ID);
 
-                                if (InfoManager.MonitorSkillCast.WaitOne(1200))
+                                bool confirmed = InfoManager.MonitorSkillCast.WaitOne(800);
+                                bool treatAsSuccess = confirmed && InfoManager.LastSkillCastSuccess;
+                                if (!treatAsSuccess)
                                 {
-                                    if (InfoManager.LastSkillCastSuccess)
-                                    {
-                                        SkillManager.RecordCastSuccess(skillToCast);
-                                        try { skillToCast.StartCooldown(); } catch { }
+                                    // Geciken onay / kayıp paket: mob canı azaldıysa veya öldüyse
+                                    // cast tutmuş demektir, başarısız sayıp bekleme.
+                                    bool mobGone = !InfoManager.Mobs.ContainsKey(mob.UniqueID);
+                                    long hpAfter = 0;
+                                    try { hpAfter = mob.HP; } catch { }
+                                    if (mobGone || (hpBefore > 0 && hpAfter < hpBefore))
+                                        treatAsSuccess = true;
+                                }
 
-                                        // Non-blocking wait for casting duration: exit immediately if mob dies!
-                                        int castDuration = Math.Max(350, skillToCast.CastingTime);
-                                        int elapsed = 0;
-                                        while (elapsed < castDuration && isBotting)
-                                        {
-                                            if (!InfoManager.Mobs.ContainsKey(mob.UniqueID))
-                                                break;
-                                            Thread.Sleep(50);
-                                            elapsed += 50;
-                                        }
-                                    }
-                                    else
+                                if (treatAsSuccess)
+                                {
+                                    SkillManager.RecordCastSuccess(skillToCast);
+                                    try { skillToCast.StartCooldown(); } catch { }
+
+                                    // Smooth pipeline: tam cast süresi kadar kör bekleme; sıradaki
+                                    // skill hazır olur olmaz devam et. Üst üste reddediliyorsa
+                                    // server erken ateşe izin vermiyor demektir, tam bekle.
+                                    int castTime = Math.Max(0, skillToCast.CastingTime);
+                                    int fullWait = Math.Max(350, castTime);
+                                    int minGap = SkillManager.ConsecutiveCastFailures >= 2
+                                        ? fullWait
+                                        : Math.Max(250, (castTime * 3) / 4);
+                                    int elapsed = 0;
+                                    while (elapsed < fullWait && isBotting)
                                     {
-                                        string reason = InfoManager.LastSkillCastErrorCode == 0
-                                            ? "Sunucu reddetti"
-                                            : $"Reddedildi (0x{InfoManager.LastSkillCastErrorCode:X4})";
-                                        SkillManager.RecordCastFailure(skillToCast, reason);
                                         if (!InfoManager.Mobs.ContainsKey(mob.UniqueID))
                                             break;
-                                        Thread.Sleep(80);
+                                        if (elapsed >= minGap && IsAnyAttackSkillReady(skillshots))
+                                            break;
+                                        Thread.Sleep(30);
+                                        elapsed += 30;
                                     }
                                 }
                                 else
                                 {
+                                    string reason = !confirmed ? "Zaman aşımı"
+                                        : (InfoManager.LastSkillCastErrorCode == 0 ? "Sunucu reddetti"
+                                            : $"Reddedildi (0x{InfoManager.LastSkillCastErrorCode:X4})");
+                                    SkillManager.RecordCastFailure(skillToCast, reason);
                                     if (!InfoManager.Mobs.ContainsKey(mob.UniqueID))
                                         break;
-
-                                    SkillManager.RecordCastFailure(skillToCast, "Zaman aşımı");
-                                    Thread.Sleep(80);
+                                    Thread.Sleep(60);
                                 }
                             }
 
@@ -731,6 +749,28 @@ namespace xBot.App
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Pipeline bekleyiş için hafif hazır-skill taraması (silah değiştirmez,
+        /// paket göndermez; sadece sıradaki vuruşa geçilebilir mi diye bakar).
+        /// </summary>
+        private bool IsAnyAttackSkillReady(SRSkill[] skillshots)
+        {
+            if (skillshots == null || skillshots.Length == 0)
+                return false;
+            uint currentMP = 0;
+            try { currentMP = InfoManager.Character != null ? InfoManager.Character.MP : 0; } catch { }
+            for (int i = 0; i < skillshots.Length; i++)
+            {
+                SRSkill s = skillshots[i];
+                if (s == null || !s.Enabled || !s.isCastingEnabled)
+                    continue;
+                if (s.ID != 1 && currentMP > 0 && s.MPUsage > currentMP)
+                    continue;
+                return true;
+            }
+            return false;
         }
 
         private bool TryPrepareAttackSkill(SRSkill skill, Window w)
@@ -1105,7 +1145,7 @@ namespace xBot.App
             return false;
         }
 
-        private void ExecuteStorageDeposit()
+        public void ExecuteStorageDeposit()
         {
             Window w = Window.Get;
             if (InfoManager.Character == null || InfoManager.Character.Storage == null)
@@ -1134,8 +1174,16 @@ namespace xBot.App
 
                     if (emptyStorageSlot != -1)
                     {
-                        w.LogProcess($"Depositing [{item.Name}] to storage slot {emptyStorageSlot}...");
+                        w.Log($"Depositing [{item.Name}] x{item.Quantity} (inv:{slot} -> stor:{emptyStorageSlot})...");
+                        InfoManager.MonitorInventoryMovement.Reset();
                         PacketBuilder.MoveItem(slot, (byte)emptyStorageSlot, SRTypes.InventoryItemMovement.InventoryToStorage, item.Quantity);
+                        // Server yankısı (0xB034) gelmezse paket reddedilmiş demektir:
+                        // üst üste göndermek kick yedirir, o yüzden dur.
+                        if (!InfoManager.MonitorInventoryMovement.WaitOne(2000))
+                        {
+                            w.Log($"STORE: [{item.Name}] server tarafından kabul edilmedi (yankı yok) — depozit durduruldu.");
+                            break;
+                        }
                         Thread.Sleep(350);
                     }
                     else
@@ -1180,12 +1228,24 @@ namespace xBot.App
                             int emptyCharSlot = inv.FindIndex(i => i == null, 13);
                             if (emptyCharSlot != -1)
                             {
-                                w.LogProcess($"Transferring [{pItem.Name}] from pet slot {pSlot} to inventory...");
+                                w.Log($"Transferring [{pItem.Name}] from pet slot {pSlot} to inventory...");
+                                InfoManager.MonitorInventoryMovement.Reset();
                                 PacketBuilder.MoveItem(pSlot, (byte)emptyCharSlot, SRTypes.InventoryItemMovement.PetToInventory, pickPet.UniqueID);
+                                if (!InfoManager.MonitorInventoryMovement.WaitOne(2000))
+                                {
+                                    w.Log($"STORE: pet transferi kabul edilmedi — depozit durduruldu.");
+                                    break;
+                                }
                                 Thread.Sleep(350);
 
-                                w.LogProcess($"Depositing [{pItem.Name}] to storage slot {emptyStorageSlot}...");
+                                w.Log($"Depositing [{pItem.Name}] x{pItem.Quantity} (inv:{emptyCharSlot} -> stor:{emptyStorageSlot})...");
+                                InfoManager.MonitorInventoryMovement.Reset();
                                 PacketBuilder.MoveItem((byte)emptyCharSlot, (byte)emptyStorageSlot, SRTypes.InventoryItemMovement.InventoryToStorage, pItem.Quantity);
+                                if (!InfoManager.MonitorInventoryMovement.WaitOne(2000))
+                                {
+                                    w.Log($"STORE: [{pItem.Name}] server tarafından kabul edilmedi (yankı yok) — depozit durduruldu.");
+                                    break;
+                                }
                                 Thread.Sleep(350);
                             }
                             else
@@ -1199,7 +1259,7 @@ namespace xBot.App
             }
         }
 
-        private void ExecuteSellTrash()
+        public void ExecuteSellTrash()
         {
             Window w = Window.Get;
             if (InfoManager.Character == null || InfoManager.Character.Inventory == null)
@@ -1369,7 +1429,7 @@ namespace xBot.App
             return total;
         }
 
-        private void ExecuteAutoBuyPotions(SREntity potionNpc)
+        public void ExecuteAutoBuyPotions(SREntity potionNpc)
         {
             Window w = Window.Get;
             if (w == null || w.Town_cbxAutoBuy == null || !w.Town_cbxAutoBuy.Checked || potionNpc == null)
@@ -1480,7 +1540,7 @@ namespace xBot.App
             return total;
         }
 
-        private void ExecuteAutoBuyAmmo()
+        public void ExecuteAutoBuyAmmo()
         {
             Window w = Window.Get;
             if (InfoManager.Character == null)
@@ -1558,11 +1618,14 @@ namespace xBot.App
             SRCoord lastPosition = null;
             int stuckCounter = 0;
             bool avoidToRight = true;
+            int bypassCount = 0; // Ard arda kaç kez bypass yapıldı (büyüyen adım için)
+            double startDist = -1;
+            double bestDist = double.MaxValue;
 
             while (isBotting)
             {
                 myPosition = InfoManager.Character.GetRealtimePosition();
-                
+
                 // Hedefe tolerans dahilinde (<= 3 metre) ulaşıldı mı?
                 if (myPosition.Equals(position, 3.0))
                 {
@@ -1575,6 +1638,18 @@ namespace xBot.App
                 }
                 attemps++;
 
+                double curDist = myPosition.DistanceTo(position);
+                if (startDist < 0) startDist = curDist;
+                if (curDist < bestDist) bestDist = curDist;
+
+                // İlerleme watchdog: 10 denemede en iyi mesafe 3m'den az kısalmadıysa duvar/dağ
+                // önündeyiz demektir; 168 deneme boyunca yerinde sekme, erken çık.
+                if (attemps % 10 == 0 && (startDist - bestDist) < 3.0 && startDist > 15.0)
+                {
+                    Window.Get.LogProcess("No progress towards target (blocked by wall/mountain). Aborting walk.", Window.ProcessState.Warning);
+                    return false;
+                }
+
                 // Çarpışma / Takılma Algılayıcı (Stuck Detection)
                 if (lastPosition != null && myPosition.DistanceTo(lastPosition) < 0.6)
                 {
@@ -1583,6 +1658,7 @@ namespace xBot.App
                     {
                         // 2 denemede ilerleyemedi -> Önünde engel/duvar var!
                         Window.Get.LogProcess("Collision detected! Executing obstacle bypass maneuver...");
+                        bypassCount++;
 
                         // Hedefe doğru olan vektör
                         double dx = position.PosX - myPosition.PosX;
@@ -1590,32 +1666,44 @@ namespace xBot.App
                         double dist = Math.Sqrt(dx * dx + dy * dy);
                         if (dist < 0.001) dist = 1.0;
 
-                        // Normalleştirilmiş birim vektör
+                        // Normalleştirilmiş birim vektör (ileri yön)
                         double nx = dx / dist;
                         double ny = dy / dist;
 
                         // 90 derece teğet dik vektör (sağa veya sola)
                         double perpX = avoidToRight ? -ny : ny;
                         double perpY = avoidToRight ? nx : -nx;
-                        avoidToRight = !avoidToRight; // Bir sonraki takılmada ters yöne dene
+                        // NOT: her seferinde yön değiştirme ping-pong yapar (A->B->A).
+                        // Aynı yönde 2 bypass dene, sonra değiştir.
+                        if (bypassCount % 2 == 0)
+                            avoidToRight = !avoidToRight;
 
-                        // 4.5 metre yana kaçınma koordinatı
-                        double avoidStep = 4.5;
+                        // Öne + yana yay çizerek engelin etrafından dolaş:
+                        // saf yana adım geri döndürür, ileri bileşen ilerletir.
+                        // Adım her takılmada büyür (4.5m -> 6.5m -> 8.5m ... max 12m).
+                        double avoidStep = Math.Min(12.0, 4.5 + (bypassCount - 1) * 2.0);
+                        double forwardStep = 3.0;
+                        double bx = myPosition.PosX + perpX * avoidStep + nx * forwardStep;
+                        double by = myPosition.PosY + perpY * avoidStep + ny * forwardStep;
                         SRCoord bypassCoord;
                         if (myPosition.inDungeon())
-                            bypassCoord = new SRCoord(myPosition.PosX + perpX * avoidStep, myPosition.PosY + perpY * avoidStep, myPosition.Region, myPosition.Z);
+                            bypassCoord = new SRCoord(bx, by, myPosition.Region, myPosition.Z);
                         else
-                            bypassCoord = new SRCoord(myPosition.PosX + perpX * avoidStep, myPosition.PosY + perpY * avoidStep);
+                            bypassCoord = new SRCoord(bx, by);
 
                         MoveTo(bypassCoord);
                         Thread.Sleep(900);
                         stuckCounter = 0;
+                        lastPosition = InfoManager.Character.GetRealtimePosition();
                         continue;
                     }
                 }
                 else
                 {
                     stuckCounter = 0;
+                    // Hareket varsa bypass serisini sıfırla (yönü koru)
+                    if (lastPosition != null && myPosition.DistanceTo(lastPosition) > 2.0)
+                        bypassCount = 0;
                 }
                 lastPosition = myPosition;
 

@@ -31,7 +31,25 @@ namespace xBot.App
                 ItemName = itemName,
                 Pickup = pickup,
                 Sell = sell,
-                Store = store
+                Store = store,
+                MatchType = ItemFilterMatchType.Exact,
+                Pattern = ""
+            };
+        }
+
+        public static void SetRuleWithPattern(string itemName, bool pickup, bool sell, bool store, ItemFilterMatchType matchType, string pattern = "")
+        {
+            if (string.IsNullOrEmpty(itemName))
+                return;
+
+            Rules[itemName] = new ItemFilterRule
+            {
+                ItemName = itemName,
+                Pickup = pickup,
+                Sell = sell,
+                Store = store,
+                MatchType = matchType,
+                Pattern = pattern ?? ""
             };
         }
 
@@ -110,11 +128,107 @@ namespace xBot.App
         private static ItemFilterRule FindRule(string itemName, string serverName)
         {
             ItemFilterRule rule;
+            // 1. Exact match first (fastest)
             if (!string.IsNullOrEmpty(itemName) && Rules.TryGetValue(itemName, out rule))
                 return rule;
             if (!string.IsNullOrEmpty(serverName) && Rules.TryGetValue(serverName, out rule))
                 return rule;
+
+            // 2. Pattern matching (Wildcard/Regex) - check all rules with patterns
+            var candidates = new List<ItemFilterRule>();
+            if (!string.IsNullOrEmpty(itemName))
+            {
+                foreach (var r in Rules.Values)
+                {
+                    if (r.MatchType != ItemFilterMatchType.Exact && MatchesPattern(itemName, r))
+                        candidates.Add(r);
+                }
+            }
+            if (!string.IsNullOrEmpty(serverName))
+            {
+                foreach (var r in Rules.Values)
+                {
+                    if (r.MatchType != ItemFilterMatchType.Exact && MatchesPattern(serverName, r))
+                        candidates.Add(r);
+                }
+            }
+
+            // Return most specific match (Exact > Wildcard > Regex, then by pattern length)
+            if (candidates.Count > 0)
+            {
+                candidates.Sort((a, b) =>
+                {
+                    int typeCmp = a.MatchType.CompareTo(b.MatchType); // Exact=0, Wildcard=1, Regex=2
+                    if (typeCmp != 0) return typeCmp;
+                    return (a.Pattern?.Length ?? 0).CompareTo(b.Pattern?.Length ?? 0); // Longer pattern = more specific
+                });
+                return candidates[0];
+            }
+
             return null;
+        }
+
+        private static bool MatchesPattern(string value, ItemFilterRule rule)
+        {
+            if (string.IsNullOrEmpty(value) || string.IsNullOrEmpty(rule.Pattern))
+                return false;
+
+            try
+            {
+                switch (rule.MatchType)
+                {
+                    case ItemFilterMatchType.Wildcard:
+                        return WildcardMatch(value, rule.Pattern);
+                    case ItemFilterMatchType.Regex:
+                        return System.Text.RegularExpressions.Regex.IsMatch(value, rule.Pattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                }
+            }
+            catch
+            {
+                // Invalid pattern - treat as no match
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Glob-style wildcard matching: * = any chars, ? = single char
+        /// </summary>
+        private static bool WildcardMatch(string input, string pattern)
+        {
+            if (string.IsNullOrEmpty(pattern))
+                return string.IsNullOrEmpty(input);
+
+            int p = 0, i = 0;
+            int starIdx = -1, matchIdx = 0;
+
+            while (i < input.Length)
+            {
+                if (p < pattern.Length && (pattern[p] == input[i] || pattern[p] == '?'))
+                {
+                    p++; i++;
+                }
+                else if (p < pattern.Length && pattern[p] == '*')
+                {
+                    starIdx = p;
+                    matchIdx = i;
+                    p++;
+                }
+                else if (starIdx != -1)
+                {
+                    p = starIdx + 1;
+                    matchIdx++;
+                    i = matchIdx;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+
+            while (p < pattern.Length && pattern[p] == '*')
+                p++;
+
+            return p == pattern.Length;
         }
 
         private static ItemFilterOptions GetOptions()
@@ -197,6 +311,8 @@ namespace xBot.App
                 r["Pickup"] = rule.Pickup;
                 r["Sell"] = rule.Sell;
                 r["Store"] = rule.Store;
+                r["MatchType"] = (int)rule.MatchType;
+                r["Pattern"] = rule.Pattern ?? "";
                 rulesArray.Add(r);
             }
             json["Rules"] = rulesArray;
@@ -222,11 +338,17 @@ namespace xBot.App
                 foreach (JToken t in (JArray)json["Rules"])
                 {
                     JObject r = (JObject)t;
-                    SetRule(
+                    var matchType = ItemFilterMatchType.Exact;
+                    if (r.ContainsKey("MatchType"))
+                        matchType = (ItemFilterMatchType)(int)r["MatchType"];
+                    var pattern = r.ContainsKey("Pattern") ? (string)r["Pattern"] : "";
+                    SetRuleWithPattern(
                         (string)r["Name"],
                         r.ContainsKey("Pickup") && (bool)r["Pickup"],
                         r.ContainsKey("Sell") && (bool)r["Sell"],
-                        r.ContainsKey("Store") && (bool)r["Store"]
+                        r.ContainsKey("Store") && (bool)r["Store"],
+                        matchType,
+                        pattern
                     );
                 }
             }

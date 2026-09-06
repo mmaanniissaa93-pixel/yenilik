@@ -8,6 +8,13 @@ namespace xBot.App
         Store
     }
 
+    public enum ItemFilterMatchType
+    {
+        Exact,      // Exact string match (current behavior)
+        Wildcard,   // Glob-style wildcard (* = any chars, ? = single char)
+        Regex       // Regular expression
+    }
+
     public sealed class ItemFilterInput
     {
         public string ItemName { get; set; }
@@ -40,6 +47,10 @@ namespace xBot.App
         public bool Pickup { get; set; } = true;
         public bool Sell { get; set; } = false;
         public bool Store { get; set; } = false;
+
+        // Pattern matching support
+        public ItemFilterMatchType MatchType { get; set; } = ItemFilterMatchType.Exact;
+        public string Pattern { get; set; } = ""; // Used for Wildcard/Regex modes
     }
 
     public static class ItemFilterPolicy

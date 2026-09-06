@@ -144,6 +144,12 @@ namespace xBot.Game
 		/// Check if the character is with storage open.
 		/// </summary>
 		public static bool inStorage { get; private set; }
+		/// <summary>
+		/// Son taze depo verisinin (0x3047/0x3049/0x3048) geliş zamanı. Bot, OpenStorage
+		/// sonrası bu zaman ilerlemediyse depo penceresi açılmamış demektir ve eşya
+		/// taşıma paketi GÖNDERMEMELİ (kapalı pencereye MoveItem = kick).
+		/// </summary>
+		public static DateTime LastStorageInfoTime { get; private set; } = DateTime.MinValue;
 		#endregion
 
 		#region (Monitors)
@@ -1805,6 +1811,7 @@ namespace xBot.Game
 		{
 			Character.Storage = storage;
 			isStorageLoaded = true;
+			LastStorageInfoTime = DateTime.Now;
 
 			if (Bot.Get.Proxy.ClientlessMode)
 			{
