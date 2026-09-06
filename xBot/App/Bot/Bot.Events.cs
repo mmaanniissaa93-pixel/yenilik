@@ -237,7 +237,15 @@ namespace xBot.App
 				w.UpdateHeaderStats();
 			// Run all protection checks from one throttled, serialized tick.
 			if (JoinedLoopCounter % 5 == 0)
+			{
 				ProtectionManager.RunTick();
+				// Pot güvenlik ağı: HP sabitse HP paketi gelmez ve event tetiklenmez
+				// (şehirde bekleme, dirilme sonrası). 1sn yoklama bottan bağımsız çalışır;
+				// cooldown kapısı (tUsingHP/MP timer) spam'i engeller.
+				try { CheckUsingHP(); } catch { }
+				try { CheckUsingMP(); } catch { }
+				try { CheckUsingVigor(); } catch { }
+			}
 			JoinedLoopCounter++;
 		}
 		private Timer tJoinedLoop;

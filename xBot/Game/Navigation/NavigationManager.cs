@@ -36,7 +36,14 @@ namespace xBot.Game.Navigation
 
 		private string m_dataDirectory;
 		private List<RegionBoundsEntry> m_boundsIndex;
-		private Dictionary<int, NavRegion> m_cache = new Dictionary<int, NavRegion>();
+		private Dictionary<int, LinkedListNode<CacheEntry>> m_cacheMap = new Dictionary<int, LinkedListNode<CacheEntry>>();
+		private LinkedList<CacheEntry> m_cacheOrder = new LinkedList<CacheEntry>();
+		private const int MaxCacheSize = 8;
+		private class CacheEntry
+		{
+			public int RegionId;
+			public NavRegion Region;
+		}
 		private AStarPathfinder m_pathfinder = new AStarPathfinder();
 		private bool m_initialized = false;
 
@@ -119,8 +126,6 @@ namespace xBot.Game.Navigation
 			float targetX = (float)target.PosX;
 			float targetY = (float)target.PosY;
 
-			Window.Get?.Log($"NavMesh: Path requested from ({startX:F1}, {startY:F1}) to ({targetX:F1}, {targetY:F1})");
-
 			// If already close, no pathfinding needed
 			if (start.DistanceTo(target) <= 5.0)
 			{
@@ -130,7 +135,6 @@ namespace xBot.Game.Navigation
 			RegionBoundsEntry bestEntry = FindContainingRegion(startX, startY, targetX, targetY);
 			if (bestEntry == null)
 			{
-				Window.Get?.Log($"NavMesh: No region contains start ({startX:F1}, {startY:F1}) or target ({targetX:F1}, {targetY:F1})");
 				return null;
 			}
 
@@ -141,17 +145,11 @@ namespace xBot.Game.Navigation
 				return null;
 			}
 
-			Window.Get?.LogProcess($"NavMesh: Calculating path on [{Path.GetFileName(bestEntry.FilePath)}]...");
-			DateTime startTime = DateTime.Now;
-
+			System.Diagnostics.Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
 			List<SRCoord> path = m_pathfinder.FindPath(region, startX, startY, targetX, targetY);
+			sw.Stop();
 
-			double ms = (DateTime.Now - startTime).TotalMilliseconds;
-			if (path != null && path.Count > 0)
-			{
-				Window.Get?.Log($"NavMesh: Path found with {path.Count} waypoints ({ms:F1}ms).");
-			}
-			else
+			if (path == null || path.Count == 0)
 			{
 				Window.Get?.LogProcess("NavMesh: Path could not be resolved on single region.", Window.ProcessState.Warning);
 			}
@@ -227,22 +225,26 @@ namespace xBot.Game.Navigation
 
 		private NavRegion GetOrLoadRegion(RegionBoundsEntry entry)
 		{
-			if (m_cache.TryGetValue(entry.RegionId, out NavRegion cached))
+			if (m_cacheMap.TryGetValue(entry.RegionId, out LinkedListNode<CacheEntry> node))
 			{
-				return cached;
+				// Gerçek LRU: kullanılanı başa al
+				m_cacheOrder.Remove(node);
+				m_cacheOrder.AddFirst(node);
+				return node.Value.Region;
 			}
 
 			NavRegion loaded = NavDataReader.Read(entry.FilePath, entry.RegionId);
 			if (loaded != null)
 			{
-				// LRU: en eski ekleneni at, tamamını Clear() ile atma (ping-pong rotada disk+zlib cezası olur)
-				if (m_cache.Count >= 5)
+				if (m_cacheMap.Count >= MaxCacheSize && m_cacheOrder.Last != null)
 				{
-					int oldest = -1;
-					foreach (var k in m_cache.Keys) { oldest = k; break; }
-					if (oldest != -1) m_cache.Remove(oldest);
+					var lru = m_cacheOrder.Last;
+					m_cacheOrder.RemoveLast();
+					m_cacheMap.Remove(lru.Value.RegionId);
 				}
-				m_cache[entry.RegionId] = loaded;
+				var newNode = new LinkedListNode<CacheEntry>(new CacheEntry { RegionId = entry.RegionId, Region = loaded });
+				m_cacheOrder.AddFirst(newNode);
+				m_cacheMap[entry.RegionId] = newNode;
 			}
 			return loaded;
 		}

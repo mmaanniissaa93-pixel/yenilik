@@ -216,6 +216,7 @@ namespace xBot.App
                 BuildSkillsTabWidgets();
                 BuildProtectionTabWidgets();
                 BuildItemFilterWidgets();
+                StartGameInfoLiveTimer();
                 ApplyLanguageToWindow();
                 ApplyModernTheme();
             }
@@ -223,6 +224,25 @@ namespace xBot.App
             {
                 Log("[Custom UI Init Error] " + ex.Message);
             }
+        }
+        private Timer _gameInfoLiveTimer;
+        private void StartGameInfoLiveTimer()
+        {
+            if (_gameInfoLiveTimer != null) return;
+            _gameInfoLiveTimer = new Timer();
+            _gameInfoLiveTimer.Interval = 2000;
+            _gameInfoLiveTimer.Tick += (s, e) => {
+                try
+                {
+                    if (!InfoManager.inGame) return;
+                    if (TabPageV_Control01_GameInfo_Panel == null || !TabPageV_Control01_GameInfo_Panel.Visible) return;
+                    WinAPI.InvokeIfRequired(GameInfo_tbxServerTime, () => {
+                        try { GameInfo_tbxServerTime.Text = InfoManager.GetServerTime().ToString("HH:mm:ss | dd/MM/yyyy"); } catch { }
+                    });
+                }
+                catch { }
+            };
+            _gameInfoLiveTimer.Start();
         }
 
         private void BuildHeaderWidgets()

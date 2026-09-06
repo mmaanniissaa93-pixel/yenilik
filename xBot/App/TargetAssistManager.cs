@@ -20,6 +20,7 @@ namespace xBot.App
         private static bool _keyWasDown = false;
         private static int _lastRetargetTick = 0;
         private static uint _lastSelectedTargetId = 0;
+        private static int s_running;
 
         public static TargetAssistSettings Settings => _settings;
 
@@ -80,12 +81,26 @@ namespace xBot.App
             _initialized = true;
 
             _tickTimer = new Timer();
-            _tickTimer.Interval = 40; // 25 Hz hotkey polling
+            _tickTimer.Interval = 100; // 10Hz hotkey polling yeterli (40ms CPU israfıydı)
             _tickTimer.Tick += (s, e) => RunTick();
             _tickTimer.Start();
         }
 
         public static void RunTick()
+        {
+            // Timer + Bot.IA çift çağrısına karşı reentrancy koruması (tek kaynak: timer)
+            if (System.Threading.Interlocked.Exchange(ref s_running, 1) == 1)
+                return;
+            try
+            {
+                RunTickInner();
+            }
+            finally
+            {
+                System.Threading.Interlocked.Exchange(ref s_running, 0);
+            }
+        }
+        private static void RunTickInner()
         {
             if (!_settings.Enabled)
             {

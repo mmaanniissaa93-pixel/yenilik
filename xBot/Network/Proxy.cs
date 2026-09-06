@@ -214,6 +214,24 @@ namespace xBot.Network
 				// Running process
 				while (isRunning)
 				{
+					bool didWork = false;
+					// Analyzer bayraklarını döngü başına bir kez oku (paket başına Invoke yok)
+					bool gwShowServer = false, gwOnlyShow = false;
+					System.Collections.Generic.HashSet<string> gwFilter = null;
+					try
+					{
+						WinAPI.InvokeIfRequired(w.Settings_cbxShowPacketServer, () => {
+							gwShowServer = w.Settings_cbxShowPacketServer.Checked;
+							gwOnlyShow = w.Settings_rbnPacketOnlyShow.Checked;
+							if (gwShowServer && w.Settings_lstvOpcodes.Items.Count > 0)
+							{
+								gwFilter = new System.Collections.Generic.HashSet<string>();
+								foreach (System.Windows.Forms.ListViewItem it in w.Settings_lstvOpcodes.Items)
+									gwFilter.Add(it.Text);
+							}
+						});
+					}
+					catch { }
 					// Network input event processing
 					foreach (Context context in gws)
 					{
@@ -246,18 +264,17 @@ namespace xBot.Network
 							foreach (Packet packet in packets)
 							{
 								// Show all incoming packets on analizer
-								if (context == Gateway.Remote && w.Settings_cbxShowPacketServer.Checked)
+								if (context == Gateway.Remote && gwShowServer)
 								{
-									bool opcodeFound = false;
-									w.Settings_lstvOpcodes.InvokeIfRequired(() => {
-										opcodeFound = w.Settings_lstvOpcodes.Items.ContainsKey(packet.Opcode.ToString());
-									});
-									if (opcodeFound && w.Settings_rbnPacketOnlyShow.Checked
-										|| !opcodeFound && !w.Settings_rbnPacketOnlyShow.Checked)
+									bool opcodeFound = gwFilter != null && gwFilter.Contains(packet.Opcode.ToString());
+									if (opcodeFound && gwOnlyShow
+										|| !opcodeFound && !gwOnlyShow)
 									{
-										w.LogPacket(string.Format("[G][{0}][{1:X4}][{2} bytes]{3}{4}{6}{5}", "S->C", packet.Opcode, packet.GetBytes().Length, packet.Encrypted ? "[Encrypted]" : "", packet.Massive ? "[Massive]" : "", Utility.HexDump(packet.GetBytes()), Environment.NewLine));
+										byte[] logBytes = packet.GetBytes();
+										w.LogPacket(string.Format("[G][{0}][{1:X4}][{2} bytes]{3}{4}{6}{5}", "S->C", packet.Opcode, logBytes.Length, packet.Encrypted ? "[Encrypted]" : "", packet.Massive ? "[Massive]" : "", Utility.HexDump(logBytes), Environment.NewLine));
 									}
 								}
+								didWork = true;
 								// Switch from gateway to agent process
 								if (packet.Opcode == Gateway.Opcode.SERVER_LOGIN_RESPONSE || packet.Opcode == Gateway.Opcode.SERVER_LOGIN_RESPONSE_CUSTOM)
 								{
@@ -363,17 +380,15 @@ namespace xBot.Network
 									Packet packet = kvp.Value;
 
 									byte[] packet_bytes = packet.GetBytes();
+									didWork = true;
 									// Show outcoming packets on analizer
-									if (context == Gateway.Remote && w.Settings_cbxShowPacketClient.Checked)
+									if (context == Gateway.Remote && gwShowServer)
 									{
-										bool opcodeFound = false;
-										w.Settings_lstvOpcodes.InvokeIfRequired(() =>{
-											opcodeFound = w.Settings_lstvOpcodes.Items.ContainsKey(packet.Opcode.ToString());
-										});
-										if (opcodeFound && w.Settings_rbnPacketOnlyShow.Checked
-											|| !opcodeFound && !w.Settings_rbnPacketOnlyShow.Checked)
+										bool opcodeFound = gwFilter != null && gwFilter.Contains(packet.Opcode.ToString());
+										if (opcodeFound && gwOnlyShow
+											|| !opcodeFound && !gwOnlyShow)
 										{
-											w.LogPacket(string.Format("[G][{0}][{1:X4}][{2} bytes]{3}{4}{6}{5}", "C->S", packet.Opcode, packet.GetBytes().Length, packet.Encrypted ? "[Encrypted]" : "", packet.Massive ? "[Massive]" : "", Utility.HexDump(packet.GetBytes()), Environment.NewLine));
+											w.LogPacket(string.Format("[G][{0}][{1:X4}][{2} bytes]{3}{4}{6}{5}", "C->S", packet.Opcode, packet_bytes.Length, packet.Encrypted ? "[Encrypted]" : "", packet.Massive ? "[Massive]" : "", Utility.HexDump(packet_bytes), Environment.NewLine));
 										}
 									}
 
@@ -399,7 +414,10 @@ namespace xBot.Network
 							}
 						}
 					}
-					Thread.Sleep(1); // Cycle complete, prevent 100% CPU usage
+					if (didWork)
+						Thread.Sleep(0);
+					else
+						Thread.Sleep(1); // Idle: prevent 100% CPU usage
 				}
 			}
 			catch (Exception ex)
@@ -507,6 +525,25 @@ namespace xBot.Network
 				PingHandler.Start();
 				while (isRunning)
 				{
+					bool didWork = false;
+					bool agShowServer = false, agShowClient = false, agOnlyShow = false;
+					System.Collections.Generic.HashSet<string> agFilter = null;
+					bool traceOn = xBot.App.Theme.ModernLogger.EnablePacketTrace;
+					try
+					{
+						WinAPI.InvokeIfRequired(w.Settings_cbxShowPacketServer, () => {
+							agShowServer = w.Settings_cbxShowPacketServer.Checked;
+							agShowClient = w.Settings_cbxShowPacketClient.Checked;
+							agOnlyShow = w.Settings_rbnPacketOnlyShow.Checked;
+							if ((agShowServer || agShowClient) && w.Settings_lstvOpcodes.Items.Count > 0)
+							{
+								agFilter = new System.Collections.Generic.HashSet<string>();
+								foreach (System.Windows.Forms.ListViewItem it in w.Settings_lstvOpcodes.Items)
+									agFilter.Add(it.Text);
+							}
+						});
+					}
+					catch { }
 					// Network input event processing
 					foreach (Context context in ags)
 					{
@@ -546,32 +583,24 @@ namespace xBot.Network
 						{
 							foreach (Packet packet in packets)
 							{
-								if (context == Agent.Remote)
+								didWork = true;
+								if (traceOn)
 								{
 									byte[] bytes = packet.GetBytes();
 									string hex = Utility.HexDump(bytes).Replace("\r", "").Replace("\n", " ").Trim();
 									if (hex.Length > 80) hex = hex.Substring(0, 80) + "...";
-									ModernLogger.TracePacket("Server->Client", packet.Opcode, bytes.Length, hex);
-								}
-								else if (context == Agent.Local)
-								{
-									byte[] bytes = packet.GetBytes();
-									string hex = Utility.HexDump(bytes).Replace("\r", "").Replace("\n", " ").Trim();
-									if (hex.Length > 80) hex = hex.Substring(0, 80) + "...";
-									ModernLogger.TracePacket("Client->Server", packet.Opcode, bytes.Length, hex);
+									ModernLogger.TracePacket(context == Agent.Remote ? "Server->Client" : "Client->Server", packet.Opcode, bytes.Length, hex);
 								}
 
 								// Show all incoming packets on analizer
-								if (context == Agent.Remote && w.Settings_cbxShowPacketServer.Checked)
+								if (context == Agent.Remote && agShowServer)
 								{
-									bool opcodeFound = false;
-									WinAPI.InvokeIfRequired(w.Settings_lstvOpcodes, () => {
-										opcodeFound = w.Settings_lstvOpcodes.Items.ContainsKey(packet.Opcode.ToString());
-									});
-									if (opcodeFound && w.Settings_rbnPacketOnlyShow.Checked
-										|| !opcodeFound && !w.Settings_rbnPacketOnlyShow.Checked)
+									bool opcodeFound = agFilter != null && agFilter.Contains(packet.Opcode.ToString());
+									if (opcodeFound && agOnlyShow
+										|| !opcodeFound && !agOnlyShow)
 									{
-										w.LogPacket(string.Format("[A][{0}][{1:X4}][{2} bytes]{3}{4}{6}{5}", "S->C", packet.Opcode, packet.GetBytes().Length, packet.Encrypted ? "[Encrypted]" : "", packet.Massive ? "[Massive]" : "", Utility.HexDump(packet.GetBytes()), Environment.NewLine));
+										byte[] logBytes = packet.GetBytes();
+										w.LogPacket(string.Format("[A][{0}][{1:X4}][{2} bytes]{3}{4}{6}{5}", "S->C", packet.Opcode, logBytes.Length, packet.Encrypted ? "[Encrypted]" : "", packet.Massive ? "[Massive]" : "", Utility.HexDump(logBytes), Environment.NewLine));
 									}
 								}
 
@@ -596,20 +625,17 @@ namespace xBot.Network
 									TransferBuffer buffer = kvp.Key;
 									Packet packet = kvp.Value;
 
-									byte[] packet_bytes = packet.GetBytes();
-									if (context == Agent.Remote)
+									didWork = true;
+									if (traceOn && context == Agent.Remote)
 									{
 										ModernLogger.TracePacket("Proxy->Server", packet.Opcode, buffer.Size);
 									}
 									// Show outcoming packets on analizer
-									if (context == Agent.Remote && w.Settings_cbxShowPacketClient.Checked)
+									if (context == Agent.Remote && agShowClient)
 									{
-										bool opcodeFound = false;
-										w.Settings_lstvOpcodes.InvokeIfRequired(() => {
-											opcodeFound = w.Settings_lstvOpcodes.Items.ContainsKey(packet.Opcode.ToString());
-										});
-										if (opcodeFound && w.Settings_rbnPacketOnlyShow.Checked
-											|| !opcodeFound && !w.Settings_rbnPacketOnlyShow.Checked)
+										bool opcodeFound = agFilter != null && agFilter.Contains(packet.Opcode.ToString());
+										if (opcodeFound && agOnlyShow
+											|| !opcodeFound && !agOnlyShow)
 										{
 											w.LogPacket(string.Format("[A][{0}][{1:X4}][{2} bytes]{3}{4}{6}{5}", "C->S", packet.Opcode, packet.GetBytes().Length, packet.Encrypted ? "[Encrypted]" : "", packet.Massive ? "[Massive]" : "", Utility.HexDump(packet.GetBytes()), Environment.NewLine));
 										}
@@ -644,7 +670,10 @@ namespace xBot.Network
 							}
 						}
 					}
-					Thread.Sleep(1); // Cycle complete, prevent 100% CPU usage
+					if (didWork)
+						Thread.Sleep(0);
+					else
+						Thread.Sleep(1); // Idle: prevent 100% CPU usage (Agent)
 				}
 			}
 			catch (Exception ex)
@@ -741,8 +770,8 @@ namespace xBot.Network
 		}
 		private void ThreadPing()
 		{
-			while (isRunning)
-			{
+				while (isRunning)
+				{
 				try { Thread.Sleep(6666); }
 				catch (ThreadInterruptedException) { return; }
 				catch { return; }
@@ -855,36 +884,32 @@ namespace xBot.Network
 			// Relogin
 			if (w.Login_cbxRelogin.Checked || LoginStrategyManager.AutomatedLogin)
 			{
-				System.Timers.Timer Relogin = new System.Timers.Timer(50);
+				System.Timers.Timer Relogin = new System.Timers.Timer(1000);
 				Relogin.AutoReset = false;
 				Relogin.Elapsed += ReloginOnDisconnect;
-				ReloginIntervalCounter = 0;
 				ReloginCountdown = Math.Max(15, LoginStrategyManager.WaitAfterDCMinutes * 60);
 				Relogin.Start();
 				w.LogProcess("Relogin at " + ReloginCountdown + " seconds...");
 			}
 		}
 
-		private int ReloginIntervalCounter;
 		private int ReloginCountdown;
 		private void ReloginOnDisconnect(object sender, System.Timers.ElapsedEventArgs e){
+			System.Timers.Timer timer = (System.Timers.Timer)sender;
 			try
 			{
-				System.Timers.Timer timer = (System.Timers.Timer)sender;
-				ReloginIntervalCounter += (int)timer.Interval;
-
 				Window w = Window.Get;
 				if ((w.Login_cbxRelogin.Checked || LoginStrategyManager.AutomatedLogin) && !Bot.Get.Proxy.isRunning)
 				{
-					// Check Countdown
-					if (ReloginIntervalCounter % 1000 == 0)
-						ReloginCountdown--;
-					if(ReloginCountdown == 0)
+					// Her tick tam 1 saniye: modulo kayması yok
+					ReloginCountdown--;
+					if(ReloginCountdown <= 0)
 					{
 						w.LogProcess("Relogin...");
 						w.InvokeIfRequired(() => {
 							w.Control_Click(w.Login_btnStart, null);
 						});
+						timer.Dispose();
 					}
 					else
 					{
@@ -895,9 +920,14 @@ namespace xBot.Network
 				else
 				{
 					w.LogProcess("Automatic relogin canceled!");
+					timer.Dispose();
 				}
 			}
-			catch { }
+			catch (Exception ex)
+			{
+				Window.Get?.Log("[Relogin] " + ex.Message);
+				try { timer.Dispose(); } catch { }
+			}
 		}
 		/// <summary>
 		/// Send packet to the server if exists connection (Gateway/Agent).

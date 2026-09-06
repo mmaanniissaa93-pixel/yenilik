@@ -36,6 +36,17 @@ namespace xBot.App
             if (byte.TryParse((text ?? "").Trim(), out v)) return v;
             return fallback;
         }
+        // Pot teşhis logları 1sn poll'de spam yapmasın: aynı mesaj en fazla 15sn'de bir.
+        private static DateTime s_lastHpNoPotionLog = DateTime.MinValue;
+        private static DateTime s_lastMpNoPotionLog = DateTime.MinValue;
+        private static void LogPotionThrottled(ref DateTime last, string msg)
+        {
+            DateTime now = DateTime.UtcNow;
+            if ((now - last).TotalSeconds < 15)
+                return;
+            last = now;
+            Window.Get?.Log(msg);
+        }
 
         #region (0x704C item-use guard: desync + throttle + reject-block)
         // Server reddedilen kullanimdan hemen sonra baglantiyi kesebiliyor (Sevar 0x1889).
@@ -266,8 +277,12 @@ namespace xBot.App
             }
             // Hesaplanan usage tutmuyorsa (Sevar 0x..ED vs 0x..EC) parity ile bit0
             // alternatifi denensin; tutan varyant kalici ogrenilir.
+            // Önce kanıtlanmış-yanlış öğrenme silinir, yoksa aynı baytta takılı kalınır.
             if (linked)
+            {
+                xBot.Game.PacketBuilder.ForgetLearnedUsage(lastId);
                 xBot.Game.PacketBuilder.NoteUsageReject(lastId);
+            }
             if (suspectId != 0)
                 LearnItemUsable(suspectId, false, $"0xB04C reject 0x{errorCode:X4}, yakin zamanda success yok");
         }
@@ -382,6 +397,8 @@ namespace xBot.App
         }
         private void CheckUsingHP(object sender, ElapsedEventArgs e)
         {
+            if (InfoManager.Character == null)
+                return;
             if (InfoManager.Character.LifeStateType == SRModel.LifeState.Alive)
             {
                 Window w = Window.Get;
@@ -394,16 +411,22 @@ namespace xBot.App
                     if (InfoManager.Character.GetHPPercent() <= useHP)
                     {
                         byte slot = 0;
-                        if (w.Character_cbxUseHPGrain.Checked && FindBestItem(3, 1, 1, ref slot, "_SPOTION_")
-                            || w.Character_cbxUseHP.Checked && FindBestItem(3, 1, 1, ref slot, "", "_SPOTION_"))
+                        // Referans mekanik (WinForms1): Grain tikliyse _SPOTION_ içeren,
+                        // normal tikliyse filtresiz ilk eşleşen. Exclude yok.
+                        if (w.Character_cbxUseHPGrain.Checked && FindItem(3, 1, 1, ref slot, "_SPOTION_")
+                            || w.Character_cbxUseHP.Checked && FindItem(3, 1, 1, ref slot))
                         {
                             int requiredInterval = (InfoManager.Character != null && InfoManager.Character.IsEuropean()) ? 15000 : 1000;
                             if (tUsingHP.Interval != requiredInterval)
                                 tUsingHP.Interval = requiredInterval;
-                            // Paket gerçekten gönderilmediyse (throttle/senkron) timer kurma,
-                            // yoksa lazım olduğunda pot basılmıyor.
-                            if (PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot))
-                                tUsingHP.Start();
+                            PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot);
+                            tUsingHP.Start();
+                        }
+                        else
+                        {
+                            LogPotionThrottled(ref s_lastHpNoPotionLog, "[HP] Eşik tuttu (%"
+                                + InfoManager.Character.GetHPPercent().ToString("0") + " <= %" + useHP
+                                + ") ama envanterde uygun HP potu bulunamadı! (Grain kutusu ve pot tipini kontrol et)");
                         }
                     }
                 }
@@ -417,6 +440,8 @@ namespace xBot.App
         }
         private void CheckUsingMP(object sender, ElapsedEventArgs e)
         {
+            if (InfoManager.Character == null)
+                return;
             if (InfoManager.Character.LifeStateType == SRModel.LifeState.Alive)
             {
                 Window w = Window.Get;
@@ -429,14 +454,21 @@ namespace xBot.App
                     if (InfoManager.Character.GetMPPercent() <= useMP)
                     {
                         byte slot = 0;
-                        if (w.Character_cbxUseMPGrain.Checked && FindBestItem(3, 1, 2, ref slot, "_SPOTION_")
-                            || w.Character_cbxUseMP.Checked && FindBestItem(3, 1, 2, ref slot, "", "_SPOTION_"))
+                        // Referans mekanik (WinForms1): filtresiz ilk eşleşme, exclude yok.
+                        if (w.Character_cbxUseMPGrain.Checked && FindItem(3, 1, 2, ref slot, "_SPOTION_")
+                            || w.Character_cbxUseMP.Checked && FindItem(3, 1, 2, ref slot))
                         {
                             int requiredInterval = (InfoManager.Character != null && InfoManager.Character.IsEuropean()) ? 15000 : 1000;
                             if (tUsingMP.Interval != requiredInterval)
                                 tUsingMP.Interval = requiredInterval;
-                            if (PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot))
-                                tUsingMP.Start();
+                            PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot);
+                            tUsingMP.Start();
+                        }
+                        else
+                        {
+                            LogPotionThrottled(ref s_lastMpNoPotionLog, "[MP] Eşik tuttu (%"
+                                + InfoManager.Character.GetMPPercent().ToString("0") + " <= %" + useMP
+                                + ") ama envanterde uygun MP potu bulunamadı! (Grain kutusu ve pot tipini kontrol et)");
                         }
                     }
                 }
@@ -450,6 +482,8 @@ namespace xBot.App
         }
         private void CheckUsingVigor(object sender, ElapsedEventArgs e)
         {
+            if (InfoManager.Character == null)
+                return;
             if (InfoManager.Character.LifeStateType == SRModel.LifeState.Alive)
             {
                 Window w = Window.Get;
@@ -465,10 +499,11 @@ namespace xBot.App
                     if (InfoManager.Character.GetHPPercent() <= usePercent)
                     {
                         byte slot = 0;
-                        if (FindBestItem(3, 1, 3, ref slot))
+                        // Referans mekanik (WinForms1): filtresiz ilk eşleşme.
+                        if (FindItem(3, 1, 3, ref slot))
                         {
-                            if (PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot))
-                                tUsingVigor.Start();
+                            PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot);
+                            tUsingVigor.Start();
                         }
                     }
                     else
@@ -480,10 +515,10 @@ namespace xBot.App
                         if (InfoManager.Character.GetMPPercent() <= usePercent)
                         {
                             byte slot = 0;
-                            if (FindBestItem(3, 1, 3, ref slot))
+                            if (FindItem(3, 1, 3, ref slot))
                             {
-                                if (PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot))
-                                    tUsingVigor.Start();
+                                PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot);
+                                tUsingVigor.Start();
                             }
                         }
                     }

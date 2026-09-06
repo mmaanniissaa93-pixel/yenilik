@@ -154,9 +154,31 @@ namespace xBot.Game
 				}
 			}
 		}
+		public static string LastCaptchaRawHex { get; private set; } = "";
 		public static void CaptchaData(Packet packet)
 		{
-			
+			try
+			{
+				byte[] raw = packet.GetBytes();
+				LastCaptchaRawHex = raw != null ? SecurityAPI.Utility.HexDump(raw).Replace(" ", "") : "";
+				Window.Get?.Log("Captcha istendi (" + (raw != null ? raw.Length : 0) + " byte). Çözümü girip bot otomatik gönderecek.");
+				// Sabit kod varsa otomatik cevapla, yoksa UI'daki kutuya odaklan.
+				string code = App.LoginStrategyManager.StaticCaptcha
+					? (App.LoginStrategyManager.StaticCaptchaCode ?? "")
+					: (Window.Get?.Login_tbxCaptcha?.Text ?? "");
+				if (!string.IsNullOrWhiteSpace(code))
+				{
+					PacketBuilder.SubmitCaptcha(code.Trim());
+				}
+				else
+				{
+					Window.Get?.Log("Captcha kodu boş — Giriş sekmesindeki Captcha kutusuna yazın.");
+				}
+			}
+			catch (System.Exception ex)
+			{
+				Window.Get?.Log("[CaptchaData] " + ex.Message);
+			}
 		}
 		public static void CharacterSelectionActionResponse(Packet packet)
 		{
@@ -177,7 +199,9 @@ namespace xBot.Game
 					Bot.Get.OnNicknameChecked(result == 1);
 					break;
 				case SRTypes.CharacterSelectionAction.Delete:
-					// Not necessary at the moment..
+					Window.Get.Log(result == 1 ? "Character deleted successfully" : "Character deletion failed!");
+					if (Bot.Get.Proxy.ClientlessMode)
+						PacketBuilder.RequestCharacterList();
 					break;
 				case SRTypes.CharacterSelectionAction.List:
 					if (result == 1)
@@ -2067,6 +2091,28 @@ namespace xBot.Game
 		}
 		public static void AcademyData(Packet packet)
 		{
+			try
+			{
+				int remaining = packet.RemainingRead();
+				Window.Get?.LogPacket($"[Academy] 0x3C81 data ({remaining} byte, ham geçiş)");
+			}
+			catch (System.Exception ex)
+			{
+				Window.Get?.Log("[AcademyData] " + ex.Message);
+			}
+			InfoManager.OnAcademyInfo();
+		}
+		public static void AcademyMatchList(Packet packet)
+		{
+			try
+			{
+				int remaining = packet.RemainingRead();
+				Window.Get?.LogPacket($"[Academy] 0xB47D match list ({remaining} byte, ham geçiş)");
+			}
+			catch (System.Exception ex)
+			{
+				Window.Get?.Log("[AcademyMatchList] " + ex.Message);
+			}
 			InfoManager.OnAcademyInfo();
 		}
 		public static void CharacterAddStatPointResponse(Packet packet)
@@ -3301,9 +3347,27 @@ namespace xBot.Game
 			if (entity == null) return;
 			switch (updateType)
 			{
-				case 0: // LifeState
+			case 0: // LifeState
+				{
+					var oldState = entity.LifeStateType;
 					entity.LifeStateType = (SRModel.LifeState)updateState;
-					break;
+					// Dirilme: Dead->Alive geçişinde HP sabit kalırsa pot tetiklenmezdi
+					// (InfoManager HP guard + eventsiz bekleme). Hemen pot kontrolü yap.
+					if (entity == InfoManager.Character
+						&& oldState == SRModel.LifeState.Dead
+						&& entity.LifeStateType == SRModel.LifeState.Alive)
+					{
+						try
+						{
+							Window.Get?.Log("Dirildin — HP/MP kontrolü yapılıyor...");
+							Bot.Get.CheckUsingHP();
+							Bot.Get.CheckUsingMP();
+							Bot.Get.CheckUsingVigor();
+						}
+						catch { }
+					}
+				}
+				break;
 				case 1: // MotionState
 					entity.GetRealtimePosition(); // Force update the position
 					entity.MotionStateType = (SRModel.MotionState)updateState;

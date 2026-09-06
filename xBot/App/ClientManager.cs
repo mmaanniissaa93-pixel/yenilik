@@ -652,10 +652,15 @@ namespace xBot.App
                 byte[] patchJmp = new byte[] { 0xEB };
                 byte[] patchNop5 = new byte[] { 0x90, 0x90, 0x90, 0x90, 0x90 };
 
-                bool ok1 = SafeWriteMemory(pi.hProcess, (IntPtr)(patchAddress.ToInt64() - 0x6F), patchJmp);
-                bool ok2 = SafeWriteMemory(pi.hProcess, (IntPtr)(patchAddress.ToInt64() + 0x13), patchJmp);
-                bool ok3 = SafeWriteMemory(pi.hProcess, (IntPtr)(patchAddress.ToInt64() + 0x0C), patchNop5);
-                bool ok4 = SafeWriteMemory(pi.hProcess, (IntPtr)(patchAddress.ToInt64() + 0x95), patchJmp);
+                // Magic offsetler: imza tabanından patch noktaları (client-signatures.cfg ile birlikte sürümlenir)
+                const long OffJmp1 = -0x6F;
+                const long OffJmp2 = 0x13;
+                const long OffNop = 0x0C;
+                const long OffJmp3 = 0x95;
+                bool ok1 = SafeWriteMemory(pi.hProcess, (IntPtr)(patchAddress.ToInt64() + OffJmp1), patchJmp);
+                bool ok2 = SafeWriteMemory(pi.hProcess, (IntPtr)(patchAddress.ToInt64() + OffJmp2), patchJmp);
+                bool ok3 = SafeWriteMemory(pi.hProcess, (IntPtr)(patchAddress.ToInt64() + OffNop), patchNop5);
+                bool ok4 = SafeWriteMemory(pi.hProcess, (IntPtr)(patchAddress.ToInt64() + OffJmp3), patchJmp);
 
                 if (!ok1 || !ok2 || !ok3 || !ok4)
                 {
@@ -671,20 +676,20 @@ namespace xBot.App
                 LogError($"XIGNCODE patching exception: {ex.Message}");
                 return false;
             }
-            finally
-            {
-                GC.Collect();
-            }
         }
 
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte?[]> s_patternCache = new System.Collections.Concurrent.ConcurrentDictionary<string, byte?[]>();
         private static IntPtr FindPattern(string stringPattern, byte[] buffer, int baseAddress)
         {
             try
             {
-                string[] tokens = stringPattern.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                byte?[] pattern = tokens
-                    .Select(p => p == "??" ? (byte?)null : byte.Parse(p, NumberStyles.AllowHexSpecifier))
-                    .ToArray();
+                byte?[] pattern = s_patternCache.GetOrAdd(stringPattern, key => {
+                    string[] toks = key.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                    byte?[] arr = new byte?[toks.Length];
+                    for (int t = 0; t < toks.Length; t++)
+                        arr[t] = toks[t] == "??" ? (byte?)null : byte.Parse(toks[t], NumberStyles.AllowHexSpecifier);
+                    return arr;
+                });
 
                 int patternLength = pattern.Length;
                 int searchLength = buffer.Length - patternLength;

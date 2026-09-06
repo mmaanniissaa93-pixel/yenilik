@@ -13,7 +13,9 @@
   },
   "PacketAnalyzer": {
     "Filter": [],
-    "FilterOnlyShow": false
+    "FilterOnlyShow": false,
+    "InjectMassive": false,
+    "InjectEncrypted": false
   },
   "_xBot": "ProjexNET | Easy & Flexible. Design perfection!",
   "_Version": "0.6.1",
@@ -27,7 +29,9 @@
     "AutoStartBot": false,
     "AutoHideClient": false,
     "StayConnected": true,
-    "Strategy": 0
+    "Strategy": 0,
+    "AutoEnterSecondaryPasscode": true,
+    "SecondaryPasscode": ""
   },
   "CombatAI": {
     "ZerkWhenHPFull": false,
@@ -81,6 +85,17 @@
       }
     }
   },
+  "Socks5Proxy": {
+    "Enabled": false,
+    "Host": "",
+    "Port": 1080,
+    "Username": "",
+    "Password": ""
+  },
+  "PartySupport": {},
+  "Alchemy": {},
+  "TargetAssist": {},
+  "CommandCenter": {},
   "Accounts": [
     {
       "Username": "Farmer_01",

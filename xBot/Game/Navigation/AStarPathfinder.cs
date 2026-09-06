@@ -6,7 +6,7 @@ namespace xBot.Game.Navigation
 {
 	public class AStarPathfinder
 	{
-		private class PriorityQueueNode : IComparable<PriorityQueueNode>
+		private struct PriorityQueueNode : IComparable<PriorityQueueNode>
 		{
 			public int PointIndex;
 			public double Priority;
@@ -85,10 +85,10 @@ namespace xBot.Game.Navigation
 			// they do not belong to this region (e.g. separated by river / on another map)
 			NavPoint startPt = region.Points[startNode];
 			NavPoint targetPt = region.Points[targetNode];
-			double startDist = Math.Sqrt((startPt.X - startX) * (startPt.X - startX) + (startPt.Y - startY) * (startPt.Y - startY));
-			double targetDist = Math.Sqrt((targetPt.X - targetX) * (targetPt.X - targetX) + (targetPt.Y - targetY) * (targetPt.Y - targetY));
+			double startDistSq = startPt.DistanceSquaredTo(startX, startY);
+			double targetDistSq = targetPt.DistanceSquaredTo(targetX, targetY);
 
-			if (startDist > 45.0 || targetDist > 55.0)
+			if (startDistSq > 45.0 * 45.0 || targetDistSq > 55.0 * 55.0)
 			{
 				// Start or Target is not on this walkable mesh!
 				return null;

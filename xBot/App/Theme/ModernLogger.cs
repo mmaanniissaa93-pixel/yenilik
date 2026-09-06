@@ -31,6 +31,10 @@ namespace xBot.App.Theme
     public static class ModernLogger
     {
         public static int MaxLineCount { get; set; } = 500;
+        /// <summary>
+        /// Kapalıysa TracePacket disk IO yapmaz (proxy hot-path için). Analyzer açıkken UI tarafından açılır.
+        /// </summary>
+        public static bool EnablePacketTrace { get; set; } = false;
         private static readonly object fileLock = new object();
         private static readonly object traceLock = new object();
         private static readonly Queue<PacketTrace> packetTraceQueue = new Queue<PacketTrace>();
@@ -49,6 +53,8 @@ namespace xBot.App.Theme
 
         public static void TracePacket(string direction, ushort opcode, int length, string summary = "")
         {
+            if (!EnablePacketTrace)
+                return;
             try
             {
                 var entry = new PacketTrace

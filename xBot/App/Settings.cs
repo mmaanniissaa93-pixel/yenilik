@@ -18,8 +18,39 @@ namespace xBot.App
 		/// </summary>
 		private static bool LoadingCharacterSettings;
 		private static readonly object CharacterSettingsLock = new object();
+		private static long s_lastBotSaveTick = 0;
+		private static long s_lastCharSaveTick = 0;
+		private static int s_botSavePending;
+		private static int s_charSavePending;
+		private const int SaveDebounceMs = 800;
+		private static void QueueTrailingBotSave()
+		{
+			if (System.Threading.Interlocked.Exchange(ref s_botSavePending, 1) == 1) return;
+			System.Threading.ThreadPool.QueueUserWorkItem(delegate {
+				System.Threading.Thread.Sleep(SaveDebounceMs + 100);
+				System.Threading.Interlocked.Exchange(ref s_botSavePending, 0);
+				try { s_lastBotSaveTick = 0; SaveBotSettings(); } catch { }
+			});
+		}
+		private static void QueueTrailingCharSave()
+		{
+			if (System.Threading.Interlocked.Exchange(ref s_charSavePending, 1) == 1) return;
+			System.Threading.ThreadPool.QueueUserWorkItem(delegate {
+				System.Threading.Thread.Sleep(SaveDebounceMs + 100);
+				System.Threading.Interlocked.Exchange(ref s_charSavePending, 0);
+				try { s_lastCharSaveTick = 0; SaveCharacterSettings(); } catch { }
+			});
+		}
 		public static void SaveBotSettings()
 		{
+			// Debounce: slider sürükleme gibi seri eventlerde her seferinde full JSON yazma
+			long now = System.Environment.TickCount;
+			if (now - s_lastBotSaveTick < SaveDebounceMs)
+			{
+				QueueTrailingBotSave();
+				return;
+			}
+			s_lastBotSaveTick = now;
 			if (!LoadingBotSettings)
 			{
 				lock (BotSettingsLock)
@@ -97,8 +128,35 @@ namespace xBot.App
 					root["TargetAssist"] = TargetAssistManager.ToJson();
 					CommandCenter.CommandCenterManager.SaveSettings(root);
 
-					// Saving
-					File.WriteAllText("Settings.json", root.ToString());
+					// Saving (atomic: tmp + replace, yarım yazımı engeller)
+					SaveJsonAtomic("Settings.json", root.ToString());
+				}
+			}
+		}
+		private static void SaveJsonAtomic(string path, string content)
+		{
+			string tmp = path + ".tmp";
+			File.WriteAllText(tmp, content);
+			try
+			{
+				if (File.Exists(path))
+					File.Replace(tmp, path, null);
+				else
+					File.Move(tmp, path);
+			}
+			catch
+			{
+				// Replace desteklenmiyorsa fallback
+				try
+				{
+					if (File.Exists(path))
+						File.Delete(path);
+					File.Move(tmp, path);
+				}
+				catch (System.Exception ex)
+				{
+					Window.Get.Log("Ayar kaydedilemedi (" + path + "): " + ex.Message);
+					try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
 				}
 			}
 		}
@@ -263,6 +321,13 @@ namespace xBot.App
 		/// </summary>
 		public static void SaveCharacterSettings()
 		{
+			long now = System.Environment.TickCount;
+			if (now - s_lastCharSaveTick < SaveDebounceMs)
+			{
+				QueueTrailingCharSave();
+				return;
+			}
+			s_lastCharSaveTick = now;
 			if (!LoadingCharacterSettings && InfoManager.inGame)
 			{
 				lock (CharacterSettingsLock)
@@ -502,8 +567,8 @@ namespace xBot.App
 					root["StatPointManager"] = StatPointManager.ToJson();
 					root["ItemFilterManager"] = ItemFilterManager.ToJson();
 
-					// Saving
-					File.WriteAllText("Config\\" + DataManager.SilkroadName + "_" + InfoManager.ServerName + "_" + InfoManager.CharName + ".json", root.ToString());
+					// Saving (atomic)
+					SaveJsonAtomic("Config\\" + DataManager.SilkroadName + "_" + InfoManager.ServerName + "_" + InfoManager.CharName + ".json", root.ToString());
 				}
 			}
 		}

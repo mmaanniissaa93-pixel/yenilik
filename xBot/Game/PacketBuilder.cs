@@ -54,6 +54,15 @@ namespace xBot.Game
 			}
 			Bot.Get.Proxy.Agent.InjectToServer(p);
 		}
+		public static void SubmitCaptcha(string code)
+		{
+			if (string.IsNullOrWhiteSpace(code))
+				return;
+			Packet p = new Packet(Gateway.Opcode.CLIENT_CAPTCHA_SOLVED_REQUEST, true);
+			p.WriteAscii(code.Trim());
+			Bot.Get.Proxy.Gateway.InjectToServer(p);
+			App.Window.Get?.Log("Captcha cevabı gönderildi.");
+		}
 		public static void DeleteCharacter(string charname)
 		{
 			Packet p = new Packet(Agent.Opcode.CLIENT_CHARACTER_SELECTION_ACTION_REQUEST);
@@ -380,6 +389,8 @@ namespace xBot.Game
 		private static readonly Dictionary<uint, int> s_usageRejectCount = new Dictionary<uint, int>();
 		private static uint s_lastSentItemId;
 		private static ushort s_lastSentUsage;
+		private static long s_lastLearnedSaveTick = 0;
+		private static volatile bool s_learnedSavePending;
 		/// <summary>
 		/// Gercek clientin 0x704C paketinden itemID->usage ogren (Sevar gibi custom
 		/// TID'li serverlarda botun DB'den hesapladigi usage tutmayabilir).
@@ -403,6 +414,34 @@ namespace xBot.Game
 			if (changed)
 			{
 				Window.Get?.Log($"[Item] Ogrenildi: itemId={itemId} usage=0x{usage:X4} (kalici)");
+				SaveLearnedUsage();
+				if (s_learnedSavePending)
+				{
+					System.Threading.ThreadPool.QueueUserWorkItem(delegate {
+						System.Threading.Thread.Sleep(6000);
+						s_learnedSavePending = false;
+						SaveLearnedUsage();
+					});
+				}
+			}
+		}
+		/// <summary>
+		/// Reddedilen (cooldown dışı) usage yanlış demektir: kalıcı öğrenmeyi sil ki
+		/// bir sonraki deneme hesaplanan/parity değere düşsün. Yanlış değerde takılı
+		/// kalma (sürekli aynı baytı gönderip 0x0003 yeme) böyle çözülür.
+		/// </summary>
+		public static void ForgetLearnedUsage(uint itemId)
+		{
+			if (itemId == 0) return;
+			bool removed = false;
+			lock (s_learnedUsageLock)
+			{
+				EnsureLearnedUsageLoaded();
+				removed = s_learnedUsage.Remove(itemId);
+			}
+			if (removed)
+			{
+				Window.Get?.Log($"[Item] Yanlış öğrenme silindi: itemId={itemId} (parity ile alternatif denenecek)");
 				SaveLearnedUsage();
 			}
 		}
@@ -487,6 +526,15 @@ namespace xBot.Game
 		}
 		private static void SaveLearnedUsage()
 		{
+			// Debounce: potion akışında her öğrenmede disk yazma
+			long now = System.Environment.TickCount;
+			if (now - s_lastLearnedSaveTick < 5000)
+			{
+				s_learnedSavePending = true;
+				return;
+			}
+			s_lastLearnedSaveTick = now;
+			s_learnedSavePending = false;
 			try
 			{
 				Dictionary<uint, ushort> snap;
@@ -506,6 +554,9 @@ namespace xBot.Game
 		}
 		public static bool UseItem(SRItem item,byte slot,uint uniqueID = 0)
 		{
+			// Referans (WinForms1) + Sevar uyumu: usage önce kalıcı öğrenmeden,
+			// yoksa hesaplanandan, reject sonrası parity alternatifinden gelir.
+			// Yanlış öğrenme reject'te silinir (ForgetLearnedUsage), takılma olmaz.
 			try
 			{
 				var chr = InfoManager.Character;
@@ -521,13 +572,6 @@ namespace xBot.Game
 				}
 				if (!cur.isEquipable() && cur.Quantity == 0)
 					return false;
-				// Giris sonrasi ilk saniyelerde server item kullanimini reddedip
-				// baglantiyi kesebiliyor (Sevar 0x1889); spawn penceresinde bekle.
-				if ((DateTime.UtcNow - InfoManager.JoinedGameUtc).TotalSeconds < 15)
-				{
-					Window.Get?.LogProcess("[Item] Giris sonrasi bekleme (15sn), kullanim atlandi.");
-					return false;
-				}
 				if (!Bot.Get.CheckUseItemThrottle(slot))
 					return false;
 				ushort usage = ResolveUsage(cur.ID, item != null ? item.GetUsageType() : cur.GetUsageType());

@@ -1,6 +1,21 @@
 # Changelog
 
 ### Unreleased
+- Stabilite: `xDictionary/xList` kilitli hale getirildi, `RemoveAt/SetKey` bozuklukları ve `Clear` sayaç hatası düzeltildi; snapshot ile güvenli enumerasyon.
+- Ayar kaydı atomik yazıma alındı (`Settings.json` + karakter profili tmp+replace), yarım yazım riski giderildi.
+- Proxy hot-path: paket başına UI `Invoke` ve `HexDump` kaldırıldı, bayraklar döngü başına önbelleğe alındı, `TracePacket` dosya IO'su varsayılan kapalı, idle `Sleep(1)` / aktif `Sleep(0)`.
+- Captcha: `0x2322` loglanıp `0x6323 SubmitCaptcha` ile otomatik cevaplanıyor; CLI `-captcha=` sabit ayara bağlandı.
+- Academy davet handler aktif edildi; karakter silme sonucu loglanıp liste tazeleniyor; bilinmeyen agent opcode'ları seyrek loglanıyor.
+- `Settings.json` örneğine `InjectMassive/InjectEncrypted`, `AutoEnterSecondaryPasscode`, `Socks5Proxy/PartySupport/Alchemy/TargetAssist/CommandCenter` blokları eklendi.
+- Nav: gerçek LRU (8 bölge), `DateTime.Now` yerine `Stopwatch`, gereksiz path logları kaldırıldı; `ClientManager` `GC.Collect` kaldırıldı.
+- Bot: `CancellationTokenSource` + `SleepInterruptible`, `AttackLoop while(true)` koşullu, `Stop()` 2sn Join; uzun teleport/return beklemeleri kesilebilir.
+- DB: `SQLDatabase IDisposable` + lock + `using`, `DataManager` concat->parametreli sorgu + id önbelleği (item/skill/model 4000 cap).
+- Kayıt: `Settings` 800ms debounce + trailing save, `LearnedUsage` 5sn debounce; `xMapTile` GDI dispose + dosya kilidi fix; emote ikon önbelleği.
+- Relogin 50ms->1000ms + modulo bug fix + `Dispose`; TargetAssist 40ms->100ms + reentrancy + Bot.IA çift çağrı kaldırıldı.
+- Academy `0xB47D` handler + ham log; GameInfo server saati 2sn canlı; Captcha/Academy/CastInOrder strikeout temizliği; A* node struct + kare mesafe.
+- Pot: HP sabitken event gelmezse kontrol hiç çalışmıyordu; 1sn güvenlik yoklaması (bottan bağımsız, cooldown kapılı) + dirilmede zorla kontrol + eşik tutup pot bulunamazsa 15sn'de bir teşhis logu.
+- Pot mekaniği referansa (WinForms1) döndürüldü: `FindBestItem`/exclude filtresi yerine `FindItem` ilk eşleşme; `UseItem` doğrudan `GetUsageType()` ile gönderiyor (öğrenilmiş/parity usage, throttle ve 15sn giriş bloğu kaldırıldı).
+- Pot usage kendini iyileştiriyor: cooldown-dışı reject'te yanlış kalıcı öğrenme silinip (`ForgetLearnedUsage`) parity alternatifi (`0x..ED/0x..EC`) deneniyor; tutan değer kalıcı öğreniliyor. `bin\Release` bağımlılık DLL'leri tamamlandı (derleme hatası giderildi).
 - `0x3013` karakter verisi: summoned fellow pet'i olan serverlarda (SevarOnline) pet
   blogu standarttan uzun geldiginde akis kaymasi oluyordu; skill listesi bos kaliyor
   ve paket sonu tasmasiyla karakter null yukleniyordu. Envanter sonrasi avatar +

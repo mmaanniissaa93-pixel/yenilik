@@ -9,7 +9,8 @@ namespace xBot.Game.Objects
 	{
 		private Dictionary<TKey, TValue> m_dictionary;
 		private List<TKey> m_enumerator;
-		public int Count { get { return m_enumerator.Count; } }
+		private readonly object m_sync = new object();
+		public int Count { get { lock (m_sync) { return m_enumerator.Count; } } }
 
 		#region (Constructor)
 		public xDictionary()
@@ -19,8 +20,12 @@ namespace xBot.Game.Objects
     }
 		public xDictionary(xDictionary<TKey,TValue> value)
 		{
-			m_dictionary = new Dictionary<TKey, TValue>(value.m_dictionary);
-			m_enumerator = new List<TKey>(value.m_enumerator);
+			m_sync = new object();
+			lock (value.m_sync)
+			{
+				m_dictionary = new Dictionary<TKey, TValue>(value.m_dictionary);
+				m_enumerator = new List<TKey>(value.m_enumerator);
+			}
 		}
 		#endregion
 
@@ -30,58 +35,108 @@ namespace xBot.Game.Objects
 			get
 			{
 				TValue value = default(TValue);
-				m_dictionary.TryGetValue(ID, out value);
+				lock (m_sync) { m_dictionary.TryGetValue(ID, out value); }
 				return value;
 			}
 			set
 			{
-				if (!m_dictionary.ContainsKey(ID))
-					m_enumerator.Add(ID);
-				m_dictionary[ID] = value;
+				lock (m_sync)
+				{
+					if (!m_dictionary.ContainsKey(ID))
+						m_enumerator.Add(ID);
+					m_dictionary[ID] = value;
+				}
 			}
 		}
 		public void RemoveKey(TKey ID)
 		{
-			m_dictionary.Remove(ID);
-			m_enumerator.Remove(ID);
+			lock (m_sync)
+			{
+				m_dictionary.Remove(ID);
+				m_enumerator.Remove(ID);
+			}
 		}
 		public void SetKey(TKey ID, TKey NewID)
 		{
-			TValue reference = m_dictionary[ID];
-			m_dictionary.Remove(ID);
-			m_dictionary[NewID] = reference;
+			lock (m_sync)
+			{
+				if (EqualityComparer<TKey>.Default.Equals(ID, NewID))
+					return;
+				if (!m_dictionary.TryGetValue(ID, out TValue reference))
+					return;
+				m_dictionary.Remove(ID);
+				int idx = m_enumerator.IndexOf(ID);
+				if (idx >= 0)
+					m_enumerator[idx] = NewID;
+				else if (!m_dictionary.ContainsKey(NewID))
+					m_enumerator.Add(NewID);
+				m_dictionary[NewID] = reference;
+			}
 		}
 		public void Clear()
 		{
-			m_dictionary.Clear();
-			m_enumerator.Clear();
-    }
+			lock (m_sync)
+			{
+				m_dictionary.Clear();
+				m_enumerator.Clear();
+			}
+		}
 		public bool ContainsKey(TKey ID)
 		{
-			return m_dictionary.ContainsKey(ID);
-    }
+			lock (m_sync) { return m_dictionary.ContainsKey(ID); }
+		}
+		/// <summary>
+		/// Thread-safe snapshot for enumeration without holding the lock.
+		/// </summary>
+		public List<TValue> Snapshot()
+		{
+			lock (m_sync)
+			{
+				List<TValue> copy = new List<TValue>(m_enumerator.Count);
+				for (int i = 0; i < m_enumerator.Count; i++)
+				{
+					TKey key = m_enumerator[i];
+					if (m_dictionary.TryGetValue(key, out TValue v))
+						copy.Add(v);
+				}
+				return copy;
+			}
+		}
 		#endregion (Dictionary Methods)
 
 		#region (List Methods)
 		public TValue GetAt(int index)
 		{
-			return this[m_enumerator[index]];
-    }
+			lock (m_sync) { return this[m_enumerator[index]]; }
+		}
 		public void RemoveAt(int index)
 		{
-			RemoveKey(m_enumerator[index]);
-			m_enumerator.RemoveAt(index);
-    }
+			lock (m_sync)
+			{
+				if (index < 0 || index >= m_enumerator.Count)
+					return;
+				TKey key = m_enumerator[index];
+				m_dictionary.Remove(key);
+				m_enumerator.RemoveAt(index);
+			}
+		}
 		public void InsertAt(int index,TKey ID,TValue value)
 		{
-      m_enumerator.Insert(index, ID);
-			m_dictionary[ID] = value;
+			lock (m_sync)
+			{
+				if (!m_dictionary.ContainsKey(ID))
+				{
+					if (index < 0) index = 0;
+					if (index > m_enumerator.Count) index = m_enumerator.Count;
+					m_enumerator.Insert(index, ID);
+				}
+				m_dictionary[ID] = value;
+			}
 		}
 		public TValue Find(Predicate<TValue> match)
 		{
-			for (int i = 0; i < m_enumerator.Count; i++)
+			foreach (TValue reference in Snapshot())
 			{
-				TValue reference = GetAt(i);
 				if(match(reference))
 					return reference;
 			}
@@ -90,12 +145,11 @@ namespace xBot.Game.Objects
 		public List<TValue> FindAll(Predicate<TValue> match)
 		{
 			List<TValue> references = new List<TValue>();
-			for (int i = 0; i < m_enumerator.Count; i++)
+			foreach (TValue reference in Snapshot())
 			{
-				TValue reference = GetAt(i);
 				if (match(reference))
 					references.Add(reference);
-      }
+			}
 			return references;
 		}
 		#endregion (List Methods)

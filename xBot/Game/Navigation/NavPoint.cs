@@ -32,5 +32,12 @@ namespace xBot.Game.Navigation
 			double dy = Y - other.Y;
 			return Math.Sqrt(dx * dx + dy * dy);
 		}
+
+		public double DistanceSquaredTo(float targetX, float targetY)
+		{
+			double dx = X - targetX;
+			double dy = Y - targetY;
+			return dx * dx + dy * dy;
+		}
 	}
 }

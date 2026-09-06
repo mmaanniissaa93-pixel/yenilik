@@ -6809,7 +6809,7 @@ namespace xBot.App
             this.Skills_cbxCastInOrder.Cursor = System.Windows.Forms.Cursors.Default;
             this.Skills_cbxCastInOrder.FlatAppearance.BorderSize = 0;
             this.Skills_cbxCastInOrder.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.Skills_cbxCastInOrder.Font = new System.Drawing.Font("Microsoft Sans Serif", 14F, System.Drawing.FontStyle.Strikeout, System.Drawing.GraphicsUnit.Pixel);
+            this.Skills_cbxCastInOrder.Font = new System.Drawing.Font("Microsoft Sans Serif", 14F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Pixel);
             this.Skills_cbxCastInOrder.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(241)))), ((int)(((byte)(241)))), ((int)(((byte)(241)))));
             this.Skills_cbxCastInOrder.Location = new System.Drawing.Point(197, 7);
             this.Skills_cbxCastInOrder.Margin = new System.Windows.Forms.Padding(0);
@@ -9508,7 +9508,7 @@ namespace xBot.App
             // 
             // Login_lblCaptcha
             // 
-            this.Login_lblCaptcha.Font = new System.Drawing.Font("Microsoft Sans Serif", 16F, System.Drawing.FontStyle.Strikeout, System.Drawing.GraphicsUnit.Pixel, ((byte)(0)));
+            this.Login_lblCaptcha.Font = new System.Drawing.Font("Microsoft Sans Serif", 16F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Pixel, ((byte)(0)));
             this.Login_lblCaptcha.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(241)))), ((int)(((byte)(241)))), ((int)(((byte)(241)))));
             this.Login_lblCaptcha.Location = new System.Drawing.Point(6, 67);
             this.Login_lblCaptcha.Margin = new System.Windows.Forms.Padding(3);
@@ -10642,7 +10642,7 @@ namespace xBot.App
             // 
             // Menu_tvwPlayers_InviteToAcademy
             // 
-            this.Menu_tvwPlayers_InviteToAcademy.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Strikeout);
+            this.Menu_tvwPlayers_InviteToAcademy.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular);
             this.Menu_tvwPlayers_InviteToAcademy.Name = "Menu_tvwPlayers_InviteToAcademy";
             this.Menu_tvwPlayers_InviteToAcademy.Size = new System.Drawing.Size(124, 22);
             this.Menu_tvwPlayers_InviteToAcademy.Text = "Academy";

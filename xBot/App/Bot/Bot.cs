@@ -340,7 +340,10 @@ namespace xBot.App
 							CloseClient.Dispose();
 						}
 					}
-					catch{ }
+					catch (Exception ex)
+					{
+						Window.Get?.Log("[GoClientless] " + ex.Message);
+					}
 				};
 				CloseClient.AutoReset = true;
 				CloseClient.Start();

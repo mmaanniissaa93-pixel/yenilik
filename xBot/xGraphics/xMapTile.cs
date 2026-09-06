@@ -18,12 +18,27 @@ namespace xGraphics
 		{
 			if (File.Exists(path))
 			{
-				this.Image = await Task.Run( () => GetTile(path, size));
+				Bitmap bmp = await Task.Run(() => GetTile(path, size));
+				var old = this.Image;
+				this.Image = bmp;
+				try { old?.Dispose(); } catch { }
 			}
 		}
 		private Bitmap GetTile(string path, Size size)
 		{
-			return new Bitmap(Image.FromFile(path), size);
+			using (Image src = Image.FromFile(path))
+			{
+				return new Bitmap(src, size);
+			}
+		}
+		protected override void Dispose(bool disposing)
+		{
+			if (disposing)
+			{
+				try { this.Image?.Dispose(); } catch { }
+				this.Image = null;
+			}
+			base.Dispose(disposing);
 		}
 	}
 }

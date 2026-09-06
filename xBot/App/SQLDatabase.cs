@@ -7,11 +7,13 @@ using System.Threading.Tasks;
 
 namespace xBot.App
 {
-	public class SQLDatabase
+	public class SQLDatabase : IDisposable
 	{
 		private string Path { get; }
 		private SQLiteConnection db;
 		private SQLiteCommand q;
+		private readonly object m_sync = new object();
+		private bool m_disposed;
 		public SQLDatabase(string Path)
 		{
 			this.Path = Path;
@@ -38,18 +40,22 @@ namespace xBot.App
 		/// </summary>
 		public bool Connect()
 		{
-			try
+			lock (m_sync)
 			{
-				db = new SQLiteConnection("Data Source=" + Path + ";Version=3;");
-				q = new SQLiteCommand(db);
-				q.CommandTimeout = 30; // 30sn: kilitlenmede 16dk bekleme yerine hızlı fail
-				db.Open();
-				return true;
-			}
-			catch (Exception ex)
-			{
-				LastError = ex.Message;
-				return false;
+				try
+				{
+					CloseLocked();
+					db = new SQLiteConnection("Data Source=" + Path + ";Version=3;");
+					q = new SQLiteCommand(db);
+					q.CommandTimeout = 30; // 30sn: kilitlenmede 16dk bekleme yerine hızlı fail
+					db.Open();
+					return true;
+				}
+				catch (Exception ex)
+				{
+					LastError = ex.Message;
+					return false;
+				}
 			}
 		}
 		/// <summary>
@@ -101,11 +107,15 @@ namespace xBot.App
 		public List<NameValueCollection> GetResult()
 		{
 			List<NameValueCollection> result = new List<NameValueCollection>();
-			SQLiteDataReader reader = q.ExecuteReader();
-      while (reader.Read())
-				result.Add(reader.GetValues());
-			reader.Close();
-      return result;
+			lock (m_sync)
+			{
+				using (SQLiteDataReader reader = q.ExecuteReader())
+				{
+					while (reader.Read())
+						result.Add(reader.GetValues());
+				}
+			}
+			return result;
 		}
 		public List<NameValueCollection> GetResultFromQuery(string sql)
 		{
@@ -160,12 +170,30 @@ namespace xBot.App
 		}
 		public void Close()
 		{
-			if (db != null && db.State != System.Data.ConnectionState.Closed)
+			lock (m_sync) { CloseLocked(); }
+		}
+		private void CloseLocked()
+		{
+			try { q?.Dispose(); } catch { }
+			q = null;
+			try
 			{
-				q.Dispose();
-				db.Close();
-				db = null;
+				if (db != null)
+				{
+					if (db.State != System.Data.ConnectionState.Closed)
+						db.Close();
+					db.Dispose();
+				}
 			}
+			catch { }
+			db = null;
+		}
+		public void Dispose()
+		{
+			if (m_disposed) return;
+			m_disposed = true;
+			Close();
+			System.GC.SuppressFinalize(this);
 		}
 	}
 }

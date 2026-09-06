@@ -326,23 +326,23 @@
     <None Include="App.config">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="bin\Release\SQLite.Interop.dll">
+    <None Include="bin\Release\SQLite.Interop.dll" Condition="Exists('bin\Release\SQLite.Interop.dll')">
       <Link>SQLite.Interop.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="bin\Release\DevIL.dll">
+    <None Include="bin\Release\DevIL.dll" Condition="Exists('bin\Release\DevIL.dll')">
       <Link>DevIL.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="bin\Release\xBotLoader.dll">
+    <None Include="bin\Release\xBotLoader.dll" Condition="Exists('bin\Release\xBotLoader.dll')">
       <Link>xBotLoader.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="bin\Release\xBotLoader.exe">
+    <None Include="bin\Release\xBotLoader.exe" Condition="Exists('bin\Release\xBotLoader.exe')">
       <Link>xBotLoader.exe</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="bin\Release\Client.Library.dll">
+    <None Include="bin\Release\Client.Library.dll" Condition="Exists('bin\Release\Client.Library.dll')">
       <Link>Client.Library.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

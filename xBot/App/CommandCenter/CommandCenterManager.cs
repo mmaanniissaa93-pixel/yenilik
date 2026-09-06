@@ -345,7 +345,20 @@ namespace xBot.App.CommandCenter
             }
         }
 
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Image> s_emoteIconCache = new System.Collections.Concurrent.ConcurrentDictionary<string, Image>();
+        private static readonly Image s_emoteFallback = new Bitmap(32, 32);
         public static Image GetEmoteIcon(string iconName)
+        {
+            string key = string.IsNullOrEmpty(iconName) ? "__fallback__" : iconName;
+            if (s_emoteIconCache.TryGetValue(key, out Image cached))
+                return cached;
+            Image loaded = LoadEmoteIconUncached(iconName);
+            if (loaded == null)
+                return s_emoteFallback;
+            s_emoteIconCache[key] = loaded;
+            return loaded;
+        }
+        private static Image LoadEmoteIconUncached(string iconName)
         {
             try
             {
@@ -383,7 +396,7 @@ namespace xBot.App.CommandCenter
             {
                 // Fallback
             }
-            return new Bitmap(32, 32);
+            return null;
         }
     }
 }

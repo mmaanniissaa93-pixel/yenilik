@@ -21,6 +21,32 @@ namespace xBot.App
         Thread tBotting;
         Script currentScript;
         private volatile bool m_stopBottingRequested;
+        private System.Threading.CancellationTokenSource m_botCts;
+        /// <summary>
+        /// Kesilebilir bekleme: Stop() çağrılırsa erken döner (uzun Sleep'lerin bloklamasını önler).
+        /// </summary>
+        private bool SleepInterruptible(int ms)
+        {
+            if (ms <= 0) return !m_stopBottingRequested;
+            int waited = 0;
+            while (waited < ms)
+            {
+                if (m_stopBottingRequested) return false;
+                var cts = m_botCts;
+                if (cts != null && cts.IsCancellationRequested) return false;
+                int slice = System.Math.Min(50, ms - waited);
+                try
+                {
+                    if (cts != null)
+                        cts.Token.WaitHandle.WaitOne(slice);
+                    else
+                        Thread.Sleep(slice);
+                }
+                catch { Thread.Sleep(slice); }
+                waited += slice;
+            }
+            return !m_stopBottingRequested;
+        }
 
         #region (Handle everything about botting)
         /// <summary>
@@ -31,6 +57,8 @@ namespace xBot.App
             if (InfoManager.inGame && !isBotting)
             {
                 m_stopBottingRequested = false;
+                try { m_botCts?.Dispose(); } catch { }
+                m_botCts = new System.Threading.CancellationTokenSource();
                 tBotting = new Thread(this.ThreadBotting);
                 tBotting.IsBackground = true;
                 tBotting.Priority = ThreadPriority.Normal;
@@ -53,7 +81,11 @@ namespace xBot.App
             if (isBotting)
             {
                 m_stopBottingRequested = true;
+                try { m_botCts?.Cancel(); } catch { }
+                Thread t = tBotting;
                 tBotting = null;
+                // Bloklanan döngüye en fazla 2sn süre tanı, UI'yi kilitleme
+                try { if (t != null && t.IsAlive && t != Thread.CurrentThread) t.Join(2000); } catch { }
                 // ...
                 Window w = Window.Get;
                 w.LogProcess("Bot stopped");
@@ -325,7 +357,7 @@ namespace xBot.App
             }
 
             w.Log("Town Loop: Logistics routine completed. Returning to training area...");
-            Thread.Sleep(1500);
+            SleepInterruptible(1500);
         }
         private void AttackLoop()
         {
@@ -335,7 +367,7 @@ namespace xBot.App
             int trainingRadius;
 
             bool doMovement = false;
-            while (true)
+            while (!m_stopBottingRequested && isBotting)
             {
                 // Check attacking params
                 trainingPosition = w.TrainingArea_GetPosition();
@@ -407,8 +439,8 @@ namespace xBot.App
                     AlchemyManager.RunTick();
                 }
 
-                // Check Target Assist hotkey cycle
-                TargetAssistManager.RunTick();
+                // Check Target Assist hotkey cycle (timer tek kaynak; çift tetik önlemek için buradan çağrılmaz)
+                // TargetAssistManager.RunTick();
 
                 if (trainingRadius > 0)
                 {
@@ -1000,7 +1032,7 @@ namespace xBot.App
                     Window.Get?.Log("Combat AI: EMERGENCY! HP critical and no HP potions! Using Return Scroll...");
                     SRItem scrollItem = InfoManager.Character.Inventory[scrollSlot];
                     PacketBuilder.UseItem(scrollItem, scrollSlot);
-                    Thread.Sleep(4000);
+                    SleepInterruptible(4000);
                     return true;
                 }
             }
@@ -1042,7 +1074,7 @@ namespace xBot.App
                     Window.Get?.Log($"Town Return: Logistic trigger! (HP Pots={hasHp} [check={checkHp}], MP Pots={hasMp} [check={checkMp}], Free Slots={freeSlots}/{inv.Capacity - 13}). Using Return Scroll...");
                     SRItem scrollItem = inv[returnScrollSlot];
                     PacketBuilder.UseItem(scrollItem, returnScrollSlot);
-                    Thread.Sleep(5000);
+                    SleepInterruptible(5000);
                     return true;
                 }
                 else
@@ -1668,14 +1700,14 @@ namespace xBot.App
                 if (currentPos.DistanceTo(beforePos) > 40.0 || currentPos.DistanceTo(link.ArriveCoord) < 70.0)
                 {
                     w.Log($"Ferry/Teleport: Successfully arrived at [{link.DestinationName}]!");
-                    Thread.Sleep(2000); // World loading settle
+                    SleepInterruptible(2000); // World loading settle
                     return true;
                 }
             }
 
             w.LogProcess("Ferry/Teleport: Teleport transition timed out. Trying once more...", Window.ProcessState.Warning);
             PacketBuilder.UseTeleport(targetEntity.UniqueID, link.DestinationId);
-            Thread.Sleep(2000);
+            SleepInterruptible(2000);
             return InfoManager.Character.GetRealtimePosition().DistanceTo(beforePos) > 40.0;
         }
         #endregion

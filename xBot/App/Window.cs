@@ -144,7 +144,11 @@ namespace xBot.App
 				}
 				else if (cmd.StartsWith("-captcha="))
 				{
-					Login_tbxCaptcha.Text = args[i].Substring(9);
+					string code = args[i].Substring(9);
+					Login_tbxCaptcha.Text = code;
+					// CLI kodunu sabit captcha ayarına da bağla (önceden ölü veri yoluydu)
+					LoginStrategyManager.StaticCaptcha = true;
+					LoginStrategyManager.StaticCaptchaCode = code;
 				}
 				else if (cmd.StartsWith("-server="))
 				{
@@ -3690,15 +3694,18 @@ namespace xBot.App
 					break;
 				case "Menu_tvwPlayers_InviteToAcademy":
 					{
-						//Bot b = Bot.Get;
-						//if (b.inAcademy)
-						//{
-						//SRObject player = (SRObject)Players_tvwPlayers.SelectedNode.Tag;
-						//if (Info.Get.isNear((uint)player[SRProperty.UniqueID]))
-						//{
-						//	PacketBuilder.InviteToAcademy((uint)player[SRProperty.UniqueID]);
-						//}
-						//}
+						if (Players_tvwPlayers.SelectedNode?.Tag is SRPlayer player)
+						{
+							if (InfoManager.isEntityNear(player.UniqueID))
+							{
+								PacketBuilder.InviteToAcademy(player.UniqueID);
+								Log("Academy invitation sent to [" + player.Name + "]");
+							}
+							else
+							{
+								Log("Academy daveti başarısız: oyuncu yakında değil.");
+							}
+						}
 					}
 					break;
 				case "Menu_tvwPlayers_Stall":

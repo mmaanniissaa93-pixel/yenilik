@@ -11,6 +11,18 @@ namespace xBot.Network
 {
 	public class Agent
 	{
+		private static readonly HashSet<ushort> s_loggedUnknownOpcodes = new HashSet<ushort>();
+		private static void LogUnknownOpcode(ushort opcode)
+		{
+			lock (s_loggedUnknownOpcodes)
+			{
+				if (s_loggedUnknownOpcodes.Count > 200)
+					s_loggedUnknownOpcodes.Clear();
+				if (!s_loggedUnknownOpcodes.Add(opcode))
+					return;
+			}
+			try { App.Window.Get?.LogPacket($"[A] Unhandled opcode 0x{opcode:X4}"); } catch { }
+		}
 		public static class Opcode
 		{
 			// static opcodes could be edited at realtime (for different vSRO types)
@@ -609,6 +621,9 @@ namespace xBot.Network
 				case Opcode.SERVER_ACADEMY_DATA:
 					PacketParser.AcademyData(packet);
 					break;
+				case Opcode.SERVER_ACADEMY_MATCH_LIST_RESPONSE:
+					PacketParser.AcademyMatchList(packet);
+					break;
 				case Opcode.SERVER_CHARACTER_ADD_INT_RESPONSE:
 					PacketParser.CharacterAddStatPointResponse(packet);
 					break;
@@ -719,7 +734,14 @@ namespace xBot.Network
 							InfoManager.MonitorSkillCast.Set();
 						}
 					}
-					catch { }
+					catch (Exception ex)
+					{
+						App.Window.Get?.Log("[SkillCast parse] " + ex.Message);
+					}
+					break;
+				default:
+					// Tanımlı ama işlenmeyen opcode'lar sessizce yutulmasın — teşhis için seyrek logla
+					LogUnknownOpcode(packet.Opcode);
 					break;
             }
 			return false;
@@ -747,10 +769,13 @@ namespace xBot.Network
 				});
 				return;
 			}
-			byte[] bytes = p.GetBytes();
-			string hexPreview = Utility.HexDump(bytes).Replace("\r", "").Replace("\n", " ").Trim();
-			if (hexPreview.Length > 80) hexPreview = hexPreview.Substring(0, 80) + "...";
-			ModernLogger.TracePacket("Bot->Server", p.Opcode, bytes.Length, hexPreview);
+			if (ModernLogger.EnablePacketTrace)
+			{
+				byte[] bytes = p.GetBytes();
+				string hexPreview = Utility.HexDump(bytes).Replace("\r", "").Replace("\n", " ").Trim();
+				if (hexPreview.Length > 80) hexPreview = hexPreview.Substring(0, 80) + "...";
+				ModernLogger.TracePacket("Bot->Server", p.Opcode, bytes.Length, hexPreview);
+			}
 			Remote.Security.Send(p);
 		}
 		public void InjectToClient(Packet p)
