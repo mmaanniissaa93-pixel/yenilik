@@ -390,8 +390,8 @@ namespace xBot.App
                 ToolTips.SetToolTip(cbxGeneralStayConnected, "İstemci aniden çökerse sunucu bağlantısını koparmadan Clientless moda geçer");
 
             lblGeneralCharStrategy = new Label { Text = LocalizationManager.Get("UI_CharSelectStrategy", "Karakter Seçim Stratejisi:"), Location = new Point(16, 178), AutoSize = true, ForeColor = Theme.DarkTheme.TextMuted };
-            rbnGeneralFirstFound = new RadioButton { Text = LocalizationManager.Get("UI_CharFirstFound", "1. Karakter"), Location = new Point(185, 176), AutoSize = true, Checked = (LoginStrategyManager.Strategy == CharacterSelectionStrategy.FirstFound), ForeColor = Theme.DarkTheme.TextPrimary };
-            rbnGeneralHighestLevel = new RadioButton { Text = LocalizationManager.Get("UI_CharHighestLevel", "En Yüksek Seviyeli Karakter"), Location = new Point(365, 176), AutoSize = true, Checked = (LoginStrategyManager.Strategy == CharacterSelectionStrategy.HighestLevel), ForeColor = Theme.DarkTheme.Warning };
+            rbnGeneralFirstFound = new RadioButton { Text = LocalizationManager.Get("UI_StrategyFirst", "İlk Bulunan Karakter"), Location = new Point(180, 176), AutoSize = true, Checked = (LoginStrategyManager.Strategy == CharacterSelectionStrategy.FirstFound), ForeColor = Theme.DarkTheme.TextPrimary };
+            rbnGeneralHighestLevel = new RadioButton { Text = LocalizationManager.Get("UI_StrategyHighest", "En Yüksek Seviyeli Karakter"), Location = new Point(410, 176), AutoSize = true, Checked = (LoginStrategyManager.Strategy == CharacterSelectionStrategy.HighestLevel), ForeColor = Theme.DarkTheme.Warning };
 
             rbnGeneralFirstFound.CheckedChanged += (s, e) => { if (rbnGeneralFirstFound.Checked) { LoginStrategyManager.Strategy = CharacterSelectionStrategy.FirstFound; Settings.SaveBotSettings(); } };
             rbnGeneralHighestLevel.CheckedChanged += (s, e) => { if (rbnGeneralHighestLevel.Checked) { LoginStrategyManager.Strategy = CharacterSelectionStrategy.HighestLevel; Settings.SaveBotSettings(); } };
@@ -525,8 +525,8 @@ namespace xBot.App
 
             // Row 4: Character Selection Strategy
             if (lblGeneralCharStrategy != null) { lblGeneralCharStrategy.Location = new Point(16, 178); lblGeneralCharStrategy.AutoSize = true; }
-            if (rbnGeneralFirstFound != null) { rbnGeneralFirstFound.Location = new Point(185, 176); rbnGeneralFirstFound.AutoSize = true; }
-            if (rbnGeneralHighestLevel != null) { rbnGeneralHighestLevel.Location = new Point(365, 176); rbnGeneralHighestLevel.AutoSize = true; }
+            if (rbnGeneralFirstFound != null) { rbnGeneralFirstFound.Location = new Point(180, 176); rbnGeneralFirstFound.AutoSize = true; }
+            if (rbnGeneralHighestLevel != null) { rbnGeneralHighestLevel.Location = new Point(410, 176); rbnGeneralHighestLevel.AutoSize = true; }
 
             // Row 5: Strategy Info Box
             if (lblGeneralStrategyInfo != null)

@@ -696,22 +696,44 @@ namespace xBot.App
                     Login_gbxLogin.Location = new Point(4, card2Y);
                     Login_gbxLogin.Size = new Size(col1W, card2H);
 
+                    // Row 1: Saved Account selector Header & Action Buttons
+                    int headerLabelY = 28;
+                    int headerBtnY = 24;
+                    int comboY = 54;
+
+                    if (Login_lblAccount != null)
+                    {
+                        Login_lblAccount.Location = new Point(14, headerLabelY);
+                        Login_lblAccount.AutoSize = true;
+                        Login_lblAccount.ForeColor = DarkTheme.TextSecondary;
+                        Login_lblAccount.Font = DarkTheme.FontBodyBold;
+                    }
+
+                    // Action buttons at top right of the card
+                    int btnW = 26;
+                    int btnH = 24;
+                    int rightEdge = col1W - 14;
+                    if (Login_btnDeleteAccount != null) { Login_btnDeleteAccount.Location = new Point(rightEdge - btnW, headerBtnY); Login_btnDeleteAccount.Size = new Size(btnW, btnH); }
+                    if (Login_btnSaveAccount != null) { Login_btnSaveAccount.Location = new Point(rightEdge - (btnW * 2) - 4, headerBtnY); Login_btnSaveAccount.Size = new Size(btnW, btnH); }
+                    if (Login_btnAccountSetup != null) { Login_btnAccountSetup.Location = new Point(rightEdge - (btnW * 3) - 8, headerBtnY); Login_btnAccountSetup.Size = new Size(btnW, btnH); }
+
+                    // Saved Accounts Dropdown (Spans full card width with plenty of room for account & server names)
+                    if (Login_cmbxSavedAccounts != null)
+                    {
+                        Login_cmbxSavedAccounts.Location = new Point(14, comboY);
+                        Login_cmbxSavedAccounts.Size = new Size(col1W - 28, 26);
+                        Login_cmbxSavedAccounts.FlatStyle = FlatStyle.Flat;
+                    }
+
+                    // Rows 2..5: Credential inputs (perfectly column-aligned)
                     int labelX = 14;
                     int inputX = 84;
-                    int inputW = col1W - inputX - 16;
+                    int inputW = col1W - inputX - 14;
 
-                    int row1Y = 32; // Hesap
-                    int row2Y = 82; // ID
-                    int row3Y = 132; // PW
-                    int row4Y = 182; // Server
-                    int row5Y = 232; // Karakter
-
-                    // Row 1: Saved Account selector + Setup + Save + Delete
-                    if (Login_lblAccount != null) { Login_lblAccount.Location = new Point(labelX, row1Y + 4); Login_lblAccount.AutoSize = true; Login_lblAccount.ForeColor = DarkTheme.TextMuted; }
-                    if (Login_cmbxSavedAccounts != null) { Login_cmbxSavedAccounts.Location = new Point(inputX, row1Y); Login_cmbxSavedAccounts.Size = new Size(inputW - 84, 26); Login_cmbxSavedAccounts.FlatStyle = FlatStyle.Flat; }
-                    if (Login_btnAccountSetup != null) { Login_btnAccountSetup.Location = new Point(inputX + inputW - 80, row1Y); Login_btnAccountSetup.Size = new Size(24, 26); }
-                    if (Login_btnSaveAccount != null) { Login_btnSaveAccount.Location = new Point(inputX + inputW - 54, row1Y); Login_btnSaveAccount.Size = new Size(24, 26); }
-                    if (Login_btnDeleteAccount != null) { Login_btnDeleteAccount.Location = new Point(inputX + inputW - 28, row1Y); Login_btnDeleteAccount.Size = new Size(24, 26); }
+                    int row2Y = 96;  // ID
+                    int row3Y = 142; // PW
+                    int row4Y = 188; // Server
+                    int row5Y = 234; // Karakter
 
                     // Row 2: ID (Username)
                     if (Login_lblUsername != null) { Login_lblUsername.Location = new Point(labelX, row2Y + 4); Login_lblUsername.AutoSize = true; Login_lblUsername.Text = "ID:"; Login_lblUsername.ForeColor = DarkTheme.TextMuted; }

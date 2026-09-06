@@ -152,6 +152,8 @@ namespace xBot.Game
 		public static AutoResetEvent MonitorInventoryMovement { get { return m_MonitorInventoryMovement; } }
 		public static AutoResetEvent MonitorBuffRemoved { get { return m_MonitorBuffRemoved; } }
 		public static AutoResetEvent MonitorSkillCast { get { return m_MonitorSkillCast; } }
+		public static bool LastSkillCastSuccess { get; set; } = true;
+		public static ushort LastSkillCastErrorCode { get; set; } = 0;
 		public static AutoResetEvent MonitorMobSpawnChanged { get { return m_MonitorMobSpawnChanged; } }
 		#endregion
 
@@ -1641,6 +1643,8 @@ namespace xBot.Game
 				}
 				catch { }
 
+				LastSkillCastSuccess = true;
+				LastSkillCastErrorCode = 0;
 				m_MonitorSkillCast.Set();
 			}
 		}

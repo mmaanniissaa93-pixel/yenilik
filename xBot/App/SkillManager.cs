@@ -174,8 +174,9 @@ namespace xBot.App
                 }
             }
 
-            if (devilSkill != null)
+            if (devilSkill != null && devilSkill.isCastingEnabled)
             {
+                devilSkill.StartCooldown();
                 PacketBuilder.CastSkill(devilSkill.ID, 0);
             }
         }

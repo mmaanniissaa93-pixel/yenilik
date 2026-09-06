@@ -465,8 +465,8 @@ namespace xBot.App
                     }
                     else
                     {
-                        // Combat AI: Ranged Kiting check
-                        if (w.Combat_cbxKiting == null || w.Combat_cbxKiting.Checked)
+                        // Combat AI: Ranged Kiting check (Disabled by default, only executes when explicitly checked)
+                        if (w.Combat_cbxKiting != null && w.Combat_cbxKiting.Checked)
                         {
                             ExecuteKiting(mob, myPosition);
                         }
@@ -483,24 +483,28 @@ namespace xBot.App
                             w.LogProcess($"Approaching {mob.Name} ({distanceToMob:F1}m)...");
                             MoveTo(mobPosition);
                             int approachAttempts = 0;
-                            while (isBotting && InfoManager.Mobs.ContainsKey(mob.UniqueID) && approachAttempts < 15)
+                            while (isBotting && InfoManager.Mobs.ContainsKey(mob.UniqueID) && approachAttempts < 20)
                             {
-                                Thread.Sleep(250);
+                                Thread.Sleep(100);
                                 myPosition = InfoManager.Character.GetRealtimePosition();
                                 mobPosition = mob.GetRealtimePosition();
                                 if (myPosition.DistanceTo(mobPosition) <= maxAttackRange)
                                     break;
                                 approachAttempts++;
-                                if (approachAttempts % 3 == 0)
+                                if (approachAttempts % 5 == 0)
                                     MoveTo(mobPosition);
                             }
                         }
 
-                        // Load skills and iterate it
-                        if (WaitSelectEntity(mob.UniqueID, 2, 250, "Selecting " + mob.Name + " (" + mob.MobType + ")..."))
+                        // Quick target selection (does not stall attack loop if confirmation is delayed)
+                        if (InfoManager.SelectedEntityUniqueID != mob.UniqueID)
                         {
-                            int currentSkillIndex = 0;
-                            int noSkillAttempts = 0;
+                            PacketBuilder.SelectEntity(mob.UniqueID);
+                            InfoManager.MonitorEntitySelected.WaitOne(80);
+                        }
+
+                        int currentSkillIndex = 0;
+                        int noSkillAttempts = 0;
 
                             while (isBotting && InfoManager.Mobs.ContainsKey(mob.UniqueID))
                             {
@@ -606,26 +610,54 @@ namespace xBot.App
                                     break;
 
                                 w.LogProcess("Casting skill " + skillToCast.Name + " (" + skillToCast.CastingTime + "ms)...");
-                                PacketBuilder.AttackTarget(mob.UniqueID, skillToCast.ID);
-                                int sleepTime = Math.Max(600, skillToCast.CastingTime);
 
-                                if (InfoManager.MonitorSkillCast.WaitOne(500))
+                                InfoManager.LastSkillCastSuccess = false;
+                                InfoManager.LastSkillCastErrorCode = 0;
+                                InfoManager.MonitorSkillCast.Reset();
+
+                                PacketBuilder.AttackTarget(mob.UniqueID, skillToCast.ID);
+
+                                if (InfoManager.MonitorSkillCast.WaitOne(1200))
                                 {
-                                    SkillManager.RecordCastSuccess(skillToCast);
-                                    Thread.Sleep(sleepTime);
+                                    if (InfoManager.LastSkillCastSuccess)
+                                    {
+                                        SkillManager.RecordCastSuccess(skillToCast);
+                                        try { skillToCast.StartCooldown(); } catch { }
+
+                                        // Non-blocking wait for casting duration: exit immediately if mob dies!
+                                        int castDuration = Math.Max(350, skillToCast.CastingTime);
+                                        int elapsed = 0;
+                                        while (elapsed < castDuration && isBotting)
+                                        {
+                                            if (!InfoManager.Mobs.ContainsKey(mob.UniqueID))
+                                                break;
+                                            Thread.Sleep(50);
+                                            elapsed += 50;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        string reason = InfoManager.LastSkillCastErrorCode == 0
+                                            ? "Sunucu reddetti"
+                                            : $"Reddedildi (0x{InfoManager.LastSkillCastErrorCode:X4})";
+                                        SkillManager.RecordCastFailure(skillToCast, reason);
+                                        if (!InfoManager.Mobs.ContainsKey(mob.UniqueID))
+                                            break;
+                                        Thread.Sleep(80);
+                                    }
                                 }
                                 else
                                 {
-                                    SkillManager.RecordCastFailure(skillToCast, "Yanıt alınamadı");
                                     if (!InfoManager.Mobs.ContainsKey(mob.UniqueID))
                                         break;
-                                    Thread.Sleep(200);
+
+                                    SkillManager.RecordCastFailure(skillToCast, "Zaman aşımı");
+                                    Thread.Sleep(80);
                                 }
                             }
 
                             // Mob öldükten sonra drop topla
                             LootDrops(trainingPosition, trainingRadius);
-                        }
                     }
                 }
             }
@@ -688,17 +720,32 @@ namespace xBot.App
                 return false;
 
             w.LogProcess("Casting Common Attack fallback...");
+            InfoManager.LastSkillCastSuccess = false;
+            InfoManager.LastSkillCastErrorCode = 0;
+            InfoManager.MonitorSkillCast.Reset();
+
             PacketBuilder.AttackTarget(mob.UniqueID, 1u);
-            if (!InfoManager.MonitorSkillCast.WaitOne(500))
+            if (InfoManager.MonitorSkillCast.WaitOne(1200))
             {
-                SkillManager.RecordCastFailure(fallback, "Common Attack yanıt vermedi");
-                Thread.Sleep(250);
-                return false;
+                if (InfoManager.LastSkillCastSuccess)
+                {
+                    SkillManager.RecordCastSuccess(fallback);
+                    int elapsed = 0;
+                    int animTime = Math.Max(400, fallback.CastingTime);
+                    while (elapsed < animTime && isBotting)
+                    {
+                        if (!InfoManager.Mobs.ContainsKey(mob.UniqueID))
+                            break;
+                        Thread.Sleep(50);
+                        elapsed += 50;
+                    }
+                    return true;
+                }
             }
 
-            SkillManager.RecordCastSuccess(fallback);
-            Thread.Sleep(Math.Max(800, fallback.CastingTime));
-            return true;
+            SkillManager.RecordCastFailure(fallback, "Common Attack yanıt vermedi");
+            Thread.Sleep(80);
+            return false;
         }
 
         private SRMob GetMobFiltered(List<SRMob> mobs, SRCoord trainingPosition, int trainingRadius)

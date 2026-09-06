@@ -705,8 +705,17 @@ namespace xBot.Network
 				case Opcode.SERVER_CHARACTER_ACTION_RESPONSE:
 					try
 					{
-						if (packet.ReadByte() == 1) // 1 = Success
+						byte result = packet.ReadByte();
+						if (result == 1) // 1 = Success
 						{
+							InfoManager.LastSkillCastSuccess = true;
+							InfoManager.LastSkillCastErrorCode = 0;
+							InfoManager.MonitorSkillCast.Set();
+						}
+						else
+						{
+							InfoManager.LastSkillCastSuccess = false;
+							try { InfoManager.LastSkillCastErrorCode = packet.ReadUShort(); } catch { InfoManager.LastSkillCastErrorCode = 0xFFFF; }
 							InfoManager.MonitorSkillCast.Set();
 						}
 					}

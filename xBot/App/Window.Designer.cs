@@ -10207,8 +10207,8 @@ namespace xBot.App
             // Combat_cbxKiting
             // 
             this.Combat_cbxKiting.AutoSize = true;
-            this.Combat_cbxKiting.Checked = true;
-            this.Combat_cbxKiting.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.Combat_cbxKiting.Checked = false;
+            this.Combat_cbxKiting.CheckState = System.Windows.Forms.CheckState.Unchecked;
             this.Combat_cbxKiting.ForeColor = System.Drawing.Color.White;
             this.Combat_cbxKiting.Location = new System.Drawing.Point(15, 88);
             this.Combat_cbxKiting.Name = "Combat_cbxKiting";
