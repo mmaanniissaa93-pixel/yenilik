@@ -321,9 +321,10 @@ namespace xBot.Game.Navigation
 			Window.Get?.Log($"NavMesh: Bridge selected: [{bestLink.SourceName} -> {bestLink.DestinationName}]");
 
 			// Segment 1: Walk to ferry/gate board position — kapının tam üstüne
-			// değil 7m yakınına (Dimensional Gate/NPC collision'ı var, dibine
-			// girmek takılma yapar).
-			SRCoord boardStand = StandOff(start, bestLink.BoardCoord, 7.0);
+			// değil 17m yakınına (Dimensional Gate/NPC collision'ı var, dibine
+			// girmek takılma yapar). Son yaklaşmayı teleport adımı 5m'den yapar.
+			SRCoord boardStand = StandOff(start, bestLink.BoardCoord, 17.0);
+			Window.Get?.Log($"NavMesh: walk-to-board stops {start.DistanceTo(boardStand):F0}m from gate (collision margin 17m).");
 			List<SRCoord> pathToBoard = FindPath(start, boardStand);
 			if (pathToBoard == null || pathToBoard.Count == 0)
 			{

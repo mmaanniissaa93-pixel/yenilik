@@ -148,7 +148,17 @@ namespace xBot.App
                 catch { }
                 if (!townJustFinished)
                 {
-                    try
+                    // Town cycling kapalıysa şehir scripti aranmaz — log spam'i
+                    // de olmaz, direkt kasılma alanına gidilir. İki anahtardan
+                    // HERHANGİ biri açıksa döngü vardır (senkron edge-case dahil).
+                    bool townCycling = true;
+                    try { townCycling = ReturnToAreaPolicy.TownCycling; } catch { }
+                    try { if (w.Town_cbxEnableTownLoop != null && w.Town_cbxEnableTownLoop.Checked) townCycling = true; } catch { }
+                    if (!townCycling)
+                    {
+                        currentScript = null;
+                    }
+                    else try
                     {
                         // 1) Bölge eşleşmesi: şehirde doğmuşsa noktalara uzak olsa da yakala
                         //    (dosya adı = region, örn. 25000.rbs).
@@ -347,7 +357,13 @@ namespace xBot.App
         private void TownLoop(Script town)
         {
             Window w = Window.Get;
-            if (w.Town_cbxEnableTownLoop != null && !w.Town_cbxEnableTownLoop.Checked)
+            // Town cycling iki yerden işaretlenebilir (Town sekmesi + Alana Dönüş
+            // kartı). İkisi senkron ama desenkron edge-case'de de: HERHANGİ biri
+            // açıksa şehir döngüsü yapılır — bot şehirde başlayınca çalışır.
+            bool townOn = false;
+            try { townOn = ReturnToAreaPolicy.TownCycling; } catch { }
+            try { if (w.Town_cbxEnableTownLoop != null && w.Town_cbxEnableTownLoop.Checked) townOn = true; } catch { }
+            if (!townOn)
             {
                 w.LogProcess("Town Loop is disabled in Town settings.");
                 return;
@@ -2435,10 +2451,10 @@ namespace xBot.App
                                             if (pi == path.Count - 1)
                                             {
                                                 // Son nokta kapının üstüdür — dibine girme,
-                                                // 7m geride dur (collision yapar).
+                                                // 10m geride dur (collision yapar).
                                                 SRCoord curP = null;
                                                 try { curP = InfoManager.Character.GetRealtimePosition(); } catch { }
-                                                if (curP != null) wpTarget = StandPointNear(curP, link.BoardCoord, 7.0);
+                                                if (curP != null) wpTarget = StandPointNear(curP, link.BoardCoord, 10.0);
                                             }
                                             WaitMovement(wpTarget, 12);
                                             SRCoord cur = null;
@@ -2456,12 +2472,12 @@ namespace xBot.App
                             if (!reached)
                             {
                                 // NavMesh yoksa/boşsa direkt yürü (şehir içi genelde açıktır).
-                                // Kapının üstüne değil 7m yakınına — dibine girmek takılma yapar.
+                                // Kapının üstüne değil 10m yakınına — dibine girmek takılma yapar.
                                 SRCoord cur = null;
                                 try { cur = InfoManager.Character.GetRealtimePosition(); } catch { }
-                                if (cur != null && cur.DistanceTo(link.BoardCoord) > 9.0)
+                                if (cur != null && cur.DistanceTo(link.BoardCoord) > 12.0)
                                 {
-                                    SRCoord stand = StandPointNear(cur, link.BoardCoord, 7.0);
+                                    SRCoord stand = StandPointNear(cur, link.BoardCoord, 10.0);
                                     double d = cur.DistanceTo(stand);
                                     int attempts = (int)(d / 5.0) + 10;
                                     if (attempts < 15) attempts = 15;
@@ -2615,13 +2631,23 @@ namespace xBot.App
                     continue;
                 }
 
-                // 2a. Etkileşim mesafesine yürü (5m — dibine girme, collision yapar).
+                // 2a. Etkileşim mesafesi 5-8m: dibine girme (collision), içinde
+                // kalmışsan önce geri çık, uzaktaysan yaklaş.
                 SRCoord myPos = null;
                 try { myPos = InfoManager.Character.GetRealtimePosition(); } catch { }
-                if (myPos != null && targetEntity.Position != null && myPos.DistanceTo(targetEntity.Position) > 6.0)
+                if (myPos != null && targetEntity.Position != null)
                 {
-                    w.LogProcess($"Walking to teleport NPC ({myPos.DistanceTo(targetEntity.Position):F1}m)...");
-                    WaitMovement(StandPointNear(myPos, targetEntity.Position, 5.0), 8);
+                    double dNpc = myPos.DistanceTo(targetEntity.Position);
+                    if (dNpc < 4.0)
+                    {
+                        w.LogProcess($"Too close to gate ({dNpc:F1}m, collision) — stepping back...");
+                        WaitMovement(StandPointNear(myPos, targetEntity.Position, 8.0), 8);
+                    }
+                    else if (dNpc > 6.0)
+                    {
+                        w.LogProcess($"Walking to teleport NPC ({dNpc:F1}m)...");
+                        WaitMovement(StandPointNear(myPos, targetEntity.Position, 5.0), 8);
+                    }
                 }
 
                 // 2b. Seç + teleport paketi (seçim oturmadıysa paket gönderme).
