@@ -86,6 +86,12 @@ namespace xBot.App
             if (rule != null)
                 return rule.Pickup;
 
+            // Mavi-özellik modu: kuralı olmayan ekipmanlarda sadece nadir/mavi/sox
+            // toplanır (hangi mavi olduğu yerde bilinmez; kesin eşleşme depoda yapılır).
+            if (pick != null && pick.OnlyPickSpecificBlues && input.IsEquipable
+                && !input.IsRare && !input.IsBlue && !input.IsSox)
+                return false;
+
             if (pick != null && pick.OnlyPickRareBlue && !input.IsRare && !input.IsBlue && !input.IsSox)
                 return false;
 

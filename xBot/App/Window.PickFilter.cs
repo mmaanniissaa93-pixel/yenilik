@@ -34,6 +34,7 @@ namespace xBot.App
         private CheckBox optPickArrows;
         private NumericUpDown nudArrowAmount;
         private CheckBox optOnlyStoreBlues;
+        private CheckBox optOnlyPickBlues;
         private CheckBox optPickCharIfPetFull;
         private CheckBox optDontMovePetItems;
         private CheckBox optOnlyStorePlus;
@@ -537,7 +538,7 @@ namespace xBot.App
             {
                 Text = "",
                 Location = new Point(x, y),
-                Size = new Size(20, 20),
+                Size = new Size(20, 19),
                 AutoSize = false,
                 UseVisualStyleBackColor = true
             };
@@ -545,7 +546,7 @@ namespace xBot.App
             {
                 Text = text,
                 Location = new Point(x + 22, y),
-                Size = new Size(Math.Max(40, width - 22), 20),
+                Size = new Size(Math.Max(40, width - 22), 19),
                 ForeColor = Color.Black,
                 BackColor = Color.Transparent,
                 TextAlign = ContentAlignment.MiddleLeft
@@ -560,29 +561,30 @@ namespace xBot.App
         private void BuildPickOptionsTab(TabPage tab)
         {
             int x = 12, y = 12, w = 300;
-            optPickItemsFirst = AddOptCheck(tab, "Pick items first", x, y, w); y += 20;
-            optUsePickPet = AddOptCheck(tab, "Use pick pet", x, y, w); y += 20;
-            optPickOthers = AddOptCheck(tab, "Pick other player's items", x, y, w); y += 20;
-            optPickParty = AddOptCheck(tab, "Pick party items", x, y, w); y += 20;
-            optDontPick = AddOptCheck(tab, "Don't pick items", x, y, w); y += 20;
-            optAllowSellAll = AddOptCheck(tab, "Allow selling of all item types", x, y, w); y += 20;
-            optOnlyPickRareBlue = AddOptCheck(tab, "Only pick rare or blue items", x, y, w); y += 20;
-            optOnlyStoreRareBlue = AddOptCheck(tab, "Only store rare or blue items", x, y, w); y += 20;
+            optPickItemsFirst = AddOptCheck(tab, "Pick items first", x, y, w); y += 19;
+            optUsePickPet = AddOptCheck(tab, "Use pick pet", x, y, w); y += 19;
+            optPickOthers = AddOptCheck(tab, "Pick other player's items", x, y, w); y += 19;
+            optPickParty = AddOptCheck(tab, "Pick party items", x, y, w); y += 19;
+            optDontPick = AddOptCheck(tab, "Don't pick items", x, y, w); y += 19;
+            optAllowSellAll = AddOptCheck(tab, "Allow selling of all item types", x, y, w); y += 19;
+            optOnlyPickRareBlue = AddOptCheck(tab, "Only pick rare or blue items", x, y, w); y += 19;
+            optOnlyStoreRareBlue = AddOptCheck(tab, "Only store rare or blue items", x, y, w); y += 19;
             optPickArrows = AddOptCheck(tab, "Pick Arrows/Bolts", x, y, 200);
             nudArrowAmount = new NumericUpDown { Location = new Point(x + 210, y), Size = new Size(80, 22), Minimum = 0, Maximum = 10000, Value = 200 };
             nudArrowAmount.ValueChanged += (s, e) => SaveAllPickFilterLive();
-            y += 20;
-            optOnlyStoreBlues = AddOptCheck(tab, "Only store items with specific blue attributes", x, y, w); y += 20;
-            optPickCharIfPetFull = AddOptCheck(tab, "Pick with character if pet is unsummoned or full", x, y, 340); y += 20;
-            optDontMovePetItems = AddOptCheck(tab, "Do not move pet items except for storing/selling", x, y, 340); y += 20;
+            y += 19;
+            optOnlyStoreBlues = AddOptCheck(tab, "Only store items with specific blue attributes", x, y, w); y += 19;
+            optOnlyPickBlues = AddOptCheck(tab, "Only pick items with specific blue attributes", x, y, w); y += 19;
+            optPickCharIfPetFull = AddOptCheck(tab, "Pick with character if pet is unsummoned or full", x, y, 340); y += 19;
+            optDontMovePetItems = AddOptCheck(tab, "Do not move pet items except for storing/selling", x, y, 340); y += 19;
             optNoSellPlus = AddOptCheck(tab, "Do not sell items with plus >=", x, y, 230);
             nudNoSellPlus = new NumericUpDown { Location = new Point(x + 240, y), Size = new Size(60, 22), Minimum = 0, Maximum = 15, Value = 0 };
             nudNoSellPlus.ValueChanged += (s, e) => SaveAllPickFilterLive();
-            y += 20;
+            y += 19;
             optOnlyStorePlus = AddOptCheck(tab, "Only store items with plus >=", x, y, 230);
             nudOnlyStorePlus = new NumericUpDown { Location = new Point(x + 240, y), Size = new Size(60, 22), Minimum = 0, Maximum = 15, Value = 0 };
             nudOnlyStorePlus.ValueChanged += (s, e) => SaveAllPickFilterLive();
-            y += 20;
+            y += 19;
             optPickEvenWhenFull = AddOptCheck(tab, "Pick even when inventory is full", x, y, w);
 
             var lblBlues = new Label { Text = "Blues", Location = new Point(360, 8), AutoSize = true, ForeColor = SystemColors.ControlText };
@@ -642,24 +644,31 @@ namespace xBot.App
                 if (lstBlues == null) return;
                 var rows = DataManager.QueryBlueOptions();
                 var saved = ItemFilterManager.GetBlues();
-                lstBlues.BeginUpdate();
-                lstBlues.Items.Clear();
+                var entries = new List<KeyValuePair<string, string>>();
                 foreach (var row in rows)
                 {
                     try
                     {
                         string sn = row["servername"] ?? "";
-                        string nm = row["name"] ?? "";
                         if (string.IsNullOrEmpty(sn)) continue;
-                        string display = string.IsNullOrEmpty(nm) ? sn : nm;
+                        string display = ItemFilterManager.GetBlueDisplayName(sn, row["name"]);
+                        entries.Add(new KeyValuePair<string, string>(sn, display));
+                    }
+                    catch { }
+                }
+                entries.Sort((a, b) => string.Compare(a.Value, b.Value, StringComparison.OrdinalIgnoreCase));
+                lstBlues.BeginUpdate();
+                lstBlues.Items.Clear();
+                foreach (var entry in entries)
+                {
+                    try
+                    {
                         string store = "No";
                         BlueAttributeRule rule;
-                        if (saved != null && saved.TryGetValue(sn, out rule) && rule != null && rule.Store)
+                        if (saved != null && saved.TryGetValue(entry.Key, out rule) && rule != null && rule.Store)
                             store = "Yes";
-                        else if (saved != null && saved.TryGetValue(display, out rule) && rule != null && rule.Store)
-                            store = "Yes";
-                        var item = new ListViewItem(new string[] { display, store });
-                        item.Tag = sn;
+                        var item = new ListViewItem(new string[] { entry.Value, store });
+                        item.Tag = entry.Key;
                         lstBlues.Items.Add(item);
                     }
                     catch { }
@@ -712,6 +721,7 @@ namespace xBot.App
                 optPickArrows.Checked = o.PickArrowsBolts;
                 try { nudArrowAmount.Value = Math.Max(0, Math.Min(10000, o.ArrowBoltAmount)); } catch { }
                 optOnlyStoreBlues.Checked = o.OnlyStoreSpecificBlues;
+                if (optOnlyPickBlues != null) optOnlyPickBlues.Checked = o.OnlyPickSpecificBlues;
                 optPickCharIfPetFull.Checked = o.PickWithCharIfPetGoneFull;
                 optDontMovePetItems.Checked = o.DontMovePetItemsExceptStoreSell;
                 optOnlyStorePlus.Checked = o.OnlyStorePlusEnabled;
@@ -740,6 +750,7 @@ namespace xBot.App
                 o.PickArrowsBolts = optPickArrows.Checked;
                 try { o.ArrowBoltAmount = (int)nudArrowAmount.Value; } catch { }
                 o.OnlyStoreSpecificBlues = optOnlyStoreBlues.Checked;
+                if (optOnlyPickBlues != null) o.OnlyPickSpecificBlues = optOnlyPickBlues.Checked;
                 o.PickWithCharIfPetGoneFull = optPickCharIfPetFull.Checked;
                 o.DontMovePetItemsExceptStoreSell = optDontMovePetItems.Checked;
                 o.OnlyStorePlusEnabled = optOnlyStorePlus.Checked;

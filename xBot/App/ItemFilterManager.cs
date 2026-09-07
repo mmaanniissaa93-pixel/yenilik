@@ -215,6 +215,106 @@ namespace xBot.App
             return Blues;
         }
 
+        /// <summary>
+        /// MATTR_* kodlarının görünen adları (yeşil taş adları). DB'de name çoğu
+        /// boş olduğu için liste ham kodla doluyordu.
+        /// </summary>
+        private static readonly Dictionary<string, string> BlueDisplayNames =
+            new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase)
+        {
+            { "MATTR_APE", "Ape" },
+            { "MATTR_ASTRAL", "Astral" },
+            { "MATTR_ATHANASIA", "Immortal" },
+            { "MATTR_BLOCKRATE", "Block" },
+            { "MATTR_CRITICAL", "Critical" },
+            { "MATTR_DEC_MAXDUR", "Durability Decrease" },
+            { "MATTR_DUR", "Durability Increase" },
+            { "MATTR_DUR_SET", "Durability Increase (Set)" },
+            { "MATTR_ER", "Evade Rate" },
+            { "MATTR_ER_SET", "Evade Rate (Set)" },
+            { "MATTR_EVADE_BLOCK", "Evade Block" },
+            { "MATTR_EVADE_CRITICAL", "Evade Critical" },
+            { "MATTR_HP", "HP" },
+            { "MATTR_HP_SET", "HP (Set)" },
+            { "MATTR_HR", "Attack Rate" },
+            { "MATTR_INT", "Int" },
+            { "MATTR_INT_3JOB", "Int (3-Job)" },
+            { "MATTR_INT_AVATAR", "Int (Avatar)" },
+            { "MATTR_INT_SET", "Int (Set)" },
+            { "MATTR_LUCK", "Lucky" },
+            { "MATTR_LUCK_SET", "Lucky (Set)" },
+            { "MATTR_MP", "MP" },
+            { "MATTR_MP_SET", "MP (Set)" },
+            { "MATTR_NASRUN_BLOCKRATE", "Block (Devil Spirit)" },
+            { "MATTR_NASRUN_HPNA", "HP (Devil Spirit)" },
+            { "MATTR_NASRUN_MPNA", "MP (Devil Spirit)" },
+            { "MATTR_NASRUN_UMDU", "Umdu (Devil Spirit)" },
+            { "MATTR_NOT_REPARABLE", "Not Reparable" },
+            { "MATTR_REGENHPMP", "HP/MP Regen" },
+            { "MATTR_REINFORCE_ITEM", "Reinforcement" },
+            { "MATTR_REINFORCE_ITEM_SET", "Reinforcement (Set)" },
+            { "MATTR_REPAIR", "Repair" },
+            { "MATTR_RESIST_ALL_SET", "All Resist (Set)" },
+            { "MATTR_RESIST_BURN", "Burn Resist" },
+            { "MATTR_RESIST_CSMP", "Curse Resist" },
+            { "MATTR_RESIST_DISEASE", "Disease Resist" },
+            { "MATTR_RESIST_ESHOCK", "Electric Shock Resist" },
+            { "MATTR_RESIST_FEAR", "Fear Resist" },
+            { "MATTR_RESIST_FROSTBITE", "Freeze Resist" },
+            { "MATTR_RESIST_POISON", "Poison Resist" },
+            { "MATTR_RESIST_SLEEP", "Sleep Resist" },
+            { "MATTR_RESIST_STUN", "Stun Resist" },
+            { "MATTR_RESIST_ZOMBIE", "Zombie Resist" },
+            { "MATTR_SOLID", "Steady" },
+            { "MATTR_STR", "Str" },
+            { "MATTR_STR_3JOB", "Str (3-Job)" },
+            { "MATTR_STR_AVATAR", "Str (Avatar)" },
+            { "MATTR_STR_SET", "Str (Set)" },
+        };
+
+        public static string GetBlueDisplayName(string serverName, string dbName)
+        {
+            if (!string.IsNullOrEmpty(serverName))
+            {
+                string friendly;
+                if (BlueDisplayNames.TryGetValue(serverName, out friendly) && !string.IsNullOrEmpty(friendly))
+                    return friendly;
+                // Avatar/taş türevleri: MATTR_AVATAR_STR_2 -> "Str (Avatar 2)" gibi sadeleştir.
+                string s = serverName;
+                if (s.StartsWith("MATTR_AVATAR_", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    string rest = s.Substring("MATTR_AVATAR_".Length).Replace("_", " ").Trim();
+                    if (rest.Length > 0)
+                        return ToTitle(rest) + " (Avatar)";
+                }
+                if (s.StartsWith("MATTR_", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    string rest = s.Substring("MATTR_".Length).Replace("_", " ").Trim();
+                    if (rest.Length > 0)
+                        return ToTitle(rest);
+                }
+            }
+            if (!string.IsNullOrEmpty(dbName))
+                return dbName;
+            return serverName ?? "";
+        }
+
+        private static string ToTitle(string value)
+        {
+            try
+            {
+                string[] parts = value.Split(new char[] { ' ' }, System.StringSplitOptions.RemoveEmptyEntries);
+                for (int i = 0; i < parts.Length; i++)
+                {
+                    string p = parts[i].ToLower();
+                    if (p.Length > 0)
+                        parts[i] = char.ToUpper(p[0]) + (p.Length > 1 ? p.Substring(1) : "");
+                }
+                return string.Join(" ", parts);
+            }
+            catch { return value; }
+        }
+
         public static void SetBlue(string serverName, string name, bool store)
         {
             if (string.IsNullOrEmpty(serverName))
@@ -466,6 +566,7 @@ namespace xBot.App
             p["PickArrowsBolts"] = Pick.PickArrowsBolts;
             p["ArrowBoltAmount"] = Pick.ArrowBoltAmount;
             p["OnlyStoreSpecificBlues"] = Pick.OnlyStoreSpecificBlues;
+            p["OnlyPickSpecificBlues"] = Pick.OnlyPickSpecificBlues;
             p["PickWithCharIfPetGoneFull"] = Pick.PickWithCharIfPetGoneFull;
             p["DontMovePetItemsExceptStoreSell"] = Pick.DontMovePetItemsExceptStoreSell;
             p["OnlyStorePlusEnabled"] = Pick.OnlyStorePlusEnabled;
@@ -586,6 +687,7 @@ namespace xBot.App
                 Pick.PickArrowsBolts = GetBool(po, "PickArrowsBolts", false);
                 Pick.ArrowBoltAmount = GetInt(po, "ArrowBoltAmount", 200);
                 Pick.OnlyStoreSpecificBlues = GetBool(po, "OnlyStoreSpecificBlues", false);
+                Pick.OnlyPickSpecificBlues = GetBool(po, "OnlyPickSpecificBlues", false);
                 Pick.PickWithCharIfPetGoneFull = GetBool(po, "PickWithCharIfPetGoneFull", true);
                 Pick.DontMovePetItemsExceptStoreSell = GetBool(po, "DontMovePetItemsExceptStoreSell", true);
                 Pick.OnlyStorePlusEnabled = GetBool(po, "OnlyStorePlusEnabled", false);
