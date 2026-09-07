@@ -204,6 +204,9 @@ namespace xBot.App
                         }
                         else
                         {
+                            // Alana Dönüş hazırlığı: buff tazele + hız eşyası + binek
+                            // (45sn geçiş korumalı, spam yapmaz).
+                            PrepareReturnTrip();
                             // 1. First try: Auto NavMesh / Multi-hop Ferry & Teleport route
                             if (NavigationManager.Get.IsAvailable)
                             {
@@ -262,7 +265,20 @@ namespace xBot.App
                                 w.LogProcess("Loading training script...");
                                 currentScript = new Script(scriptPath);
                                 int nearIndex = currentScript.GetNearMovement(myPosition, 80);
-                                if (nearIndex != -1)
+                                if (ReturnToAreaPolicy.ReverseRoute)
+                                {
+                                    if (nearIndex != -1)
+                                    {
+                                        w.Log("Reverse route: script sondan başa, adım " + (nearIndex + 1) + "ten geriye...");
+                                        currentScript.RunReversed(nearIndex);
+                                    }
+                                    else
+                                    {
+                                        w.Log("Reverse route: script sondan başlıyor...");
+                                        currentScript.RunReversed();
+                                    }
+                                }
+                                else if (nearIndex != -1)
                                 {
                                     w.Log("Resuming script from step " + (nearIndex + 1));
                                     currentScript.Run(nearIndex);
@@ -1879,6 +1895,108 @@ namespace xBot.App
         private void WalkLoop()
         {
 
+        }
+
+        private DateTime m_lastReturnPrep = DateTime.MinValue;
+        /// <summary>
+        /// Alana Dönüş hazırlığı (Area &gt; Alana Dönüş kartı).
+        /// Eğitim alanına yürüyüş başlamadan önce buff tazeleme, hız eşyası
+        /// ve binek çağırma yapar. 45sn geçiş korumalıdır.
+        /// </summary>
+        private void PrepareReturnTrip()
+        {
+            try
+            {
+                if ((DateTime.Now - m_lastReturnPrep).TotalSeconds < 45.0)
+                    return;
+                m_lastReturnPrep = DateTime.Now;
+                Window w = Window.Get;
+                if (ReturnToAreaPolicy.CastBuffs)
+                {
+                    try { w.CastAllBuffs(); } catch { }
+                }
+                if (ReturnToAreaPolicy.UseSpeedDrug)
+                    TryUseSpeedDrug();
+                if (ReturnToAreaPolicy.UseMount)
+                    TrySummonMount();
+            }
+            catch { }
+        }
+        /// <summary>
+        /// Hız eşyası kullanır: ServerName içinde SPEED geçip RETURN geçmeyen
+        /// kullanılabilir eşya (dönüş scroll'ları bilerek hariç tutulur).
+        /// </summary>
+        private bool TryUseSpeedDrug()
+        {
+            try
+            {
+                var chr = InfoManager.Character;
+                if (chr == null || chr.Inventory == null)
+                    return false;
+                var inv = chr.Inventory;
+                for (byte s = 13; s < inv.Capacity; s++)
+                {
+                    var it = inv[s];
+                    if (it == null || it.ID2 != 3)
+                        continue;
+                    string sn = it.ServerName ?? "";
+                    if (sn.IndexOf("SPEED", StringComparison.OrdinalIgnoreCase) < 0)
+                        continue;
+                    if (sn.IndexOf("RETURN", StringComparison.OrdinalIgnoreCase) >= 0)
+                        continue;
+                    if (IsItemBlockedFromUse(it))
+                        continue;
+                    Window.Get?.LogProcess("Alana Dönüş: hız eşyası kullanılıyor [" + it.Name + "]...");
+                    return PacketBuilder.UseItem(it, s);
+                }
+            }
+            catch { }
+            return false;
+        }
+        /// <summary>
+        /// UI toggle'ları için anında-uygulama girişleri (tick sistemiyle aynı
+        /// backend: PrepareReturnTrip'in kullandığı metotlar).
+        /// </summary>
+        public void ReturnTripBuffsNow()
+        {
+            try { Window.Get?.CastAllBuffs(); } catch { }
+        }
+        public bool ReturnTripSpeedNow()
+        {
+            try { return TryUseSpeedDrug(); } catch { return false; }
+        }
+        public bool ReturnTripMountNow()
+        {
+            try { return TrySummonMount(); } catch { return false; }
+        }
+        /// <summary>
+        /// Binek çağırır: zaten biniliyorsa ya da at/transport dışarıdaysa
+        /// dokunmaz, yoksa vehicle/transport summon scroll basar.
+        /// </summary>
+        private bool TrySummonMount()
+        {
+            try
+            {
+                var chr = InfoManager.Character;
+                if (chr == null || chr.isRiding)
+                    return false;
+                try
+                {
+                    var pet = InfoManager.MyPets.Find(p => p.isHorse() || p.isTransport());
+                    if (pet != null)
+                        return false;
+                }
+                catch { }
+                byte slot = 0;
+                if (Bot.Get.FindItem(3, 3, 2, ref slot))
+                {
+                    var it = chr.Inventory[slot];
+                    Window.Get?.LogProcess("Alana Dönüş: binek çağrılıyor [" + (it != null ? it.Name : slot.ToString()) + "]...");
+                    return PacketBuilder.UseItem(it, slot);
+                }
+            }
+            catch { }
+            return false;
         }
 
         /// <summary>

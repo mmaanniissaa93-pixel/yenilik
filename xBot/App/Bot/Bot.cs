@@ -390,7 +390,7 @@ namespace xBot.App
 				SetTraceName(PlayerName);
 				Window w = Window.Get;
 				WinAPI.InvokeIfRequired(w.Training_btnTraceStart, () => {
-					w.Training_btnTraceStart.Text = "STOP";
+					w.Training_btnTraceStart.Text = LocalizationManager.Get("UI_Tr_Stop", "STOP");
 				});
 				return true;
 			}
@@ -419,12 +419,13 @@ namespace xBot.App
 				inTrace = false;
 				Window w = Window.Get;
 				WinAPI.InvokeIfRequired(w.Training_btnTraceStart, ()=>{
-					w.Training_btnTraceStart.Text = "START";
+					w.Training_btnTraceStart.Text = LocalizationManager.Get("UI_Tr_Start", "START");
 				});
 				return true;
 			}
 			return false;
 		}
+		public bool isRecordingPaused { get { return m_recordingPaused; } }
 		private DateTime m_lastTraceMove = DateTime.MinValue;
 		/// <summary>
 		/// Trace hedefini periyodik takip eder (OnLoop ~1sn tick'ten çağrılır).
@@ -857,8 +858,8 @@ namespace xBot.App
 			tRecording.Start();
 			Window w = Window.Get;
 			w.Log("Walk kaydı başladı (8m adım aralığı).");
-			WinAPI.InvokeIfRequired(w.Training_btnRecordStartStop, () => { w.Training_btnRecordStartStop.Text = "STOP"; });
-			WinAPI.InvokeIfRequired(w.Training_btnRecordPause, () => { w.Training_btnRecordPause.Enabled = true; w.Training_btnRecordPause.Text = "PAUSE"; });
+			WinAPI.InvokeIfRequired(w.Training_btnRecordStartStop, () => { w.Training_btnRecordStartStop.Text = LocalizationManager.Get("UI_Tr_Stop", "STOP"); });
+			WinAPI.InvokeIfRequired(w.Training_btnRecordPause, () => { w.Training_btnRecordPause.Enabled = true; w.Training_btnRecordPause.Text = LocalizationManager.Get("UI_Tr_Pause", "PAUSE"); });
 			return true;
 		}
 		public void PauseResumeRecording()
@@ -868,7 +869,7 @@ namespace xBot.App
 			m_recordingPaused = !m_recordingPaused;
 			Window w = Window.Get;
 			bool paused = m_recordingPaused;
-			WinAPI.InvokeIfRequired(w.Training_btnRecordPause, () => { w.Training_btnRecordPause.Text = paused ? "RESUME" : "PAUSE"; });
+			WinAPI.InvokeIfRequired(w.Training_btnRecordPause, () => { w.Training_btnRecordPause.Text = paused ? LocalizationManager.Get("UI_Tr_Resume", "RESUME") : LocalizationManager.Get("UI_Tr_Pause", "PAUSE"); });
 			w.Log(paused ? "Walk kaydı duraklatıldı." : "Walk kaydı devam ediyor.");
 		}
 		public void StopRecording()
@@ -896,8 +897,8 @@ namespace xBot.App
 			{
 				w.Log("Walk kaydı yazılamadı: " + ex.Message);
 			}
-			WinAPI.InvokeIfRequired(w.Training_btnRecordStartStop, () => { w.Training_btnRecordStartStop.Text = "START"; });
-			WinAPI.InvokeIfRequired(w.Training_btnRecordPause, () => { w.Training_btnRecordPause.Enabled = false; w.Training_btnRecordPause.Text = "PAUSE"; });
+			WinAPI.InvokeIfRequired(w.Training_btnRecordStartStop, () => { w.Training_btnRecordStartStop.Text = LocalizationManager.Get("UI_Tr_Start", "START"); });
+			WinAPI.InvokeIfRequired(w.Training_btnRecordPause, () => { w.Training_btnRecordPause.Enabled = false; w.Training_btnRecordPause.Text = LocalizationManager.Get("UI_Tr_Pause", "PAUSE"); });
 		}
 		private void RecordingLoop()
 		{

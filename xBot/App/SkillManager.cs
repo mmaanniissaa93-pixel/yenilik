@@ -5,6 +5,7 @@ using System.Windows.Forms;
 using Newtonsoft.Json.Linq;
 using xBot.Game;
 using xBot.Game.Objects.Common;
+using xBot.Game.Objects.Item;
 
 namespace xBot.App
 {
@@ -150,35 +151,142 @@ namespace xBot.App
             return "None";
         }
 
+        private static DateTime s_lastDevilAttemptUtc = DateTime.MinValue;
+
+        /// <summary>
+        /// Devil Spirit uzun süreli bir buff'tır, her atakta basılmaz:
+        /// buff zaten aktifse veya devil kuşanılıysa dokunulmaz.
+        /// Devil Spirit öğrenilen bir skill değil, kuşanılan (avatar slot 4)
+        /// veya kullanılan bir eşyadır; o yüzden önce eşya yolu denenir.
+        /// Denemeler 10sn geçiş korumalıdır (spam/kick önlenir).
+        /// </summary>
         public static void CheckDevilSpirit()
         {
-            if (!UseDevilSpirit || InfoManager.Character == null || InfoManager.Character.Skills == null)
+            if (!UseDevilSpirit || InfoManager.Character == null)
+                return;
+            if (HasDevilBuff() || IsDevilEquipped())
+                return;
+            if ((DateTime.UtcNow - s_lastDevilAttemptUtc).TotalSeconds < 10)
                 return;
 
-            // Check if devil spirit buff is already active
-            for (byte i = 0; i < InfoManager.Character.Buffs.Count; i++)
-            {
-                var b = InfoManager.Character.Buffs.GetAt(i);
-                if (b != null && b.ServerName != null && b.ServerName.Contains("DEVIL"))
-                    return;
-            }
-
-            SRSkill devilSkill = null;
-            for (int i = 0; i < InfoManager.Character.Skills.Count; i++)
-            {
-                var s = InfoManager.Character.Skills.GetAt(i);
-                if (s != null && !string.IsNullOrEmpty(s.ServerName) && s.ServerName.Contains("DEVIL"))
-                {
-                    devilSkill = s;
-                    break;
-                }
-            }
-
+            // 1) Envanterdeki devil eşyasını kuşan (avatar slot 4).
+            if (TryEquipDevilItem())
+                return;
+            // 2) Öğrenilmiş devil skili varsa bas (bazı serverlar).
+            SRSkill devilSkill = FindDevilSkill();
             if (devilSkill != null && devilSkill.isCastingEnabled)
             {
+                s_lastDevilAttemptUtc = DateTime.UtcNow;
                 devilSkill.StartCooldown();
                 PacketBuilder.CastSkill(devilSkill.ID, 0);
+                Window.Get?.Log("Devil Spirit becerisi basıldı [" + (devilSkill.Name ?? devilSkill.ID.ToString()) + "].");
+                return;
             }
+            // 3) Kullanılabilir devil summon eşyası varsa kullan.
+            TryUseDevilItem();
+        }
+
+        public static bool HasDevilBuff()
+        {
+            try
+            {
+                var buffs = InfoManager.Character?.Buffs;
+                if (buffs == null)
+                    return false;
+                for (int i = 0; i < buffs.Count; i++)
+                {
+                    var b = buffs.GetAt(i);
+                    if (b == null)
+                        continue;
+                    if ((b.ServerName ?? "").IndexOf("DEVIL", StringComparison.OrdinalIgnoreCase) >= 0)
+                        return true;
+                    if ((b.Name ?? "").IndexOf("DEVIL", StringComparison.OrdinalIgnoreCase) >= 0)
+                        return true;
+                }
+            }
+            catch { }
+            return false;
+        }
+
+        public static bool IsDevilEquipped()
+        {
+            try
+            {
+                var avatar = InfoManager.Character?.InventoryAvatar;
+                if (avatar == null || avatar.Capacity <= 4)
+                    return false;
+                return avatar[4] != null;
+            }
+            catch { return false; }
+        }
+
+        private static SRSkill FindDevilSkill()
+        {
+            try
+            {
+                var skills = InfoManager.Character?.Skills;
+                if (skills == null)
+                    return null;
+                for (int i = 0; i < skills.Count; i++)
+                {
+                    var s = skills.GetAt(i);
+                    if (s != null && !string.IsNullOrEmpty(s.ServerName)
+                        && s.ServerName.IndexOf("DEVIL", StringComparison.OrdinalIgnoreCase) >= 0)
+                        return s;
+                }
+            }
+            catch { }
+            return null;
+        }
+
+        private static bool TryEquipDevilItem()
+        {
+            try
+            {
+                var inv = InfoManager.Character?.Inventory;
+                if (inv == null)
+                    return false;
+                for (byte s = 13; s < inv.Capacity; s++)
+                {
+                    var it = inv[s];
+                    if (it == null || !it.isEquipable())
+                        continue;
+                    if (it.ID3 != (byte)SREquipable.Equipable.DevilSpirit)
+                        continue;
+                    if (Bot.IsItemBlockedFromUse(it))
+                        continue;
+                    s_lastDevilAttemptUtc = DateTime.UtcNow;
+                    Window.Get?.Log("Devil Spirit kuşanılıyor [" + it.Name + "]...");
+                    return Bot.Get.EquipItem(s);
+                }
+            }
+            catch { }
+            return false;
+        }
+
+        private static bool TryUseDevilItem()
+        {
+            try
+            {
+                var inv = InfoManager.Character?.Inventory;
+                if (inv == null)
+                    return false;
+                for (byte s = 13; s < inv.Capacity; s++)
+                {
+                    var it = inv[s];
+                    if (it == null || it.isEquipable())
+                        continue;
+                    if ((it.ServerName ?? "").IndexOf("DEVIL", StringComparison.OrdinalIgnoreCase) < 0)
+                        continue;
+                    if (Bot.IsItemBlockedFromUse(it))
+                        continue;
+                    s_lastDevilAttemptUtc = DateTime.UtcNow;
+                    Window.Get?.Log("Devil Spirit eşyası kullanılıyor [" + it.Name + "]...");
+                    return PacketBuilder.UseItem(it, s);
+                }
+            }
+            catch { }
+            return false;
         }
 
         /// <summary>

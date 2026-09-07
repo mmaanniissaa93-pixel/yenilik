@@ -244,54 +244,75 @@ namespace xBot.App
 		/// </summary>
 		public void Run(int startIndex = 0)
 		{
-			Window w = Window.Get;
 			Bot b = Bot.Get;
 			Running = true;
 			// Parsing script
 			for (int j = startIndex; j < m_lines.Count && Running && b.isBotting; j++)
-			{
-				if (m_lines[j].StartsWith("//") || string.IsNullOrWhiteSpace(m_lines[j]))
-					continue;
-				string[] command = Tokenize(m_lines[j]);
-				if (command.Length == 0)
-					continue;
-
-				// Execute the command
-				string cmd = command[0].Trim().ToLower();
-				switch (cmd)
-				{
-					case "move":
-						SRCoord position = ParseMove(command);
-						if (position != null) {
-							w.LogProcess($"Script step [{j + 1}/{m_lines.Count}]");
-							if (!b.WaitMovement(position, 10))
-							{
-								// Tek noktaya ulaşılamadı diye TÜM botu durdurma:
-								// tezgâh/duvar arkası gibi noktalar atlanır, NPC
-								// adımları (store/buy/repair) yine de çalışır.
-								w.Log($"Script step [{j + 1}] atlandı (ulaşılamadı), devam ediliyor.");
-							}
-						}
-						break;
-					case "store":
-						ExecuteStoreStep(command, w, b);
-						break;
-					case "buy":
-						ExecuteBuyStep(command, w, b);
-						break;
-					case "repair":
-						ExecuteRepairStep(command, w, b);
-						break;
-					case "wait":
-						int ms = 1000;
-						if (command.Length > 1 && int.TryParse(command[1], out int parsedMs))
-							ms = parsedMs;
-						w.LogProcess($"Script waiting ({ms}ms)...");
-						Thread.Sleep(ms);
-						break;
-				}
-			}
+				ExecuteLine(j);
 			Running = false;
+		}
+		/// <summary>
+		/// Scripti sondan başa doğru koşar (Alana Dönüş &gt; Reverse route).
+		/// Yürüyüş scripti alan-&gt;şehir yönünde kaydedildiyse dönüş yolculuğu
+		/// bu yönde şehir-&gt;alan olur. startIndex -1 ise sondan başlar.
+		/// </summary>
+		public void RunReversed(int startIndex = -1)
+		{
+			Bot b = Bot.Get;
+			if (startIndex < 0 || startIndex >= m_lines.Count)
+				startIndex = m_lines.Count - 1;
+			Running = true;
+			for (int j = startIndex; j >= 0 && Running && b.isBotting; j--)
+				ExecuteLine(j);
+			Running = false;
+		}
+		/// <summary>
+		/// Tek script satırını çalıştırır (düz ve ters koşu ortak).
+		/// </summary>
+		private void ExecuteLine(int j)
+		{
+			Window w = Window.Get;
+			Bot b = Bot.Get;
+			if (m_lines[j].StartsWith("//") || string.IsNullOrWhiteSpace(m_lines[j]))
+				return;
+			string[] command = Tokenize(m_lines[j]);
+			if (command.Length == 0)
+				return;
+
+			// Execute the command
+			string cmd = command[0].Trim().ToLower();
+			switch (cmd)
+			{
+				case "move":
+					SRCoord position = ParseMove(command);
+					if (position != null) {
+						w.LogProcess($"Script step [{j + 1}/{m_lines.Count}]");
+						if (!b.WaitMovement(position, 10))
+						{
+							// Tek noktaya ulaşılamadı diye TÜM botu durdurma:
+							// tezgâh/duvar arkası gibi noktalar atlanır, NPC
+							// adımları (store/buy/repair) yine de çalışır.
+							w.Log($"Script step [{j + 1}] atlandı (ulaşılamadı), devam ediliyor.");
+						}
+					}
+					break;
+				case "store":
+					ExecuteStoreStep(command, w, b);
+					break;
+				case "buy":
+					ExecuteBuyStep(command, w, b);
+					break;
+				case "repair":
+					ExecuteRepairStep(command, w, b);
+					break;
+				case "wait":
+					int ms = 1000;
+					if (command.Length > 1 && int.TryParse(command[1], out int parsedMs))
+						ms = parsedMs;
+					w.LogProcess($"Script waiting ({ms}ms)...");
+					Thread.Sleep(ms);
+					break;
+			}
 		}
 
 		public void Stop()

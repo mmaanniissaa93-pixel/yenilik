@@ -379,7 +379,12 @@ internal static class Program
         RunLocalizationString("TR Buton: Ayarları Kaydet", LocalizationManager.Get("UI_Save"), "Ayarları Kaydet");
         RunLocalizationString("TR Buton: Komut Merkezi", LocalizationManager.Get("UI_CommandCenter"), "Komut Merkezi");
         RunLocalizationString("TR Giriş: Otomatik Giriş Yap", LocalizationManager.Get("UI_AutomatedLogin"), "Otomatik Giriş Yap");
-        RunLocalizationString("TR Combat: Can (HP) Tam Olduğunda Berserk Bas", LocalizationManager.Get("UI_ZerkHPFull"), "Can (HP) Tam Olduğunda Berserk Bas");
+        RunLocalizationString("TR Combat: HP tam doluyken", LocalizationManager.Get("UI_ZerkHPFull"), "HP tam doluyken");
+        RunLocalizationString("TR Savaş: Alana Dönüş", LocalizationManager.Get("UI_ReturnTitle"), "Alana Dönüş");
+        RunLocalizationString("TR Kasılma: Alan sekmesi", LocalizationManager.Get("UI_Tr_Area"), "Alan");
+        RunLocalizationString("TR Kasılma: Takip sekmesi", LocalizationManager.Get("UI_Tr_Trace"), "Takip");
+        RunLocalizationString("TR Kaçınma: Genel satırı", LocalizationManager.Get("UI_R_General"), "Genel");
+        RunLocalizationString("TR Kayıt: BAŞLAT", LocalizationManager.Get("UI_Tr_Start"), "BAŞLAT");
         RunLocalizationString("TR Beceri: Becerileri Sırayla Kullan (Kombo)", LocalizationManager.Get("UI_InOrder"), "Becerileri Sırayla Kullan (Kombo)");
         RunLocalizationString("TR Koruma: HP < % ise Beceriyle İyileş", LocalizationManager.Get("UI_SkillHP"), "HP < % ise Beceriyle İyileş");
         RunLocalizationString("TR Koruma: Ölen Peti Dirilt (Grass of Life)", LocalizationManager.Get("UI_PetRevive"), "Ölen Peti Dirilt (Grass of Life)");
@@ -406,7 +411,11 @@ internal static class Program
         RunLocalizationString("EN Buton: Save Settings", LocalizationManager.Get("UI_Save"), "Save Settings");
         RunLocalizationString("EN Buton: Command Center", LocalizationManager.Get("UI_CommandCenter"), "Command Center");
         RunLocalizationString("EN Giriş: Enable Automated Login", LocalizationManager.Get("UI_AutomatedLogin"), "Enable Automated Login");
-        RunLocalizationString("EN Combat: Berserk When HP is Full", LocalizationManager.Get("UI_ZerkHPFull"), "Berserk When HP is Full");
+        RunLocalizationString("EN Combat: When HP is full", LocalizationManager.Get("UI_ZerkHPFull"), "When HP is full");
+        RunLocalizationString("EN Savaş: Return to Area", LocalizationManager.Get("UI_ReturnTitle"), "Return to Area");
+        RunLocalizationString("EN Kasılma: Trace sekmesi", LocalizationManager.Get("UI_Tr_Trace"), "Trace");
+        RunLocalizationString("EN Kaçınma: General satırı", LocalizationManager.Get("UI_R_General"), "General");
+        RunLocalizationString("EN Kayıt: START", LocalizationManager.Get("UI_Tr_Start"), "START");
         RunLocalizationString("EN Beceri: Cast Skills in Order (Combo)", LocalizationManager.Get("UI_InOrder"), "Cast Skills in Order (Combo)");
         RunLocalizationString("EN Koruma: Heal Skill if HP < %", LocalizationManager.Get("UI_SkillHP"), "Heal Skill if HP < %");
         RunLocalizationString("EN Koruma: Auto Revive Pet (Grass of Life)", LocalizationManager.Get("UI_PetRevive"), "Auto Revive Pet (Grass of Life)");
@@ -422,7 +431,7 @@ internal static class Program
         RunLocalizationCheck("TR dilinde Grass of Life terimi korunur", LocalizationManager.Get("UI_PetRevive").Contains("Grass of Life"), true);
         RunLocalizationCheck("TR dilinde Lucky Powder terimi korunur", LocalizationManager.Get("UI_Alchemy_UsePowder").Contains("Lucky Powder"), true);
         RunLocalizationCheck("TR dilinde PIN terimi korunur", LocalizationManager.Get("UI_Acc_Secondary").Contains("PIN"), true);
-        RunLocalizationCheck("TR dilinde Berserk terimi korunur", LocalizationManager.Get("UI_ZerkHPFull").Contains("Berserk"), true);
+        RunLocalizationCheck("TR dilinde Berserk terimi korunur", LocalizationManager.Get("UI_Berserk").Contains("Berserk"), true);
         RunLocalizationCheck("TR dilinde HP terimi korunur", LocalizationManager.Get("UI_ZerkHPFull").Contains("HP"), true);
 
         // Reset to TR default
@@ -452,13 +461,21 @@ internal static class Program
         RunPotionInt("Çift rejectte hesaplanan usage döner", PotionPolicy.ResolveUsageWithFallback(0x08EC, 2, false, 0), 0x08EC);
         RunPotionInt("Reject yoksa hesaplanan usage döner", PotionPolicy.ResolveUsageWithFallback(0x08EC, 0, false, 0), 0x08EC);
 
+        // Return To Area (Alana Dönüş) Tests
+        RunReturnCheck("Varsayılan: dönüşte binek kullanılır", ReturnToAreaPolicy.UseMount, true);
+        RunReturnCheck("Varsayılan: dönüşte buff tazelenir", ReturnToAreaPolicy.CastBuffs, true);
+        RunReturnCheck("Varsayılan: dönüşte hız eşyası kullanılır", ReturnToAreaPolicy.UseSpeedDrug, true);
+        RunReturnCheck("Varsayılan: ters rota kapalı", ReturnToAreaPolicy.ReverseRoute, false);
+        RunReturnCheck("Varsayılan: şehir döngüsü açık", ReturnToAreaPolicy.TownCycling, true);
+        RunReturnJsonRoundtrip();
+
         if (failures != 0)
         {
             Console.WriteLine("Protection senaryoları başarısız: " + failures);
             return 1;
         }
 
-        Console.WriteLine("Koruma, item filtre, combat, skill, imbue, command center, lojistik, parti, PIN, SOCKS5, Auto Alchemy, Target Assist, Localization ve Potion senaryoları başarılı: 261");
+        Console.WriteLine("Koruma, item filtre, combat, skill, imbue, command center, lojistik, parti, PIN, SOCKS5, Auto Alchemy, Target Assist, Localization, Potion ve Alana Dönüş senaryoları başarılı: 276");
         return 0;
     }
 
@@ -711,6 +728,71 @@ internal static class Program
 
         failures++;
         Console.WriteLine("FAIL: " + name + " | beklenen=" + expected + ", gerçek=" + actual);
+    }
+
+    private static void RunReturnCheck(string name, bool actual, bool expected)
+    {
+        if (actual == expected)
+        {
+            Console.WriteLine("PASS: " + name);
+            return;
+        }
+
+        failures++;
+        Console.WriteLine("FAIL: " + name + " | beklenen=" + expected + ", gerçek=" + actual);
+    }
+
+    private static void RunReturnJsonRoundtrip()
+    {
+        string name = "Alana Dönüş ayarları JSON roundtrip korunur";
+        try
+        {
+            bool m = ReturnToAreaPolicy.UseMount;
+            bool b = ReturnToAreaPolicy.CastBuffs;
+            bool s = ReturnToAreaPolicy.UseSpeedDrug;
+            bool r = ReturnToAreaPolicy.ReverseRoute;
+            bool t = ReturnToAreaPolicy.TownCycling;
+
+            ReturnToAreaPolicy.UseMount = false;
+            ReturnToAreaPolicy.CastBuffs = false;
+            ReturnToAreaPolicy.UseSpeedDrug = false;
+            ReturnToAreaPolicy.ReverseRoute = true;
+            ReturnToAreaPolicy.TownCycling = false;
+            string json = ReturnToAreaPolicy.ToJson().ToString();
+
+            ReturnToAreaPolicy.UseMount = true;
+            ReturnToAreaPolicy.CastBuffs = true;
+            ReturnToAreaPolicy.UseSpeedDrug = true;
+            ReturnToAreaPolicy.ReverseRoute = false;
+            ReturnToAreaPolicy.TownCycling = true;
+            ReturnToAreaPolicy.FromJson(Newtonsoft.Json.Linq.JObject.Parse(json));
+
+            bool ok = !ReturnToAreaPolicy.UseMount
+                && !ReturnToAreaPolicy.CastBuffs
+                && !ReturnToAreaPolicy.UseSpeedDrug
+                && ReturnToAreaPolicy.ReverseRoute
+                && !ReturnToAreaPolicy.TownCycling;
+
+            ReturnToAreaPolicy.UseMount = m;
+            ReturnToAreaPolicy.CastBuffs = b;
+            ReturnToAreaPolicy.UseSpeedDrug = s;
+            ReturnToAreaPolicy.ReverseRoute = r;
+            ReturnToAreaPolicy.TownCycling = t;
+
+            if (ok)
+            {
+                Console.WriteLine("PASS: " + name);
+                return;
+            }
+
+            failures++;
+            Console.WriteLine("FAIL: " + name + " | JSON değerleri geri yüklenemedi");
+        }
+        catch (System.Exception ex)
+        {
+            failures++;
+            Console.WriteLine("FAIL: " + name + " | hata: " + ex.Message);
+        }
     }
 
     private static void RunPINCheck(string name, bool actual, bool expected)

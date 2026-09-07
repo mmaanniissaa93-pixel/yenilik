@@ -2521,6 +2521,9 @@ namespace xBot.App
 						}
 					}
 					break;
+				case "Return_btnBrowseScript":
+					BrowseReturnScript();
+					break;
 				case "Training_btnLoadScriptPath":
 					if ((InfoManager.inGame || InfoManager.Character != null) && Training_lstvAreas.SelectedItems.Count == 1)
 					{
@@ -2853,6 +2856,7 @@ namespace xBot.App
 						Training_tbxZ.Text = area.SubItems[4].Tag.ToString();
 						Training_tbxRadius.Text = area.SubItems[5].Tag.ToString();
 						Training_tbxScriptPath.Text = area.SubItems[6].Text;
+						RefreshReturnScriptPath();
 					}
 					break;
 				case "Stall_lstvInventoryStall":
@@ -3027,6 +3031,9 @@ namespace xBot.App
 				case "Character_cbxPVPMode":
 				case "Character_cbxPVPModeUseShield":
 				case "Town_cbxEnableTownLoop":
+					SyncReturnTownCycle();
+					Settings.SaveCharacterSettings();
+					break;
 				case "Town_cbxRepair":
 				case "Town_cbxStorage":
 				case "Town_cbxSellTrash":

@@ -1501,6 +1501,10 @@ namespace xBot.App
             }
         }
 
+        private bool m_trainingAreaLayoutHooked;
+        private bool m_combatLayoutHooked;
+        private static bool s_areaScrolledTop;
+
         private void ApplyModernTrainingLayout()
         {
             if (TabPageV_Control01_Training_Panel == null) return;
@@ -1510,105 +1514,180 @@ namespace xBot.App
             int col2X = 605;
             int col2W = tabW - col2X - 8;
 
-            // --- Option 01: Area Panel ---
+            // --- Option 01: Area Panel (dinamik: resize'da yeniden yerleşir) ---
             if (TabPageH_Training_Option01_Panel != null)
             {
-                int listW = 460;
-                if (Training_lstvAreas != null)
+                if (!m_trainingAreaLayoutHooked)
                 {
-                    Training_lstvAreas.Location = new Point(6, 6);
-                    Training_lstvAreas.Size = new Size(listW, tabH - 46);
-                    if (Training_lstvAreas.Columns.Count > 0)
-                        Training_lstvAreas.Columns[0].Width = listW - 6;
-                    AutoFitListView(Training_lstvAreas);
+                    m_trainingAreaLayoutHooked = true;
+                    TabPageH_Training_Option01_Panel.SizeChanged += (s, e) => { try { LayoutTrainingAreaPanel(); } catch { } };
                 }
+                LayoutTrainingAreaPanel();
+            }
 
-                int rightX = listW + 16;
-                int rightW = tabW - rightX - 8;
+            // Yerel işlev: panel her yeniden boyutlandığında güncellenir.
+            void LayoutTrainingAreaPanel()
+            {
+            if (TabPageV_Control01_Training_Panel == null || TabPageH_Training_Option01_Panel == null)
+                return;
+            int areaTabW = TabPageV_Control01_Training_Panel.Width;
+            int areaTabH = TabPageV_Control01_Training_Panel.Height;
 
-                GroupBox gbxAreaDetails = TabPageH_Training_Option01_Panel.Controls["gbxAreaDetails"] as GroupBox;
-                if (gbxAreaDetails == null)
+            // Sol liste orantılıdır; sağ kolona her zaman yeterli yer kalır.
+            int listW = areaTabW - 520;
+            if (listW < 200) listW = 200;
+            if (listW > 460) listW = 460;
+            if (Training_lstvAreas != null)
+            {
+                Training_lstvAreas.Location = new Point(6, 6);
+                Training_lstvAreas.Size = new Size(listW, Math.Max(200, areaTabH - 12));
+                if (Training_lstvAreas.Columns.Count > 0)
+                    Training_lstvAreas.Columns[0].Width = listW - 6;
+                try { AutoFitListView(Training_lstvAreas); } catch { }
+            }
+
+            int rightX = listW + 16;
+            int rightW = areaTabW - rightX - 8;
+            if (rightW < 180) rightW = 180;
+            TabPageH_Training_Option01_Panel.AutoScroll = true;
+            // İlk yerleşimde en üste al: odak kayması üst kontrolleri gizlemesin.
+            if (!s_areaScrolledTop)
+            {
+                s_areaScrolledTop = true;
+                try { TabPageH_Training_Option01_Panel.AutoScrollPosition = new Point(0, 0); } catch { }
+            }
+
+            // Dar mod: koordinat satırı 2x2 dizilir, dönüş tick'leri tek sütun olur.
+            bool narrowCoords = rightW < 440;
+            bool narrowReturn = rightW < 320;
+            int returnH = narrowReturn ? 228 : 200;
+            int availH = Math.Max(300, areaTabH - 12);
+            int guideY = (narrowCoords ? 148 : 128) + 56;
+            int minAreaH = guideY + 50;
+            int areaH = availH - 8 - returnH;
+            if (areaH < minAreaH) areaH = minAreaH;
+
+            GroupBox gbxAreaDetails = TabPageH_Training_Option01_Panel.Controls["gbxAreaDetails"] as GroupBox;
+            if (gbxAreaDetails == null)
+            {
+                gbxAreaDetails = new GroupBox
                 {
-                    gbxAreaDetails = new GroupBox
-                    {
-                        Name = "gbxAreaDetails",
-                        Text = LocalizationManager.CurrentLanguage == "TR" ? "Kasılma Alanı Koordinatları & Script" : "Training Area Coordinates & Script"
-                    };
-                    TabPageH_Training_Option01_Panel.Controls.Add(gbxAreaDetails);
-                    SkinControlHierarchy(gbxAreaDetails);
-                }
-                gbxAreaDetails.Location = new Point(rightX, 6);
-                gbxAreaDetails.Size = new Size(rightW, tabH - 46);
-
-                Control[] areaControls = new Control[] {
-                    Training_btnGetCoordinates, Training_lblRegion, Training_tbxRegion,
-                    Training_lblX, Training_tbxX, Training_lblY, Training_tbxY,
-                    Training_lblZ, Training_tbxZ, Training_lblRadius, Training_tbxRadius,
-                    Training_lblScriptPath, Training_tbxScriptPath, Training_btnLoadScriptPath
+                    Name = "gbxAreaDetails",
+                    Text = LocalizationManager.Get("UI_AreaDetails", "Kasılma Alanı Koordinatları & Script")
                 };
-                foreach (var c in areaControls)
+                TabPageH_Training_Option01_Panel.Controls.Add(gbxAreaDetails);
+                SkinControlHierarchy(gbxAreaDetails);
+            }
+            gbxAreaDetails.Location = new Point(rightX, 6);
+            gbxAreaDetails.Size = new Size(rightW, areaH);
+
+            Control[] areaControls = new Control[] {
+                Training_btnGetCoordinates, Training_lblRegion, Training_tbxRegion,
+                Training_lblX, Training_tbxX, Training_lblY, Training_tbxY,
+                Training_lblZ, Training_tbxZ, Training_lblRadius, Training_tbxRadius,
+                Training_lblScriptPath, Training_tbxScriptPath, Training_btnLoadScriptPath
+            };
+            foreach (var c in areaControls)
+            {
+                if (c != null && c.Parent != gbxAreaDetails)
                 {
-                    if (c != null && c.Parent != gbxAreaDetails)
-                    {
-                        c.Parent?.Controls.Remove(c);
-                        gbxAreaDetails.Controls.Add(c);
-                    }
-                }
-
-                if (Training_btnGetCoordinates != null)
-                {
-                    Training_btnGetCoordinates.Location = new Point(16, 30);
-                    Training_btnGetCoordinates.Size = new Size(220, 34);
-                    Training_btnGetCoordinates.BackColor = DarkTheme.Accent;
-                    Training_btnGetCoordinates.ForeColor = Color.White;
-                    Training_btnGetCoordinates.FlatStyle = FlatStyle.Flat;
-                }
-
-                int coordY = 82;
-                if (Training_lblRegion != null) { Training_lblRegion.Location = new Point(16, coordY + 2); Training_lblRegion.AutoSize = true; }
-                if (Training_tbxRegion != null) { Training_tbxRegion.Location = new Point(70, coordY); Training_tbxRegion.Size = new Size(60, 24); }
-
-                if (Training_lblX != null) { Training_lblX.Location = new Point(145, coordY + 2); Training_lblX.AutoSize = true; }
-                if (Training_tbxX != null) { Training_tbxX.Location = new Point(165, coordY); Training_tbxX.Size = new Size(60, 24); }
-
-                if (Training_lblY != null) { Training_lblY.Location = new Point(240, coordY + 2); Training_lblY.AutoSize = true; }
-                if (Training_tbxY != null) { Training_tbxY.Location = new Point(260, coordY); Training_tbxY.Size = new Size(60, 24); }
-
-                if (Training_lblZ != null) { Training_lblZ.Location = new Point(335, coordY + 2); Training_lblZ.AutoSize = true; }
-                if (Training_tbxZ != null) { Training_tbxZ.Location = new Point(355, coordY); Training_tbxZ.Size = new Size(60, 24); }
-
-                int radY = 126;
-                if (Training_lblRadius != null) { Training_lblRadius.Location = new Point(16, radY + 2); Training_lblRadius.AutoSize = true; }
-                if (Training_tbxRadius != null) { Training_tbxRadius.Location = new Point(70, radY); Training_tbxRadius.Size = new Size(60, 24); }
-
-                int scriptY = 170;
-                if (Training_lblScriptPath != null) { Training_lblScriptPath.Location = new Point(16, scriptY); Training_lblScriptPath.AutoSize = true; }
-                if (Training_tbxScriptPath != null) { Training_tbxScriptPath.Location = new Point(16, scriptY + 26); Training_tbxScriptPath.Size = new Size(rightW - 74, 26); }
-                if (Training_btnLoadScriptPath != null)
-                {
-                    Training_btnLoadScriptPath.Location = new Point(rightW - 52, scriptY + 25);
-                    Training_btnLoadScriptPath.Size = new Size(36, 28);
-                    Training_btnLoadScriptPath.Text = "...";
-                    Training_btnLoadScriptPath.Font = DarkTheme.FontBodyBold;
-                }
-
-                Label lblAreaGuide = gbxAreaDetails.Controls["lblAreaGuide"] as Label;
-                if (lblAreaGuide == null)
-                {
-                    lblAreaGuide = new Label
-                    {
-                        Name = "lblAreaGuide",
-                        ForeColor = DarkTheme.TextMuted,
-                        Font = DarkTheme.FontCaption,
-                        Location = new Point(16, scriptY + 68),
-                        Size = new Size(rightW - 32, 100),
-                        Text = LocalizationManager.CurrentLanguage == "TR"
-                            ? "Kasılma alanı tanımlamak için karakterinizi oyunda istediğiniz noktaya götürüp 'Get coordinates' butonuna basın. Yarıçap (Radius) karakterin alandan ne kadar uzaklaşacağını belirler. Yürüme rotası için script (.txt) dosyası seçebilirsiniz."
-                            : "To define a training area, navigate your character to the desired spot in-game and click 'Get coordinates'. Radius defines the movement perimeter. You can optionally select a script (.txt) path for walk routes."
-                    };
-                    gbxAreaDetails.Controls.Add(lblAreaGuide);
+                    try { c.Parent?.Controls.Remove(c); } catch { }
+                    gbxAreaDetails.Controls.Add(c);
                 }
             }
+
+            if (Training_btnGetCoordinates != null)
+            {
+                Training_btnGetCoordinates.Location = new Point(16, 24);
+                Training_btnGetCoordinates.Size = new Size(220, 30);
+                Training_btnGetCoordinates.BackColor = DarkTheme.Accent;
+                Training_btnGetCoordinates.ForeColor = Color.White;
+                Training_btnGetCoordinates.FlatStyle = FlatStyle.Flat;
+            }
+
+            int coordY = 66;
+            int coordY2 = narrowCoords ? 92 : 66;
+            if (Training_lblRegion != null) { Training_lblRegion.Location = new Point(16, coordY + 2); Training_lblRegion.AutoSize = true; }
+            if (Training_tbxRegion != null) { Training_tbxRegion.Location = new Point(70, coordY); Training_tbxRegion.Size = new Size(60, 22); }
+
+            if (Training_lblX != null) { Training_lblX.Location = new Point(145, coordY + 2); Training_lblX.AutoSize = true; }
+            if (Training_tbxX != null) { Training_tbxX.Location = new Point(165, coordY); Training_tbxX.Size = new Size(60, 22); }
+
+            if (Training_lblY != null) { Training_lblY.Location = new Point(narrowCoords ? 16 : 240, (narrowCoords ? coordY2 : coordY) + 2); Training_lblY.AutoSize = true; }
+            if (Training_tbxY != null) { Training_tbxY.Location = new Point(narrowCoords ? 70 : 260, narrowCoords ? coordY2 : coordY); Training_tbxY.Size = new Size(60, 22); }
+
+            if (Training_lblZ != null) { Training_lblZ.Location = new Point(narrowCoords ? 145 : 335, (narrowCoords ? coordY2 : coordY) + 2); Training_lblZ.AutoSize = true; }
+            if (Training_tbxZ != null) { Training_tbxZ.Location = new Point(narrowCoords ? 165 : 355, narrowCoords ? coordY2 : coordY); Training_tbxZ.Size = new Size(60, 22); }
+
+            int radY = narrowCoords ? 118 : 98;
+            if (Training_lblRadius != null) { Training_lblRadius.Location = new Point(16, radY + 2); Training_lblRadius.AutoSize = true; }
+            if (Training_tbxRadius != null) { Training_tbxRadius.Location = new Point(70, radY); Training_tbxRadius.Size = new Size(60, 22); }
+
+            int scriptY = narrowCoords ? 148 : 128;
+            if (Training_lblScriptPath != null) { Training_lblScriptPath.Location = new Point(16, scriptY); Training_lblScriptPath.AutoSize = true; }
+            if (Training_tbxScriptPath != null) { Training_tbxScriptPath.Location = new Point(16, scriptY + 22); Training_tbxScriptPath.Size = new Size(rightW - 74, 24); }
+            if (Training_btnLoadScriptPath != null)
+            {
+                Training_btnLoadScriptPath.Location = new Point(rightW - 52, scriptY + 21);
+                Training_btnLoadScriptPath.Size = new Size(36, 26);
+                Training_btnLoadScriptPath.Text = "...";
+                Training_btnLoadScriptPath.Font = DarkTheme.FontBodyBold;
+            }
+
+            Label lblAreaGuide = gbxAreaDetails.Controls["lblAreaGuide"] as Label;
+            if (lblAreaGuide == null)
+            {
+                lblAreaGuide = new Label
+                {
+                    Name = "lblAreaGuide",
+                    ForeColor = DarkTheme.TextMuted,
+                    Font = DarkTheme.FontCaption,
+                    Text = LocalizationManager.Get("UI_AreaGuide", "Kasılma alanı tanımlamak için karakterinizi oyunda istediğiniz noktaya götürüp 'Get coordinates' butonuna basın.")
+                };
+                gbxAreaDetails.Controls.Add(lblAreaGuide);
+            }
+            lblAreaGuide.Location = new Point(16, guideY);
+            lblAreaGuide.Size = new Size(Math.Max(100, rightW - 32), Math.Max(40, areaH - guideY - 10));
+
+            // --- Alana Dönüş (eğitim alanına dönüş yolculuğu) ---
+            if (gbxReturnToArea != null)
+            {
+                gbxReturnToArea.Location = new Point(rightX, 6 + areaH + 8);
+                gbxReturnToArea.Size = new Size(rightW, returnH);
+                var lblDesc = gbxReturnToArea.Controls["lblReturnDesc"] as Label;
+                if (lblDesc != null) { lblDesc.Location = new Point(16, 20); lblDesc.Size = new Size(rightW - 32, 20); }
+                var lblScript = gbxReturnToArea.Controls["lblReturnScript"] as Label;
+                if (lblScript != null) { lblScript.Location = new Point(16, 44); lblScript.AutoSize = true; }
+                if (tbxReturnScriptPath != null) { tbxReturnScriptPath.Location = new Point(16, 64); tbxReturnScriptPath.Size = new Size(rightW - 74, 24); }
+                if (btnReturnBrowseScript != null)
+                {
+                    btnReturnBrowseScript.Location = new Point(rightW - 52, 63);
+                    btnReturnBrowseScript.Size = new Size(36, 26);
+                    btnReturnBrowseScript.BackColor = DarkTheme.BgInput;
+                    btnReturnBrowseScript.ForeColor = Color.White;
+                    btnReturnBrowseScript.FlatStyle = FlatStyle.Flat;
+                }
+                if (narrowReturn)
+                {
+                    int ny = 98;
+                    if (cbxReturnMount != null) { cbxReturnMount.Location = new Point(16, ny); cbxReturnMount.Size = new Size(rightW - 32, 22); } ny += 26;
+                    if (cbxReturnBuffs != null) { cbxReturnBuffs.Location = new Point(16, ny); cbxReturnBuffs.Size = new Size(rightW - 32, 22); } ny += 26;
+                    if (cbxReturnSpeed != null) { cbxReturnSpeed.Location = new Point(16, ny); cbxReturnSpeed.Size = new Size(rightW - 32, 22); } ny += 26;
+                    if (cbxReturnReverse != null) { cbxReturnReverse.Location = new Point(16, ny); cbxReturnReverse.Size = new Size(rightW - 32, 22); } ny += 26;
+                    if (cbxReturnTownCycle != null) { cbxReturnTownCycle.Location = new Point(16, ny); cbxReturnTownCycle.Size = new Size(rightW - 32, 22); }
+                }
+                else
+                {
+                    int togY1 = 98, togY2 = 124, togY3 = 150;
+                    int togCol2X = rightW / 2 + 6;
+                    if (cbxReturnMount != null) { cbxReturnMount.Location = new Point(16, togY1); cbxReturnMount.Size = new Size(togCol2X - 28, 22); }
+                    if (cbxReturnBuffs != null) { cbxReturnBuffs.Location = new Point(togCol2X, togY1); cbxReturnBuffs.Size = new Size(rightW - togCol2X - 16, 22); }
+                    if (cbxReturnSpeed != null) { cbxReturnSpeed.Location = new Point(16, togY2); cbxReturnSpeed.Size = new Size(togCol2X - 28, 22); }
+                    if (cbxReturnReverse != null) { cbxReturnReverse.Location = new Point(togCol2X, togY2); cbxReturnReverse.Size = new Size(rightW - togCol2X - 16, 22); }
+                    if (cbxReturnTownCycle != null) { cbxReturnTownCycle.Location = new Point(16, togY3); cbxReturnTownCycle.Size = new Size(togCol2X - 28, 22); }
+                }
+            }
+        }
 
             // --- Option 02: Script Panel ---
             if (TabPageH_Training_Option02_Panel != null)
@@ -1672,49 +1751,82 @@ namespace xBot.App
                 }
             }
 
-            // --- Option 04: Combat AI Panel ---
+            // --- Option 04: Savaş Paneli (Berserker / Gelişmiş / Kaçınma) ---
             if (pnlTrainingCombat != null)
             {
                 if (btnTrainingCombat != null)
                 {
-                    btnTrainingCombat.Text = LocalizationManager.Get("UI_CombatAI_Tab", "Combat AI");
+                    btnTrainingCombat.Text = LocalizationManager.Get("UI_CombatAI_Tab", "Combat");
                 }
+                pnlTrainingCombat.AutoScroll = true;
 
-                if (Combat_gbxAI != null)
+                // Eski gruplar gizli tutulur (motor varsayılan değerleri okur).
+                if (Combat_gbxAI != null) Combat_gbxAI.Visible = false;
+                if (Combat_gbxMobFilter != null) Combat_gbxMobFilter.Visible = false;
+
+                if (!m_combatLayoutHooked)
                 {
-                    Combat_gbxAI.Location = new Point(6, 6);
-                    Combat_gbxAI.Size = new Size(col1W, tabH - 46);
-
-                    int cy = 30;
-                    int rowH = 34;
-
-                    // Section 1: Combat & Targeting Strategy
-                    if (Combat_cbxMobPriority != null) { Combat_cbxMobPriority.Location = new Point(16, cy); Combat_cbxMobPriority.Size = new Size(col1W - 32, 24); } cy += rowH;
-                    if (cbxCombatWeakerFirst != null) { cbxCombatWeakerFirst.Location = new Point(16, cy); cbxCombatWeakerFirst.Size = new Size(col1W - 32, 24); } cy += rowH;
-                    if (cbxCombatDoNotFollow != null) { cbxCombatDoNotFollow.Location = new Point(16, cy); cbxCombatDoNotFollow.Size = new Size(col1W - 32, 24); } cy += rowH;
-                    if (cbxCombatIgnorePillars != null) { cbxCombatIgnorePillars.Location = new Point(16, cy); cbxCombatIgnorePillars.Size = new Size(col1W - 32, 24); } cy += rowH + 6;
-
-                    // Section 2: Survival & Kiting
-                    if (Combat_cbxKiting != null) { Combat_cbxKiting.Location = new Point(16, cy); Combat_cbxKiting.Size = new Size(col1W - 32, 24); } cy += rowH;
-                    if (Combat_cbxPanicEscape != null) { Combat_cbxPanicEscape.Location = new Point(16, cy); Combat_cbxPanicEscape.Size = new Size(col1W - 32, 24); } cy += rowH + 6;
-
-                    // Section 3: Berserk Controls
-                    if (Combat_cbxAutoBerserk != null) { Combat_cbxAutoBerserk.Location = new Point(16, cy); Combat_cbxAutoBerserk.Size = new Size(col1W - 32, 24); } cy += rowH;
-                    if (cbxCombatZerkFullHP != null) { cbxCombatZerkFullHP.Location = new Point(16, cy); cbxCombatZerkFullHP.Size = new Size(col1W - 32, 24); } cy += rowH;
-                    if (cbxCombatZerkRarity != null) { cbxCombatZerkRarity.Location = new Point(16, cy); cbxCombatZerkRarity.Size = new Size(col1W - 32, 24); } cy += rowH;
-                    if (cbxCombatZerkAvoidance != null) { cbxCombatZerkAvoidance.Location = new Point(16, cy); cbxCombatZerkAvoidance.Size = new Size(col1W - 32, 24); } cy += rowH;
-
-                    if (cbxCombatZerkCount != null) { cbxCombatZerkCount.Location = new Point(16, cy); cbxCombatZerkCount.Size = new Size(260, 24); }
-                    if (nudCombatZerkCount != null) { nudCombatZerkCount.Location = new Point(285, cy); nudCombatZerkCount.Size = new Size(55, 24); }
-                    cy += rowH + 8;
-
-                    if (Combat_lblInfo != null) { Combat_lblInfo.Location = new Point(16, cy); Combat_lblInfo.Size = new Size(col1W - 32, 50); }
+                    m_combatLayoutHooked = true;
+                    pnlTrainingCombat.SizeChanged += (s, e) => { try { LayoutCombatPanel(); } catch { } };
                 }
+                LayoutCombatPanel();
+            }
 
-                if (Combat_gbxMobFilter != null)
+            // Yerel işlev: kartlar panelin güncel boyutuna sığdırılır.
+            void LayoutCombatPanel()
+            {
+                if (pnlTrainingCombat == null)
+                    return;
+                int combatW = Math.Max(400, pnlTrainingCombat.Width);
+                int combatH = Math.Max(300, pnlTrainingCombat.Height);
+                int cardW = (combatW - 18) / 2;
+                if (cardW < 250) cardW = 250;
+                const int cardH = 152;
+
+                if (gbxCombatBerserk != null)
                 {
-                    Combat_gbxMobFilter.Location = new Point(col2X, 6);
-                    Combat_gbxMobFilter.Size = new Size(col2W, tabH - 46);
+                    gbxCombatBerserk.Location = new Point(6, 6);
+                    gbxCombatBerserk.Size = new Size(cardW, cardH);
+                    if (lblBerserkDesc != null) { lblBerserkDesc.Location = new Point(12, 18); lblBerserkDesc.Size = new Size(cardW - 24, 22); }
+                    int by = 42;
+                    if (cbxZerkHpFull != null) { cbxZerkHpFull.Location = new Point(12, by); cbxZerkHpFull.Size = new Size(cardW - 24, 22); } by += 24;
+                    if (cbxZerkCount != null) { cbxZerkCount.Location = new Point(12, by); cbxZerkCount.Size = new Size(118, 22); }
+                    if (nudZerkCount != null) { nudZerkCount.Location = new Point(136, by); nudZerkCount.Size = new Size(46, 22); }
+                    if (lblZerkMobUnit != null) { lblZerkMobUnit.Location = new Point(188, by + 2); lblZerkMobUnit.AutoSize = true; }
+                    by += 24;
+                    if (cbxZerkAvoidance != null) { cbxZerkAvoidance.Location = new Point(12, by); cbxZerkAvoidance.Size = new Size(cardW - 24, 22); } by += 24;
+                    if (cbxZerkRarity != null) { cbxZerkRarity.Location = new Point(12, by); cbxZerkRarity.Size = new Size(cardW - 24, 22); }
+                }
+                if (gbxCombatAdvanced != null)
+                {
+                    gbxCombatAdvanced.Location = new Point(12 + cardW, 6);
+                    gbxCombatAdvanced.Size = new Size(combatW - 18 - cardW, cardH);
+                    if (lblAdvDesc != null) { lblAdvDesc.Location = new Point(12, 18); lblAdvDesc.Size = new Size(combatW - 18 - cardW - 24, 22); }
+                    int ay = 42;
+                    if (cbxAdvPillars != null) { cbxAdvPillars.Location = new Point(12, ay); cbxAdvPillars.Size = new Size(combatW - 18 - cardW - 24, 22); } ay += 24;
+                    if (cbxAdvWeakerFirst != null) { cbxAdvWeakerFirst.Location = new Point(12, ay); cbxAdvWeakerFirst.Size = new Size(combatW - 18 - cardW - 24, 22); } ay += 24;
+                    if (cbxAdvNoFollow != null) { cbxAdvNoFollow.Location = new Point(12, ay); cbxAdvNoFollow.Size = new Size(combatW - 18 - cardW - 24, 22); }
+                }
+                if (gbxCombatAvoid != null)
+                {
+                    int avoidY = 6 + cardH + 6;
+                    int avoidW = combatW - 12;
+                    int avoidH = combatH - 6 - avoidY;
+                    if (avoidH < 200) avoidH = 200;
+                    gbxCombatAvoid.Location = new Point(6, avoidY);
+                    gbxCombatAvoid.Size = new Size(avoidW, avoidH);
+                    if (lblAvoidDesc != null) { lblAvoidDesc.Location = new Point(12, 18); lblAvoidDesc.Size = new Size(avoidW - 24, 18); }
+                    if (tblAvoidTable != null)
+                    {
+                        int tableW = avoidW - 24;
+                        if (tableW < 300) tableW = 300;
+                        tblAvoidTable.Location = new Point(12, 42);
+                        tblAvoidTable.Size = new Size(tableW, 218);
+                        int col0 = tableW - 276;
+                        if (col0 < 120) col0 = 120;
+                        if (tblAvoidTable.ColumnStyles.Count >= 4)
+                            tblAvoidTable.ColumnStyles[0].Width = col0;
+                    }
                 }
             }
         }

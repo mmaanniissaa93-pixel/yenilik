@@ -47,7 +47,8 @@ namespace xBot.App
                 SRMob.Mob.PartyChampion,
                 SRMob.Mob.PartyGiant,
                 SRMob.Mob.Elite,
-                SRMob.Mob.Unique
+                SRMob.Mob.Unique,
+                SRMob.Mob.Event
             };
 
             foreach (var type in mobTypes)

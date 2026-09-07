@@ -530,6 +530,8 @@ namespace xBot.App
 						Trace["TracePartyMaster"] = w.Training_cbxTraceMaster.Checked;
 						Trace["UseTraceDistance"] = w.Training_cbxTraceDistance.Checked;
 						Trace["TraceDistance"] = w.Training_tbxTraceDistance.Text;
+
+						Training["ReturnToArea"] = ReturnToAreaPolicy.ToJson();
 					}
 					#endregion
 
@@ -1050,6 +1052,9 @@ Window w = Window.Get;
 					w.Training_cbxTraceMaster.Checked = Trace.ContainsKey("TracePartyMaster") ? (bool)Trace["TracePartyMaster"] : false;
 					w.Training_cbxTraceDistance.Checked = Trace.ContainsKey("UseTraceDistance") ? (bool)Trace["UseTraceDistance"] : false;
 					w.Training_tbxTraceDistance.Text = Trace.ContainsKey("TraceDistance") ? (string)Trace["TraceDistance"] : "5";
+
+					if (Training.ContainsKey("ReturnToArea"))
+						ReturnToAreaPolicy.FromJson((JObject)Training["ReturnToArea"]);
 				}
 				#endregion
 
