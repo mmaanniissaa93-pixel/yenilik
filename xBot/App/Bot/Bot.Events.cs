@@ -32,8 +32,9 @@ namespace xBot.App
 		{
 			ProtectionManager.ResetRuntimeState();
 
-			// Stop recording
-			isRecording = false;
+			// Stop recording (dosyaya yazıp butonları sıfırlar; doğrudan
+			// flag indirmek kayıt thread'ini hayatta bırakıyordu)
+			try { StopRecording(); } catch { isRecording = false; }
 
 			// Login hack
 			LoggedFromBot = false;
@@ -254,6 +255,9 @@ namespace xBot.App
 				try { CheckUsingHP(); } catch { }
 				try { CheckUsingMP(); } catch { }
 				try { CheckUsingVigor(); } catch { }
+				// Trace takibi: eskiden tek seferlik MoveTo idi, oyuncu uzaklaşınca
+				// bot bekliyordu. 1sn tick ile hedefe periyodik yürünür.
+				try { UpdateTraceTick(); } catch { }
 			}
 			JoinedLoopCounter++;
 		}

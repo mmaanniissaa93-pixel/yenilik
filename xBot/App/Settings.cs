@@ -377,6 +377,8 @@ namespace xBot.App
 						Misc["AcceptExchangePartyOnly"] = w.Character_cbxAcceptExchangeLeaderOnly.Checked;
 						Misc["ConfirmExchange"] = w.Character_cbxConfirmExchange.Checked;
 						Misc["ApproveExchange"] = w.Character_cbxApproveExchange.Checked;
+						Misc["AutoSwitchWeapon"] = w.Character_cbxPVPMode.Checked;
+						Misc["AutoSwitchShield"] = w.Character_cbxPVPModeUseShield.Checked;
                     }
                     #endregion
 
@@ -665,6 +667,8 @@ Window w = Window.Get;
 					w.Character_cbxAcceptExchangeLeaderOnly.Checked = Misc.ContainsKey("AcceptExchangePartyOnly") ? (bool)Misc["AcceptExchangePartyOnly"] : false;
 					w.Character_cbxConfirmExchange.Checked = Misc.ContainsKey("ConfirmExchange") ? (bool)Misc["ConfirmExchange"] : false;
 					w.Character_cbxApproveExchange.Checked = Misc.ContainsKey("ApproveExchange") ? (bool)Misc["ApproveExchange"] : false;
+					w.Character_cbxPVPMode.Checked = Misc.ContainsKey("AutoSwitchWeapon") ? (bool)Misc["AutoSwitchWeapon"] : false;
+					w.Character_cbxPVPModeUseShield.Checked = Misc.ContainsKey("AutoSwitchShield") ? (bool)Misc["AutoSwitchShield"] : false;
                 }
 				#endregion
 

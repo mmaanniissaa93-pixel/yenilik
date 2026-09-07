@@ -411,10 +411,9 @@ namespace xBot.App
                     if (InfoManager.Character.GetHPPercent() <= useHP)
                     {
                         byte slot = 0;
-                        // Referans mekanik (WinForms1): Grain tikliyse _SPOTION_ içeren,
-                        // normal tikliyse filtresiz ilk eşleşen. Exclude yok.
-                        if (w.Character_cbxUseHPGrain.Checked && FindItem(3, 1, 1, ref slot, "_SPOTION_")
-                            || w.Character_cbxUseHP.Checked && FindItem(3, 1, 1, ref slot))
+                        // En güçlü normal pot önce, Mall pot yedek (PotionPolicy).
+                        if (w.Character_cbxUseHPGrain.Checked && FindBestItem(3, 1, 1, ref slot, "_SPOTION_")
+                            || w.Character_cbxUseHP.Checked && FindBestItem(3, 1, 1, ref slot))
                         {
                             int requiredInterval = (InfoManager.Character != null && InfoManager.Character.IsEuropean()) ? 15000 : 1000;
                             if (tUsingHP.Interval != requiredInterval)
@@ -454,9 +453,9 @@ namespace xBot.App
                     if (InfoManager.Character.GetMPPercent() <= useMP)
                     {
                         byte slot = 0;
-                        // Referans mekanik (WinForms1): filtresiz ilk eşleşme, exclude yok.
-                        if (w.Character_cbxUseMPGrain.Checked && FindItem(3, 1, 2, ref slot, "_SPOTION_")
-                            || w.Character_cbxUseMP.Checked && FindItem(3, 1, 2, ref slot))
+                        // En güçlü normal pot önce, Mall pot yedek (PotionPolicy).
+                        if (w.Character_cbxUseMPGrain.Checked && FindBestItem(3, 1, 2, ref slot, "_SPOTION_")
+                            || w.Character_cbxUseMP.Checked && FindBestItem(3, 1, 2, ref slot))
                         {
                             int requiredInterval = (InfoManager.Character != null && InfoManager.Character.IsEuropean()) ? 15000 : 1000;
                             if (tUsingMP.Interval != requiredInterval)
@@ -499,8 +498,7 @@ namespace xBot.App
                     if (InfoManager.Character.GetHPPercent() <= usePercent)
                     {
                         byte slot = 0;
-                        // Referans mekanik (WinForms1): filtresiz ilk eşleşme.
-                        if (FindItem(3, 1, 3, ref slot))
+                        if (FindBestItem(3, 1, 3, ref slot))
                         {
                             PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot);
                             tUsingVigor.Start();
@@ -515,7 +513,7 @@ namespace xBot.App
                         if (InfoManager.Character.GetMPPercent() <= usePercent)
                         {
                             byte slot = 0;
-                            if (FindItem(3, 1, 3, ref slot))
+                            if (FindBestItem(3, 1, 3, ref slot))
                             {
                                 PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot);
                                 tUsingVigor.Start();

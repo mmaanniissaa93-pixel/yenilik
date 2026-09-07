@@ -33,6 +33,8 @@ namespace xBot.App
         // bot yeniden başlatılsa bile şehirdeyse döngü HER ZAMAN yapılır.
         private DateTime m_lastTownLoopFinished = DateTime.MinValue;
         private SRCoord m_lastTownLoopEndPos = null;
+        private DateTime m_lastPartyAutoTick = DateTime.MinValue;
+        private DateTime m_lastPartyMatchReform = DateTime.MinValue;
         /// <summary>
         /// Kesilebilir bekleme: Stop() çağrılırsa erken döner (uzun Sleep'lerin bloklamasını önler).
         /// </summary>
@@ -367,6 +369,18 @@ namespace xBot.App
                 w.Log("Town Loop: town script bulunamadı, atlanıyor.", Theme.LogLevel.Warning);
             }
 
+            // Town sekmesindeki "çöp sat" onayı script dışı çağrılarda da çalışsın:
+            // potion satıcısına uğranmadıysa bile envanterdeki sell-kurallı eşyalar
+            // burada elden çıkarılır (script zaten sattıysa döngü boş geçer).
+            try
+            {
+                bool sellTrash = false;
+                w.Town_cbxSellTrash.InvokeIfRequired(() => { sellTrash = w.Town_cbxSellTrash.Checked; });
+                if (sellTrash)
+                    ExecuteSellTrash();
+            }
+            catch { }
+
             w.Log("Town Loop: Logistics routine completed. Returning to training area...");
             try
             {
@@ -375,6 +389,46 @@ namespace xBot.App
                 {
                     SRCoord mp = InfoManager.Character.GetRealtimePosition();
                     w.Log($"Town Loop: Route to training area ({(int)tp.PosX},{(int)tp.PosY}) from ({(int)mp.PosX},{(int)mp.PosY}, {mp.DistanceTo(tp):F0}m)...");
+                    // ReturnNavMesh onayı: şehir çıkışında eğitim alanına NavMesh
+                    // rotasıyla (teleport/ferry dahil) dön, kapalıysa ana döngünün
+                    // düz yürüyüşüne bırak.
+                    bool useNavMesh = false;
+                    try { w.Town_cbxReturnNavMesh.InvokeIfRequired(() => { useNavMesh = w.Town_cbxReturnNavMesh.Checked; }); } catch { }
+                    if (useNavMesh && NavigationManager.Get.IsAvailable && mp != null)
+                    {
+                        try
+                        {
+                            NavigationRoute navRoute = NavigationManager.Get.FindCompoundRoute(mp, tp);
+                            if (navRoute != null && !navRoute.IsEmpty)
+                            {
+                                w.Log($"Town Loop: NavMesh dönüş rotası ({navRoute.Segments.Count} segment) uygulanıyor...");
+                                foreach (var segment in navRoute.Segments)
+                                {
+                                    if (!isBotting || m_stopBottingRequested) break;
+                                    if (segment.Type == RouteSegmentType.Walk)
+                                    {
+                                        foreach (var wp in segment.Waypoints)
+                                        {
+                                            if (!isBotting || m_stopBottingRequested) break;
+                                            SRCoord cur = InfoManager.Character.GetRealtimePosition();
+                                            if (cur != null && cur.DistanceTo(tp) <= w.TrainingArea_GetRadius())
+                                                break;
+                                            WaitMovement(wp, 12);
+                                        }
+                                    }
+                                    else if (segment.Type == RouteSegmentType.Teleport)
+                                    {
+                                        if (!ExecuteTeleportTransition(segment.TeleportLink))
+                                            break;
+                                    }
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            w.Log("Town Loop: NavMesh dönüş hatası: " + ex.Message + " — normal rotaya geçiliyor.");
+                        }
+                    }
                 }
             }
             catch { }
@@ -455,6 +509,10 @@ namespace xBot.App
 
                 // Check party support (Heal, Ress, Cure)
                 PartySupportManager.RunTick();
+
+                // Party otomasyonu botting sırasında da sürsün (önceden sadece
+                // login'de 1 kez çalışıyordu): davet + lider yoksa ayrılma.
+                CheckPartyAutoTick();
 
                 // Check auto alchemy (+ basma)
                 if (AlchemyManager.IsRunning)
@@ -1120,50 +1178,35 @@ namespace xBot.App
             return false;
         }
 
-        private bool CheckTownReturnConditions()
+        /// <summary>
+        /// Party otomasyonunu botting döngüsünde periyodik çalıştırır.
+        /// (Önceden CheckAutoParty/CheckPartyLeaving/MatchAutoReform sadece
+        /// login'de 1 kez koşuyordu; davet/reform beklentisi tick'te yoktu.)
+        /// </summary>
+        private void CheckPartyAutoTick()
         {
-            if (InfoManager.Character == null || InfoManager.Character.Inventory == null)
-                return false;
-
-            Window w = Window.Get;
-            bool checkHp = w?.Character_cbxUseHP?.Checked ?? true;
-            bool checkMp = w?.Character_cbxUseMP?.Checked ?? true;
-
-            byte hpSlot = 0;
-            bool hasHp = FindItem(3, 1, 1, ref hpSlot);
-            byte mpSlot = 0;
-            bool hasMp = FindItem(3, 1, 2, ref mpSlot);
-
-            // Count free inventory slots across full capacity
-            int freeSlots = 0;
-            var inv = InfoManager.Character.Inventory;
-            for (int i = 13; i < inv.Capacity; i++)
+            try
             {
-                if (inv[i] == null) freeSlots++;
-            }
-
-            // Return condition: No HP (if HP pot use enabled), No MP (if MP pot use enabled), or bag completely full (<= 1 slot free)
-            bool hpTrigger = checkHp && !hasHp;
-            bool mpTrigger = checkMp && !hasMp;
-            bool bagTrigger = freeSlots <= 1;
-
-            if (hpTrigger || mpTrigger || bagTrigger)
-            {
-                byte returnScrollSlot = 0;
-                if (FindItem(3, 3, 1, ref returnScrollSlot) || FindItem(3, 3, 2, ref returnScrollSlot) || FindItem(3, 3, 3, ref returnScrollSlot))
+                if (!InfoManager.inGame)
+                    return;
+                Window w = Window.Get;
+                if (w == null)
+                    return;
+                DateTime now = DateTime.Now;
+                if ((now - m_lastPartyAutoTick).TotalSeconds < 10.0)
+                    return;
+                m_lastPartyAutoTick = now;
+                try { CheckPartyLeaving(); } catch { }
+                try { CheckAutoParty(); } catch { }
+                bool autoReform = false;
+                try { w.Party_cbxMatchAutoReform.InvokeIfRequired(() => { autoReform = w.Party_cbxMatchAutoReform.Checked; }); } catch { }
+                if (autoReform && (now - m_lastPartyMatchReform).TotalMinutes >= 1.0)
                 {
-                    Window.Get?.Log($"Town Return: Logistic trigger! (HP Pots={hasHp} [check={checkHp}], MP Pots={hasMp} [check={checkMp}], Free Slots={freeSlots}/{inv.Capacity - 13}). Using Return Scroll...");
-                    SRItem scrollItem = inv[returnScrollSlot];
-                    PacketBuilder.UseItem(scrollItem, returnScrollSlot);
-                    SleepInterruptible(5000);
-                    return true;
-                }
-                else
-                {
-                    Window.Get?.LogProcess($"Town Return: Conditions met (HP={hasHp}, MP={hasMp}, Free={freeSlots}), but no Return Scroll found!", Window.ProcessState.Warning);
+                    m_lastPartyMatchReform = now;
+                    try { CheckPartyMatchAutoReform(); } catch { }
                 }
             }
-            return false;
+            catch { }
         }
 
         public void ExecuteStorageDeposit()
@@ -1777,14 +1820,14 @@ namespace xBot.App
                 return;
 
             SRTypes.Weapon weapon = GetMyWeaponType();
-            bool isBow = (weapon == SRTypes.Weapon.Bow);
-            bool isCrossbow = (weapon == SRTypes.Weapon.Crossbow);
-            if (!isBow && !isCrossbow)
-                return;
-
+            // Ölü policy canlandırıldı: eşik/slot kararı TownLogisticsPolicy'den.
             int currentAmmo = CountEquippedAndInventoryAmmo();
-            if (currentAmmo >= 1000)
+            if (!TownLogisticsPolicy.ShouldBuyAmmo((int)weapon, currentAmmo))
                 return;
+            AmmoType ammoType = TownLogisticsPolicy.GetAmmoType((int)weapon);
+            if (ammoType == AmmoType.None)
+                return;
+            bool isBow = (ammoType == AmmoType.Arrow);
 
             SRCoord myPosition = InfoManager.Character.GetRealtimePosition();
             TownServiceInfo grocery = TownManager.Get.FindNearestService(myPosition, TownServiceType.GroceryMerchant);
@@ -1809,7 +1852,7 @@ namespace xBot.App
                 WaitSelectEntity(groceryNpc.UniqueID, 8, 250, "Selecting Grocery Merchant...");
                 Thread.Sleep(500);
 
-                byte shopSlot = isBow ? (byte)0 : (byte)1;
+                byte shopSlot = TownLogisticsPolicy.GetAmmoShopSlot(ammoType);
                 string ammoName = isBow ? "Arrows" : "Bolts";
                 w.LogProcess($"Auto Buy: Purchasing {ammoName} from {groceryNpc.Name}...");
                 // Buy 2 stacks of ammunition

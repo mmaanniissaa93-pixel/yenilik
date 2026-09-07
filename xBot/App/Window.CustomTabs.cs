@@ -219,6 +219,7 @@ namespace xBot.App
                 BuildProtectionTabWidgets();
                 BuildItemFilterWidgets();
                 BuildPickFilterTabs();
+                WireDeadUiControls();
                 StartGameInfoLiveTimer();
                 ApplyLanguageToWindow();
                 ApplyModernTheme();
@@ -227,6 +228,46 @@ namespace xBot.App
             catch (Exception ex)
             {
                 Log("[Custom UI Init Error] " + ex.Message);
+            }
+        }
+        /// <summary>
+        /// Designer'da Click/CheckedChanged atanmamış ama backend'i olan
+        /// kontrolleri bot motoruna bağlar (kayıt butonları, depo sıralama,
+        /// PVP ve Town onay kutuları). Çift aboneliği engeller.
+        /// </summary>
+        private void WireDeadUiControls()
+        {
+            try
+            {
+                if (Training_btnRecordStartStop != null)
+                {
+                    Training_btnRecordStartStop.Click -= Control_Click;
+                    Training_btnRecordStartStop.Click += Control_Click;
+                }
+                if (Training_btnRecordPause != null)
+                {
+                    Training_btnRecordPause.Click -= Control_Click;
+                    Training_btnRecordPause.Click += Control_Click;
+                }
+                if (Inventory_btnStorageSort != null)
+                    Inventory_btnStorageSort.Enabled = true;
+                System.Windows.Forms.CheckBox[] autoSaveBoxes = new System.Windows.Forms.CheckBox[]
+                {
+                    Character_cbxPVPMode, Character_cbxPVPModeUseShield,
+                    Town_cbxEnableTownLoop, Town_cbxRepair, Town_cbxStorage,
+                    Town_cbxSellTrash, Town_cbxReturnNavMesh, Town_cbxAutoBuy,
+                    Town_cbxBuyPills
+                };
+                foreach (var cbx in autoSaveBoxes)
+                {
+                    if (cbx == null) continue;
+                    cbx.CheckedChanged -= Control_CheckedChanged;
+                    cbx.CheckedChanged += Control_CheckedChanged;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log("[UI Wire Error] " + ex.Message);
             }
         }
         private Timer _gameInfoLiveTimer;

@@ -59,6 +59,10 @@ namespace xBot.App
 		/// Check if bot is recording a walking script.
 		/// </summary>
 		public bool isRecording { get; private set; }
+		private Thread tRecording;
+		private volatile bool m_stopRecordingRequested;
+		private volatile bool m_recordingPaused;
+		private readonly System.Collections.Generic.List<string> m_recordedLines = new System.Collections.Generic.List<string>();
 
 		private Bot()
 		{
@@ -421,6 +425,39 @@ namespace xBot.App
 			}
 			return false;
 		}
+		private DateTime m_lastTraceMove = DateTime.MinValue;
+		/// <summary>
+		/// Trace hedefini periyodik takip eder (OnLoop ~1sn tick'ten çağrılır).
+		/// Eskiden sadece isim yazıldığında tek MoveTo vardı; hedef uzaklaşınca
+		/// bot bekliyordu. 20m'den uzaksa ve 2sn geçtiyse yeniden yürünür.
+		/// </summary>
+		public void UpdateTraceTick()
+		{
+			if (!inTrace || !InfoManager.inGame || string.IsNullOrEmpty(TracePlayerName))
+				return;
+			if ((DateTime.Now - m_lastTraceMove).TotalSeconds < 2.0)
+				return;
+			SRPlayer player = null;
+			try { player = InfoManager.Players[TracePlayerName]; } catch { return; }
+			if (player == null)
+				return;
+			SRCoord target = null, me = null;
+			try
+			{
+				target = player.GetRealtimePosition();
+				me = InfoManager.Character.GetRealtimePosition();
+			}
+			catch { return; }
+			if (target == null || me == null)
+				return;
+			double dist;
+			try { dist = me.DistanceTo(target); } catch { return; }
+			if (dist > 20.0)
+			{
+				m_lastTraceMove = DateTime.Now;
+				try { MoveTo(target); } catch { }
+			}
+		}
 		/// <summary>
 		/// Move the character to the position specified.
 		/// </summary>
@@ -709,9 +746,198 @@ namespace xBot.App
 					w.Inventory_btnItemsSort.ForeColor = (System.Drawing.Color)w.Inventory_btnItemsSort.Tag;
 					w.Inventory_btnItemsSort.Tag = null;
 				});
+				w.Inventory_btnStorageSort.InvokeIfRequired(() => {
+					if (w.Inventory_btnStorageSort.Tag != null)
+					{
+						w.Inventory_btnStorageSort.ForeColor = (System.Drawing.Color)w.Inventory_btnStorageSort.Tag;
+						w.Inventory_btnStorageSort.Tag = null;
+					}
+				});
 				return true;
 			}
 			return false;
+		}
+		/// <summary>
+		/// Depodaki bölünebilir eşyaları birleştirir (InventorySort'un depo karşılığı).
+		/// UI'daki Inventory_btnStorageSort butonunun backend'idir.
+		/// </summary>
+		public bool StartStorageSort()
+		{
+			if (InfoManager.inGame && !isSorting && InfoManager.Character.Storage != null)
+			{
+				m_stopSortingRequested = false;
+				tSorting = new Thread(StorageSort);
+				tSorting.IsBackground = true;
+				tSorting.Priority = ThreadPriority.BelowNormal;
+				tSorting.Start();
+
+				Window w = Window.Get;
+				w.Inventory_btnStorageSort.InvokeIfRequired(() => {
+					w.Inventory_btnStorageSort.Tag = w.Inventory_btnStorageSort.ForeColor;
+					w.Inventory_btnStorageSort.ForeColor = System.Drawing.Color.FromArgb(0, 180, 255);
+				});
+				return true;
+			}
+			return false;
+		}
+		public void StorageSort()
+		{
+			Window w = Window.Get;
+			bool sort = true;
+			while (InfoManager.inGame && sort && !m_stopSortingRequested)
+			{
+				sort = false;
+				xList<SRItem> storage = InfoManager.Character.Storage;
+				if (storage == null)
+					break;
+				for (int j = storage.Capacity - 1; j >= 0; j--)
+				{
+					if (storage[j] != null && storage[j].QuantityMax != 1)
+					{
+						ushort quantityInitial = storage[j].Quantity;
+						ushort quantityMax = storage[j].QuantityMax;
+						if (quantityInitial < quantityMax)
+						{
+							for (int k = 0; k < j; k++)
+							{
+								if (storage[j] == null)
+									break;
+								if (storage[k] != null && storage[k].ID == storage[j].ID)
+								{
+									ushort quantityFinal = storage[k].Quantity;
+									if (quantityFinal < quantityMax)
+									{
+										w.LogProcess("Sorting storage (" + j + ") -> (" + k + ") ...");
+										ushort quantityMaxMoved = (ushort)(quantityMax - quantityFinal);
+										byte from = (byte)j, to = (byte)k;
+										if (quantityInitial <= quantityMaxMoved)
+											PacketBuilder.MoveItem(from, to, SRTypes.InventoryItemMovement.StorageToStorage, quantityInitial);
+										else
+										{
+											PacketBuilder.MoveItem(from, to, SRTypes.InventoryItemMovement.StorageToStorage, quantityMaxMoved);
+											j++;
+										}
+										sort = true;
+										InfoManager.MonitorInventoryMovement.WaitOne(1000);
+										break;
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+			w.Inventory_btnStorageSort.InvokeIfRequired(() => {
+				if (w.Inventory_btnStorageSort.Tag != null)
+				{
+					w.Inventory_btnStorageSort.ForeColor = (System.Drawing.Color)w.Inventory_btnStorageSort.Tag;
+					w.Inventory_btnStorageSort.Tag = null;
+				}
+			});
+			w.LogProcess("Storage sorting completed");
+			tSorting = null;
+		}
+		/// <summary>
+		/// Yürüme kaydı (Training > Script sekmesindeki START/PAUSE/STOP).
+		/// Konum her ~1.2sn'de örneklenir, 8m'den fazla hareket varsa
+		/// "MOVE,Region,X,Y,Z" satırı Training_rtbxRecordOutput'a eklenir.
+		/// STOP'ta kayıt Scripts\\record_*.txt dosyasına yazılır.
+		/// </summary>
+		public bool StartRecording()
+		{
+			if (isRecording || !InfoManager.inGame)
+				return false;
+			m_stopRecordingRequested = false;
+			m_recordingPaused = false;
+			lock (m_recordedLines) { m_recordedLines.Clear(); }
+			isRecording = true;
+			tRecording = new Thread(RecordingLoop);
+			tRecording.IsBackground = true;
+			tRecording.Priority = ThreadPriority.BelowNormal;
+			tRecording.Start();
+			Window w = Window.Get;
+			w.Log("Walk kaydı başladı (8m adım aralığı).");
+			WinAPI.InvokeIfRequired(w.Training_btnRecordStartStop, () => { w.Training_btnRecordStartStop.Text = "STOP"; });
+			WinAPI.InvokeIfRequired(w.Training_btnRecordPause, () => { w.Training_btnRecordPause.Enabled = true; w.Training_btnRecordPause.Text = "PAUSE"; });
+			return true;
+		}
+		public void PauseResumeRecording()
+		{
+			if (!isRecording)
+				return;
+			m_recordingPaused = !m_recordingPaused;
+			Window w = Window.Get;
+			bool paused = m_recordingPaused;
+			WinAPI.InvokeIfRequired(w.Training_btnRecordPause, () => { w.Training_btnRecordPause.Text = paused ? "RESUME" : "PAUSE"; });
+			w.Log(paused ? "Walk kaydı duraklatıldı." : "Walk kaydı devam ediyor.");
+		}
+		public void StopRecording()
+		{
+			if (!isRecording)
+				return;
+			m_stopRecordingRequested = true;
+			Thread t = tRecording;
+			tRecording = null;
+			try { if (t != null && t.IsAlive && t != Thread.CurrentThread) t.Join(1500); } catch { }
+			isRecording = false;
+			Window w = Window.Get;
+			string path = "";
+			try
+			{
+				if (!Directory.Exists("Scripts"))
+					Directory.CreateDirectory("Scripts");
+				path = "Scripts\\record_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".txt";
+				string[] lines;
+				lock (m_recordedLines) { lines = m_recordedLines.ToArray(); }
+				File.WriteAllLines(path, lines);
+				w.Log("Walk kaydı durdu: " + lines.Length + " nokta -> " + path);
+			}
+			catch (Exception ex)
+			{
+				w.Log("Walk kaydı yazılamadı: " + ex.Message);
+			}
+			WinAPI.InvokeIfRequired(w.Training_btnRecordStartStop, () => { w.Training_btnRecordStartStop.Text = "START"; });
+			WinAPI.InvokeIfRequired(w.Training_btnRecordPause, () => { w.Training_btnRecordPause.Enabled = false; w.Training_btnRecordPause.Text = "PAUSE"; });
+		}
+		private void RecordingLoop()
+		{
+			Window w = Window.Get;
+			SRCoord last = null;
+			try { last = InfoManager.Character.GetRealtimePosition(); } catch { }
+			if (last != null)
+				AppendRecordLine(w, last);
+			while (!m_stopRecordingRequested)
+			{
+				try { Thread.Sleep(1200); } catch { break; }
+				if (m_stopRecordingRequested)
+					break;
+				if (m_recordingPaused || !InfoManager.inGame)
+					continue;
+				SRCoord cur = null;
+				try { cur = InfoManager.Character.GetRealtimePosition(); } catch { continue; }
+				if (cur == null || last == null)
+				{
+					last = cur;
+					continue;
+				}
+				double dist;
+				try { dist = cur.DistanceTo(last); } catch { continue; }
+				if (dist >= 8.0)
+				{
+					last = cur;
+					AppendRecordLine(w, cur);
+				}
+			}
+		}
+		private void AppendRecordLine(Window w, SRCoord pos)
+		{
+			try
+			{
+				string line = "MOVE," + pos.Region + "," + pos.X + "," + pos.Y + "," + pos.Z;
+				lock (m_recordedLines) { m_recordedLines.Add(line); }
+				try { if (w != null) w.Training_RecordAppend(line); } catch { }
+			}
+			catch { }
 		}
 
 		#endregion

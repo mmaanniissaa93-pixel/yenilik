@@ -314,6 +314,19 @@ namespace xBot.App
 				System.Diagnostics.Debug.WriteLine("[Window.LogPacket] " + ex.Message);
 			}
 		}
+		/// <summary>
+		/// Walk kaydından gelen satırı kayıt çıktısına ekler (private kontrole dış erişim).
+		/// </summary>
+		public void Training_RecordAppend(string line)
+		{
+			try
+			{
+				Training_rtbxRecordOutput.InvokeIfRequired(() => {
+					try { Training_rtbxRecordOutput.AppendText(line + System.Environment.NewLine); } catch { }
+				});
+			}
+			catch { }
+		}
 		public void LogChatMessage(RichTextBox chat, string player, string message)
 		{
 			try
@@ -1150,8 +1163,9 @@ namespace xBot.App
 					});
 				}
 				Guild_lblStorageCapacity.InvokeIfRequired(() => {
-					Guild_lblStorageCapacity.Text = "Capacity : " + storage.Count + "/" + storage.Capacity;
+					Guild_lblStorageCapacity.Text = "Capacity : " + storage.Count + "/" + storage.Capacity + " (salt-okunur)";
 				});
+				Log("Guild deposu salt-okunur listelendi: transfer paketleri bu server sürümünde doğrulanmadığı için taşıma kapalı.");
 			}
 			else
 			{
@@ -2184,6 +2198,29 @@ namespace xBot.App
 							b.StartInventorySort();
 					}
 					break;
+				case "Inventory_btnStorageSort":
+					{
+						Bot b = Bot.Get;
+						if (b.isSorting)
+							b.StopInventorySort();
+						else if (!b.StartStorageSort())
+							Log("Storage sıralama başlatılamadı (oyunda değilsin ya da depo yüklenmedi).");
+					}
+					break;
+				case "Training_btnRecordStartStop":
+					{
+						Bot b = Bot.Get;
+						if (b.isRecording)
+							b.StopRecording();
+						else
+							b.StartRecording();
+					}
+					break;
+				case "Training_btnRecordPause":
+					{
+						Bot.Get.PauseResumeRecording();
+					}
+					break;
 				case "Inventory_btnAvatarItemsRefresh":
 					if (c.Tag == null)
 					{
@@ -2985,6 +3022,17 @@ namespace xBot.App
 				case "Training_cbxWalkToCenter":
 				case "Training_cbxTraceMaster":
 				case "Training_cbxTraceDistance":
+					Settings.SaveCharacterSettings();
+					break;
+				case "Character_cbxPVPMode":
+				case "Character_cbxPVPModeUseShield":
+				case "Town_cbxEnableTownLoop":
+				case "Town_cbxRepair":
+				case "Town_cbxStorage":
+				case "Town_cbxSellTrash":
+				case "Town_cbxReturnNavMesh":
+				case "Town_cbxAutoBuy":
+				case "Town_cbxBuyPills":
 					Settings.SaveCharacterSettings();
 					break;
 				case "Settings_cbxRandomHost":
