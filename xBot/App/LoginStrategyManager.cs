@@ -20,6 +20,17 @@ namespace xBot.App
         public static int LoginDelaySeconds { get; set; } = 5;
         public static int WaitAfterDCMinutes { get; set; } = 2;
         public static bool AutoStartBot { get; set; } = false;
+        /// <summary>
+        /// DC sonrası client otomatik yeniden açılsın mı? Kapalıysa kullanıcı
+        /// START'a basmadan client açılmaz (varsayılan: kapalı).
+        /// </summary>
+        public static bool AutoRelogin { get; set; } = false;
+        /// <summary>
+        /// Bot açılışında (komut satırı oto-giriş dahil) START'a basılmadan
+        /// client otomatik açılsın mı? Kapalıysa ilk client yalnızca kullanıcı
+        /// START'a basınca açılır (varsayılan: kapalı).
+        /// </summary>
+        public static bool AutoStartClient { get; set; } = false;
         public static bool AutoHideClient { get; set; } = false;
         public static bool StayConnected { get; set; } = true; // Failover
         public static CharacterSelectionStrategy Strategy { get; set; } = CharacterSelectionStrategy.FirstFound;
@@ -55,6 +66,8 @@ namespace xBot.App
             json["LoginDelaySeconds"] = LoginDelaySeconds;
             json["WaitAfterDCMinutes"] = WaitAfterDCMinutes;
             json["AutoStartBot"] = AutoStartBot;
+            json["AutoRelogin"] = AutoRelogin;
+            json["AutoStartClient"] = AutoStartClient;
             json["AutoHideClient"] = AutoHideClient;
             json["StayConnected"] = StayConnected;
             json["Strategy"] = (int)Strategy;
@@ -74,6 +87,9 @@ namespace xBot.App
             if (json.ContainsKey("LoginDelaySeconds")) LoginDelaySeconds = (int)json["LoginDelaySeconds"];
             if (json.ContainsKey("WaitAfterDCMinutes")) WaitAfterDCMinutes = (int)json["WaitAfterDCMinutes"];
             if (json.ContainsKey("AutoStartBot")) AutoStartBot = (bool)json["AutoStartBot"];
+            if (json.ContainsKey("AutoRelogin")) AutoRelogin = (bool)json["AutoRelogin"];
+            // else: varsayılan kapalı kalır — DC sonrası oto açılış için açık onay gerekir.
+            if (json.ContainsKey("AutoStartClient")) AutoStartClient = (bool)json["AutoStartClient"];
             if (json.ContainsKey("AutoHideClient")) AutoHideClient = (bool)json["AutoHideClient"];
             if (json.ContainsKey("StayConnected")) StayConnected = (bool)json["StayConnected"];
             if (json.ContainsKey("Strategy")) Strategy = (CharacterSelectionStrategy)(int)json["Strategy"];

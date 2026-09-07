@@ -881,8 +881,10 @@ namespace xBot.Network
 			DataManager.DisconnectDatabase();
 			w.Log("Disconnected");
 			w.LogProcess("Disconnected");
-			// Relogin
-			if (w.Login_cbxRelogin.Checked || LoginStrategyManager.AutomatedLogin)
+			// Relogin — SADECE açık onay varsa: login ekranındaki Relogin tiki
+			// veya ayarlardaki oto-yeniden-bağlanma. "Otomatik Giriş" tiki tek
+			// başına client açmaz (kullanıcı START'a basmadan işlem yok).
+			if (w.Login_cbxRelogin.Checked || LoginStrategyManager.AutoRelogin)
 			{
 				System.Timers.Timer Relogin = new System.Timers.Timer(1000);
 				Relogin.AutoReset = false;
@@ -899,7 +901,7 @@ namespace xBot.Network
 			try
 			{
 				Window w = Window.Get;
-				if ((w.Login_cbxRelogin.Checked || LoginStrategyManager.AutomatedLogin) && !Bot.Get.Proxy.isRunning)
+				if ((w.Login_cbxRelogin.Checked || LoginStrategyManager.AutoRelogin) && !Bot.Get.Proxy.isRunning)
 				{
 					// Her tick tam 1 saniye: modulo kayması yok
 					ReloginCountdown--;

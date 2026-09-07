@@ -87,6 +87,8 @@ namespace xBot.App
         private CheckBox cbxGeneralAutoStart;
         private CheckBox cbxGeneralAutoHide;
         private CheckBox cbxGeneralStayConnected;
+        private CheckBox cbxGeneralAutoRelogin;
+        private CheckBox cbxGeneralAutoStartClient;
         private NumericUpDown nudGeneralLoginDelay;
         private NumericUpDown nudGeneralWaitAfterDC;
         private RadioButton rbnGeneralFirstFound;
@@ -216,9 +218,11 @@ namespace xBot.App
                 BuildSkillsTabWidgets();
                 BuildProtectionTabWidgets();
                 BuildItemFilterWidgets();
+                BuildPickFilterTabs();
                 StartGameInfoLiveTimer();
                 ApplyLanguageToWindow();
                 ApplyModernTheme();
+                ApplyPickFilterLightTheme();
             }
             catch (Exception ex)
             {
@@ -409,6 +413,11 @@ namespace xBot.App
             if (ToolTips != null)
                 ToolTips.SetToolTip(cbxGeneralStayConnected, "İstemci aniden çökerse sunucu bağlantısını koparmadan Clientless moda geçer");
 
+            cbxGeneralAutoRelogin = new CheckBox { Text = "DC Sonrası Otomatik Yeniden Bağlan", Location = new Point(560, 128), AutoSize = true, Checked = LoginStrategyManager.AutoRelogin, ForeColor = Theme.DarkTheme.TextPrimary };
+            cbxGeneralAutoRelogin.CheckedChanged += (s, e) => { LoginStrategyManager.AutoRelogin = cbxGeneralAutoRelogin.Checked; Settings.SaveBotSettings(); };
+            if (ToolTips != null)
+                ToolTips.SetToolTip(cbxGeneralAutoRelogin, "Kapalıysa DC sonrası client kendiliğinden açılmaz, START'a basman gerekir");
+
             lblGeneralCharStrategy = new Label { Text = LocalizationManager.Get("UI_CharSelectStrategy", "Karakter Seçim Stratejisi:"), Location = new Point(16, 178), AutoSize = true, ForeColor = Theme.DarkTheme.TextMuted };
             rbnGeneralFirstFound = new RadioButton { Text = LocalizationManager.Get("UI_StrategyFirst", "İlk Bulunan Karakter"), Location = new Point(180, 176), AutoSize = true, Checked = (LoginStrategyManager.Strategy == CharacterSelectionStrategy.FirstFound), ForeColor = Theme.DarkTheme.TextPrimary };
             rbnGeneralHighestLevel = new RadioButton { Text = LocalizationManager.Get("UI_StrategyHighest", "En Yüksek Seviyeli Karakter"), Location = new Point(410, 176), AutoSize = true, Checked = (LoginStrategyManager.Strategy == CharacterSelectionStrategy.HighestLevel), ForeColor = Theme.DarkTheme.Warning };
@@ -425,12 +434,17 @@ namespace xBot.App
                 Font = Theme.DarkTheme.FontCaption
             };
 
+            cbxGeneralAutoStartClient = new CheckBox { Text = "Bot Açılışında Client Otomatik Başlat", Location = new Point(16, 282), AutoSize = true, Checked = LoginStrategyManager.AutoStartClient, ForeColor = Theme.DarkTheme.TextPrimary };
+            cbxGeneralAutoStartClient.CheckedChanged += (s, e) => { LoginStrategyManager.AutoStartClient = cbxGeneralAutoStartClient.Checked; Settings.SaveBotSettings(); };
+            if (ToolTips != null)
+                ToolTips.SetToolTip(cbxGeneralAutoStartClient, "Kapalıysa bot açılışında START'a basmadan client açılmaz");
+
             gbxStrategy.Controls.AddRange(new Control[] {
-                cbxGeneralAutoLogin, cbxGeneralAutoStart, cbxGeneralAutoHide,
+                cbxGeneralAutoLogin, cbxGeneralAutoStart, cbxGeneralAutoHide, cbxGeneralAutoStartClient,
                 cbxGeneralStaticCaptcha, tbxGeneralStaticCaptchaCode,
                 lblGeneralLoginDelay, nudGeneralLoginDelay, lblLoginDelaySec,
                 lblGeneralWaitDC, nudGeneralWaitAfterDC, lblWaitDCMin,
-                cbxGeneralStayConnected,
+                cbxGeneralStayConnected, cbxGeneralAutoRelogin,
                 lblGeneralCharStrategy, rbnGeneralFirstFound, rbnGeneralHighestLevel,
                 lblGeneralStrategyInfo
             });
@@ -542,6 +556,7 @@ namespace xBot.App
             if (nudGeneralWaitAfterDC != null) { nudGeneralWaitAfterDC.Location = new Point(190, 126); nudGeneralWaitAfterDC.Size = new Size(65, 24); }
             if (lblWaitDCMin != null) { lblWaitDCMin.Location = new Point(260, 130); lblWaitDCMin.AutoSize = true; }
             if (cbxGeneralStayConnected != null) { cbxGeneralStayConnected.Location = new Point(300, 128); cbxGeneralStayConnected.AutoSize = true; }
+            if (cbxGeneralAutoRelogin != null) { cbxGeneralAutoRelogin.Location = new Point(560, 128); cbxGeneralAutoRelogin.AutoSize = true; }
 
             // Row 4: Character Selection Strategy
             if (lblGeneralCharStrategy != null) { lblGeneralCharStrategy.Location = new Point(16, 178); lblGeneralCharStrategy.AutoSize = true; }
@@ -725,6 +740,14 @@ namespace xBot.App
 
         private void ScheduleAutomatedLogin()
         {
+            // Kullanıcı START'a basmadan client açılmaz — komut satırı modunda
+            // bile açık onay (Bot açılışında otomatik başlat) gerekir.
+            if (!LoginStrategyManager.AutoStartClient)
+            {
+                if (automatedLoginTimer != null)
+                    automatedLoginTimer.Stop();
+                return;
+            }
             // Only automated command-line launches (/sro ... /user ... /pass ...)
             // should programmatically auto-click the START button.
             // In regular UI usage, the user selects their account and clicks START.
@@ -2609,6 +2632,8 @@ namespace xBot.App
                 SetProtectionCheck(cbxGeneralAutoStart, LoginStrategyManager.AutoStartBot);
                 SetProtectionCheck(cbxGeneralAutoHide, LoginStrategyManager.AutoHideClient);
                 SetProtectionCheck(cbxGeneralStayConnected, LoginStrategyManager.StayConnected);
+                SetProtectionCheck(cbxGeneralAutoRelogin, LoginStrategyManager.AutoRelogin);
+                SetProtectionCheck(cbxGeneralAutoStartClient, LoginStrategyManager.AutoStartClient);
                 if (rbnGeneralFirstFound != null)
                     rbnGeneralFirstFound.Checked = (LoginStrategyManager.Strategy == CharacterSelectionStrategy.FirstFound);
                 if (rbnGeneralHighestLevel != null)

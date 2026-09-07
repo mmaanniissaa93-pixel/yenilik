@@ -110,7 +110,7 @@ namespace xBot.App
 			Settings_cmbxCreateCharRace.SelectedIndex =
 			Settings_cmbxCreateCharGenre.SelectedIndex =
 			Settings_cmbxInjectTo.SelectedIndex = 0;
-			TabPageH_Option_Click(this.TabPageH_Town_Option01, null);
+			TabPageH_Option_Click(this.TabPageH_Town_Option03, null);
 			Town_cmbxHpType.SelectedIndex = 3;
 			Town_cmbxMpType.SelectedIndex = 3;
 
@@ -1973,6 +1973,7 @@ namespace xBot.App
 			LogProcess();
 			Settings.LoadBotSettings();
 			ApplyModernTheme();
+			try { ApplyPickFilterLightTheme(); } catch { }
 			PopulateSavedAccounts();
 			// Load basic
 			LoadCommandLine();

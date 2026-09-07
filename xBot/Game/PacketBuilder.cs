@@ -1055,6 +1055,13 @@ namespace xBot.Game
 			p.WriteByte(0);
 			Bot.Get.Proxy.Agent.InjectToServer(p);
 		}
+		public static void MoveGold(SRTypes.InventoryItemMovement type, ulong amount)
+		{
+			Packet p = new Packet(Agent.Opcode.CLIENT_INVENTORY_ITEM_MOVEMENT);
+			p.WriteByte(type);
+			p.WriteULong(amount);
+			Bot.Get.Proxy.Agent.InjectToServer(p);
+		}
 		public static void BuyItemFromShop(byte tabNumber, byte tabSlot, ushort quantity, uint npcUniqueID)
 		{
 			Packet p = new Packet(Agent.Opcode.CLIENT_INVENTORY_ITEM_MOVEMENT);

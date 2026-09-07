@@ -508,6 +508,15 @@ namespace xBot.App
                         }
                     }
 
+                    // Pick Filter: "Pick items first" — yerde toplanacak eşya varsa
+                    // yeni mob seçmeden önce topla.
+                    if (ItemFilterManager.Pick.PickItemsFirst && HasLootableDrops())
+                    {
+                        w.LogProcess("Pick items first: looting before next attack...");
+                        LootDrops(trainingPosition, trainingRadius);
+                        continue;
+                    }
+
                     SRMob mob = GetMobFiltered(mobs, trainingPosition, trainingRadius);
                     if (mob == null)
                     {
@@ -1257,6 +1266,109 @@ namespace xBot.App
                     }
                 }
             }
+
+            ReportUnhandledFilterItems(w);
+        }
+
+        /// <summary>
+        /// StoreGuild / Dismantle kurallarına takılan eşyaları raporlar.
+        /// (Guild deposu açma ve dismantle paketleri bu server sürümünde doğrulanmadığı
+        /// için motor bunları uygulamaz — sadece sayı verir, eşya çantada kalır.)
+        /// </summary>
+        private void ReportUnhandledFilterItems(Window w)
+        {
+            if (!isBotting || InfoManager.Character == null || InfoManager.Character.Inventory == null)
+                return;
+            try
+            {
+                int guildCount = 0, dismantleCount = 0;
+                var inv = InfoManager.Character.Inventory;
+                for (int i = 13; i < inv.Capacity; i++)
+                {
+                    var item = inv[i];
+                    if (item == null)
+                        continue;
+                    try
+                    {
+                        if (ItemFilterManager.ShouldStoreGuild(item))
+                            guildCount++;
+                        else if (ItemFilterManager.ShouldDismantle(item))
+                            dismantleCount++;
+                    }
+                    catch { }
+                }
+                if (guildCount > 0)
+                    w.Log($"StoreGuild: {guildCount} eşya guild deposu istiyor (bu sürümde desteklenmiyor, çantada bırakıldı).");
+                if (dismantleCount > 0)
+                    w.Log($"Dismantle: {dismantleCount} eşya söküm istiyor (bu sürümde desteklenmiyor, çantada bırakıldı).");
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// Store Gold sekmesi: depo penceresi AÇIKKEN çağrılmalı.
+        /// </summary>
+        public void ExecuteStoreGold()
+        {
+            Window w = Window.Get;
+            var opt = ItemFilterManager.StoreGold;
+            if (opt == null || !opt.Enabled)
+                return;
+            if (InfoManager.Character == null || !isBotting)
+                return;
+            try
+            {
+                ulong invGold = InfoManager.Character.Gold;
+                ulong storGold = InfoManager.Character.StorageGold;
+
+                // 1. Depoya altın koy (keep üstü).
+                if (opt.StoreGoldInStorage && invGold > opt.GoldKeepAmount)
+                {
+                    ulong amount = invGold - opt.GoldKeepAmount;
+                    if (opt.StoreGoldMax > 0 && storGold + amount > opt.StoreGoldMax)
+                    {
+                        if (storGold >= opt.StoreGoldMax)
+                            amount = 0;
+                        else
+                            amount = opt.StoreGoldMax - storGold;
+                    }
+                    if (amount > 0)
+                    {
+                        w.Log($"Store Gold: depoya {amount} altın konuyor...");
+                        InfoManager.MonitorInventoryMovement.Reset();
+                        PacketBuilder.MoveGold(SRTypes.InventoryItemMovement.InventoryGoldToStorage, amount);
+                        InfoManager.MonitorInventoryMovement.WaitOne(2000);
+                        Thread.Sleep(400);
+                    }
+                }
+
+                // 2. Depodan altın al (keep altı).
+                if (opt.TakeGoldFromStorage)
+                {
+                    invGold = InfoManager.Character.Gold;
+                    storGold = InfoManager.Character.StorageGold;
+                    if (invGold < opt.GoldKeepAmount && storGold > 0)
+                    {
+                        ulong need = opt.GoldKeepAmount - invGold;
+                        ulong amount = need < storGold ? need : storGold;
+                        if (amount > 0)
+                        {
+                            w.Log($"Store Gold: depodan {amount} altın alınıyor...");
+                            InfoManager.MonitorInventoryMovement.Reset();
+                            PacketBuilder.MoveGold(SRTypes.InventoryItemMovement.StorageGoldToInventory, amount);
+                            InfoManager.MonitorInventoryMovement.WaitOne(2000);
+                            Thread.Sleep(400);
+                        }
+                    }
+                }
+
+                if (opt.TakeGoldFromGuildStorage || opt.StoreGoldInGuildStorage)
+                    w.Log("Store Gold: guild deposu altını bu sürümde desteklenmiyor, atlandı.");
+            }
+            catch (Exception ex)
+            {
+                w.LogProcess("Store Gold hatası: " + ex.Message, Window.ProcessState.Warning);
+            }
         }
 
         public void ExecuteSellTrash()
@@ -1277,6 +1389,10 @@ namespace xBot.App
 				bool isDefaultTrash = item is SREquipable eq
 					&& eq.GetRarity() == SREquipable.Rarity.None
 					&& !eq.isJob() && !eq.isAvatar();
+
+				// "Do not sell items with plus >=" koruması (kural + varsayılan satışı da kapsar).
+				if (ItemFilterManager.Pick.NoSellPlusEnabled && item is SREquipable eqPlus && eqPlus.Plus >= ItemFilterManager.Pick.NoSellPlus)
+					continue;
 
 				// Explicit sell rules apply to every inventory item. Store has
 				// precedence when both flags are enabled for the same rule.
@@ -1322,6 +1438,69 @@ namespace xBot.App
             EnsureMainWeapon();
         }
 
+        /// <summary>
+        /// Pick Filter: yerdeki toplanabilir eşya var mı? (Pick items first için hızlı tarama)
+        /// Karakter listesi (Pick) VEYA pet listesi (Pet) doluysa true.
+        /// </summary>
+        private bool HasLootableDrops()
+        {
+            try
+            {
+                if (InfoManager.Character == null)
+                    return false;
+                if (ItemFilterManager.Pick.DontPickItems)
+                    return false;
+                SRCoord myPos = InfoManager.Character.GetRealtimePosition();
+                if (myPos == null)
+                    return false;
+                for (int i = 0; i < InfoManager.Entities.Count; i++)
+                {
+                    SREntity entity = null;
+                    try { entity = InfoManager.Entities.GetAt(i); } catch { continue; }
+                    if (entity is SRDrop drop)
+                    {
+                        try
+                        {
+                            if (drop.GetRealtimePosition().DistanceTo(myPos) > 30.0)
+                                continue;
+                            if (ItemFilterManager.ShouldPickup(drop))
+                                return true;
+                            if (IsPetWanted(drop))
+                                return true;
+                        }
+                        catch { }
+                    }
+                }
+            }
+            catch { }
+            return false;
+        }
+
+        /// <summary>
+        /// Bu damla pet listesinde mi? (Pet=Yes ve pet müsait/dolu değil)
+        /// </summary>
+        private bool IsPetWanted(SRDrop drop)
+        {
+            try
+            {
+                if (drop == null || !ItemFilterManager.Pick.UsePickPet)
+                    return false;
+                SRCoService pet = null;
+                try { pet = InfoManager.MyPets.Find(p => p.isPickPet()); } catch { }
+                if (pet == null)
+                    return false;
+                bool full = false;
+                try
+                {
+                    full = pet.Inventory == null
+                        || pet.Inventory.FindIndex(item => item == null, 0) == -1;
+                }
+                catch { full = false; }
+                return ItemFilterManager.ShouldUsePet(drop, true, full);
+            }
+            catch { return false; }
+        }
+
         private void LootDrops(SRCoord trainingPosition, int trainingRadius)
         {
             if (InfoManager.Character == null || InfoManager.Character.Inventory == null)
@@ -1329,12 +1508,31 @@ namespace xBot.App
 
             Window w = Window.Get;
 
+            if (ItemFilterManager.Pick.DontPickItems)
+                return;
+
             // Çantada boş yer var mı? (13. slottan itibaren)
             int emptySlot = InfoManager.Character.Inventory.FindIndex(i => i == null, 13);
-            if (emptySlot == -1)
+            if (emptySlot == -1 && !ItemFilterManager.Pick.PickEvenWhenFull)
                 return; // Envanter dolu
 
             SRCoord myPos = InfoManager.Character.GetRealtimePosition();
+
+            bool wantPet = ItemFilterManager.Pick.UsePickPet
+                && (w == null || w.Filter_cbxUsePet == null || w.Filter_cbxUsePet.Checked);
+            SRCoService pickPet = wantPet ? InfoManager.MyPets.Find(p => p.isPickPet()) : null;
+            uint petId = pickPet != null ? pickPet.UniqueID : 0;
+            bool petFull = false;
+            if (pickPet != null)
+            {
+                try
+                {
+                    petFull = pickPet.Inventory == null
+                        || pickPet.Inventory.FindIndex(item => item == null, 0) == -1;
+                }
+                catch { petFull = false; }
+            }
+
             List<SRDrop> drops = new List<SRDrop>();
 
             for (int i = 0; i < InfoManager.Entities.Count; i++)
@@ -1365,10 +1563,20 @@ namespace xBot.App
 							// Basic UI filters are followed by the persistent item filter.
 						}
 
-						// Apply named rules and advanced degree/SoX/race/gender criteria
-						// for every drop type.
-						if (!ItemFilterManager.ShouldPickup(drop))
+						// Karakter listesi (Pick) VEYA pet listesi (Pet): ikisi de
+						// bağımsızdır, biri tutsa damla listeye girer.
+						bool charWantsDrop = ItemFilterManager.ShouldPickup(drop);
+						bool petWantsDrop = petId != 0 && ItemFilterManager.ShouldUsePet(drop, true, petFull);
+						if (!charWantsDrop && !petWantsDrop)
 							continue;
+
+                        // Ok/mermi kotası dolduysa yerden alma.
+                        if (drop.ID2 == 3 && drop.ID3 == 4 && ItemFilterManager.Pick.PickArrowsBolts)
+                        {
+                            int have = CountItemTotalQuantity(3, 4, 0);
+                            if (have >= ItemFilterManager.Pick.ArrowBoltAmount)
+                                continue;
+                        }
 
                         drops.Add(drop);
                     }
@@ -1381,24 +1589,29 @@ namespace xBot.App
             // En yakından uzağa sırala
             drops.Sort((a, b) => a.GetRealtimePosition().DistanceTo(myPos).CompareTo(b.GetRealtimePosition().DistanceTo(myPos)));
 
-            bool usePet = (w == null || w.Filter_cbxUsePet == null || w.Filter_cbxUsePet.Checked);
-            SRCoService pickPet = usePet ? InfoManager.MyPets.Find(p => p.isPickPet()) : null;
-            uint petId = pickPet != null ? pickPet.UniqueID : 0;
-
             for (int d = 0; d < drops.Count && d < 3; d++)
             {
                 SRDrop drop = drops[d];
                 if (!InfoManager.isEntityNear(drop.UniqueID))
                     continue;
 
-                if (petId != 0)
+                // Pick ve Pet sütunları bağımsızdır:
+                // Pick=Yes -> karakter yürüyüp toplar (pet açık olsa bile).
+                // Pet=Yes  -> pet kapar. İkisi de Yes ise ikisi de dener.
+                bool petWants = petId != 0 && ItemFilterManager.ShouldUsePet(drop, true, petFull);
+                bool charWants = ItemFilterManager.ShouldPickup(drop);
+
+                if (petWants)
                 {
                     PacketBuilder.PickUpItem(drop.UniqueID, petId);
                     Thread.Sleep(200);
                 }
-                else
+
+                if (charWants)
                 {
-                    // Karakter ile toplama
+                    // Pet kapmış olabilir; paket boşa giderse zararsız, yine dene.
+                    if (!InfoManager.isEntityNear(drop.UniqueID))
+                        continue;
                     double dist = myPos.DistanceTo(drop.GetRealtimePosition());
                     if (dist > 4.0)
                     {

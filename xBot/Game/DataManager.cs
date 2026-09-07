@@ -251,6 +251,83 @@ namespace xBot.Game
 			return null;
 		}
 		/// <summary>
+		/// Pick Filter kataloğu: kategori + arama ile eşya listesi (en fazla 2000 satır).
+		/// group: All/Weapon/Armor/Shield/Accessory/Avatar/Potion/Pill/Scroll/Ammo/Gold/
+		/// TradeGoods/Quest/Elixir/AlchemyMaterial/CosTransport/Other.
+		/// race: All/Chinese/European. gender: Any/Male/Female. degree: 0=Any, 1-16.
+		/// </summary>
+		public static List<NameValueCollection> QueryItems(string group, string race, string gender, int degree, string search)
+		{
+			if (!IsDbReady()) return new List<NameValueCollection>();
+			try
+			{
+				var conds = new List<string>();
+				var args = new List<object>();
+				string g = (group ?? "All").Trim();
+				switch (g)
+				{
+					case "Weapon": conds.Add("(tid2=1 AND tid3=6)"); break;
+					case "Armor": conds.Add("(tid2=1 AND tid3 IN (1,2,3,9,10,11))"); break;
+					case "Shield": conds.Add("(tid2=1 AND tid3=4)"); break;
+					case "Accessory": conds.Add("(tid2=1 AND tid3 IN (5,12))"); break;
+					case "Avatar": conds.Add("(tid2=1 AND tid3 IN (13,14))"); break;
+					case "Potion": conds.Add("(tid2=3 AND tid3=1)"); break;
+					case "Pill": conds.Add("(tid2=3 AND tid3=2)"); break;
+					case "Scroll": conds.Add("(tid2=3 AND tid3=3)"); break;
+					case "Ammo": conds.Add("(tid2=3 AND tid3=4)"); break;
+					case "Gold": conds.Add("(tid2=3 AND tid3=5)"); break;
+					case "TradeGoods": conds.Add("(tid2=3 AND tid3=8)"); break;
+					case "Quest": conds.Add("(tid2=3 AND tid3=9)"); break;
+					case "Elixir": conds.Add("(tid2=3 AND tid3=10)"); break;
+					case "AlchemyMaterial": conds.Add("(tid2=3 AND tid3=11)"); break;
+					case "CosTransport": conds.Add("(tid2=2)"); break;
+					case "Other":
+						conds.Add("((tid2=1 AND tid3 IN (7)) OR (tid2=3 AND tid3 IN (6,7,12,13,14,15,16)))");
+						break;
+				}
+				string r = (race ?? "All").Trim();
+				if (r == "Chinese") conds.Add("servername LIKE '%_CH_%'");
+				else if (r == "European") conds.Add("servername LIKE '%_EU_%'");
+				string gd = (gender ?? "Any").Trim();
+				if (gd == "Male") conds.Add("servername LIKE '%_M_%'");
+				else if (gd == "Female") conds.Add("servername LIKE '%_W_%'");
+				if (degree > 0)
+				{
+					// degree = (reqLevel+7)/8  ->  reqLevel aralığı
+					int lo = (degree - 1) * 8 + 1;
+					int hi = degree * 8;
+					conds.Add("(tid2<>1 OR (level>=@p" + args.Count + " AND level<=@p" + (args.Count + 1) + "))");
+					args.Add(lo); args.Add(hi);
+				}
+				if (!string.IsNullOrWhiteSpace(search))
+				{
+					conds.Add("(name LIKE @p" + args.Count + " OR servername LIKE @p" + args.Count + ")");
+					args.Add("%" + search.Trim() + "%");
+				}
+				// İsimsiz kayıtlar listeyi ID yığınına çevirir, her zaman dışlanır.
+				conds.Add("(name IS NOT NULL AND TRIM(name) <> '')");
+				string sql = "SELECT id, servername, name, tid2, tid3, tid4, level FROM items";
+				if (conds.Count > 0)
+					sql += " WHERE " + string.Join(" AND ", conds);
+				sql += " ORDER BY name LIMIT 2000";
+				return Query(sql, args.ToArray());
+			}
+			catch { return new List<NameValueCollection>(); }
+		}
+
+		/// <summary>
+		/// Blues sekmesi için benzersiz mavi özellik listesi (servername + görünen ad).
+		/// </summary>
+		public static List<NameValueCollection> QueryBlueOptions()
+		{
+			if (!IsDbReady()) return new List<NameValueCollection>();
+			try
+			{
+				return Query("SELECT MIN(id) AS id, servername, MAX(name) AS name FROM magicoptions GROUP BY servername ORDER BY name, servername");
+			}
+			catch { return new List<NameValueCollection>(); }
+		}
+		/// <summary>
 		/// Get skill by id, using the current database loaded.
 		/// </summary>
 		public static NameValueCollection GetSkillData(uint id)

@@ -134,6 +134,8 @@
     <Compile Include="App\StatPointManager.cs" />
     <Compile Include="App\ItemFilterManager.cs" />
     <Compile Include="App\ItemFilterPolicy.cs" />
+    <Compile Include="App\PickFilterOptions.cs" />
+    <Compile Include="App\Window.PickFilter.cs" />
     <Compile Include="App\ProtectionPolicy.cs" />
     <Compile Include="App\TownLogisticsPolicy.cs" />
     <Compile Include="App\PartyPolicy.cs" />

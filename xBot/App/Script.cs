@@ -521,6 +521,7 @@ namespace xBot.App
 				}
 				w.Log("STORE: depo açık, depozit başlıyor...");
 				b.ExecuteStorageDeposit();
+				b.ExecuteStoreGold();
 				w.Log("STORE: depozit tamam.");
 			}
 			catch (Exception ex)

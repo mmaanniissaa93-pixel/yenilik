@@ -9,6 +9,7 @@
   <ItemGroup>
     <Compile Include="..\..\xBot\App\ProtectionPolicy.cs" Link="ProtectionPolicy.cs" />
     <Compile Include="..\..\xBot\App\ItemFilterPolicy.cs" Link="ItemFilterPolicy.cs" />
+    <Compile Include="..\..\xBot\App\PickFilterOptions.cs" Link="PickFilterOptions.cs" />
     <Compile Include="..\..\xBot\App\CombatPolicy.cs" Link="CombatPolicy.cs" />
     <Compile Include="..\..\xBot\App\SkillPolicy.cs" Link="SkillPolicy.cs" />
     <Compile Include="..\..\xBot\App\ImbuePolicy.cs" Link="ImbuePolicy.cs" />
