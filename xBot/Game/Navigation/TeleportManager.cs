@@ -74,12 +74,18 @@ namespace xBot.Game.Navigation
 			// 1. Try to load from SQLite database
 			TryLoadFromDatabase();
 
-			// 2. Add Built-in / Fallback Ferries to guarantee 100% availability
-			AddBuiltinFerries();
+		// 2. Add Built-in / Fallback Ferries to guarantee 100% availability
+		AddBuiltinFerries();
 
-			m_initialized = true;
-			Window.Get?.Log($"TeleportManager: Loaded {m_links.Count} teleport and ferry connections.");
-		}
+		// 3. Sabit kapı koordinatları (xSROMap media.pk2 referansı):
+		// DB'deki spawn koordinatları bazı serverlarda kapının 40m+ uzağını
+		// gösterir (örn. Donwhang). Gerçek Dimensional Gate / Ferry Ticket
+		// Seller konumları ile board düzeltilir, spiral aramaya gerek kalmaz.
+		ApplyFixedGateCoords();
+
+		m_initialized = true;
+		Window.Get?.Log($"TeleportManager: Loaded {m_links.Count} teleport and ferry connections.");
+	}
 
 		private void TryLoadFromDatabase()
 		{
@@ -189,10 +195,68 @@ namespace xBot.Game.Navigation
 			// Hotan <-> Samarkand
 			AddIfMissing(5, 25, 2096, "Hotan", "Samarkand", 23687, 1138, 153, 250, 27244, 270, 1421, 180, false);
 			AddIfMissing(25, 5, 2095, "Samarkand", "Hotan", 27244, 270, 1421, 180, 23687, 1138, 153, 250, false);
-			// Samarkand <-> Constantinople
-			AddIfMissing(25, 20, 2095, "Samarkand", "Constantinople", 27244, 270, 1421, 180, 26959, 950, 1070, 84, false);
-			AddIfMissing(20, 25, 19554, "Constantinople", "Samarkand", 26959, 950, 1070, 84, 27244, 270, 1421, 180, false);
+		// Samarkand <-> Constantinople
+		AddIfMissing(25, 20, 2095, "Samarkand", "Constantinople", 27244, 270, 1421, 180, 26959, 950, 1070, 84, false);
+		AddIfMissing(20, 25, 19554, "Constantinople", "Samarkand", 26959, 950, 1070, 84, 27244, 270, 1421, 180, false);
+	}
+
+	/// <summary>
+	/// Sabit kapı koordinatları — xSROMap media.pk2 referansı
+	/// (NPCs.js / TP.js: internal client coords x,y,z,region).
+	/// SourceId: 1=Jangan, 2=Donwhang, 5=Hotan, 25=Samarkand, 20=Constantinople.
+	/// </summary>
+	private void ApplyFixedGateCoords()
+	{
+		var townGates = new System.Collections.Generic.Dictionary<uint, SRCoord>
+		{
+			{ 1, new SRCoord(25000, 1254, -6, 1374) },   // Jangan Dimensional Gate
+			{ 2, new SRCoord(26521, 962, -35, 8) },      // Donwhang Dimensional Gate
+			{ 5, new SRCoord(23687, 1131, 305, 488) },   // Hotan Dimensional Gate
+			{ 25, new SRCoord(27499, 1917, 250, 108) },  // Samarkand Dimensional Gate
+			{ 20, new SRCoord(26959, 700, 200, 886) },   // Constantinople Dimensional Gate
+		};
+		var ferryBoards = new System.Collections.Generic.Dictionary<string, SRCoord>
+		{
+			{ "HAGEUK", new SRCoord(25244, 920, 69, 367) },  // Ferry Ticket Seller Hageuk
+			{ "CHAU", new SRCoord(24734, 330, 62, 1607) },   // Ferry Ticket Seller Chau
+			{ "TAYUN", new SRCoord(25761, 513, 90, 1281) },  // Ferry Ticket Seller Tayun
+			{ "DOJI", new SRCoord(24993, 362, 72, 1761) },   // Ferry Ticket Seller Doji
+		};
+		int fixedCount = 0;
+		foreach (var link in m_links)
+		{
+			try
+			{
+				if (link == null || link.BoardCoord == null)
+					continue;
+				if (link.IsFerry)
+				{
+					string src = (link.SourceName ?? "").ToUpperInvariant();
+					foreach (var kv in ferryBoards)
+					{
+						if (src.Contains(kv.Key))
+						{
+							link.BoardCoord = kv.Value;
+							fixedCount++;
+							break;
+						}
+					}
+				}
+				else
+				{
+					SRCoord gate;
+					if (townGates.TryGetValue(link.SourceId, out gate))
+					{
+						link.BoardCoord = gate;
+						fixedCount++;
+					}
+				}
+			}
+			catch { }
 		}
+		if (fixedCount > 0)
+			Window.Get?.Log($"TeleportManager: {fixedCount} board koordinatı sabit kapı verisiyle düzeltildi.");
+	}
 
 		private void AddIfMissing(uint srcId, uint dstId, uint npcId, string srcName, string dstName,
 			ushort sReg, int sX, int sY, int sZ, ushort tReg, int tX, int tY, int tZ, bool isFerry)

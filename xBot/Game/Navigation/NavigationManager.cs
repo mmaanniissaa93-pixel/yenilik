@@ -313,20 +313,23 @@ namespace xBot.Game.Navigation
 				return multiRegionRoute;
 			}
 
-			// 3. Multi-region path not found. Search for Ferry / Teleport bridge!
-			Window.Get?.LogProcess("NavMesh: Multi-region path unavailable. Searching for Ferry/Teleport bridges...");
-			TeleportLinkInfo bestLink = TeleportManager.Get.FindBestLink(start, target);
-			if (bestLink != null)
-			{
-				Window.Get?.Log($"NavMesh: Bridge selected: [{bestLink.SourceName} -> {bestLink.DestinationName}]");
+		// 3. Multi-region path not found. Search for Ferry / Teleport bridge!
+		Window.Get?.LogProcess("NavMesh: Multi-region path unavailable. Searching for Ferry/Teleport bridges...");
+		TeleportLinkInfo bestLink = TeleportManager.Get.FindBestLink(start, target);
+		if (bestLink != null)
+		{
+			Window.Get?.Log($"NavMesh: Bridge selected: [{bestLink.SourceName} -> {bestLink.DestinationName}]");
 
-				// Segment 1: Walk to ferry/gate board position
-				List<SRCoord> pathToBoard = FindPath(start, bestLink.BoardCoord);
-				if (pathToBoard == null || pathToBoard.Count == 0)
-				{
-					pathToBoard = new List<SRCoord> { bestLink.BoardCoord };
-				}
-				route.Segments.Add(RouteSegment.CreateWalk(pathToBoard));
+			// Segment 1: Walk to ferry/gate board position — kapının tam üstüne
+			// değil 7m yakınına (Dimensional Gate/NPC collision'ı var, dibine
+			// girmek takılma yapar).
+			SRCoord boardStand = StandOff(start, bestLink.BoardCoord, 7.0);
+			List<SRCoord> pathToBoard = FindPath(start, boardStand);
+			if (pathToBoard == null || pathToBoard.Count == 0)
+			{
+				pathToBoard = new List<SRCoord> { boardStand };
+			}
+			route.Segments.Add(RouteSegment.CreateWalk(pathToBoard));
 
 				// Segment 2: Ferry Teleport
 				route.Segments.Add(RouteSegment.CreateTeleport(bestLink));
@@ -618,7 +621,28 @@ namespace xBot.Game.Navigation
 			}
 		}
 
-		private static int ParseRegionId(string fileName)
+		/// <summary>
+	/// Kapı/NPC'nin tam üstüne değil standDist metre yakınına durma noktası
+	/// (oyundan hedefe bakınca hedefin gerisi). Collision takılmasını önler.
+	/// </summary>
+	private static SRCoord StandOff(SRCoord from, SRCoord target, double standDist)
+	{
+		try
+		{
+			if (from == null || target == null)
+				return target;
+			double dx = from.PosX - target.PosX;
+			double dy = from.PosY - target.PosY;
+			double d = System.Math.Sqrt(dx * dx + dy * dy);
+			if (d < 0.001 || d <= standDist)
+				return from;
+			double k = standDist / d;
+			return new SRCoord(target.PosX + dx * k, target.PosY + dy * k);
+		}
+		catch { return target; }
+	}
+
+	private static int ParseRegionId(string fileName)
 		{
 			try
 			{
