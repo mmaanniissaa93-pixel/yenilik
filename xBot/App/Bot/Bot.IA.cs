@@ -2509,7 +2509,8 @@ namespace xBot.App
             catch { }
 
             // 1. Aday topla: güçlü eşleşme (ModelID / hedef seçenekli kapı)
-            //    bulunur bulunmaz bekleme bırakılır, yoksa ~9sn beklenir.
+            //    bulunur bulunmaz bekleme bırakılır, yoksa ~9sn beklenir
+            //    (ışınlanma sonrası spawn'lar geç gelebilir — erken durdurma).
             SREntity firstSeen = null;
             for (int attempt = 0; attempt < 30 && isBotting; attempt++)
             {
@@ -2518,6 +2519,17 @@ namespace xBot.App
                     break;
                 if (attempt == 29)
                     break;
+                if (attempt % 10 == 9)
+                {
+                    try
+                    {
+                        int tpC = 0, npcC = 0;
+                        try { tpC = InfoManager.TeleportAndBuildings.Snapshot().Count; } catch { }
+                        try { npcC = InfoManager.Npcs.Snapshot().Count; } catch { }
+                        w.LogProcess($"Gate spawn bekleniyor... ({(attempt + 1) * 300 / 1000}s, tp={tpC},npc={npcC})");
+                    }
+                    catch { }
+                }
                 Thread.Sleep(300);
             }
 

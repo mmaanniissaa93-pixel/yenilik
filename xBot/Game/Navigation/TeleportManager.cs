@@ -214,6 +214,8 @@ namespace xBot.Game.Navigation
 			{ 5, new SRCoord(23687, 1131, 305, 488) },   // Hotan Dimensional Gate
 			{ 25, new SRCoord(27499, 1917, 250, 108) },  // Samarkand Dimensional Gate
 			{ 20, new SRCoord(26959, 700, 200, 886) },   // Constantinople Dimensional Gate
+			{ 175, new SRCoord(23088, 612, 910, 1089) }, // Alexandria (South) Dimensional Gate
+			{ 176, new SRCoord(23602, 1719, 1586, 760) },// Alexandria (North) Dimensional Gate
 		};
 		var ferryBoards = new System.Collections.Generic.Dictionary<string, SRCoord>
 		{

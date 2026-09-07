@@ -1402,7 +1402,9 @@ namespace xBot.Game
 		}
 		public static void TeleportUseResponse(Packet packet)
 		{
-			// 0xB05A: result byte; bot teleport akışı polling ile sürer, burada sadece teşhis.
+			// 0xB05A: normal başarı sırası iki pakettir — önce 3 baytlık
+			// teleport-başladı (02 01 00), sonra 1 baytlık sonuç (01=ok).
+			// İlkini hata diye uyarmak yanlış alarmdır.
 			try
 			{
 				byte[] rawSniff = packet.GetBytes();
@@ -1411,6 +1413,15 @@ namespace xBot.Game
 			catch { }
 			try
 			{
+				if (packet.RemainingRead() >= 3)
+				{
+					byte b0 = packet.ReadByte();
+					if (b0 == 2)
+						return; // teleport başladı, dünya yükleniyor — sonuç sonraki pakette
+					if (b0 != 1)
+						Window.Get?.Log($"[Teleport] Kullanım sonucu: {b0}", LogLevel.Warning);
+					return;
+				}
 				byte result = packet.ReadByte();
 				if (result != 1)
 					Window.Get?.Log($"[Teleport] Kullanım sonucu: {result}", LogLevel.Warning);
