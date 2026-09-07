@@ -127,6 +127,7 @@
     <Compile Include="App\AccountManager.cs" />
     <Compile Include="App\CombatAIEngine.cs" />
     <Compile Include="App\CombatPolicy.cs" />
+    <Compile Include="App\TeleportLinkPolicy.cs" />
     <Compile Include="App\ReturnToAreaPolicy.cs" />
     <Compile Include="App\SkillManager.cs" />
     <Compile Include="App\SkillPolicy.cs" />

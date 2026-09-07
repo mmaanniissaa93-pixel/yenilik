@@ -469,13 +469,29 @@ internal static class Program
         RunReturnCheck("Varsayılan: şehir döngüsü açık", ReturnToAreaPolicy.TownCycling, true);
         RunReturnJsonRoundtrip();
 
+        // Teleport Link Blacklist Tests
+        TeleportLinkPolicy.Reset();
+        System.DateTime t0 = new System.DateTime(2026, 1, 1, 12, 0, 0);
+        RunReturnCheck("1 hata kara listeye sokmaz", TeleportLinkPolicy.NoteFailure(2, 5, t0), false);
+        RunReturnCheck("1 hatada link seçilebilir", TeleportLinkPolicy.IsBlacklisted(2, 5, t0), false);
+        RunReturnCheck("2 hata kara listeye sokmaz", TeleportLinkPolicy.NoteFailure(2, 5, t0), false);
+        RunReturnCheck("3. hata kara listeye sokar", TeleportLinkPolicy.NoteFailure(2, 5, t0), true);
+        RunReturnCheck("Kara listedeki link seçilemez", TeleportLinkPolicy.IsBlacklisted(2, 5, t0), true);
+        RunReturnCheck("10dk sonra kara liste dolar", TeleportLinkPolicy.IsBlacklisted(2, 5, t0.AddMinutes(11)), false);
+        TeleportLinkPolicy.NoteFailure(2, 5, t0);
+        TeleportLinkPolicy.NoteFailure(2, 5, t0);
+        TeleportLinkPolicy.NoteFailure(2, 5, t0);
+        TeleportLinkPolicy.NoteSuccess(2, 5);
+        RunReturnCheck("Başarılı geçiş kara listeyi temizler", TeleportLinkPolicy.IsBlacklisted(2, 5, t0), false);
+        TeleportLinkPolicy.Reset();
+
         if (failures != 0)
         {
             Console.WriteLine("Protection senaryoları başarısız: " + failures);
             return 1;
         }
 
-        Console.WriteLine("Koruma, item filtre, combat, skill, imbue, command center, lojistik, parti, PIN, SOCKS5, Auto Alchemy, Target Assist, Localization, Potion ve Alana Dönüş senaryoları başarılı: 276");
+        Console.WriteLine("Koruma, item filtre, combat, skill, imbue, command center, lojistik, parti, PIN, SOCKS5, Auto Alchemy, Target Assist, Localization, Potion, Alana Dönüş ve Teleport senaryoları başarılı: 285");
         return 0;
     }
 

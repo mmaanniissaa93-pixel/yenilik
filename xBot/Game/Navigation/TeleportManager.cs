@@ -35,6 +35,30 @@ namespace xBot.Game.Navigation
 		public bool IsAvailable => m_initialized && m_links.Count > 0;
 		public List<TeleportLinkInfo> Links => m_links;
 
+		// Sürekli başarısız olan köprü geçici kara listeye alınır (saf politika);
+		// bot aynı yanlış NPC/dialog döngüsüne girip takılmaz, alternatife düşer.
+		public bool IsLinkBlacklisted(TeleportLinkInfo link)
+		{
+			if (link == null)
+				return true;
+			return TeleportLinkPolicy.IsBlacklisted(link.SourceId, link.DestinationId, DateTime.Now);
+		}
+
+		public void NoteLinkFailure(TeleportLinkInfo link)
+		{
+			if (link == null)
+				return;
+			if (TeleportLinkPolicy.NoteFailure(link.SourceId, link.DestinationId, DateTime.Now))
+				Window.Get?.Log($"TeleportManager: [{link.SourceName} -> {link.DestinationName}] {TeleportLinkPolicy.MaxLinkFailures} kez başarısız — 10dk kara listede, alternatif rota/script denenecek.");
+		}
+
+		public void NoteLinkSuccess(TeleportLinkInfo link)
+		{
+			if (link == null)
+				return;
+			TeleportLinkPolicy.NoteSuccess(link.SourceId, link.DestinationId);
+		}
+
 		public TeleportManager()
 		{
 			Initialize();
@@ -204,6 +228,10 @@ namespace xBot.Game.Navigation
 
 			foreach (var link in m_links)
 			{
+				// Kara listedeki köprü atlanır (yanlış NPC döngüsüne girilmez).
+				if (IsLinkBlacklisted(link))
+					continue;
+
 				double distToBoard = start.DistanceTo(link.BoardCoord);
 				double distFromArriveToTarget = link.ArriveCoord.DistanceTo(target);
 

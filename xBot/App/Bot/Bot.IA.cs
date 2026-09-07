@@ -2129,85 +2129,217 @@ namespace xBot.App
             return true;
         }
 
+        // Son denemede yanlış çıkan teleport adayı UID'leri (oturum içi).
+        private static readonly Dictionary<uint, DateTime> s_badTeleportUids = new Dictionary<uint, DateTime>();
+        private static readonly object s_badTeleportLock = new object();
+
+        private static bool IsBadTeleportUid(uint uid)
+        {
+            lock (s_badTeleportLock)
+            {
+                DateTime until;
+                if (s_badTeleportUids.TryGetValue(uid, out until))
+                {
+                    if (DateTime.Now < until)
+                        return true;
+                    s_badTeleportUids.Remove(uid);
+                }
+                return false;
+            }
+        }
+
+        private static void MarkBadTeleportUid(uint uid)
+        {
+            lock (s_badTeleportLock)
+            {
+                s_badTeleportUids[uid] = DateTime.Now.AddMinutes(10);
+            }
+        }
+
+        /// <summary>
+        /// Aday skorlar: ModelID eşleşmesi ve hedefi seçeneklerinde barındıran
+        /// gerçek teleport kapısı en üstte; guide-tipi NPC'ler (örn. Magic POP
+        /// Guide) asla seçilmez; 40m içindeki ilk NPC körü körüne alınmaz.
+        /// </summary>
+        private static int ScoreTeleportCandidate(SREntity e, TeleportLinkInfo link, double dist)
+        {
+            int score = 0;
+            if (e.ID == link.NpcId)
+                score += 1000;
+            SRTeleport tp = e as SRTeleport;
+            if (tp != null)
+            {
+                score += 300;
+                try
+                {
+                    if (tp.TeleportOptions != null)
+                    {
+                        foreach (var opt in tp.TeleportOptions)
+                        {
+                            if (opt == null)
+                                continue;
+                            if (opt.ID == link.DestinationId)
+                            {
+                                score += 500;
+                                break;
+                            }
+                            if (!string.IsNullOrEmpty(opt.Name) && !string.IsNullOrEmpty(link.DestinationName)
+                                && opt.Name.IndexOf(link.DestinationName, StringComparison.OrdinalIgnoreCase) >= 0)
+                            {
+                                score += 500;
+                                break;
+                            }
+                        }
+                    }
+                }
+                catch { }
+            }
+            string name = e.Name ?? "";
+            string sn = e.ServerName ?? "";
+            if (!string.IsNullOrEmpty(link.SourceName)
+                && name.IndexOf(link.SourceName, StringComparison.OrdinalIgnoreCase) >= 0)
+                score += 200;
+            // Kanonik kapı adı (DB + harita verisinde "Dimensional Gate").
+            if (name.IndexOf("Dimensional Gate", StringComparison.OrdinalIgnoreCase) >= 0)
+                score += 100;
+            if (sn.IndexOf("TELEPORT", StringComparison.OrdinalIgnoreCase) >= 0
+                || sn.IndexOf("PORTAL", StringComparison.OrdinalIgnoreCase) >= 0
+                || sn.IndexOf("FERRY", StringComparison.OrdinalIgnoreCase) >= 0
+                || sn.IndexOf("GATE", StringComparison.OrdinalIgnoreCase) >= 0
+                || name.IndexOf("Ferry Ticket", StringComparison.OrdinalIgnoreCase) >= 0)
+                score += 150;
+            SRNpc npc = e as SRNpc;
+            if (npc != null && npc.isGuide())
+                score -= 1000;
+            score -= (int)Math.Min(80.0, dist);
+            return score;
+        }
+
+        private static SREntity FindBestTeleportCandidate(TeleportLinkInfo link)
+        {
+            SREntity best = null;
+            int bestScore = int.MinValue;
+            // Teleport kapıları önce (gerçek kapı/portallar bu listededir).
+            List<SREntity> pool = new List<SREntity>();
+            try { foreach (var tp in InfoManager.TeleportAndBuildings.Snapshot()) pool.Add(tp); } catch { }
+            try { foreach (var npc in InfoManager.Npcs.Snapshot()) pool.Add(npc); } catch { }
+            try { foreach (var e in InfoManager.Entities.Snapshot()) pool.Add(e); } catch { }
+            foreach (var e in pool)
+            {
+                try
+                {
+                    if (e == null || e.Position == null || link.BoardCoord == null)
+                        continue;
+                    if (e is SRPlayer || e is SRDrop || e is SRMob)
+                        continue;
+                    if (IsBadTeleportUid(e.UniqueID))
+                        continue;
+                    // Köprü bölgesi dışındakiler aday değildir. Bölge filtresi
+                    // yoktur: PosX/PosY sektör bilgisini zaten içerir, uzak
+                    // bölgedekiler mesafeden elenir.
+                    double dist = e.Position.DistanceTo(link.BoardCoord);
+                    if (dist > 80.0)
+                        continue;
+                    int score = ScoreTeleportCandidate(e, link, dist);
+                    if (score > bestScore)
+                    {
+                        bestScore = score;
+                        best = e;
+                    }
+                }
+                catch { }
+            }
+            return best;
+        }
+
+        private static bool IsStrongTeleportMatch(SREntity e, TeleportLinkInfo link)
+        {
+            if (e == null || e.Position == null || link.BoardCoord == null)
+                return false;
+            return ScoreTeleportCandidate(e, link, e.Position.DistanceTo(link.BoardCoord)) >= 700;
+        }
+
+        private bool WaitTeleportArrival(TeleportLinkInfo link, SRCoord beforePos, int maxWaits)
+        {
+            for (int wait = 0; wait < maxWaits && isBotting; wait++)
+            {
+                Thread.Sleep(500);
+                SRCoord currentPos = null;
+                try { currentPos = InfoManager.Character.GetRealtimePosition(); } catch { continue; }
+                if (currentPos == null || beforePos == null)
+                    continue;
+                if (currentPos.DistanceTo(beforePos) > 40.0 || currentPos.DistanceTo(link.ArriveCoord) < 70.0)
+                    return true;
+            }
+            return false;
+        }
+
         private bool ExecuteTeleportTransition(TeleportLinkInfo link)
         {
             Window w = Window.Get;
             w.Log($"Ferry/Teleport: Transitioning [{link.SourceName}] -> [{link.DestinationName}]...");
 
-            // 1. Locate NPC / Teleport entity across all collections
-            SREntity targetEntity = null;
+            // 1. Aday topla: güçlü eşleşme (ModelID / hedef seçenekli kapı)
+            //    bulunur bulunmaz bekleme bırakılır, yoksa ~9sn beklenir.
+            SREntity firstSeen = null;
             for (int attempt = 0; attempt < 30 && isBotting; attempt++)
             {
-                // Search Npcs first (ferry ticket sellers are NPCs)
-                targetEntity = InfoManager.Npcs.Find(npc => npc.ID == link.NpcId ||
-                    (npc.Name != null && npc.Name.IndexOf(link.SourceName, StringComparison.OrdinalIgnoreCase) >= 0) ||
-                    (npc.Position != null && npc.Position.DistanceTo(link.BoardCoord) <= 40.0));
-
-                // Search TeleportAndBuildings
-                if (targetEntity == null)
-                {
-                    targetEntity = InfoManager.TeleportAndBuildings.Find(tp => tp.ID == link.NpcId ||
-                        (tp.Name != null && tp.Name.IndexOf(link.SourceName, StringComparison.OrdinalIgnoreCase) >= 0) ||
-                        (tp.Position != null && tp.Position.DistanceTo(link.BoardCoord) <= 40.0));
-                }
-
-                // Search all Entities as fallback
-                if (targetEntity == null)
-                {
-                    targetEntity = InfoManager.Entities.Find(e => e.ID == link.NpcId ||
-                        (e.Name != null && e.Name.IndexOf(link.SourceName, StringComparison.OrdinalIgnoreCase) >= 0) ||
-                        (e.Position != null && e.Position.DistanceTo(link.BoardCoord) <= 40.0));
-                }
-
-                if (targetEntity != null)
+                firstSeen = FindBestTeleportCandidate(link);
+                if (firstSeen != null && IsStrongTeleportMatch(firstSeen, link))
                     break;
-
+                if (attempt == 29)
+                    break;
                 Thread.Sleep(300);
             }
 
-            if (targetEntity == null)
+            // 2. En iyi 3 adayı sırayla dene (yanlış dialog açan elenir).
+            for (int t = 0; t < 3 && isBotting; t++)
             {
-                w.LogProcess($"Ferry/Teleport: NPC [{link.SourceName}] not found in area!", Window.ProcessState.Warning);
-                return false;
-            }
+                SREntity targetEntity = FindBestTeleportCandidate(link);
+                if (targetEntity == null)
+                    break;
 
-            w.Log($"Ferry/Teleport: Found NPC [{targetEntity.Name}] (UID: {targetEntity.UniqueID}, ModelID: {targetEntity.ID})");
+                w.Log($"Ferry/Teleport: Found candidate [{targetEntity.Name}] (UID: {targetEntity.UniqueID}, ModelID: {targetEntity.ID})");
 
-            // 2. Walk close to NPC if not already within 4 meters
-            SRCoord myPos = InfoManager.Character.GetRealtimePosition();
-            if (targetEntity.Position != null && myPos.DistanceTo(targetEntity.Position) > 4.0)
-            {
-                w.LogProcess($"Walking to ferry NPC ({myPos.DistanceTo(targetEntity.Position):F1}m)...");
-                WaitMovement(targetEntity.Position, 6);
-            }
+                // 2a. Yakına yürü (4m içi).
+                SRCoord myPos = null;
+                try { myPos = InfoManager.Character.GetRealtimePosition(); } catch { }
+                if (myPos != null && targetEntity.Position != null && myPos.DistanceTo(targetEntity.Position) > 4.0)
+                {
+                    w.LogProcess($"Walking to teleport NPC ({myPos.DistanceTo(targetEntity.Position):F1}m)...");
+                    WaitMovement(targetEntity.Position, 6);
+                }
 
-            // 3. Select NPC
-            w.LogProcess($"Selecting NPC [{targetEntity.Name}]...");
-            WaitSelectEntity(targetEntity.UniqueID, 10, 250, "Selecting ferry ticket seller...");
-            Thread.Sleep(600);
+                // 2b. Seç + teleport paketi.
+                w.LogProcess($"Selecting NPC [{targetEntity.Name}]...");
+                WaitSelectEntity(targetEntity.UniqueID, 10, 250, "Selecting teleport " + targetEntity.Name + "...");
+                Thread.Sleep(600);
+                w.Log($"Ferry/Teleport: Requesting transport to [{link.DestinationName}] (DestID: {link.DestinationId})...");
+                SRCoord beforePos = null;
+                try { beforePos = InfoManager.Character.GetRealtimePosition(); } catch { }
+                PacketBuilder.UseTeleport(targetEntity.UniqueID, link.DestinationId);
 
-            // 4. Send UseTeleport packet
-            w.Log($"Ferry/Teleport: Requesting transport to [{link.DestinationName}] (DestID: {link.DestinationId})...");
-            PacketBuilder.UseTeleport(targetEntity.UniqueID, link.DestinationId);
-
-            // 5. Wait for teleport / loading / position shift
-            SRCoord beforePos = InfoManager.Character.GetRealtimePosition();
-            for (int wait = 0; wait < 35 && isBotting; wait++)
-            {
-                Thread.Sleep(500);
-                SRCoord currentPos = InfoManager.Character.GetRealtimePosition();
-                if (currentPos.DistanceTo(beforePos) > 40.0 || currentPos.DistanceTo(link.ArriveCoord) < 70.0)
+                // 2c. Varış bekle.
+                if (WaitTeleportArrival(link, beforePos, 20))
                 {
                     w.Log($"Ferry/Teleport: Successfully arrived at [{link.DestinationName}]!");
+                    TeleportManager.Get.NoteLinkSuccess(link);
                     SleepInterruptible(2000); // World loading settle
                     return true;
                 }
+
+                // 2d. Başarısız: yanlış dialog açılmış olabilir — kapat,
+                // adayı ele, sıradaki adaya geç.
+                w.Log($"Ferry/Teleport: [{targetEntity.Name}] teleport etmedi (yanlış NPC olabilir) — dialog kapatılıp sıradaki aday deneniyor.", Theme.LogLevel.Warning);
+                try { PacketBuilder.CloseNPC(targetEntity.UniqueID); } catch { }
+                MarkBadTeleportUid(targetEntity.UniqueID);
+                Thread.Sleep(800);
             }
 
-            w.LogProcess("Ferry/Teleport: Teleport transition timed out. Trying once more...", Window.ProcessState.Warning);
-            PacketBuilder.UseTeleport(targetEntity.UniqueID, link.DestinationId);
-            SleepInterruptible(2000);
-            return InfoManager.Character.GetRealtimePosition().DistanceTo(beforePos) > 40.0;
+            if (firstSeen == null && FindBestTeleportCandidate(link) == null)
+                w.LogProcess($"Ferry/Teleport: NPC [{link.SourceName}] not found in area!", Window.ProcessState.Warning);
+            TeleportManager.Get.NoteLinkFailure(link);
+            return false;
         }
         #endregion
     }

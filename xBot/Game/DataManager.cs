@@ -468,6 +468,15 @@ namespace xBot.Game
 			return Query("SELECT * FROM teleportlinks WHERE sourceid=@p0", sourceTeleportID);
     }
 		/// <summary>
+		/// Gets all destinations offered by the gate with the given MODEL id.
+		/// (teleportlinks.id holds the gate model ID; sourceid holds the
+		/// TeleportData row index, so model-ID lookups must use this method.)
+		/// </summary>
+		public static List<NameValueCollection> GetTeleportLinksByModel(uint gateModelID)
+		{
+			return Query("SELECT * FROM teleportlinks WHERE id=@p0", gateModelID);
+    }
+		/// <summary>
 		/// Gets the teleport destination ID. Return 0 if none is found.
 		/// </summary>
 		public static uint GetTeleportLinkDestinationID(uint sourceTeleportID, uint destinationTeleportID)

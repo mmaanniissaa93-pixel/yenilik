@@ -31,7 +31,7 @@ namespace xBot.Game.Objects.Entity
 			ID3 = byte.Parse(m_data["tid3"]);
 			ID4 = byte.Parse(m_data["tid4"]);
 			
-			List<NameValueCollection> linkData = DataManager.GetTeleportLinks(this.ID);
+			List<NameValueCollection> linkData = DataManager.GetTeleportLinksByModel(this.ID);
 			TeleportOptions = new List<SRTeleportOption>();
 			if (linkData.Count > 0)
 			{
@@ -65,7 +65,7 @@ namespace xBot.Game.Objects.Entity
 			ID3 = byte.Parse(m_data["tid3"]);
 			ID4 = byte.Parse(m_data["tid4"]);
 
-			List<NameValueCollection> linkData = DataManager.GetTeleportLinks(this.ID);
+			List<NameValueCollection> linkData = DataManager.GetTeleportLinksByModel(this.ID);
 			TeleportOptions = new List<SRTeleportOption>();
 			if (linkData.Count > 0)
 			{
@@ -88,7 +88,7 @@ namespace xBot.Game.Objects.Entity
 
 		public SRTeleport(SREntity value) : base(value)
 		{
-			List<NameValueCollection> linkData = DataManager.GetTeleportLinks(this.ID);
+			List<NameValueCollection> linkData = DataManager.GetTeleportLinksByModel(this.ID);
 			TeleportOptions = new List<SRTeleportOption>();
 			if (linkData.Count > 0)
 			{
