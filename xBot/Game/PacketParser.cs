@@ -1405,6 +1405,12 @@ namespace xBot.Game
 			// 0xB05A: result byte; bot teleport akışı polling ile sürer, burada sadece teşhis.
 			try
 			{
+				byte[] rawSniff = packet.GetBytes();
+				Window.Get?.Log($"[Sniff][S->C] 0xB05A ({Packet.ToStringHexadecimal(rawSniff)}) ({rawSniff.Length}B)");
+			}
+			catch { }
+			try
+			{
 				byte result = packet.ReadByte();
 				if (result != 1)
 					Window.Get?.Log($"[Teleport] Kullanım sonucu: {result}", LogLevel.Warning);
@@ -3793,6 +3799,12 @@ namespace xBot.Game
 		}
 		public static void EntityTalkResponse(Packet packet)
 		{
+			try
+			{
+				byte[] rawSniff = packet.GetBytes();
+				Window.Get?.Log($"[Sniff][S->C] 0xB046 ({Packet.ToStringHexadecimal(rawSniff)}) ({rawSniff.Length}B)");
+			}
+			catch { }
 			// success
 			if(packet.ReadBool())
 			{

@@ -322,13 +322,23 @@ namespace xBot.Game.Navigation
 
 			// Segment 1: Walk to ferry/gate board position — kapının tam üstüne
 			// değil 17m yakınına (Dimensional Gate/NPC collision'ı var, dibine
-			// girmek takılma yapar). Son yaklaşmayı teleport adımı 5m'den yapar.
+			// girmek takılma yapar). Son yaklaşmayı teleport adımı radyal yapar.
 			SRCoord boardStand = StandOff(start, bestLink.BoardCoord, 17.0);
 			Window.Get?.Log($"NavMesh: walk-to-board stops {start.DistanceTo(boardStand):F0}m from gate (collision margin 17m).");
 			List<SRCoord> pathToBoard = FindPath(start, boardStand);
 			if (pathToBoard == null || pathToBoard.Count == 0)
 			{
 				pathToBoard = new List<SRCoord> { boardStand };
+			}
+			else
+			{
+				// Kapı çevresindeki sık waypoint'leri ele: NavMesh araziyi bilir,
+				// kapı/havuz/duvar yapısını bilmez — bu mikro noktalar karakteri
+				// yapının içine sokup duvara toslatır. 20m dışı korunur, final
+				// yaklaşmayı teleport adımı radyal yapar.
+				var trimmed = pathToBoard.Where(wp => wp.DistanceTo(bestLink.BoardCoord) > 20.0).ToList();
+				trimmed.Add(boardStand);
+				pathToBoard = trimmed;
 			}
 			route.Segments.Add(RouteSegment.CreateWalk(pathToBoard));
 

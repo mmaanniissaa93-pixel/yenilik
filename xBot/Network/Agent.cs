@@ -358,22 +358,36 @@ namespace xBot.Network
 						catch { }
 					}
 					break;
-				case Opcode.CLIENT_CHARACTER_ACTION_REQUEST:
-					bool isPVPMode = false;
-					Window.Get.Character_cbxPVPMode.InvokeIfRequired(() =>
-					{
-						isPVPMode = Window.Get.Character_cbxPVPMode.Checked;
-					});
-					if (!isPVPMode)
-						break;
-					// execute?
-					if (packet.ReadByte() != 1)
-						break;
-					// check is casting skill
-					if ((SRTypes.CharacterAction)packet.ReadByte() != SRTypes.CharacterAction.SkillCast)
-						break;
-					Bot.Get.CheckWeaponSwitch(new SRSkill(packet.ReadUInt()));
+			case Opcode.CLIENT_CHARACTER_ACTION_REQUEST:
+				bool isPVPMode = false;
+				Window.Get.Character_cbxPVPMode.InvokeIfRequired(() =>
+				{
+					isPVPMode = Window.Get.Character_cbxPVPMode.Checked;
+				});
+				if (!isPVPMode)
 					break;
+				// execute?
+				if (packet.ReadByte() != 1)
+					break;
+				// check is casting skill
+				if ((SRTypes.CharacterAction)packet.ReadByte() != SRTypes.CharacterAction.SkillCast)
+					break;
+				Bot.Get.CheckWeaponSwitch(new SRSkill(packet.ReadUInt()));
+				break;
+			case Opcode.CLIENT_ENTITY_SELECTION:
+			case Opcode.CLIENT_ENTITY_TALK_REQUEST:
+			case Opcode.CLIENT_TELEPORT_USE_REQUEST:
+			case Opcode.CLIENT_TELEPORT_RECALL_REQUEST:
+			case Opcode.CLIENT_NPC_CLOSE_REQUEST:
+				// Gate dialog akışını çözmek için geçici sniff: kullanıcı kapıyı
+				// elle kullanınca istemcinin gönderdiği ham baytlar loglanır.
+				try
+				{
+					byte[] rawSniff = packet.GetBytes();
+					Window.Get?.Log($"[Sniff][C->S] 0x{packet.Opcode:X4} ({Packet.ToStringHexadecimal(rawSniff)}) ({rawSniff.Length}B)");
+				}
+				catch { }
+				break;
 			}
 			return false;
 		}

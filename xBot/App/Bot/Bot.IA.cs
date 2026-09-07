@@ -2433,7 +2433,10 @@ namespace xBot.App
                     if (myPos0 != null)
                     {
                         double distBoard = myPos0.DistanceTo(link.BoardCoord);
-                        if (distBoard > 20.0)
+                        // Sadece gerçekten uzaktaysa yürü (>40m). Menzildeyken
+                        // (<=40m) hiç kımıldama — kapı dışarıdan tıklanabiliyor,
+                        // yaklaşmak havuz/duvara toslatıyor.
+                        if (distBoard > 40.0)
                         {
                             w.LogProcess($"Walking to gate [{link.SourceName}] ({distBoard:F0}m)...");
                             bool reached = false;
@@ -2441,25 +2444,31 @@ namespace xBot.App
                             {
                                 if (NavigationManager.Get.IsAvailable)
                                 {
-                                    List<SRCoord> path = NavigationManager.Get.FindPath(myPos0, link.BoardCoord);
+                                    SRCoord standTarget = StandPointNear(myPos0, link.BoardCoord, 25.0);
+                                    List<SRCoord> path = NavigationManager.Get.FindPath(myPos0, standTarget);
                                     if (path != null && path.Count > 0)
                                     {
-                                        for (int pi = 0; pi < path.Count; pi++)
+                                        // Kapı çevresi waypoint'leri ele (yapıya dolandırır),
+                                        // final radyal durma noktası korunur.
+                                        var trimmed = new List<SRCoord>();
+                                        foreach (var q in path)
+                                        {
+                                            try
+                                            {
+                                                if (q != null && q.DistanceTo(link.BoardCoord) > 30.0)
+                                                    trimmed.Add(q);
+                                            }
+                                            catch { }
+                                        }
+                                        trimmed.Add(standTarget);
+                                        path = trimmed;
+                                        foreach (var wp in path)
                                         {
                                             if (!isBotting || m_stopBottingRequested) break;
-                                            SRCoord wpTarget = path[pi];
-                                            if (pi == path.Count - 1)
-                                            {
-                                                // Son nokta kapının üstüdür — dibine girme,
-                                                // 10m geride dur (collision yapar).
-                                                SRCoord curP = null;
-                                                try { curP = InfoManager.Character.GetRealtimePosition(); } catch { }
-                                                if (curP != null) wpTarget = StandPointNear(curP, link.BoardCoord, 10.0);
-                                            }
-                                            WaitMovement(wpTarget, 12);
+                                            WaitMovement(wp, 12);
                                             SRCoord cur = null;
                                             try { cur = InfoManager.Character.GetRealtimePosition(); } catch { }
-                                            if (cur != null && cur.DistanceTo(link.BoardCoord) <= 12.0)
+                                            if (cur != null && cur.DistanceTo(link.BoardCoord) <= 30.0)
                                             {
                                                 reached = true;
                                                 break;
@@ -2472,12 +2481,12 @@ namespace xBot.App
                             if (!reached)
                             {
                                 // NavMesh yoksa/boşsa direkt yürü (şehir içi genelde açıktır).
-                                // Kapının üstüne değil 10m yakınına — dibine girmek takılma yapar.
+                                // 25m yakınına — daha içeri girme, duvar/havuz yapar.
                                 SRCoord cur = null;
                                 try { cur = InfoManager.Character.GetRealtimePosition(); } catch { }
-                                if (cur != null && cur.DistanceTo(link.BoardCoord) > 12.0)
+                                if (cur != null && cur.DistanceTo(link.BoardCoord) > 28.0)
                                 {
-                                    SRCoord stand = StandPointNear(cur, link.BoardCoord, 10.0);
+                                    SRCoord stand = StandPointNear(cur, link.BoardCoord, 25.0);
                                     double d = cur.DistanceTo(stand);
                                     int attempts = (int)(d / 5.0) + 10;
                                     if (attempts < 15) attempts = 15;
@@ -2580,7 +2589,7 @@ namespace xBot.App
                         if (nearestGate != null && nearestGateDist < 150.0 && nearestGateDist > 12.0)
                         {
                             w.LogProcess($"Walking to nearby gate [{nearestGate.Name}] ({nearestGateDist:F0}m)...");
-                            SRCoord stand = StandPointNear(myP, nearestGate.Position, 6.0);
+                            SRCoord stand = StandPointNear(myP, nearestGate.Position, 15.0);
                             double d0 = myP.DistanceTo(stand);
                             int attempts = (int)(d0 / 5.0) + 10;
                             if (attempts < 15) attempts = 15;
@@ -2631,22 +2640,29 @@ namespace xBot.App
                     continue;
                 }
 
-                // 2a. Etkileşim mesafesi 5-8m: dibine girme (collision), içinde
-                // kalmışsan önce geri çık, uzaktaysan yaklaş.
+                // 2a. Etkileşim bandı 8-30m: Dimensional Gate + köprü/havuz gibi
+                // yapılar kocaman; yaklaşmak duvara toslatır (Constantinople
+                // havuzu gibi). Kapı dışarıdan tıklanabildiği için menzil
+                // içindeyse HİÇ yürüme — direkt seç. Çok yakınsan geri çık,
+                // çok uzaktaysan (30m+) 20m'ye yaklaş.
                 SRCoord myPos = null;
                 try { myPos = InfoManager.Character.GetRealtimePosition(); } catch { }
                 if (myPos != null && targetEntity.Position != null)
                 {
                     double dNpc = myPos.DistanceTo(targetEntity.Position);
-                    if (dNpc < 4.0)
+                    if (dNpc < 8.0)
                     {
                         w.LogProcess($"Too close to gate ({dNpc:F1}m, collision) — stepping back...");
-                        WaitMovement(StandPointNear(myPos, targetEntity.Position, 8.0), 8);
+                        WaitMovement(StandPointNear(myPos, targetEntity.Position, 15.0), 6);
                     }
-                    else if (dNpc > 6.0)
+                    else if (dNpc > 30.0)
                     {
                         w.LogProcess($"Walking to teleport NPC ({dNpc:F1}m)...");
-                        WaitMovement(StandPointNear(myPos, targetEntity.Position, 5.0), 8);
+                        WaitMovement(StandPointNear(myPos, targetEntity.Position, 20.0), 6);
+                    }
+                    else
+                    {
+                        w.LogProcess($"Gate in range ({dNpc:F1}m) — no walk, selecting directly.");
                     }
                 }
 
@@ -2660,9 +2676,14 @@ namespace xBot.App
                     continue;
                 }
                 Thread.Sleep(600);
-                w.Log($"Ferry/Teleport: Requesting transport to [{link.DestinationName}] (DestID: {link.DestinationId})...");
                 SRCoord beforePos = null;
                 try { beforePos = InfoManager.Character.GetRealtimePosition(); } catch { }
+                try
+                {
+                    double useDist = (beforePos != null && targetEntity.Position != null) ? beforePos.DistanceTo(targetEntity.Position) : -1;
+                    w.Log($"Ferry/Teleport: Requesting transport to [{link.DestinationName}] (DestID: {link.DestinationId}, dist: {(useDist >= 0 ? useDist.ToString("F1") + "m" : "?")})...");
+                }
+                catch { w.Log($"Ferry/Teleport: Requesting transport to [{link.DestinationName}] (DestID: {link.DestinationId})..."); }
                 PacketBuilder.UseTeleport(targetEntity.UniqueID, link.DestinationId);
 
                 // 2c. Varış bekle.
