@@ -198,6 +198,7 @@
     <Compile Include="App\Script.cs" />
     <Compile Include="App\Settings.cs" />
     <Compile Include="App\PotionPolicy.cs" />
+    <Compile Include="App\SroDocsPolicy.cs" />
     <Compile Include="App\EdxLoader.cs" />
     <Compile Include="App\ClientManager.cs" />
     <Compile Include="App\SQLDatabase.cs" />

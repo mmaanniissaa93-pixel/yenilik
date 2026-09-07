@@ -155,13 +155,30 @@ namespace xBot.Game
 			}
 		}
 		public static string LastCaptchaRawHex { get; private set; } = "";
+		public static string LastCaptchaImageInfo { get; private set; } = "";
 		public static void CaptchaData(Packet packet)
 		{
 			try
 			{
 				byte[] raw = packet.GetBytes();
 				LastCaptchaRawHex = raw != null ? SecurityAPI.Utility.HexDump(raw).Replace(" ", "") : "";
-				Window.Get?.Log("Captcha istendi (" + (raw != null ? raw.Length : 0) + " byte). Çözümü girip bot otomatik gönderecek.");
+				// srodevs-docs gateway_login_ibuv_challenge (0x2322):
+				// flags(1) + remaining(2) + compressedLen(2) + uncompressedLen(2) + width(2) + height(2) + data
+				try
+				{
+					if (packet.RemainingRead() >= 11)
+					{
+						byte flags = packet.ReadByte();
+						ushort remaining = packet.ReadUShort();
+						ushort compLen = packet.ReadUShort();
+						ushort uncompLen = packet.ReadUShort();
+						ushort width = packet.ReadUShort();
+						ushort height = packet.ReadUShort();
+						LastCaptchaImageInfo = $"flags={flags} remaining={remaining} comp={compLen} uncomp={uncompLen} {width}x{height}";
+					}
+				}
+				catch { }
+				Window.Get?.Log("Captcha istendi (" + (raw != null ? raw.Length : 0) + " byte" + (string.IsNullOrEmpty(LastCaptchaImageInfo) ? "" : ", " + LastCaptchaImageInfo) + "). Çözümü girip bot otomatik gönderecek.");
 				// Sabit kod varsa otomatik cevapla, yoksa UI'daki kutuya odaklan.
 				string code = App.LoginStrategyManager.StaticCaptcha
 					? (App.LoginStrategyManager.StaticCaptchaCode ?? "")
@@ -1066,7 +1083,28 @@ namespace xBot.Game
 			uint sourceUniqueID = packet.ReadUInt(); // used to display exp. graphics
 			long ExpReceived = packet.ReadLong();
 			long SPExpReceived = packet.ReadLong(); // Long SP EXP? hmmm..
-			// byte unkByte01 = packet.ReadByte();
+			// srodevs-docs agent_character_exp_update (0x3056): TCBuff flags + level-up stat points.
+			try
+			{
+				if (packet.RemainingRead() >= 1)
+				{
+					byte tcFlags = packet.ReadByte();
+					if (SroDocsPolicy.HasCumulated(tcFlags) && packet.RemainingRead() >= 4)
+						packet.ReadUInt(); // Cumulated
+					if (SroDocsPolicy.HasAccumulated(tcFlags) && packet.RemainingRead() >= 8)
+					{
+						packet.ReadUInt(); // CharID (TrainingCampData)
+						packet.ReadUInt(); // Accumulated
+					}
+				}
+				if (packet.RemainingRead() >= 2)
+				{
+					ushort gainedStatPoints = packet.ReadUShort();
+					if (gainedStatPoints > 0 && InfoManager.Character != null)
+						InfoManager.Character.StatPoints = (ushort)(InfoManager.Character.StatPoints + gainedStatPoints);
+				}
+			}
+			catch { }
 			// End of Packet
 
 			if (ExpReceived != 0 || SPExpReceived > 0)
@@ -1101,12 +1139,15 @@ namespace xBot.Game
 		}
 		public static void CharacterInfoUpdate(Packet packet)
 		{
+			// srodevs-docs agent_character_info_update (0x304E):
+			// 1=Gold(8+bool display), 2=SP(4+bool), 3=STP(2), 4=HWAN(1+4 source), 16=EGYPT_AP(4)
 			Window w = Window.Get;
 			byte updateType = packet.ReadByte();
 			switch (updateType)
 			{
 				case 1: // Gold
 					ulong newGold = packet.ReadULong();
+					if (packet.RemainingRead() >= 1) packet.ReadByte(); // IsDisplayed
 					if (InfoManager.Character != null && InfoManager.inGame && newGold > InfoManager.Character.Gold)
 					{
 						ulong diff = newGold - InfoManager.Character.Gold;
@@ -1120,14 +1161,128 @@ namespace xBot.Game
 					break;
 				case 2: // SP
 					InfoManager.Character.SP = packet.ReadUInt();
+					if (packet.RemainingRead() >= 1) packet.ReadByte(); // IsDisplayed
 					w.Character_lblSP.InvokeIfRequired(() => {
 						w.Character_lblSP.Text = InfoManager.Character.SP.ToString();
 					});
 					break;
-				case 4: // Berserk
-					InfoManager.Character.BerserkPoints = packet.ReadByte();
+				case 3: // STP (stat points)
+					{
+						ushort stp = packet.ReadUShort();
+						if (InfoManager.Character != null)
+							InfoManager.Character.StatPoints = stp;
+						w?.Log($"[Stat] {stp} stat puanı mevcut.", LogLevel.Info);
+						try { StatPointManager.CheckAndDistribute(); } catch { }
+					}
+					break;
+				case 4: // HWAN (berserk)
+					{
+						InfoManager.Character.BerserkPoints = packet.ReadByte();
+						if (packet.RemainingRead() >= 4) packet.ReadUInt(); // SourceGID (particles)
+						if (InfoManager.Character.BerserkPoints >= 5)
+							w?.Log("[Berserk] Bar doldu (5/5) — zerk hazır.", LogLevel.Info);
+					}
+					break;
+				case 16: // EGYPT_AP
+					{
+						uint ap = packet.ReadUInt();
+						w?.Log($"[AP] Egypt AP: {ap}", LogLevel.Info);
+					}
+					break;
+				default:
+					w?.LogPacket($"[InfoUpdate] Bilinmeyen tip {updateType} ({packet.RemainingRead()} byte kaldı)");
 					break;
 			}
+		}
+		public static void LogoutResponse(Packet packet)
+		{
+			// srodevs-docs agent_game_logout_ack (0xB005)
+			byte result = packet.ReadByte();
+			Window w = Window.Get;
+			if (result == 1)
+			{
+				byte countdown = packet.RemainingRead() >= 1 ? packet.ReadByte() : (byte)0;
+				byte mode = packet.RemainingRead() >= 1 ? packet.ReadByte() : (byte)0;
+				w?.Log($"Logout başladı ({countdown}sn, mod={mode}).");
+			}
+			else if (result == 2 && packet.RemainingRead() >= 2)
+			{
+				ushort err = packet.ReadUShort();
+				w?.Log(SroDocsPolicy.GetLogoutErrorMessage(err), LogLevel.Warning);
+			}
+			else
+			{
+				w?.LogPacket($"[Logout] Bilinmeyen sonuç {result}");
+			}
+		}
+		public static void LogoutCancelResponse(Packet packet)
+		{
+			// srodevs-docs agent_game_logout_cancel_ack (0xB006): result byte
+			byte result = packet.ReadByte();
+			Window.Get?.Log(result == 1 ? "Logout iptal edildi." : $"Logout iptal sonucu: {result}");
+		}
+		public static void LogoutSuccess(Packet packet)
+		{
+			// srodevs-docs agent_game_logout_success (0x300A): ek yok
+			Window.Get?.Log("Logout tamamlandı (0x300A).");
+			try { InfoManager.OnDisconnected(); } catch { }
+		}
+		public static void RenameResponse(Packet packet)
+		{
+			// srodevs-docs agent_character_selection_rename_ack (0xB450)
+			byte action = packet.ReadByte();
+			byte result = packet.ReadByte();
+			if (result == 1)
+			{
+				Window.Get?.Log("Rename başarılı (aksiyon=" + action + ").");
+				if (Bot.Get.Proxy.ClientlessMode)
+					PacketBuilder.RequestCharacterList();
+			}
+			else if (result == 2 && packet.RemainingRead() >= 2)
+			{
+				ushort err = packet.ReadUShort();
+				Window.Get?.Log(SroDocsPolicy.GetRenameErrorMessage(action, err), LogLevel.Warning);
+			}
+			else
+			{
+				Window.Get?.Log($"Rename sonucu: action={action} result={result}", LogLevel.Warning);
+			}
+		}
+		public static void ChatAck(Packet packet)
+		{
+			// srodevs-docs agent_chat_ack (0xB025): result + optional error + type/index
+			byte result = packet.ReadByte();
+			if (result == 2 && packet.RemainingRead() >= 2)
+			{
+				ushort err = packet.ReadUShort();
+				Window.Get?.Log(SroDocsPolicy.GetChatErrorMessage(err), LogLevel.Warning);
+			}
+			try
+			{
+				if (packet.RemainingRead() >= 2) { packet.ReadByte(); packet.ReadByte(); }
+			}
+			catch { }
+		}
+		public static void ChatRestrict(Packet packet)
+		{
+			// srodevs-docs agent_chat_restrict (0x302D): saniye cinsinden kısıt
+			try
+			{
+				uint seconds = packet.RemainingRead() >= 4 ? packet.ReadUInt() : 0;
+				Window.Get?.Log($"Sohbet kısıtı: {seconds} sn.", LogLevel.Warning);
+			}
+			catch { }
+		}
+		public static void QuestScript(Packet packet)
+		{
+			// srodevs-docs agent_quest_script (0x3CA2): filename + unk
+			try
+			{
+				string filename = packet.RemainingRead() > 2 ? packet.ReadAscii() : "";
+				if (packet.RemainingRead() >= 4) packet.ReadUInt();
+				Window.Get?.LogPacket($"[Quest] Script: {filename}");
+			}
+			catch { }
 		}
 		public static void CharacterDied(Packet packet)
 		{

@@ -485,13 +485,37 @@ internal static class Program
         RunReturnCheck("Başarılı geçiş kara listeyi temizler", TeleportLinkPolicy.IsBlacklisted(2, 5, t0), false);
         TeleportLinkPolicy.Reset();
 
+        // srodevs-docs (C:/srodevs-docs) paket uyum senaryoları
+        RunSroCheck("TC flags 0x0F cumulated taşır", SroDocsPolicy.HasCumulated(0x0F), true);
+        RunSroCheck("TC flags 0xF0 accumulated taşır", SroDocsPolicy.HasAccumulated(0xF0), true);
+        RunSroCheck("TC flags 0x00 boş", SroDocsPolicy.HasCumulated(0x00) || SroDocsPolicy.HasAccumulated(0x00), false);
+        RunSroCheck("BodyState 1 (Berserk) tanınır", SroDocsPolicy.IsKnownBodyState(1), true);
+        RunSroCheck("BodyState 7 tanınır", SroDocsPolicy.IsKnownBodyState(7), true);
+        RunSroCheck("BodyState 8 tanınmaz", SroDocsPolicy.IsKnownBodyState(8), false);
+        RunSroCheck("InfoUpdate STP(3) tanınır", SroDocsPolicy.IsKnownInfoUpdateType(3), true);
+        RunSroCheck("InfoUpdate EgyptAP(16) tanınır", SroDocsPolicy.IsKnownInfoUpdateType(16), true);
+        RunSroCheck("InfoUpdate 5 tanınmaz", SroDocsPolicy.IsKnownInfoUpdateType(5), false);
+        RunSroCheck("StateUpdate 0/1/4/7/8/11 tanınır", SroDocsPolicy.IsKnownStateUpdateKind(0) && SroDocsPolicy.IsKnownStateUpdateKind(1) && SroDocsPolicy.IsKnownStateUpdateKind(4) && SroDocsPolicy.IsKnownStateUpdateKind(7) && SroDocsPolicy.IsKnownStateUpdateKind(8) && SroDocsPolicy.IsKnownStateUpdateKind(11), true);
+        RunSroCheck("StateUpdate 2 tanınmaz", SroDocsPolicy.IsKnownStateUpdateKind(2), false);
+        RunSroString("Login 0x04 already-connected mesajı", SroDocsPolicy.GetLoginErrorMessage(4), "This user is already connected. Please try again in 5 minutes.");
+        RunSroString("Login 0x06 server-full mesajı", SroDocsPolicy.GetLoginErrorMessage(6), "The server is full, please try again later.");
+        RunSroString("Login 0x0B IP limit mesajı", SroDocsPolicy.GetLoginErrorMessage(0x0B), "IP limit exceeded.");
+        RunSroString("Login block inspection mesajı", SroDocsPolicy.GetLoginErrorMessage(2, 2), "Cannot connect: server inspection (AccountInspection).");
+        RunSroString("Logout 0x801 combat mesajı", SroDocsPolicy.GetLogoutErrorMessage(0x801), "Cannot close the game during combat.");
+        RunSroString("Logout 0x802 teleport mesajı", SroDocsPolicy.GetLogoutErrorMessage(0x802), "Cannot exit the game while teleporting.");
+        RunSroString("Chat 0x2008 invalid-command mesajı", SroDocsPolicy.GetChatErrorMessage(0x2008), "Invalid chat command.");
+        RunSroString("Rename char 6 already-exists mesajı", SroDocsPolicy.GetRenameErrorMessage(1, 6), "This ID already exists.");
+        RunSroString("Rename guild 7 cannot-create mesajı", SroDocsPolicy.GetRenameErrorMessage(2, 7), "The guild name cannot be created.");
+        RunSroCheck("Açı 0 -> 0 derece", SroDocsPolicy.AngleToDegrees(0) == 0.0, true);
+        RunSroCheck("Açı 32767 -> ~180 derece", System.Math.Abs(SroDocsPolicy.AngleToDegrees(32767) - 180.0) < 0.01, true);
+
         if (failures != 0)
         {
             Console.WriteLine("Protection senaryoları başarısız: " + failures);
             return 1;
         }
 
-        Console.WriteLine("Koruma, item filtre, combat, skill, imbue, command center, lojistik, parti, PIN, SOCKS5, Auto Alchemy, Target Assist, Localization, Potion, Alana Dönüş ve Teleport senaryoları başarılı: 285");
+        Console.WriteLine("Koruma, item filtre, combat, skill, imbue, command center, lojistik, parti, PIN, SOCKS5, Auto Alchemy, Target Assist, Localization, Potion, Alana Dönüş, Teleport ve SroDocs senaryoları başarılı: 307");
         return 0;
     }
 
@@ -756,6 +780,30 @@ internal static class Program
 
         failures++;
         Console.WriteLine("FAIL: " + name + " | beklenen=" + expected + ", gerçek=" + actual);
+    }
+
+    private static void RunSroCheck(string name, bool actual, bool expected)
+    {
+        if (actual == expected)
+        {
+            Console.WriteLine("PASS: " + name);
+            return;
+        }
+
+        failures++;
+        Console.WriteLine("FAIL: " + name + " | beklenen=" + expected + ", gerçek=" + actual);
+    }
+
+    private static void RunSroString(string name, string actual, string expected)
+    {
+        if (string.Equals(actual, expected, StringComparison.Ordinal))
+        {
+            Console.WriteLine("PASS: " + name);
+            return;
+        }
+
+        failures++;
+        Console.WriteLine("FAIL: " + name + " | beklenen=\"" + expected + "\", gerçek=\"" + actual + "\"");
     }
 
     private static void RunReturnJsonRoundtrip()

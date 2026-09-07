@@ -93,9 +93,13 @@ namespace xBot.Network
 				CLIENT_EXCHANGE_APPROVE_REQUEST = 0x7083,
 				CLIENT_EXCHANGE_EXIT_REQUEST = 0x7084,
 				CLIENT_SECONDARY_PASSCODE = 0x7625,
-CLIENT_ALCHEMY = 0x7150,
+				CLIENT_ALCHEMY = 0x7150,
 			CLIENT_ALCHEMY_STONE = 0x7151,
 			CLIENT_CHARACTER_BERSERK_ACTIVATE = 0x70A7,
+			CLIENT_CHARACTER_BODYSTATE = 0x70A7,
+			CLIENT_LOGOUT_REQUEST = 0x7005,
+			CLIENT_LOGOUT_CANCEL_REQUEST = 0x7006,
+			CLIENT_RENAME_REQUEST = 0x7450,
 			CLIENT_REPAIR_ALL_EQUIPMENTS = 0x703E,
 
 			SERVER_AUTH_RESPONSE = 0xA103,
@@ -207,6 +211,12 @@ CLIENT_ALCHEMY = 0x7150,
 				SERVER_EXCHANGE_EXIT_RESPONSE = 0xB084,
 				SERVER_DROP_UNLOCKED = 0x304D,
 				SERVER_NPC_CLOSE_RESPONSE = 0xB04B,
+				SERVER_LOGOUT_RESPONSE = 0xB005,
+				SERVER_LOGOUT_CANCEL_RESPONSE = 0xB006,
+				SERVER_LOGOUT_SUCCESS = 0x300A,
+				SERVER_RENAME_RESPONSE = 0xB450,
+				SERVER_CHAT_RESTRICT = 0x302D,
+				SERVER_QUEST_SCRIPT = 0x3CA2,
 
 				GLOBAL_HANDSHAKE = 0x5000,
 				GLOBAL_HANDSHAKE_OK = 0x9000,
@@ -718,6 +728,27 @@ CLIENT_ALCHEMY = 0x7150,
 					break;
 				case Opcode.SERVER_NPC_CLOSE_RESPONSE:
 					PacketParser.NpcCloseResponse(packet);
+					break;
+				case Opcode.SERVER_LOGOUT_RESPONSE:
+					PacketParser.LogoutResponse(packet);
+					break;
+				case Opcode.SERVER_LOGOUT_CANCEL_RESPONSE:
+					PacketParser.LogoutCancelResponse(packet);
+					break;
+				case Opcode.SERVER_LOGOUT_SUCCESS:
+					PacketParser.LogoutSuccess(packet);
+					break;
+				case Opcode.SERVER_RENAME_RESPONSE:
+					PacketParser.RenameResponse(packet);
+					break;
+				case Opcode.SERVER_CHAT_RESPONSE:
+					PacketParser.ChatAck(packet);
+					break;
+				case Opcode.SERVER_CHAT_RESTRICT:
+					PacketParser.ChatRestrict(packet);
+					break;
+				case Opcode.SERVER_QUEST_SCRIPT:
+					PacketParser.QuestScript(packet);
 					break;
 				case Opcode.SERVER_CHARACTER_ACTION_RESPONSE:
 					try

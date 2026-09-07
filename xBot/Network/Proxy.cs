@@ -322,25 +322,49 @@ namespace xBot.Network
 													break;
 												}
 											case 2:
-												byte blockType = packet.ReadByte();
-												if (blockType == 1)
 												{
-													string blockedReason = packet.ReadAscii();
-													ushort endYear = packet.ReadUShort();
-													ushort endMonth = packet.ReadUShort();
-													ushort endDay = packet.ReadUShort();
-													ushort endHour = packet.ReadUShort();
-													ushort endMinute = packet.ReadUShort();
-													ushort endSecond = packet.ReadUShort();
-													w.Log("Account banned till [" + endDay + "/" + endMonth + "/" + endYear + " " + endHour + "/" + endMinute + "/" + endSecond + "]. Reason: " + blockedReason);
-													w.LogProcess("Account banned", Window.ProcessState.Error);
+													byte blockType = packet.ReadByte();
+													if (blockType == 1)
+													{
+														string blockedReason = packet.ReadAscii();
+														ushort endYear = packet.ReadUShort();
+														ushort endMonth = packet.ReadUShort();
+														ushort endDay = packet.ReadUShort();
+														ushort endHour = packet.ReadUShort();
+														ushort endMinute = packet.ReadUShort();
+														ushort endSecond = packet.ReadUShort();
+														// srodevs-docs: mikrosecond + kalan alanlar opsiyonel olabilir
+														try
+														{
+															if (packet.RemainingRead() >= 2) packet.ReadUShort();
+														}
+														catch { }
+														w.Log("Account banned till [" + endDay + "/" + endMonth + "/" + endYear + " " + endHour + "/" + endMinute + "/" + endSecond + "]. Reason: " + blockedReason);
+														w.LogProcess("Account banned", Window.ProcessState.Error);
+													}
+													else
+													{
+														w.Log(SroDocsPolicy.GetLoginErrorMessage(error, blockType));
+														w.LogProcess("Login blocked", Window.ProcessState.Warning);
+													}
+													break;
 												}
+											case 4:
+											case 6:
+											case 0xB:
+											case 0xC:
+											case 0xD:
+											case 0xE:
+											case 0xF:
+											case 0x10:
+												w.Log(SroDocsPolicy.GetLoginErrorMessage(error));
+												w.LogProcess("Login failed", Window.ProcessState.Warning);
 												break;
 											case 3:
 												w.Log("This user is already connected. Please try again in 5 minutes");
 												break;
 											default:
-												w.Log("Login error [" + error + "]");
+												w.Log(SroDocsPolicy.GetLoginErrorMessage(error));
 												break;
 										}
 										// Client bugfix reset
@@ -349,6 +373,18 @@ namespace xBot.Network
 											w.Login_btnStart.Enabled = true;
 										});
 
+										context.RelaySecurity.Send(packet);
+									}
+									else if (result == 3)
+									{
+										// srodevs-docs gateway_login_ack: custom message (her client desteklemez)
+										try
+										{
+											if (packet.RemainingRead() >= 2) { packet.ReadByte(); packet.ReadByte(); }
+											string msg = packet.RemainingRead() > 2 ? packet.ReadAscii() : "";
+											w.Log("Login notice: " + msg);
+										}
+										catch { w.Log("Login response (custom message)."); }
 										context.RelaySecurity.Send(packet);
 									}
 									else

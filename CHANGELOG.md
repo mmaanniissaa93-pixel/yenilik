@@ -1,6 +1,10 @@
 # Changelog
 
 ### Unreleased
+- srodevs-docs uyumu: `0x3056` EXP TC-buff (cumulated/accumulated) + level-up stat points; `0x304E` STP/HWAN-source/Egypt-AP/display baytları ve otomatik stat dağıtım tetikleme.
+- srodevs-docs uyumu: logout (`0x7005/0xB005/0x7006/0xB006/0x300A`) ve rename (`0x7450/0xB450`) parser/builder/handler eklendi; `0x70A7` bodystate enumu ile Berserk uyumlu hale getirildi.
+- srodevs-docs uyumu: `0xB025` chat hata kodları, `0x302D` kısıt süresi, `0x3CA2` quest logu; gateway `0xA102` tam hata haritası + custom result `0x03`, `0x2322` IBUV imaj başlığı logu.
+- `SroDocsPolicy` saf karar katmanı + 22 yeni senaryo (toplam 307 test).
 - Stabilite: `xDictionary/xList` kilitli hale getirildi, `RemoveAt/SetKey` bozuklukları ve `Clear` sayaç hatası düzeltildi; snapshot ile güvenli enumerasyon.
 - Ayar kaydı atomik yazıma alındı (`Settings.json` + karakter profili tmp+replace), yarım yazım riski giderildi.
 - Proxy hot-path: paket başına UI `Invoke` ve `HexDump` kaldırıldı, bayraklar döngü başına önbelleğe alındı, `TracePacket` dosya IO'su varsayılan kapalı, idle `Sleep(1)` / aktif `Sleep(0)`.

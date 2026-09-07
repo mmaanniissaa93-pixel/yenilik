@@ -70,6 +70,101 @@ namespace xBot.Game.Objects.Common
 			EntityHPMP = 5
 		}
 		/// <summary>
+		/// srodevs-docs: AGENT_ENTITY_STATE_UPDATE (0x30BF) UpdateType.
+		/// </summary>
+		public enum EntityStateUpdateKind : byte
+		{
+			LifeState = 0,
+			MotionState = 1,
+			BodyState = 4,
+			CombatState = 7,
+			InCombat = 8,
+			Scrolling = 11
+		}
+		/// <summary>
+		/// srodevs-docs: AGENT_CHARACTER_BODYSTATE_REQ (0x70A7).
+		/// </summary>
+		public enum EntityBodyState : byte
+		{
+			None = 0,
+			Berserk = 1,
+			Untouchable = 2,
+			GameMasterInvincible = 3,
+			GameMasterUntouchable = 4,
+			GameMasterInvisible = 5,
+			Stealth = 6,
+			Invisible = 7
+		}
+		/// <summary>
+		/// srodevs-docs: AGENT_GAME_LOGOUT_REQ (0x7005) LogoutMode.
+		/// </summary>
+		public enum LogoutMode : byte
+		{
+			Exit = 1,
+			Restart = 2
+		}
+		public enum LogoutErrorCode : ushort
+		{
+			CantLogoutInBattle = 0x801,
+			CantLogoutWhileTeleporting = 0x802
+		}
+		/// <summary>
+		/// srodevs-docs: AGENT_CHARACTER_SELECTION_RENAME_REQ (0x7450).
+		/// </summary>
+		public enum CharacterRenameAction : byte
+		{
+			CharacterRename = 1,
+			GuildRename = 2,
+			GuildNameCheck = 3
+		}
+		/// <summary>
+		/// srodevs-docs: AGENT_CHARACTER_INFO_UPDATE (0x304E) UpdateType.
+		/// </summary>
+		public enum CharacterInfoUpdateType : byte
+		{
+			Gold = 1,
+			SP = 2,
+			STP = 3,
+			Hwan = 4,
+			EgyptAP = 16
+		}
+		/// <summary>
+		/// srodevs-docs: AGENT_CHAT_ACK (0xB025) ChatErrorCode.
+		/// </summary>
+		public enum ChatErrorCode : ushort
+		{
+			CantFindTarget = 3,
+			YouAreSqueltched = 0x2006,
+			InvalidCommand = 0x2008,
+			NotAPartyMember = 0x200A,
+			AlliancePermissionDenied = 0x200B,
+			CantChatting = 0x200D,
+			UnionChatLimit = 0x200E
+		}
+		/// <summary>
+		/// srodevs-docs: GATEWAY_LOGIN_ACK (0xA102) LoginErrorCode / LoginBlockType.
+		/// </summary>
+		public enum GatewayLoginError : byte
+		{
+			InvalidCredentials = 1,
+			Blocked = 2,
+			AlreadyConnected = 4,
+			ServerIsFull = 6,
+			IPLimit = 0xB,
+			BillingFailed = 0xC,
+			BillingRelated = 0xD,
+			AdultOnly = 0xE,
+			TeenOverOnly = 0xF,
+			TeenServerAdultDenied = 0x10
+		}
+		public enum GatewayLoginBlockType : byte
+		{
+			Punishment = 1,
+			AccountInspection = 2,
+			NoAccountInfo = 3,
+			FreeServiceOver = 4
+		}
+		/// <summary>
 		/// Players interacting petitions.
 		/// </summary>
 		public enum PlayerPetition : byte

@@ -1034,8 +1034,55 @@ namespace xBot.Game
 		}
 		public static void ActivateBerserk()
 		{
+			SetBodyState(SRTypes.EntityBodyState.Berserk);
+		}
+		/// <summary>
+		/// srodevs-docs AGENT_CHARACTER_BODYSTATE_REQ (0x70A7).
+		/// </summary>
+		public static void SetBodyState(SRTypes.EntityBodyState state)
+		{
 			Packet p = new Packet(Agent.Opcode.CLIENT_CHARACTER_BERSERK_ACTIVATE);
-			p.WriteByte(1);
+			p.WriteByte((byte)state);
+			Bot.Get.Proxy.Agent.InjectToServer(p);
+		}
+		/// <summary>
+		/// srodevs-docs AGENT_GAME_LOGOUT_REQ (0x7005) + CANCEL (0x7006).
+		/// </summary>
+		public static void RequestLogout(SRTypes.LogoutMode mode)
+		{
+			Packet p = new Packet(Agent.Opcode.CLIENT_LOGOUT_REQUEST);
+			p.WriteByte((byte)mode);
+			Bot.Get.Proxy.Agent.InjectToServer(p);
+		}
+		public static void CancelLogout()
+		{
+			Packet p = new Packet(Agent.Opcode.CLIENT_LOGOUT_CANCEL_REQUEST);
+			Bot.Get.Proxy.Agent.InjectToServer(p);
+		}
+		/// <summary>
+		/// srodevs-docs AGENT_CHARACTER_SELECTION_RENAME_REQ (0x7450).
+		/// </summary>
+		public static void RenameCharacter(string currentName, string newName)
+		{
+			Packet p = new Packet(Agent.Opcode.CLIENT_RENAME_REQUEST);
+			p.WriteByte((byte)SRTypes.CharacterRenameAction.CharacterRename);
+			p.WriteAscii(currentName);
+			p.WriteAscii(newName);
+			Bot.Get.Proxy.Agent.InjectToServer(p);
+		}
+		public static void RenameGuild(string currentName, string newName)
+		{
+			Packet p = new Packet(Agent.Opcode.CLIENT_RENAME_REQUEST);
+			p.WriteByte((byte)SRTypes.CharacterRenameAction.GuildRename);
+			p.WriteAscii(currentName);
+			p.WriteAscii(newName);
+			Bot.Get.Proxy.Agent.InjectToServer(p);
+		}
+		public static void CheckGuildName(string name)
+		{
+			Packet p = new Packet(Agent.Opcode.CLIENT_RENAME_REQUEST);
+			p.WriteByte((byte)SRTypes.CharacterRenameAction.GuildNameCheck);
+			p.WriteAscii(name);
 			Bot.Get.Proxy.Agent.InjectToServer(p);
 		}
 		public static void RepairAllEquipments(uint npcUniqueID)

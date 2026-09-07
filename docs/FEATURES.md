@@ -119,6 +119,10 @@ Son kaynak taraması: 2026-09-05
 | F-088 | Hızlı kaydetme ve header HP/MP/level göstergeleri | ✅ | `App/Window.CustomTabs.cs`, `App/Window.ModernTheme.cs`; canlı başlık metrikleri ve kayıt bağlı |
 | F-089 | Güncelleme kontrolü ve reklam penceresi | ✅ | `App/Ads.cs`, AutoUpdater referansı |
 | F-090 | Modern karanlık tema motoru ve canlı durum çubuğu | ✅ | `App/Theme/DarkTheme.cs`, `ModernSidebar`, `ModernStatusBar`, `Window.ModernTheme.cs`; CPU/RAM, Ping, Gold, SP ve durum rozeti |
+| F-091 | Logout/rename akışı (srodevs-docs) | ✅ | `0x7005/0xB005/0x7006/0xB006/0x300A` logout + `0x7450/0xB450` rename parser/builder ve `Agent.cs` handler; `SroDocsPolicy` mesaj haritası |
+| F-092 | Chat ack/restrict + quest script (srodevs-docs) | ✅ | `0xB025` hata kodları, `0x302D` kısıt süresi, `0x3CA2` script logu; `SroDocsPolicy.GetChatErrorMessage` |
+| F-093 | EXP TC-buff + InfoUpdate tam yapısı (srodevs-docs) | ✅ | `0x3056` cumulated/accumulated + stat points, `0x304E` STP(3)/HWAN source/AP(16)/display baytları; 22 SroDocs senaryosu |
+| F-094 | Gateway login/IBUV uyumu (srodevs-docs) | ✅ | `0xA102` tam hata haritası (AlreadyConnected/ServerFull/IPLimit/billing/age + block alt tipleri + custom result 0x03), `0x2322` imaj başlığı logu |
 
 ## Geliştirilmekte olan yöneticiler
 
