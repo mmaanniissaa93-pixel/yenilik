@@ -136,6 +136,27 @@ namespace xBot.Game
 		/// Check if the exchanger has confirmed.
 		/// </summary>
 		public static bool isExchangerConfirmed { get; private set; }
+		#region (Environment: srodevs-docs 0x3020/0x3027/0x3809)
+		/// <summary>
+		/// Oyun içi saat (0x3020/0x3027 celestial paketlerinden).
+		/// </summary>
+		public static byte GameHour { get; private set; }
+		public static byte GameMinute { get; private set; }
+		public static ushort Moonphase { get; private set; }
+		public static byte WeatherType { get; private set; }
+		public static byte WeatherIntensity { get; private set; }
+		internal static void OnEnvironmentCelestial(ushort moonphase, byte hour, byte minute)
+		{
+			Moonphase = moonphase;
+			GameHour = hour;
+			GameMinute = minute;
+		}
+		internal static void OnEnvironmentWeather(byte type, byte intensity)
+		{
+			WeatherType = type;
+			WeatherIntensity = intensity;
+		}
+		#endregion
 		/// <summary>
 		/// Check if the storage has been requested at least once after teleport.
 		/// </summary>

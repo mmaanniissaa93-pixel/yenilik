@@ -18,14 +18,22 @@ namespace xBot.Network
 				CLIENT_SHARD_LIST_REQUEST = 0x6101,
 				CLIENT_LOGIN_REQUEST = 0x6102,
 				CLIENT_LOGIN_REQUEST_CUSTOM = 0x610A,
+				CLIENT_NOTICE_REQUEST = 0x6104,
+				CLIENT_SHARD_LIST_PING_REQUEST = 0x6106,
 				CLIENT_CAPTCHA_SOLVED_REQUEST = 0x6323,
 
 				SERVER_PATCH_RESPONSE = 0xA100,
 				SERVER_SHARD_LIST_RESPONSE = 0xA101,
 				SERVER_LOGIN_RESPONSE = 0xA102,
 				SERVER_LOGIN_RESPONSE_CUSTOM = 0xA10A,
+				SERVER_NOTICE_RESPONSE = 0xA104,
+				SERVER_SHARD_LIST_PING_RESPONSE = 0xA106,
 				SERVER_CAPTCHA_DATA = 0x2322,
 				SERVER_CAPTCHA_SOLVED_RESPONSE = 0xA323,
+
+				CLIENT_DOWNLOAD_FILE_REQUEST = 0x6004,
+				SERVER_DOWNLOAD_FILE_CHUNK = 0x1001,
+				SERVER_DOWNLOAD_FILE_COMPLETE = 0xA004,
 
 				GLOBAL_HANDSHAKE = 0x5000,
 				GLOBAL_HANDSHAKE_OK = 0x9000,
@@ -157,29 +165,19 @@ namespace xBot.Network
 						}
 						break;
 					case Opcode.SERVER_PATCH_RESPONSE:
-						if(ClientlessMode){
-							switch (packet.ReadByte()) {
-								case 1:
-									Packet p = new Packet(Opcode.CLIENT_SHARD_LIST_REQUEST, true);
-									this.InjectToServer(p);
-									break;
-								case 2:
-									byte errorCode = packet.ReadByte();
-									if (errorCode == 2)
-									{
-										string DownloadServerIP = packet.ReadAscii();
-										ushort DownloadServerPort = packet.ReadUShort();
-										uint DownloadServerCurVersion = packet.ReadUInt();
-										Window.Get.Log("Version outdate. Please, verify that client and database (v" + DataManager.Version + ") are up to date (v" + DownloadServerCurVersion + ")");
-									}
-									else
-									{
-										Window.Get.Log("Patch error: [" + errorCode + "]");
-									}
-									Bot.Get.Proxy.Stop();
-									break;
-								}
-						}
+						PacketParser.PatchResponse(packet, ClientlessMode, this);
+						break;
+					case Opcode.SERVER_NOTICE_RESPONSE:
+						PacketParser.NoticeResponse(packet);
+						break;
+					case Opcode.SERVER_SHARD_LIST_PING_RESPONSE:
+						PacketParser.ShardListPingResponse(packet);
+						break;
+					case Opcode.SERVER_DOWNLOAD_FILE_CHUNK:
+					case Opcode.SERVER_DOWNLOAD_FILE_COMPLETE:
+						// DownloadServer akışı bot tarafından kullanılmaz; sürüm farkında
+						// kullanıcı client/DB güncellemelidir. Teşhis için logla.
+						Window.Get?.LogPacket($"[G] Download paketi 0x{packet.Opcode:X4} ({packet.GetBytes().Length} byte) yoksayıldı");
 						break;
 					case Opcode.SERVER_SHARD_LIST_RESPONSE:
 						PacketParser.ShardListResponse(packet);

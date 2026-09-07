@@ -508,6 +508,16 @@ internal static class Program
         RunSroString("Rename guild 7 cannot-create mesajı", SroDocsPolicy.GetRenameErrorMessage(2, 7), "The guild name cannot be created.");
         RunSroCheck("Açı 0 -> 0 derece", SroDocsPolicy.AngleToDegrees(0) == 0.0, true);
         RunSroCheck("Açı 32767 -> ~180 derece", System.Math.Abs(SroDocsPolicy.AngleToDegrees(32767) - 180.0) < 0.01, true);
+        RunSroString("Auth 0x04 server-full mesajı", SroDocsPolicy.GetAuthErrorMessage(4), "The server is full, please try again later.");
+        RunSroString("Auth 0x05 IP limit mesajı", SroDocsPolicy.GetAuthErrorMessage(5), "IP limit exceeded (insufficient IP).");
+        RunSroString("Auth 0x01 C9 mesajı", SroDocsPolicy.GetAuthErrorMessage(1), "Failed to connect to the server (C9).");
+        RunSroString("Patch 0x02 update mesajı", SroDocsPolicy.GetPatchErrorMessage(2), "Update required.");
+        RunSroString("Patch 0x03 not-in-service mesajı", SroDocsPolicy.GetPatchErrorMessage(3), "Not in service.");
+        RunSroCheck("Weather Rain(2) tanınır", SroDocsPolicy.IsKnownWeatherType(2), true);
+        RunSroCheck("Weather 4 tanınmaz", SroDocsPolicy.IsKnownWeatherType(4), false);
+        RunSroCheck("Petition GuildWar(10) tanınır", SroDocsPolicy.IsKnownPetitionType(10), true);
+        RunSroCheck("Petition ResurrectionAgain(8) tanınır", SroDocsPolicy.IsKnownPetitionType(8), true);
+        RunSroCheck("Petition 7 tanınmaz", SroDocsPolicy.IsKnownPetitionType(7), false);
 
         if (failures != 0)
         {
@@ -515,7 +525,7 @@ internal static class Program
             return 1;
         }
 
-        Console.WriteLine("Koruma, item filtre, combat, skill, imbue, command center, lojistik, parti, PIN, SOCKS5, Auto Alchemy, Target Assist, Localization, Potion, Alana Dönüş, Teleport ve SroDocs senaryoları başarılı: 307");
+        Console.WriteLine("Koruma, item filtre, combat, skill, imbue, command center, lojistik, parti, PIN, SOCKS5, Auto Alchemy, Target Assist, Localization, Potion, Alana Dönüş, Teleport ve SroDocs senaryoları başarılı: 317");
         return 0;
     }
 

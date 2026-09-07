@@ -71,6 +71,7 @@ namespace xBot.Network
 				CLIENT_PET_UNSUMMON_REQUEST = 0x7116,
 				CLIENT_PET_SETTINGS_CHANGE_REQUEST = 0x7420,
 				CLIENT_PET_MOUNTED = 0x70CB,
+				// NOT: 0x706C PARTY_MATCH_LIST ile çakışır; bu sabit kullanılmıyor, dokunulmadı.
 				CLIENT_PET_DESTROY = 0x706C,
 				CLIENT_STALL_CREATE_REQUEST = 0x70B1,
 				CLIENT_STALL_DESTROY_REQUEST = 0x70B2,
@@ -418,7 +419,7 @@ namespace xBot.Network
 						else
 						{
 							byte error = packet.ReadByte();
-							Window.Get.Log("Login error [" + error + "]");
+							Window.Get.Log(SroDocsPolicy.GetAuthErrorMessage(error));
 						}
 					}
 					break;
@@ -749,6 +750,42 @@ namespace xBot.Network
 					break;
 				case Opcode.SERVER_QUEST_SCRIPT:
 					PacketParser.QuestScript(packet);
+					break;
+				case Opcode.SERVER_TELEPORT_USE_RESPONSE:
+					PacketParser.TeleportUseResponse(packet);
+					break;
+				case Opcode.SERVER_TELEPORT_RECALL_RESPONSE:
+					PacketParser.TeleportRecallResponse(packet);
+					break;
+				case Opcode.SERVER_PARTY_INVITATION_RESPONSE:
+					PacketParser.PartyInvitationResponse(packet);
+					break;
+				case Opcode.SERVER_PARTY_MATCH_CREATION_RESPONSE:
+					PacketParser.PartyMatchCreationResponse(packet);
+					break;
+				case Opcode.SERVER_PARTY_MATCH_EDITED_RESPONSE:
+					PacketParser.PartyMatchEditedResponse(packet);
+					break;
+				case Opcode.SERVER_GUILD_STORAGE_RESPONSE:
+					PacketParser.GuildStorageResponse(packet);
+					break;
+				case Opcode.SERVER_GUILD_PLAYER_LOG:
+					PacketParser.GuildPlayerLog(packet);
+					break;
+				case Opcode.SERVER_MAIL_SEND_RESPONSE:
+					PacketParser.MailSendResponse(packet);
+					break;
+				case Opcode.SERVER_ENTITY_DISPLAY_EFFECT:
+					PacketParser.EntityDisplayEffect(packet);
+					break;
+				case Opcode.SERVET_ENTITY_INVENTORY_EQUIP:
+					PacketParser.EntityInventoryEquip(packet);
+					break;
+				case Opcode.SERVER_ENTITY_EMOTE_USE:
+					PacketParser.EntityEmoteUse(packet);
+					break;
+				case Opcode.SERVER_DROP_UNLOCKED:
+					PacketParser.DropUnlocked(packet);
 					break;
 				case Opcode.SERVER_CHARACTER_ACTION_RESPONSE:
 					try

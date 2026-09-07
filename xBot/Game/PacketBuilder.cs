@@ -77,6 +77,33 @@ namespace xBot.Game
 			p.WriteAscii(charname);
 			Bot.Get.Proxy.Agent.InjectToServer(p);
 		}
+		/// <summary>
+		/// srodevs-docs 0x7007 Restore(5): silinmekte olan karakteri geri yükler.
+		/// </summary>
+		public static void RestoreCharacter(string charname)
+		{
+			Packet p = new Packet(Agent.Opcode.CLIENT_CHARACTER_SELECTION_ACTION_REQUEST);
+			p.WriteByte(SRTypes.CharacterSelectionAction.Restore);
+			p.WriteAscii(charname);
+			Bot.Get.Proxy.Agent.InjectToServer(p);
+		}
+		/// <summary>
+		/// srodevs-docs GATEWAY_NOTICE_REQ (0x6104).
+		/// </summary>
+		public static void RequestNotice()
+		{
+			Packet p = new Packet(Gateway.Opcode.CLIENT_NOTICE_REQUEST, true);
+			p.WriteByte(DataManager.Locale);
+			Bot.Get.Proxy.Gateway.InjectToServer(p);
+		}
+		/// <summary>
+		/// srodevs-docs GATEWAY_SHARD_LIST_PING_REQ (0x6106).
+		/// </summary>
+		public static void RequestShardListPing()
+		{
+			Packet p = new Packet(Gateway.Opcode.CLIENT_SHARD_LIST_PING_REQUEST, true);
+			Bot.Get.Proxy.Gateway.InjectToServer(p);
+		}
 		public static bool CreateCharacter(string charname, bool male, string type = "CH")
 		{
 			uint model, chest, legs, shoes, weapon;

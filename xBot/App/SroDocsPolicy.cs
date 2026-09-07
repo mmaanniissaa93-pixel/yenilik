@@ -70,6 +70,42 @@ namespace xBot.App
 			}
 		}
 
+		public static string GetAuthErrorMessage(byte code)
+		{
+			switch (code)
+			{
+				case 1: return "Failed to connect to the server (C9).";
+				case 2: return "Failed to connect to the server (C10).";
+				case 4: return "The server is full, please try again later.";
+				case 5: return "IP limit exceeded (insufficient IP).";
+				default: return "Authentication error [" + code + "]";
+			}
+		}
+
+		public static string GetPatchErrorMessage(byte code)
+		{
+			switch (code)
+			{
+				case 1: return "Invalid version.";
+				case 2: return "Update required.";
+				case 3: return "Not in service.";
+				case 4: return "Abnormal module.";
+				case 5: return "Patch disabled.";
+				default: return "Patch error [" + code + "]";
+			}
+		}
+
+		public static bool IsKnownWeatherType(byte value)
+		{
+			return value == 1 || value == 2 || value == 3;
+		}
+
+		public static bool IsKnownPetitionType(byte value)
+		{
+			return value == 1 || value == 2 || value == 3 || value == 4 || value == 5 ||
+				value == 6 || value == 8 || value == 9 || value == 10;
+		}
+
 		public static string GetLogoutErrorMessage(ushort code)
 		{
 			switch (code)

@@ -197,6 +197,117 @@ namespace xBot.Game
 				Window.Get?.Log("[CaptchaData] " + ex.Message);
 			}
 		}
+		/// <summary>
+		/// srodevs-docs GATEWAY_PATCH_ACK (0xA100). Clientless ise akışı sürdürür.
+		/// </summary>
+		public static void PatchResponse(Packet packet, bool clientless, Network.Gateway gateway)
+		{
+			try
+			{
+				byte result = packet.ReadByte();
+				if (result == 1)
+				{
+					if (clientless)
+					{
+						Packet p = new Packet(Network.Gateway.Opcode.CLIENT_SHARD_LIST_REQUEST, true);
+						gateway.InjectToServer(p);
+					}
+					return;
+				}
+				if (result != 2)
+				{
+					Window.Get?.Log($"Patch sonucu bilinmiyor: [{result}]");
+					return;
+				}
+				byte errorCode = packet.RemainingRead() >= 1 ? packet.ReadByte() : (byte)0;
+				if (errorCode == (byte)SRTypes.GatewayPatchError.Update && packet.RemainingRead() >= 8)
+				{
+					string ip = packet.ReadAscii();
+					ushort port = packet.ReadUShort();
+					uint latest = packet.ReadUInt();
+					int files = 0;
+					try
+					{
+						while (packet.RemainingRead() > 0 && packet.ReadBool())
+						{
+							packet.ReadUInt(); // File ID
+							packet.ReadAscii(); // Name/Path
+							packet.ReadUInt(); // Size
+							packet.ReadBool(); // IsPacked
+							files++;
+						}
+					}
+					catch { }
+					Window.Get?.Log($"Version outdate. DownloadServer={ip}:{port} v{latest} ({files} dosya). Client ve database (v{DataManager.Version}) güncellenmeli.");
+				}
+				else
+				{
+					Window.Get?.Log($"Patch error: [{errorCode}]");
+				}
+				if (clientless)
+					Bot.Get.Proxy.Stop();
+			}
+			catch (System.Exception ex)
+			{
+				Window.Get?.Log("[PatchResponse] " + ex.Message);
+			}
+		}
+		/// <summary>
+		/// srodevs-docs GATEWAY_NOTICE_ACK (0xA104).
+		/// </summary>
+		public static void NoticeResponse(Packet packet)
+		{
+			try
+			{
+				byte count = packet.ReadByte();
+				for (int i = 0; i < count; i++)
+				{
+					string subject = packet.ReadAscii();
+					string article = packet.ReadAscii();
+					ushort year = packet.ReadUShort();
+					ushort month = packet.ReadUShort();
+					ushort day = packet.ReadUShort();
+					ushort hour = packet.ReadUShort();
+					ushort minute = packet.ReadUShort();
+					ushort second = packet.ReadUShort();
+					if (packet.RemainingRead() >= 4) packet.ReadInt(); // Nanosecond
+					if (i == 0)
+						Window.Get?.Log($"[Notice] {subject} ({day:D2}/{month:D2}/{year} {hour:D2}:{minute:D2})");
+					else
+						Window.Get?.LogPacket($"[Notice] {subject}: {article}");
+				}
+			}
+			catch (System.Exception ex)
+			{
+				Window.Get?.Log("[NoticeResponse] " + ex.Message);
+			}
+		}
+		/// <summary>
+		/// srodevs-docs GATEWAY_SHARD_LIST_PING_ACK (0xA106).
+		/// </summary>
+		public static void ShardListPingResponse(Packet packet)
+		{
+			try
+			{
+				byte result = packet.ReadByte();
+				if (result == 1 && packet.RemainingRead() >= 5)
+				{
+					byte farm = packet.ReadByte();
+					uint ip = packet.ReadUInt();
+					byte[] b = BitConverter.GetBytes(ip);
+					Window.Get?.LogPacket($"[ShardPing] farm={farm} ip={b[0]}.{b[1]}.{b[2]}.{b[3]}");
+				}
+				else
+				{
+					byte err = packet.RemainingRead() >= 1 ? packet.ReadByte() : (byte)0;
+					Window.Get?.Log($"[ShardPing] Hata: [{err}]", LogLevel.Warning);
+				}
+			}
+			catch (System.Exception ex)
+			{
+				Window.Get?.Log("[ShardListPingResponse] " + ex.Message);
+			}
+		}
 		public static void CharacterSelectionActionResponse(Packet packet)
 		{
 			byte action = packet.ReadByte();
@@ -1217,9 +1328,14 @@ namespace xBot.Game
 		}
 		public static void LogoutCancelResponse(Packet packet)
 		{
-			// srodevs-docs agent_game_logout_cancel_ack (0xB006): result byte
+			// srodevs-docs agent_game_logout_cancel_ack (0xB006): result + (2 ise ushort error)
 			byte result = packet.ReadByte();
-			Window.Get?.Log(result == 1 ? "Logout iptal edildi." : $"Logout iptal sonucu: {result}");
+			if (result == 1)
+				Window.Get?.Log("Logout iptal edildi.");
+			else if (result == 2 && packet.RemainingRead() >= 2)
+				Window.Get?.Log(SroDocsPolicy.GetLogoutErrorMessage(packet.ReadUShort()), LogLevel.Warning);
+			else
+				Window.Get?.Log($"Logout iptal sonucu: {result}");
 		}
 		public static void LogoutSuccess(Packet packet)
 		{
@@ -1265,10 +1381,10 @@ namespace xBot.Game
 		}
 		public static void ChatRestrict(Packet packet)
 		{
-			// srodevs-docs agent_chat_restrict (0x302D): saniye cinsinden kısıt
+			// srodevs-docs agent_chat_restrict (0x302D): 1 byte RestrictionTime (saniye)
 			try
 			{
-				uint seconds = packet.RemainingRead() >= 4 ? packet.ReadUInt() : 0;
+				byte seconds = packet.RemainingRead() >= 1 ? packet.ReadByte() : (byte)0;
 				Window.Get?.Log($"Sohbet kısıtı: {seconds} sn.", LogLevel.Warning);
 			}
 			catch { }
@@ -1281,6 +1397,120 @@ namespace xBot.Game
 				string filename = packet.RemainingRead() > 2 ? packet.ReadAscii() : "";
 				if (packet.RemainingRead() >= 4) packet.ReadUInt();
 				Window.Get?.LogPacket($"[Quest] Script: {filename}");
+			}
+			catch { }
+		}
+		public static void TeleportUseResponse(Packet packet)
+		{
+			// 0xB05A: result byte; bot teleport akışı polling ile sürer, burada sadece teşhis.
+			try
+			{
+				byte result = packet.ReadByte();
+				if (result != 1)
+					Window.Get?.Log($"[Teleport] Kullanım sonucu: {result}", LogLevel.Warning);
+			}
+			catch { }
+		}
+		public static void TeleportRecallResponse(Packet packet)
+		{
+			// 0xB059: recall designate sonucu.
+			try
+			{
+				byte result = packet.ReadByte();
+				Window.Get?.Log(result == 1 ? "[Teleport] Recall noktası kaydedildi." : $"[Teleport] Recall sonucu: {result}", result == 1 ? LogLevel.Info : LogLevel.Warning);
+			}
+			catch { }
+		}
+		public static void PartyInvitationResponse(Packet packet)
+		{
+			// 0xB060: parti davet cevabı sonucu.
+			try
+			{
+				byte result = packet.ReadByte();
+				Window.Get?.LogPacket($"[Party] Davet cevabı sonucu: {result}");
+			}
+			catch { }
+		}
+		public static void PartyMatchCreationResponse(Packet packet)
+		{
+			// 0xB069: party match oluşturma sonucu.
+			try
+			{
+				byte result = packet.ReadByte();
+				Window.Get?.Log(result == 1 ? "[PartyMatch] Oluşturuldu." : $"[PartyMatch] Oluşturma sonucu: {result}", result == 1 ? LogLevel.Info : LogLevel.Warning);
+			}
+			catch { }
+		}
+		public static void PartyMatchEditedResponse(Packet packet)
+		{
+			// 0xB06A: party match düzenleme sonucu.
+			try
+			{
+				byte result = packet.ReadByte();
+				Window.Get?.LogPacket($"[PartyMatch] Düzenleme sonucu: {result}");
+			}
+			catch { }
+		}
+		public static void GuildStorageResponse(Packet packet)
+		{
+			// 0xB250: guild storage isteği sonucu (veri 0x3253/0x3255/0x3254 ile gelir).
+			try
+			{
+				byte result = packet.ReadByte();
+				if (result != 1)
+					Window.Get?.Log($"[Guild] Storage sonucu: {result}", LogLevel.Warning);
+			}
+			catch { }
+		}
+		public static void GuildPlayerLog(Packet packet)
+		{
+			// 0x30FF: guild oyuncu hareketleri; ham geçiş + teşhis.
+			try { Window.Get?.LogPacket($"[Guild] PlayerLog ({packet.RemainingRead()} byte)"); } catch { }
+		}
+		public static void MailSendResponse(Packet packet)
+		{
+			// 0xB309: posta gönderim sonucu.
+			try
+			{
+				byte result = packet.ReadByte();
+				Window.Get?.Log(result == 1 ? "[Mail] Gönderildi." : $"[Mail] Sonuç: {result}", result == 1 ? LogLevel.Info : LogLevel.Warning);
+			}
+			catch { }
+		}
+		public static void EntityDisplayEffect(Packet packet)
+		{
+			// 0x305C: entity görsel efekti (UID + effect).
+			try
+			{
+				uint uid = packet.ReadUInt();
+				uint effect = packet.RemainingRead() >= 4 ? packet.ReadUInt() : 0;
+				Window.Get?.LogPacket($"[Effect] UID={uid} effect={effect}");
+			}
+			catch { }
+		}
+		public static void EntityInventoryEquip(Packet packet)
+		{
+			// 0x3038: entity kuşanma değişimi bildirimi; envanter mutabakatı polling ile sürer.
+			try { Window.Get?.LogPacket($"[Equip] Kuşanma bildirimi ({packet.RemainingRead()} byte)"); } catch { }
+		}
+		public static void EntityEmoteUse(Packet packet)
+		{
+			// 0x3091 server: uzak entity emote bildirimi (istemci→sunucu ile aynı opcode).
+			try
+			{
+				uint uid = packet.ReadUInt();
+				byte emote = packet.RemainingRead() >= 1 ? packet.ReadByte() : (byte)0;
+				Window.Get?.LogPacket($"[Emote] UID={uid} emote={emote}");
+			}
+			catch { }
+		}
+		public static void DropUnlocked(Packet packet)
+		{
+			// 0x304D: drop sahiplenme süresi doldu, herkes alabilir.
+			try
+			{
+				uint uid = packet.ReadUInt();
+				Window.Get?.LogPacket($"[Drop] Serbest drop UID={uid}");
 			}
 			catch { }
 		}
@@ -1724,12 +1954,12 @@ namespace xBot.Game
 		}
 		public static void EnviromentCelestialPosition(Packet packet)
 		{
+			// srodevs-docs agent_environment_celestial_position (0x3020)
 			uint uid = packet.ReadUInt();
 			if (InfoManager.Character != null)
 				InfoManager.Character.UniqueID = uid;
-			//ushort moonphase = packet.ReadUShort();
-			//byte hour = packet.ReadByte();
-			//byte minute = packet.ReadByte();
+			if (packet.RemainingRead() >= 4)
+				InfoManager.OnEnvironmentCelestial(packet.ReadUShort(), packet.ReadByte(), packet.ReadByte());
 			// End of Packet
 		}
 		public static void ChatUpdate(Packet packet)
@@ -1768,9 +1998,9 @@ namespace xBot.Game
 		}
 		public static void EnviromentCelestialUpdate(Packet packet)
 		{
-			//byte moonphase = packet.ReadUShort();
-			//byte hour = packet.ReadByte();
-			//byte minute = packet.ReadByte();
+			// srodevs-docs agent_environment_celestial_update (0x3027)
+			if (packet.RemainingRead() >= 4)
+				InfoManager.OnEnvironmentCelestial(packet.ReadUShort(), packet.ReadByte(), packet.ReadByte());
 			// End of Packet
 		}
 		public static void EntityLevelUp(Packet packet)
@@ -1812,8 +2042,9 @@ namespace xBot.Game
 		}
 		public static void EnviromentWheaterUpdate(Packet packet)
 		{
-			//byte wheaterType = packet.ReadByte();
-			//byte wheaterIntensity = packet.ReadByte();
+			// srodevs-docs agent_environment_weather_update (0x3809): type + intensity
+			if (packet.RemainingRead() >= 2)
+				InfoManager.OnEnvironmentWeather(packet.ReadByte(), packet.ReadByte());
 		}
 		public static void NoticeUniqueUpdate(Packet packet)
 		{
@@ -1865,16 +2096,23 @@ namespace xBot.Game
 					}
 					break;
 				case SRTypes.PlayerPetition.Resurrection:
+				case SRTypes.PlayerPetition.ResurrectionAgain:
 					Bot.Get.OnResurrection(uniqueID);
 					break;
 				case SRTypes.PlayerPetition.GuildInvitation:
-					//Bot.Get.OnGuildInvitation(uniqueID);
+					Window.Get?.LogPacket($"[Invite] Guild daveti (UID={uniqueID})");
 					break;
 				case SRTypes.PlayerPetition.UnionInvitation:
-					//Bot.Get.OnUnionInvitation(uniqueID);
+					Window.Get?.LogPacket($"[Invite] Union daveti (UID={uniqueID})");
 					break;
 				case SRTypes.PlayerPetition.AcademyInvitation:
-					//Bot.Get.OnAcademyInvitation(uniqueID);
+					Window.Get?.LogPacket($"[Invite] Academy daveti (UID={uniqueID})");
+					break;
+				case SRTypes.PlayerPetition.GuildWar:
+					Window.Get?.LogPacket($"[Invite] GuildWar bildirimi (UID={uniqueID})");
+					break;
+				default:
+					Window.Get?.LogPacket($"[Invite] Bilinmeyen davet tipi {(byte)type} (UID={uniqueID})");
 					break;
 			}
 		}

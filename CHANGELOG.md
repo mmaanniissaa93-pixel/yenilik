@@ -5,6 +5,10 @@
 - srodevs-docs uyumu: logout (`0x7005/0xB005/0x7006/0xB006/0x300A`) ve rename (`0x7450/0xB450`) parser/builder/handler eklendi; `0x70A7` bodystate enumu ile Berserk uyumlu hale getirildi.
 - srodevs-docs uyumu: `0xB025` chat hata kodları, `0x302D` kısıt süresi, `0x3CA2` quest logu; gateway `0xA102` tam hata haritası + custom result `0x03`, `0x2322` IBUV imaj başlığı logu.
 - `SroDocsPolicy` saf karar katmanı + 22 yeni senaryo (toplam 307 test).
+- Derin tarama turu: `0xB05A/0xB059/0xB060/0xB069/0xB06A/0xB250/0x30FF/0xB309/0x305C/0x3038/0x3091/0x304D` için teşhis handler’ları bağlandı; handlersız server opcode kalmadı.
+- `0x302D` chat kısıtı byte düzeltmesi; `0xB006` cancel hata kodu; `0xA103` auth hata adları (C9/C10/full/IP); petition GuildWar(10)/Resurrection(8).
+- Ortam durumu `InfoManager`’da tutuluyor (`0x3020/0x3027/0x3809`); gateway `0xA104/0xA106/0xA100` tam yapıda, download stub eklendi; `RestoreCharacter` builder.
+- 10 yeni politika senaryosu (toplam 317 test).
 - Stabilite: `xDictionary/xList` kilitli hale getirildi, `RemoveAt/SetKey` bozuklukları ve `Clear` sayaç hatası düzeltildi; snapshot ile güvenli enumerasyon.
 - Ayar kaydı atomik yazıma alındı (`Settings.json` + karakter profili tmp+replace), yarım yazım riski giderildi.
 - Proxy hot-path: paket başına UI `Invoke` ve `HexDump` kaldırıldı, bayraklar döngü başına önbelleğe alındı, `TracePacket` dosya IO'su varsayılan kapalı, idle `Sleep(1)` / aktif `Sleep(0)`.

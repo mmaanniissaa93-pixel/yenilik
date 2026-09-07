@@ -123,6 +123,10 @@ Son kaynak taraması: 2026-09-05
 | F-092 | Chat ack/restrict + quest script (srodevs-docs) | ✅ | `0xB025` hata kodları, `0x302D` kısıt süresi, `0x3CA2` script logu; `SroDocsPolicy.GetChatErrorMessage` |
 | F-093 | EXP TC-buff + InfoUpdate tam yapısı (srodevs-docs) | ✅ | `0x3056` cumulated/accumulated + stat points, `0x304E` STP(3)/HWAN source/AP(16)/display baytları; 22 SroDocs senaryosu |
 | F-094 | Gateway login/IBUV uyumu (srodevs-docs) | ✅ | `0xA102` tam hata haritası (AlreadyConnected/ServerFull/IPLimit/billing/age + block alt tipleri + custom result 0x03), `0x2322` imaj başlığı logu |
+| F-095 | Teleport/party/guild/mail/drop teşhis handler’ları (srodevs-docs) | ✅ | `0xB05A/0xB059/0xB060/0xB069/0xB06A/0xB250/0x30FF/0xB309/0x305C/0x3038/0x3091/0x304D` parser + `Agent.cs` bağlantısı; oyun akışı polling’de kalır |
+| F-096 | Ortam saati ve hava durumu (srodevs-docs) | ✅ | `0x3020/0x3027` moonphase/saat/dakika + `0x3809` weather `InfoManager`’da tutulur (`GameHour/Minute/Moonphase/WeatherType/Intensity`) |
+| F-097 | Gateway notice/ping/patch + download stub (srodevs-docs) | ✅ | `0xA104` notice, `0xA106` ping, `0xA100` PatchErrorCode + dosya listesi, `0x6004/0x1001/0xA004` download stub; `RequestNotice/RequestShardListPing/RestoreCharacter` builder |
+| F-098 | Auth/patch/petition/weather politika haritası (srodevs-docs) | ✅ | `0xA103` auth hata kodları (C9/C10/full/IP), patch hata adları, petition GuildWar(10)/Resurrection(8), `SroDocsPolicy` + 32 senaryo |
 
 ## Geliştirilmekte olan yöneticiler
 
@@ -143,6 +147,7 @@ Bu bölüm, çalışma ağacında yeni görünen yöneticileri ayrı izler. Yeni
 | `SecondaryPasscodePolicy` | İkincil güvenlik şifresi (PIN) kontrolü, hesap fallback çözümleme | `LoginStrategy` | `PacketBuilder`, `PacketParser` ve `Bot.Events` ile bağlı; 14 testle doğrulandı | Sunucu PIN ekranında runtime test |
 | `Socks5Config` | Gateway ve Agent bağlantılarını SOCKS5 tüneline yönlendirme | `Socks5Proxy` | `Proxy.cs`, `Socks5Handler.cs` ve `Socks5Policy` ile bağlı; 14 testle doğrulandı | Proxy IP üzerinden gateway bağlantısı testi |
 | `AlchemyManager` | Otomatik simya (+ basma), slot ve elixir/powder eşleme, güvenlik limitleri | `Alchemy` | `Bot.IA` döngüsünde bağlı; `AlchemyPolicy` karar katmanı ve 25 bağımsız testle doğrulandı | Oyun içi simya ve elixir tüketimi ile runtime test |
+| `SroDocsPolicy` | srodevs-docs mesaj/karar haritası (login/auth/logout/chat/rename/patch/petition/weather/angle) | Yok | `PacketParser`, `Agent.cs`, `Proxy.cs`, `Gateway.cs` ile bağlı; 32 bağımsız testle doğrulandı | Gerçek server paketleriyle runtime test |
 
 ## Yeni özellik ekleme akışı
 

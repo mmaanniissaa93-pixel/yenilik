@@ -171,8 +171,9 @@ gender, satış/depolama kuralları ile Combat AI’nin kaçınma, Dimension Pil
 alan dışı takip ve Berserk tetik kararlarını; SkillPolicy ise cooldown/fallback
 ve sıralı combo kararlarını, ImbuePolicy ise Çin Fire/Cold/Lightning skill ve
 aktif buff adlandırmalarını kontrol eder. Karakter yüklendiğinde algılanan imbue
-skill’leri seviyeleriyle Skills > Attack ekranında listelenir. Toplam 44 senaryo
-çalıştırılır.
+skill’leri seviyeleriyle Skills > Attack ekranında listelenir. `SroDocsPolicy`
+ise srodevs-docs tabanlı login/auth/logout/chat/rename/patch/petition/weather
+kararlarını kontrol eder. Toplam 317 senaryo çalıştırılır.
 
 ## Otomatik giriş
 

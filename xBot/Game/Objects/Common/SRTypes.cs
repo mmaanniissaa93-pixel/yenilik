@@ -175,7 +175,39 @@ namespace xBot.Game.Objects.Common
 			Resurrection = 4,
 			GuildInvitation = 5,
 			UnionInvitation = 6, // Not confirmed
-			AcademyInvitation = 9 // Not confirmed
+			ResurrectionAgain = 8, // srodevs-docs agent_game_invite: ikinci Resurrection değeri
+			AcademyInvitation = 9, // Not confirmed
+			GuildWar = 10 // srodevs-docs agent_game_invite
+		}
+		/// <summary>
+		/// srodevs-docs: AGENT_LOGIN_AUTH_ACK (0xA103) AuthenticationErrorCode.
+		/// </summary>
+		public enum AgentAuthError : byte
+		{
+			ConnectionErrorC9 = 1,
+			ConnectionErrorC10 = 2,
+			ServerIsFull = 4,
+			IPLimit = 5
+		}
+		/// <summary>
+		/// srodevs-docs: agent_environment_weather_update (0x3809) WeatherType.
+		/// </summary>
+		public enum WeatherType : byte
+		{
+			Clear = 1,
+			Rain = 2,
+			Snow = 3
+		}
+		/// <summary>
+		/// srodevs-docs: GATEWAY_PATCH_ACK (0xA100) PatchErrorCode.
+		/// </summary>
+		public enum GatewayPatchError : byte
+		{
+			InvalidVersion = 1,
+			Update = 2,
+			NotInService = 3,
+			AbnormalModule = 4,
+			PatchDisabled = 5
 		}
 		
 		public enum SetPart : byte
