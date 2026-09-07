@@ -112,6 +112,17 @@ namespace xBot.App
                 var tabGold = new TabPage("Store Gold");
                 var tabDismantle = new TabPage("Dismantle");
                 tabPickFilterRoot.TabPages.AddRange(new TabPage[] { tabItems, tabOptions, tabGold, tabDismantle });
+                // Blues DB'ye bağlıdır (açılışta DB henüz yoksa boş kalır) — sekmeye
+                // girince eksikse doldur. Eşya listesi bilinçli tembeldir.
+                tabPickFilterRoot.SelectedIndexChanged += (s, e) =>
+                {
+                    try
+                    {
+                        if (tabPickFilterRoot.SelectedTab == tabOptions && !bluesLoaded)
+                            RefreshBluesList();
+                    }
+                    catch { }
+                };
 
                 BuildPickItemsTab(tabItems);
                 BuildPickOptionsTab(tabOptions);
@@ -330,6 +341,22 @@ namespace xBot.App
                 txtPickSearch, lblPickCount, btnClear, btnUpdate, btnReset, lblNote });
         }
 
+        /// <summary>
+        /// Bayrak değişikliği ANINDA motora işlenir (Update beklenmez).
+        /// </summary>
+        private void SaveAllPickFilterLive()
+        {
+            try
+            {
+                SavePickOptionsFromUi();
+                SaveGoldFromUi();
+                SaveDismantleFromUi();
+                SaveBluesFromUi();
+                try { Settings.SaveCharacterSettings(); } catch { }
+            }
+            catch { }
+        }
+
         private void ApplyPickFlag(string value)
         {
             try
@@ -349,7 +376,25 @@ namespace xBot.App
                     {
                         item.SubItems[pickCtxColumn].Text = value;
                     }
+                    ApplyPickRowLive(item);
                 }
+                try { Settings.SaveCharacterSettings(); } catch { }
+            }
+            catch { }
+        }
+
+        private void ApplyPickRowLive(ListViewItem item)
+        {
+            try
+            {
+                string servername = item.Tag as string;
+                if (string.IsNullOrEmpty(servername)) return;
+                bool pick = GetFlag(item, 3), pet = GetFlag(item, 4), sell = GetFlag(item, 5);
+                bool store = GetFlag(item, 6), guild = GetFlag(item, 7);
+                if (pick || pet || sell || store || guild)
+                    ItemFilterManager.SetRuleFull(servername, pick, pet, sell, store, guild);
+                else
+                    ItemFilterManager.RemoveRule(servername);
             }
             catch { }
         }
@@ -506,6 +551,7 @@ namespace xBot.App
                 TextAlign = ContentAlignment.MiddleLeft
             };
             lbl.Click += (s, e) => { try { cbx.Checked = !cbx.Checked; } catch { } };
+            cbx.CheckedChanged += (s, e) => SaveAllPickFilterLive();
             tab.Controls.Add(cbx);
             tab.Controls.Add(lbl);
             return cbx;
@@ -524,15 +570,18 @@ namespace xBot.App
             optOnlyStoreRareBlue = AddOptCheck(tab, "Only store rare or blue items", x, y, w); y += 20;
             optPickArrows = AddOptCheck(tab, "Pick Arrows/Bolts", x, y, 200);
             nudArrowAmount = new NumericUpDown { Location = new Point(x + 210, y), Size = new Size(80, 22), Minimum = 0, Maximum = 10000, Value = 200 };
+            nudArrowAmount.ValueChanged += (s, e) => SaveAllPickFilterLive();
             y += 20;
             optOnlyStoreBlues = AddOptCheck(tab, "Only store items with specific blue attributes", x, y, w); y += 20;
             optPickCharIfPetFull = AddOptCheck(tab, "Pick with character if pet is unsummoned or full", x, y, 340); y += 20;
             optDontMovePetItems = AddOptCheck(tab, "Do not move pet items except for storing/selling", x, y, 340); y += 20;
             optNoSellPlus = AddOptCheck(tab, "Do not sell items with plus >=", x, y, 230);
             nudNoSellPlus = new NumericUpDown { Location = new Point(x + 240, y), Size = new Size(60, 22), Minimum = 0, Maximum = 15, Value = 0 };
+            nudNoSellPlus.ValueChanged += (s, e) => SaveAllPickFilterLive();
             y += 20;
             optOnlyStorePlus = AddOptCheck(tab, "Only store items with plus >=", x, y, 230);
             nudOnlyStorePlus = new NumericUpDown { Location = new Point(x + 240, y), Size = new Size(60, 22), Minimum = 0, Maximum = 15, Value = 0 };
+            nudOnlyStorePlus.ValueChanged += (s, e) => SaveAllPickFilterLive();
             y += 20;
             optPickEvenWhenFull = AddOptCheck(tab, "Pick even when inventory is full", x, y, w);
 
@@ -581,6 +630,7 @@ namespace xBot.App
                     if (item.SubItems.Count > 1)
                         item.SubItems[1].Text = value == "Reset" ? "No" : value;
                 }
+                SaveAllPickFilterLive();
             }
             catch { }
         }
@@ -615,15 +665,18 @@ namespace xBot.App
                     catch { }
                 }
                 lstBlues.EndUpdate();
+                bluesLoaded = lstBlues.Items.Count > 0;
             }
             catch { }
         }
+
+        private bool bluesLoaded = false;
 
         private void SaveBluesFromUi()
         {
             try
             {
-                if (lstBlues == null) return;
+                if (lstBlues == null || !bluesLoaded) return;
                 ItemFilterManager.ClearBlues();
                 foreach (ListViewItem item in lstBlues.Items)
                 {
@@ -707,6 +760,7 @@ namespace xBot.App
             int x = 12, y = 16;
             optGoldEnabled = AddOptCheck(tab, "Gold keep amount", x, y, 300);
             txtGoldKeep = new TextBox { Location = new Point(420, y), Size = new Size(150, 22), Text = "1000000" };
+            txtGoldKeep.TextChanged += (s, e) => SaveAllPickFilterLive();
             y += 32;
             optGoldTakeStorage = AddOptCheck(tab, "Take gold from storage", x, y, 300);
             y += 32;
@@ -714,9 +768,11 @@ namespace xBot.App
             y += 32;
             optGoldStoreStorage = AddOptCheck(tab, "Store gold in storage (maximum amount, 0 = no limit)", x, y, 400);
             txtGoldStoreMax = new TextBox { Location = new Point(420, y), Size = new Size(150, 22), Text = "0" };
+            txtGoldStoreMax.TextChanged += (s, e) => SaveAllPickFilterLive();
             y += 32;
             optGoldStoreGuild = AddOptCheck(tab, "Store gold in guild storage (maximum amount, 0 = no limit)", x, y, 400);
             txtGoldStoreGuildMax = new TextBox { Location = new Point(420, y), Size = new Size(150, 22), Text = "0" };
+            txtGoldStoreGuildMax.TextChanged += (s, e) => SaveAllPickFilterLive();
             tab.Controls.AddRange(new Control[] { txtGoldKeep, txtGoldStoreMax, txtGoldStoreGuildMax });
         }
 
@@ -810,6 +866,7 @@ namespace xBot.App
             optDisWhite = AddOptCheck(tab, "White items", 230, 34, 220);
             optDisPlussed = AddOptCheck(tab, "Plussed items <", 230, 62, 140);
             nudDisPlussed = new NumericUpDown { Location = new Point(375, 62), Size = new Size(60, 22), Minimum = 0, Maximum = 15, Value = 3 };
+            nudDisPlussed.ValueChanged += (s, e) => SaveAllPickFilterLive();
             optDisBlue = AddOptCheck(tab, "Blue items", 230, 90, 220);
             optDisRare = AddOptCheck(tab, "Rare items", 230, 118, 220);
 
@@ -833,6 +890,7 @@ namespace xBot.App
                     if (item.SubItems.Count > 1)
                         item.SubItems[1].Text = value == "Reset" ? "No" : value;
                 }
+                SaveAllPickFilterLive();
             }
             catch { }
         }

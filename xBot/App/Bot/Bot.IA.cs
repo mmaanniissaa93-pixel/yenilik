@@ -1598,8 +1598,13 @@ namespace xBot.App
                 // Pick ve Pet sütunları bağımsızdır:
                 // Pick=Yes -> karakter yürüyüp toplar (pet açık olsa bile).
                 // Pet=Yes  -> pet kapar. İkisi de Yes ise ikisi de dener.
+                // Pet-only (Pick=No) + pet yok/dolu + karakter yedeği açıksa karakter toplar.
+                var dropRule = ItemFilterManager.GetRule(drop.Name) ?? ItemFilterManager.GetRule(drop.ServerName);
+                bool petOnly = dropRule != null && dropRule.Pet && !dropRule.Pickup;
                 bool petWants = petId != 0 && ItemFilterManager.ShouldUsePet(drop, true, petFull);
                 bool charWants = ItemFilterManager.ShouldPickup(drop);
+                if (petOnly && !petWants && ItemFilterManager.Pick.PickWithCharIfPetGoneFull)
+                    charWants = true;
 
                 if (petWants)
                 {
