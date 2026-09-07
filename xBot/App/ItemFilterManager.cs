@@ -190,6 +190,11 @@ namespace xBot.App
                 if (!string.IsNullOrEmpty(myName) && !string.IsNullOrEmpty(drop.OwnerName)
                     && string.Equals(myName, drop.OwnerName, System.StringComparison.OrdinalIgnoreCase))
                     return 1;
+                // Normal damlalarda isim paketlenmez (sadece JoinID): solo bottaki
+                // sahipli damla genelde kendi kestiğimiz mobdandır. Yabancı sayıp
+                // atlamak kendi damlanı çöpe atar — kendinin kabul et.
+                if (string.IsNullOrEmpty(drop.OwnerName))
+                    return 1;
                 // Parti üyesi mi?
                 try
                 {

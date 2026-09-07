@@ -541,10 +541,62 @@ namespace xBot.App
 			}
 		}
 
+		/// <summary>
+		/// Dismantle konum kancası: ilgili NPC öncesi söküm adaylarını raporlar.
+		/// (Söküm paketi bu server sürümünde doğrulanmadığı için uygulama yok.)
+		/// </summary>
+		private void DismantleCheck(string location, Window w)
+		{
+			try
+			{
+				var d = ItemFilterManager.Dismantle;
+				if (d == null)
+					return;
+				bool want = (location == "Blacksmith" && d.BeforeBlacksmith)
+					|| (location == "Grocery" && d.BeforeGrocery)
+					|| (location == "Herbalist" && d.BeforeHerbalist)
+					|| (location == "Storage" && d.BeforeStorage)
+					|| (location == "Guild" && d.BeforeGuildStorage);
+				if (!want)
+					return;
+				if (InfoManager.Character == null || InfoManager.Character.Inventory == null)
+					return;
+				int count = 0;
+				var inv = InfoManager.Character.Inventory;
+				for (int i = 13; i < inv.Capacity; i++)
+				{
+					var item = inv[i];
+					if (item == null)
+						continue;
+					try
+					{
+						if (ItemFilterManager.ShouldDismantle(item))
+							count++;
+					}
+					catch { }
+				}
+				if (count > 0)
+					w.Log($"Dismantle: {count} aday ({location} öncesi) — söküm paketi bu sürümde yok, atlandı.");
+			}
+			catch { }
+		}
+
+		private static string DismantleLocationForShop(string code)
+		{
+			if (string.IsNullOrEmpty(code))
+				return "Grocery";
+			if (code.Contains("SMITH") || code.Contains("ARMOR") || code.Contains("ACCESSORY"))
+				return "Blacksmith";
+			if (code.Contains("GROCERY"))
+				return "Grocery";
+			return "Herbalist";
+		}
+
 		private void ExecuteBuyStep(string[] command, Window w, Bot b)
 		{
 			string code = NpcCode(command);
 			w.Log($"Town Script: BUY [{code}]...");
+			DismantleCheck(DismantleLocationForShop(code), w);
 			bool nameMatched;
 			SREntity npc = FindTownNpc(code, out nameMatched);
 			// Potion lojistiği (sell/buy paketleri) sadece ismi doğrulanmış NPC'de.
@@ -615,6 +667,7 @@ namespace xBot.App
 			}
 			catch { }
 			w.Log($"Town Script: REPAIR [{code}]...");
+			DismantleCheck("Blacksmith", w);
 			bool nameMatched;
 			SREntity npc = FindTownNpc(code, out nameMatched);
 			if (!PrepareNpcInteraction(npc, code, nameMatched, "REPAIR", w, b))

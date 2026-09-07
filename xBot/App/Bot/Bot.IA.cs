@@ -345,6 +345,18 @@ namespace xBot.App
             // UI tabanlı servis lojistiği (TownManager koordinatları) bu server'daki
             // özel NPC'lerle uyuşmadığı için KALDIRILDI — yanlış NPC'ye paket atıp
             // kick yediriyordu. Script adımları (Script.cs) kendi doğrulamasıyla çalışır.
+            if (town == null)
+            {
+                // Pot bitince dönüş gibi scriptsiz çağrılarda konuma göre çöz.
+                try
+                {
+                    town = Script.GetTownScriptForRegion(myPosition.Region)
+                        ?? Script.GetNearestTownScript(myPosition, 150);
+                    if (town != null)
+                        w.Log($"Town Script: çözüldü [{town.FileName}]");
+                }
+                catch { town = null; }
+            }
             if (town != null)
             {
                 w.Log("Running town script [" + town.FileName + "] (script-only mode)...");
