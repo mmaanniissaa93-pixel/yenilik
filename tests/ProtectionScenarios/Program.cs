@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using xBot.App;
 using xBot.App.CommandCenter;
+using xBot.Game.Objects;
 
 internal static class Program
 {
@@ -519,14 +520,52 @@ internal static class Program
         RunSroCheck("Petition ResurrectionAgain(8) tanınır", SroDocsPolicy.IsKnownPetitionType(8), true);
         RunSroCheck("Petition 7 tanınmaz", SroDocsPolicy.IsKnownPetitionType(7), false);
 
+        RunDictionaryRenameScenarios();
+        RunSecretStoreScenarios();
+
         if (failures != 0)
         {
             Console.WriteLine("Protection senaryoları başarısız: " + failures);
             return 1;
         }
 
-        Console.WriteLine("Koruma, item filtre, combat, skill, imbue, command center, lojistik, parti, PIN, SOCKS5, Auto Alchemy, Target Assist, Localization, Potion, Alana Dönüş, Teleport ve SroDocs senaryoları başarılı: 317");
+        Console.WriteLine("Koruma, item filtre, combat, skill, imbue, command center, lojistik, parti, PIN, SOCKS5, Auto Alchemy, Target Assist, Localization, Potion, Alana Dönüş, Teleport, SroDocs, koleksiyon ve secret senaryoları başarılı: 322");
         return 0;
+    }
+
+    private static void RunDictionaryRenameScenarios()
+    {
+        var values = new xDictionary<string, string>();
+        values["a"] = "one";
+        values["b"] = "two";
+
+        RunDictionaryCheck("xDictionary mevcut hedefe rename'i reddeder", values.TrySetKey("a", "b"), false);
+        RunDictionaryCheck("xDictionary reddedilen rename sonrası değerleri korur",
+            values.Count == 2 && values["a"] == "one" && values["b"] == "two", true);
+        RunDictionaryCheck("xDictionary boş hedefe rename yapar",
+            values.TrySetKey("a", "c") && values.Count == 2 && !values.ContainsKey("a") && values["c"] == "one", true);
+    }
+
+    private static void RunDictionaryCheck(string name, bool actual, bool expected)
+    {
+        if (actual == expected)
+        {
+            Console.WriteLine("PASS: " + name);
+            return;
+        }
+
+        failures++;
+        Console.WriteLine("FAIL: " + name + " | beklenen=" + expected + ", gerçek=" + actual);
+    }
+
+    private static void RunSecretStoreScenarios()
+    {
+        const string secret = "xBot-test-secret";
+        string protectedValue = SecretStore.Protect(secret);
+        RunDictionaryCheck("SecretStore düz metni DPAPI çıktısında bırakmaz",
+            protectedValue.StartsWith("enc:", StringComparison.Ordinal) && !protectedValue.Contains(secret), true);
+        RunDictionaryCheck("SecretStore DPAPI roundtrip",
+            SecretStore.Unprotect(protectedValue) == secret, true);
     }
 
     private static ProtectionPolicyInput BaseInput()

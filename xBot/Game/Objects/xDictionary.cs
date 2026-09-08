@@ -58,19 +58,28 @@ namespace xBot.Game.Objects
 		}
 		public void SetKey(TKey ID, TKey NewID)
 		{
+			TrySetKey(ID, NewID);
+		}
+		public bool TrySetKey(TKey ID, TKey NewID)
+		{
 			lock (m_sync)
 			{
 				if (EqualityComparer<TKey>.Default.Equals(ID, NewID))
-					return;
+					return m_dictionary.ContainsKey(ID);
 				if (!m_dictionary.TryGetValue(ID, out TValue reference))
-					return;
+					return false;
+				// Renaming onto an existing key would create duplicate entries in
+				// m_enumerator and silently overwrite the target value.
+				if (m_dictionary.ContainsKey(NewID))
+					return false;
 				m_dictionary.Remove(ID);
 				int idx = m_enumerator.IndexOf(ID);
 				if (idx >= 0)
 					m_enumerator[idx] = NewID;
-				else if (!m_dictionary.ContainsKey(NewID))
+				else
 					m_enumerator.Add(NewID);
 				m_dictionary[NewID] = reference;
+				return true;
 			}
 		}
 		public void Clear()

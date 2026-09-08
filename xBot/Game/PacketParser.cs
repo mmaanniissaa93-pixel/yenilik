@@ -1850,7 +1850,7 @@ namespace xBot.Game
 			catch (Exception ex)
 			{
 				Bot.Get.LogError("Parsing Spawn Error", ex, packet);
-				throw ex;
+				throw;
 			}
 		}
 		public static void EntityDespawn(Packet packet)

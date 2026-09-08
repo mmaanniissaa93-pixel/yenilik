@@ -120,7 +120,8 @@ Komutlar büyük harfle yazılmalıdır. `*` zorunlu, `?` isteğe bağlı parame
 
 ## Ayarlar ve dosyalar
 
-- `Settings.json`: genel bot/istemci ayarları
+- `Settings.json`: dağıtımla gelen örnek/başlangıç ayarları
+- `Settings.user.json`: kullanıcıya özel genel bot/istemci ayarları; Git dışında tutulur
 - `Config\\<Silkroad>_<Server>_<Character>.json`: karakter ayarları
 - `Config\\Default.json`: isteğe bağlı varsayılan karakter profili
 - `navdata\\`: bölge NavMesh verileri
@@ -173,15 +174,16 @@ ve sıralı combo kararlarını, ImbuePolicy ise Çin Fire/Cold/Lightning skill 
 aktif buff adlandırmalarını kontrol eder. Karakter yüklendiğinde algılanan imbue
 skill’leri seviyeleriyle Skills > Attack ekranında listelenir. `SroDocsPolicy`
 ise srodevs-docs tabanlı login/auth/logout/chat/rename/patch/petition/weather
-kararlarını kontrol eder. Toplam 317 senaryo çalıştırılır.
+kararlarını, koleksiyon anahtarı değiştirme bütünlüğünü ve DPAPI secret roundtrip'ini kontrol eder. Toplam 322 senaryo çalıştırılır.
 
 ## Otomatik giriş
 
 `Genel > Giriş Akışı & Stratejisi` bölümünde `Otomatik Giriş` seçiliyken SRO,
 kullanıcı adı ve şifre alanlarını doldurun. Giriş gecikmesi sonunda akış hem `Clientless`
 hem de `Use Client` modunda bağlantıyı ve server seçimini otomatik ilerletir; ardından
-FirstFound/HighestLevel tercihine göre karakteri seçer. Kullanıcı adı ve şifre uygulama
-tarafından kalıcı olarak saklanmaz.
+FirstFound/HighestLevel tercihine göre karakteri seçer. Giriş alanına yazılan bilgiler
+kendiliğinden kaydedilmez. Hesap yöneticisindeki kaydetme işlevi seçilirse parola, proxy
+parolası ve ikincil PIN Windows kullanıcı hesabına bağlı DPAPI korumasıyla saklanır.
 
 ## Teşekkürler
 

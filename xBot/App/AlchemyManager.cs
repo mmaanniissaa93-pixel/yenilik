@@ -13,7 +13,8 @@ namespace xBot.App
     /// </summary>
     public static class AlchemyManager
     {
-        public static bool IsRunning { get; private set; } = false;
+        private static volatile bool isRunning;
+        public static bool IsRunning { get { return isRunning; } private set { isRunning = value; } }
         public static byte TargetSlot { get; set; } = 13;
         public static byte TargetPlus { get; set; } = 3;
         public static bool UseLuckyPowder { get; set; } = true;
@@ -28,7 +29,13 @@ namespace xBot.App
         public static event Action<string> OnLogMessage;
 
         private static DateTime lastAttemptUtc = DateTime.MinValue;
+        private static DateTime requestSentUtc = DateTime.MinValue;
+        private static bool awaitingResult;
+        private static uint targetItemId;
+        private static SREquipable targetItemReference;
+        private const int ResultTimeoutMs = 15000;
         private static readonly object alchemyLock = new object();
+        private static readonly AutoResetEvent wakeSignal = new AutoResetEvent(false);
 
         /// <summary>
         /// Resets attempt and result counters.
@@ -47,17 +54,24 @@ namespace xBot.App
         /// </summary>
         public static void Start(byte slot, byte targetPlus, bool usePowder = true, int maxAttempts = 50, int delayMs = 2000)
         {
-            TargetSlot = slot;
-            TargetPlus = targetPlus;
-            UseLuckyPowder = usePowder;
-            MaxAttempts = maxAttempts;
-            DelayMs = Math.Max(500, delayMs);
-            CurrentAttempts = 0;
-            SuccessCount = 0;
-            FailCount = 0;
-            IsRunning = true;
-            lastAttemptUtc = DateTime.MinValue;
-            LastStatus = $"Başlatıldı (+{targetPlus} hedefleniyor)";
+            lock (alchemyLock)
+            {
+                TargetSlot = slot;
+                TargetPlus = targetPlus;
+                UseLuckyPowder = usePowder;
+                MaxAttempts = maxAttempts;
+                DelayMs = Math.Max(500, delayMs);
+                CurrentAttempts = 0;
+                SuccessCount = 0;
+                FailCount = 0;
+                awaitingResult = false;
+                requestSentUtc = DateTime.MinValue;
+                lastAttemptUtc = DateTime.MinValue;
+                targetItemId = GetItemIdAtSlot(slot);
+                targetItemReference = GetItemAtSlot(slot);
+                IsRunning = true;
+                LastStatus = $"Başlatıldı (+{targetPlus} hedefleniyor)";
+            }
 
             string msg = $"[Auto Alchemy] Started for slot {slot} (Target: +{targetPlus}, Powder: {usePowder}, Max Attempts: {maxAttempts}).";
             Window.Get?.Log(msg);
@@ -78,7 +92,7 @@ namespace xBot.App
             while (IsRunning)
             {
                 RunTick();
-                Thread.Sleep(Math.Max(500, DelayMs));
+                wakeSignal.WaitOne(Math.Min(Math.Max(500, DelayMs), 1000));
             }
         }
 
@@ -87,10 +101,20 @@ namespace xBot.App
         /// </summary>
         public static void Stop()
         {
-            if (IsRunning)
+            bool stopped;
+            lock (alchemyLock)
             {
+                stopped = IsRunning;
                 IsRunning = false;
+                awaitingResult = false;
+                requestSentUtc = DateTime.MinValue;
+                targetItemId = 0;
+                targetItemReference = null;
                 LastStatus = "Durduruldu / Stopped";
+            }
+            wakeSignal.Set();
+            if (stopped)
+            {
                 string msg = "[Auto Alchemy] Stopped.";
                 Window.Get?.Log(msg);
                 OnLogMessage?.Invoke(msg);
@@ -106,14 +130,28 @@ namespace xBot.App
             if (!IsRunning || !InfoManager.inGame || InfoManager.Character == null || InfoManager.Character.Inventory == null)
                 return;
 
-            if ((DateTime.UtcNow - lastAttemptUtc).TotalMilliseconds < DelayMs)
-                return;
-
             if (!Monitor.TryEnter(alchemyLock))
                 return;
 
             try
             {
+                if (!IsRunning || !InfoManager.inGame)
+                    return;
+
+                DateTime nowUtc = DateTime.UtcNow;
+                if (awaitingResult)
+                {
+                    if ((nowUtc - requestSentUtc).TotalMilliseconds < ResultTimeoutMs)
+                        return;
+
+                    Window.Get?.Log("[Auto Alchemy] Server result timed out. Stopping to avoid a duplicate fuse request.");
+                    Stop();
+                    return;
+                }
+
+                if ((nowUtc - lastAttemptUtc).TotalMilliseconds < DelayMs)
+                    return;
+
                 if (TargetSlot >= InfoManager.Character.Inventory.Capacity)
                 {
                     Window.Get?.Log($"[Auto Alchemy] Invalid target slot ({TargetSlot}). Stopping.");
@@ -125,6 +163,18 @@ namespace xBot.App
                 if (rawItem == null || !(rawItem is SREquipable item))
                 {
                     Window.Get?.Log($"[Auto Alchemy] No upgradeable equipment found in slot {TargetSlot}. Stopping.");
+                    Stop();
+                    return;
+                }
+
+                if (targetItemId == 0)
+                {
+                    targetItemId = item.ID;
+                    targetItemReference = item;
+                }
+                else if (item.ID != targetItemId || (targetItemReference != null && !ReferenceEquals(item, targetItemReference)))
+                {
+                    Window.Get?.Log($"[Auto Alchemy] Target item in slot {TargetSlot} changed. Stopping.");
                     Stop();
                     return;
                 }
@@ -176,12 +226,25 @@ namespace xBot.App
                 }
 
                 CurrentAttempts++;
-                lastAttemptUtc = DateTime.UtcNow;
+                lastAttemptUtc = nowUtc;
+                requestSentUtc = nowUtc;
+                awaitingResult = true;
 
                 string powderLog = powderSlot != 0xFF ? $" + Lucky Powder D{degree}" : "";
                 Window.Get?.Log($"[Auto Alchemy] Attempt #{CurrentAttempts}: Fusing [{item.Name} (+{item.Plus}) -> Target +{TargetPlus}] with Elixir {requiredType}{powderLog}...");
 
-                PacketBuilder.FuseItem(TargetSlot, (byte)elixirSlot, powderSlot);
+                try
+                {
+                    PacketBuilder.FuseItem(TargetSlot, (byte)elixirSlot, powderSlot);
+                }
+                catch
+                {
+                    awaitingResult = false;
+                    requestSentUtc = DateTime.MinValue;
+                    CurrentAttempts--;
+                    Stop();
+                    throw;
+                }
             }
             finally
             {
@@ -194,8 +257,22 @@ namespace xBot.App
         /// </summary>
         public static void OnAlchemyResult(byte resultByte)
         {
-            if (AlchemyPolicy.ParseAlchemyResponse(resultByte, out bool isSuccess, out string description))
+            lock (alchemyLock)
             {
+                if (!IsRunning || !awaitingResult)
+                    return;
+
+                awaitingResult = false;
+                requestSentUtc = DateTime.MinValue;
+                wakeSignal.Set();
+
+                if (!AlchemyPolicy.ParseAlchemyResponse(resultByte, out bool isSuccess, out string description))
+                {
+                    Window.Get?.Log($"[Auto Alchemy] Unknown result 0x{resultByte:X2}. Stopping to avoid an unsafe retry.");
+                    Stop();
+                    return;
+                }
+
                 if (isSuccess)
                 {
                     SuccessCount++;
@@ -219,6 +296,19 @@ namespace xBot.App
                 }
             }
         }
+
+        private static uint GetItemIdAtSlot(byte slot)
+        {
+			return GetItemAtSlot(slot)?.ID ?? 0;
+		}
+
+		private static SREquipable GetItemAtSlot(byte slot)
+		{
+			var inventory = InfoManager.Character?.Inventory;
+			if (inventory == null || slot >= inventory.Capacity)
+				return null;
+			return inventory[slot] as SREquipable;
+		}
 
         public class UpgradeableItemInfo
         {

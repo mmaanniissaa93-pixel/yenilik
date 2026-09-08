@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Security.Cryptography;
-using System.Text;
 using Newtonsoft.Json.Linq;
 
 namespace xBot.App
@@ -40,30 +38,6 @@ namespace xBot.App
     {
         public static List<SavedAccount> Accounts { get; } = new List<SavedAccount>();
         public static string SelectedAccountUsername { get; set; } = string.Empty;
-
-        private static string Protect(string plain)
-        {
-            if (string.IsNullOrEmpty(plain)) return string.Empty;
-            try
-            {
-                byte[] data = Encoding.UTF8.GetBytes(plain);
-                byte[] enc = ProtectedData.Protect(data, null, DataProtectionScope.CurrentUser);
-                return "enc:" + Convert.ToBase64String(enc);
-            }
-            catch { return plain; }
-        }
-        private static string Unprotect(string stored)
-        {
-            if (string.IsNullOrEmpty(stored)) return string.Empty;
-            if (!stored.StartsWith("enc:")) return stored; // eski plaintext kayıtlarla uyumluluk
-            try
-            {
-                byte[] enc = Convert.FromBase64String(stored.Substring(4));
-                byte[] data = ProtectedData.Unprotect(enc, null, DataProtectionScope.CurrentUser);
-                return Encoding.UTF8.GetString(data);
-            }
-            catch { return string.Empty; }
-        }
 
         /// <summary>
         /// Saves or updates an account.
@@ -132,7 +106,7 @@ namespace xBot.App
         }
 
         /// <summary>
-        /// Serializes saved accounts to a JArray for Settings.json.
+        /// Serializes saved accounts to a JArray for the user settings file.
         /// </summary>
         public static JArray ToJson()
         {
@@ -142,16 +116,16 @@ namespace xBot.App
                 JObject obj = new JObject
                 {
                     ["Username"] = acc.Username,
-                    ["Password"] = Protect(acc.Password),
+                    ["Password"] = SecretStore.Protect(acc.Password),
                     ["Server"] = acc.Server,
                     ["Character"] = acc.Character,
                     ["Silkroad"] = acc.Silkroad,
-                    ["SecondaryPasscode"] = Protect(acc.SecondaryPasscode),
+                    ["SecondaryPasscode"] = SecretStore.Protect(acc.SecondaryPasscode),
                     ["UseProxy"] = acc.UseProxy,
                     ["ProxyHost"] = acc.ProxyHost,
                     ["ProxyPort"] = acc.ProxyPort,
                     ["ProxyUsername"] = acc.ProxyUsername,
-                    ["ProxyPassword"] = Protect(acc.ProxyPassword)
+                    ["ProxyPassword"] = SecretStore.Protect(acc.ProxyPassword)
                 };
                 array.Add(obj);
             }
@@ -175,16 +149,16 @@ namespace xBot.App
                     SavedAccount acc = new SavedAccount
                     {
                         Username = user.Trim(),
-                        Password = Unprotect((string)obj["Password"] ?? string.Empty),
+                        Password = SecretStore.Unprotect((string)obj["Password"] ?? string.Empty),
                         Server = (string)obj["Server"] ?? string.Empty,
                         Character = (string)obj["Character"] ?? string.Empty,
                         Silkroad = (string)obj["Silkroad"] ?? string.Empty,
-                        SecondaryPasscode = Unprotect((string)obj["SecondaryPasscode"] ?? string.Empty),
+                        SecondaryPasscode = SecretStore.Unprotect((string)obj["SecondaryPasscode"] ?? string.Empty),
                         UseProxy = obj.ContainsKey("UseProxy") ? (bool)obj["UseProxy"] : false,
                         ProxyHost = (string)obj["ProxyHost"] ?? string.Empty,
                         ProxyPort = obj.ContainsKey("ProxyPort") ? (ushort)obj["ProxyPort"] : (ushort)1080,
                         ProxyUsername = (string)obj["ProxyUsername"] ?? string.Empty,
-                        ProxyPassword = Unprotect((string)obj["ProxyPassword"] ?? string.Empty)
+                        ProxyPassword = SecretStore.Unprotect((string)obj["ProxyPassword"] ?? string.Empty)
                     };
                     Accounts.Add(acc);
                 }

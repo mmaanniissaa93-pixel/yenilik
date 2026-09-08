@@ -93,6 +93,7 @@ namespace xBot.Network
 			});
 
 			Thread gwThread = (new Thread(ThreadGateway));
+			gwThread.IsBackground = true;
 			gwThread.Priority = ThreadPriority.AboveNormal;
 			gwThread.Start();
 		}
@@ -123,6 +124,23 @@ namespace xBot.Network
                 socket.Bind(new IPEndPoint(IPAddress.Any, 0));
                 return ((IPEndPoint)socket.LocalEndPoint).Port;
             }
+        }
+
+        private static void SendAll(Socket socket, TransferBuffer buffer)
+        {
+            while (buffer.Offset < buffer.Size)
+            {
+                int remaining = buffer.Size - buffer.Offset;
+                int sent = socket.Send(buffer.Buffer, buffer.Offset, remaining, SocketFlags.None);
+                if (sent <= 0)
+                    throw new SocketException((int)SocketError.ConnectionReset);
+                buffer.Offset += sent;
+            }
+        }
+
+        private static string GetSafePacketDump(ushort opcode, byte[] bytes)
+        {
+            return ModernLogger.IsSensitiveOpcode(opcode) ? "<redacted>" : Utility.HexDump(bytes);
         }
         private void ThreadGateway()
 		{
@@ -271,7 +289,7 @@ namespace xBot.Network
 										|| !opcodeFound && !gwOnlyShow)
 									{
 										byte[] logBytes = packet.GetBytes();
-										w.LogPacket(string.Format("[G][{0}][{1:X4}][{2} bytes]{3}{4}{6}{5}", "S->C", packet.Opcode, logBytes.Length, packet.Encrypted ? "[Encrypted]" : "", packet.Massive ? "[Massive]" : "", Utility.HexDump(logBytes), Environment.NewLine));
+										w.LogPacket(string.Format("[G][{0}][{1:X4}][{2} bytes]{3}{4}{6}{5}", "S->C", packet.Opcode, logBytes.Length, packet.Encrypted ? "[Encrypted]" : "", packet.Massive ? "[Massive]" : "", GetSafePacketDump(packet.Opcode, logBytes), Environment.NewLine));
 									}
 								}
 								didWork = true;
@@ -299,10 +317,11 @@ namespace xBot.Network
 										string agentHost = ((IPEndPoint)SocketBinded.LocalEndPoint).Address.ToString();
 										int agentPort = GetAvailablePort();
 										
-										Thread agThread = new Thread(() => {
-											ThreadAgent(agentHost, agentPort);
-										});
-										agThread.Priority = ThreadPriority.AboveNormal;
+						Thread agThread = new Thread(() => {
+							ThreadAgent(agentHost, agentPort);
+						});
+						agThread.IsBackground = true;
+						agThread.Priority = ThreadPriority.AboveNormal;
 										agThread.Start();
 										
 										// Proxy packet (bot listening)
@@ -424,27 +443,18 @@ namespace xBot.Network
 										if (opcodeFound && gwOnlyShow
 											|| !opcodeFound && !gwOnlyShow)
 										{
-											w.LogPacket(string.Format("[G][{0}][{1:X4}][{2} bytes]{3}{4}{6}{5}", "C->S", packet.Opcode, packet_bytes.Length, packet.Encrypted ? "[Encrypted]" : "", packet.Massive ? "[Massive]" : "", Utility.HexDump(packet_bytes), Environment.NewLine));
+											w.LogPacket(string.Format("[G][{0}][{1:X4}][{2} bytes]{3}{4}{6}{5}", "C->S", packet.Opcode, packet_bytes.Length, packet.Encrypted ? "[Encrypted]" : "", packet.Massive ? "[Massive]" : "", GetSafePacketDump(packet.Opcode, packet_bytes), Environment.NewLine));
 										}
 									}
 
-									while (true)
+									try
 									{
-										int count = 0;
-										try
-										{
-											count = context.Socket.Send(buffer.Buffer, buffer.Offset, buffer.Size, SocketFlags.None);
-										}
-										catch (Exception ex)
-										{
-											string src = (context == Gateway.Remote) ? "Gateway.Remote (Server)" : "Gateway.Local (Client)";
-											throw new Exception($"[{src} Send Error] {ex.Message}", ex);
-										}
-										buffer.Offset += count;
-										if (buffer.Offset == buffer.Size)
-										{
-											break;
-										}
+										SendAll(context.Socket, buffer);
+									}
+									catch (Exception ex)
+									{
+										string src = (context == Gateway.Remote) ? "Gateway.Remote (Server)" : "Gateway.Local (Client)";
+										throw new Exception($"[{src} Send Error] {ex.Message}", ex);
 									}
 								}
 							}
@@ -606,7 +616,7 @@ namespace xBot.Network
 								{
 									DumpDisconnectDiagnostic(w, $"Recv Hatası: {ex.Message}");
 									w.Log($"[Proxy -> Server Recv Error] {ex.Message}");
-									throw ex;
+									throw;
 								}
 							}
 						}
@@ -636,7 +646,7 @@ namespace xBot.Network
 										|| !opcodeFound && !agOnlyShow)
 									{
 										byte[] logBytes = packet.GetBytes();
-										w.LogPacket(string.Format("[A][{0}][{1:X4}][{2} bytes]{3}{4}{6}{5}", "S->C", packet.Opcode, logBytes.Length, packet.Encrypted ? "[Encrypted]" : "", packet.Massive ? "[Massive]" : "", Utility.HexDump(logBytes), Environment.NewLine));
+										w.LogPacket(string.Format("[A][{0}][{1:X4}][{2} bytes]{3}{4}{6}{5}", "S->C", packet.Opcode, logBytes.Length, packet.Encrypted ? "[Encrypted]" : "", packet.Massive ? "[Massive]" : "", GetSafePacketDump(packet.Opcode, logBytes), Environment.NewLine));
 									}
 								}
 
@@ -673,34 +683,23 @@ namespace xBot.Network
 										if (opcodeFound && agOnlyShow
 											|| !opcodeFound && !agOnlyShow)
 										{
-											w.LogPacket(string.Format("[A][{0}][{1:X4}][{2} bytes]{3}{4}{6}{5}", "C->S", packet.Opcode, packet.GetBytes().Length, packet.Encrypted ? "[Encrypted]" : "", packet.Massive ? "[Massive]" : "", Utility.HexDump(packet.GetBytes()), Environment.NewLine));
+											byte[] packetBytes = packet.GetBytes();
+											w.LogPacket(string.Format("[A][{0}][{1:X4}][{2} bytes]{3}{4}{6}{5}", "C->S", packet.Opcode, packetBytes.Length, packet.Encrypted ? "[Encrypted]" : "", packet.Massive ? "[Massive]" : "", GetSafePacketDump(packet.Opcode, packetBytes), Environment.NewLine));
 										}
 									}
 									
-									while (true)
+									try
 									{
-										int count;
-										try
+										SendAll(context.Socket, buffer);
+									}
+									catch (Exception ex)
+									{
+										if (context != Agent.Local)
 										{
-											count = context.Socket.Send(buffer.Buffer, buffer.Offset, buffer.Size, SocketFlags.None);
+											DumpDisconnectDiagnostic(w, $"Send Hatası: Opcode 0x{packet.Opcode:X4} - {ex.Message}");
+											w.Log($"[Proxy -> Server Send Error] Opcode: 0x{packet.Opcode:X4}, Error: {ex.Message}");
+											throw;
 										}
-										catch (Exception ex)
-										{
-											if (context == Agent.Local)
-											{
-												// Try to continue without send to client
-												break;
-											}
-											else
-											{
-												DumpDisconnectDiagnostic(w, $"Send Hatası: Opcode 0x{packet.Opcode:X4} - {ex.Message}");
-												w.Log($"[Proxy -> Server Send Error] Opcode: 0x{packet.Opcode:X4}, Error: {ex.Message}");
-												throw ex;
-											}
-										}
-										buffer.Offset += count;
-										if (buffer.Offset == buffer.Size)
-											break;
 									}
 								}
 							}
@@ -794,6 +793,7 @@ namespace xBot.Network
 				catch (ThreadInterruptedException) { return; }
 				catch { return; }
 			}));
+			ThreadProxyReconnection.IsBackground = true;
 			ThreadProxyReconnection.Start();
 		}
 		private void ProxyReconnectionStop()
@@ -1046,7 +1046,7 @@ namespace xBot.Network
 			json["Host"] = Host;
 			json["Port"] = Port;
 			json["Username"] = Username;
-			json["Password"] = Password;
+			json["Password"] = SecretStore.Protect(Password);
 			return json;
 		}
 
@@ -1057,7 +1057,7 @@ namespace xBot.Network
 			if (json.ContainsKey("Host")) Host = (string)json["Host"] ?? string.Empty;
 			if (json.ContainsKey("Port")) Port = (ushort)json["Port"];
 			if (json.ContainsKey("Username")) Username = (string)json["Username"] ?? string.Empty;
-			if (json.ContainsKey("Password")) Password = (string)json["Password"] ?? string.Empty;
+			if (json.ContainsKey("Password")) Password = SecretStore.Unprotect((string)json["Password"] ?? string.Empty);
 		}
 	}
 }

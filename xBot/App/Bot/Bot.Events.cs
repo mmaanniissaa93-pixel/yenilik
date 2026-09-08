@@ -31,6 +31,7 @@ namespace xBot.App
 		public void OnDisconnected()
 		{
 			ProtectionManager.ResetRuntimeState();
+			AlchemyManager.Stop();
 
 			// Stop recording (dosyaya yazıp butonları sıfırlar; doğrudan
 			// flag indirmek kayıt thread'ini hayatta bırakıyordu)

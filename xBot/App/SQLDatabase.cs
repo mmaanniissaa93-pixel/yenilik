@@ -14,6 +14,7 @@ namespace xBot.App
 		private SQLiteCommand q;
 		private readonly object m_sync = new object();
 		private bool m_disposed;
+		private int m_commandOwnerThreadId;
 		public SQLDatabase(string Path)
 		{
 			this.Path = Path;
@@ -64,21 +65,35 @@ namespace xBot.App
 		/// <param name="sql">SQLite query</param>
 		public int ExecuteQuery(string sql)
 		{
-			if (db != null)
+			lock (m_sync)
 			{
-				q.CommandText = sql;
-				return q.ExecuteNonQuery();
+				if (db == null) return -1;
+				if (IsResultQuery(sql))
+				{
+					AcquireCommandOwnershipLocked();
+					q.Parameters.Clear();
+					q.CommandText = sql;
+					return 0;
+				}
+				using (SQLiteCommand command = new SQLiteCommand(sql, db))
+				{
+					command.CommandTimeout = 30;
+					return command.ExecuteNonQuery();
+				}
 			}
-			return -1;
 		}
 		/// <summary>
 		/// Execute query previously prepared and return the number of columns affected. Returns (-1) if the database is not connected.
 		/// </summary>
 		public int ExecuteQuery()
 		{
-			if (db != null)
-				return q.ExecuteNonQuery();
-			return -1;
+			lock (m_sync)
+			{
+				if (db == null) return -1;
+				EnsureCommandOwnershipLocked();
+				try { return q.ExecuteNonQuery(); }
+				finally { ReleaseCommandOwnershipLocked(); }
+			}
 		}
 		/// <summary>
 		/// Prepares SQL query.
@@ -87,13 +102,14 @@ namespace xBot.App
 		/// <returns>Sucess</returns>
 		public bool Prepare(string sql)
 		{
-			if (db != null)
+			lock (m_sync)
 			{
+				if (db == null) return false;
+				AcquireCommandOwnershipLocked();
 				q.Parameters.Clear();
 				q.CommandText = sql;
 				return true;
 			}
-			return false;
 		}
 		/// <summary>
 		/// Bind column value to the query previously prepared.
@@ -102,18 +118,27 @@ namespace xBot.App
 		/// <param name="value">Value to bind</param>
 		public void Bind(string column,object value)
 		{
-			q.Parameters.Add(new SQLiteParameter(column, value));
+			lock (m_sync)
+			{
+				EnsureCommandOwnershipLocked();
+				q.Parameters.Add(new SQLiteParameter(column, value));
+			}
 		}
 		public List<NameValueCollection> GetResult()
 		{
 			List<NameValueCollection> result = new List<NameValueCollection>();
 			lock (m_sync)
 			{
-				using (SQLiteDataReader reader = q.ExecuteReader())
+				EnsureCommandOwnershipLocked();
+				try
 				{
-					while (reader.Read())
-						result.Add(reader.GetValues());
+					using (SQLiteDataReader reader = q.ExecuteReader())
+					{
+						while (reader.Read())
+							result.Add(reader.GetValues());
+					}
 				}
+				finally { ReleaseCommandOwnershipLocked(); }
 			}
 			return result;
 		}
@@ -174,6 +199,7 @@ namespace xBot.App
 		}
 		private void CloseLocked()
 		{
+			m_commandOwnerThreadId = 0;
 			try { q?.Dispose(); } catch { }
 			q = null;
 			try
@@ -187,6 +213,28 @@ namespace xBot.App
 			}
 			catch { }
 			db = null;
+		}
+		private static bool IsResultQuery(string sql)
+		{
+			return !string.IsNullOrWhiteSpace(sql)
+				&& sql.TrimStart().StartsWith("SELECT", StringComparison.OrdinalIgnoreCase);
+		}
+		private void AcquireCommandOwnershipLocked()
+		{
+			int currentThreadId = System.Threading.Thread.CurrentThread.ManagedThreadId;
+			if (m_commandOwnerThreadId != 0 && m_commandOwnerThreadId != currentThreadId)
+				throw new InvalidOperationException("Another thread owns the prepared SQLite command.");
+			m_commandOwnerThreadId = currentThreadId;
+		}
+		private void EnsureCommandOwnershipLocked()
+		{
+			if (m_commandOwnerThreadId != System.Threading.Thread.CurrentThread.ManagedThreadId)
+				throw new InvalidOperationException("Prepare or execute a result query on this thread before using the command.");
+		}
+		private void ReleaseCommandOwnershipLocked()
+		{
+			m_commandOwnerThreadId = 0;
+			q?.Parameters.Clear();
 		}
 		public void Dispose()
 		{

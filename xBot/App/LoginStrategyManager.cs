@@ -72,7 +72,7 @@ namespace xBot.App
             json["StayConnected"] = StayConnected;
             json["Strategy"] = (int)Strategy;
             json["AutoEnterSecondaryPasscode"] = AutoEnterSecondaryPasscode;
-            json["SecondaryPasscode"] = SecondaryPasscode;
+            json["SecondaryPasscode"] = SecretStore.Protect(SecondaryPasscode);
             return json;
         }
 
@@ -94,7 +94,7 @@ namespace xBot.App
             if (json.ContainsKey("StayConnected")) StayConnected = (bool)json["StayConnected"];
             if (json.ContainsKey("Strategy")) Strategy = (CharacterSelectionStrategy)(int)json["Strategy"];
             if (json.ContainsKey("AutoEnterSecondaryPasscode")) AutoEnterSecondaryPasscode = (bool)json["AutoEnterSecondaryPasscode"];
-            if (json.ContainsKey("SecondaryPasscode")) SecondaryPasscode = (string)json["SecondaryPasscode"];
+            if (json.ContainsKey("SecondaryPasscode")) SecondaryPasscode = SecretStore.Unprotect((string)json["SecondaryPasscode"] ?? string.Empty);
         }
     }
 }

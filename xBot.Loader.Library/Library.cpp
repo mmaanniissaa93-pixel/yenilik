@@ -281,24 +281,78 @@ void LoadConfig()
 	for (int i = 0; i < 30; i++) {
 		ifstream stream(payloadPath.str(), ifstream::binary);
 		if (stream.is_open()) {
-			g_Activated = true;
-			PayloadRead(stream, g_IsDebug);
-			PayloadReadString(stream, g_RedirectIP);
-			PayloadRead(stream, g_RedirectPort);
+			DWORD magic = 0;
+			WORD version = 0;
+			DWORD payloadLength = 0;
+			DWORD expectedChecksum = 0;
+			bool headerValid = PayloadRead(stream, magic)
+				&& PayloadRead(stream, version)
+				&& PayloadRead(stream, payloadLength)
+				&& PayloadRead(stream, expectedChecksum)
+				&& magic == 0x544F4258
+				&& version == 1
+				&& payloadLength > 0
+				&& payloadLength <= 65536;
 
-			DWORD nRealGatewayAddressCount = 0;
-			PayloadRead(stream, nRealGatewayAddressCount);
-			for (size_t j = 0; j < nRealGatewayAddressCount; j++)
+			vector<char> payload;
+			if (headerValid)
+			{
+				payload.resize(payloadLength);
+				headerValid = static_cast<bool>(stream.read(payload.data(), payloadLength));
+				headerValid = headerValid && stream.peek() == ifstream::traits_type::eof();
+			}
+
+			DWORD checksum = 2166136261u;
+			for (size_t j = 0; headerValid && j < payload.size(); j++)
+			{
+				checksum ^= static_cast<unsigned char>(payload[j]);
+				checksum *= 16777619u;
+			}
+			headerValid = headerValid && checksum == expectedChecksum;
+
+			string payloadBytes(payload.begin(), payload.end());
+			istringstream payloadStream(payloadBytes, ios::in | ios::binary);
+			BYTE isDebug = 0;
+			string redirectIP;
+			WORD redirectPort = 0;
+			DWORD gatewayAddressCount = 0;
+			vector<string> gatewayAddresses;
+			WORD gatewayPort = 0;
+			bool randomizeMac = false;
+
+			bool valid = headerValid
+				&& PayloadRead(payloadStream, isDebug)
+				&& PayloadReadString(payloadStream, redirectIP, 255)
+				&& PayloadRead(payloadStream, redirectPort)
+				&& PayloadRead(payloadStream, gatewayAddressCount)
+				&& gatewayAddressCount <= 64;
+
+			for (size_t j = 0; valid && j < gatewayAddressCount; j++)
 			{
 				string address;
-				PayloadReadString(stream, address);
-				g_RealGatewayAddresses.push_back(address);
+				valid = PayloadReadString(payloadStream, address, 255) && !address.empty();
+				if (valid)
+					gatewayAddresses.push_back(address);
 			}
-			PayloadRead(stream, g_RealGatewayPort);
-			PayloadRead(stream, g_RandomizeMac);
+			valid = valid
+				&& PayloadRead(payloadStream, gatewayPort)
+				&& PayloadRead(payloadStream, randomizeMac)
+				&& !redirectIP.empty()
+				&& redirectPort != 0
+				&& gatewayPort != 0;
 
 			stream.close();
 			DeleteFileA(payloadPath.str().c_str());
+			if (!valid)
+				return;
+
+			g_IsDebug = isDebug;
+			g_RedirectIP = redirectIP;
+			g_RedirectPort = redirectPort;
+			g_RealGatewayAddresses.swap(gatewayAddresses);
+			g_RealGatewayPort = gatewayPort;
+			g_RandomizeMac = randomizeMac;
+			g_Activated = true;
 			return;
 		}
 		Sleep(100);

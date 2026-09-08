@@ -39,6 +39,7 @@ namespace xBot.Game
 		/// Gets the database previouly selected.
 		/// </summary>
 		private static SQLDatabase Database { get; set; }
+		private static readonly object DatabaseSync = new object();
 		#endregion
 
 		/// <summary>
@@ -54,31 +55,47 @@ namespace xBot.Game
 				// kayar (item tipleri DB'den okunur) ve skill/mob listeleri boş gelir.
 				if (!System.IO.File.Exists(dbPath))
 					return false;
-				Database = new SQLDatabase(dbPath);
-				bool connected = Database.Connect();
-				if (connected)
+				SQLDatabase candidate = new SQLDatabase(dbPath);
+				if (!candidate.Connect())
 				{
-					try
-					{
-						var tables = Database.GetResultFromQuery("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('items','skills','models')");
-						if (tables == null || tables.Count < 3)
-						{
-							Database.Close();
-							Database = null;
-							return false;
-						}
-					}
-					catch { Database = null; return false; }
-					DataManager.SilkroadName = SilkroadName;
+					candidate.Dispose();
+					return false;
 				}
-				return connected;
+				try
+				{
+					var tables = candidate.GetResultFromQuery("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('items','skills','models')");
+					if (tables == null || tables.Count < 3)
+					{
+						candidate.Dispose();
+						return false;
+					}
+				}
+				catch
+				{
+					candidate.Dispose();
+					return false;
+				}
+
+				lock (DatabaseSync)
+				{
+					Database?.Dispose();
+					Database = candidate;
+					DataManager.SilkroadName = SilkroadName;
+					s_cacheById.Clear();
+				}
+				return true;
 			}
 			return false;
 		}
 		public static void DisconnectDatabase()
 		{
-			if (Database != null)
-				Database.Close();
+			lock (DatabaseSync)
+			{
+				Database?.Dispose();
+				Database = null;
+				SilkroadName = null;
+				s_cacheById.Clear();
+			}
 		}
 
 		private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, NameValueCollection> s_cacheById = new System.Collections.Concurrent.ConcurrentDictionary<string, NameValueCollection>();
@@ -97,17 +114,23 @@ namespace xBot.Game
 		}
 		private static bool IsDbReady()
 		{
-			return Database != null;
+			lock (DatabaseSync) { return Database != null; }
 		}
 		private static List<NameValueCollection> Query(string sql)
 		{
-			if (Database == null) return new List<NameValueCollection>();
-			return Database.GetResultFromQuery(sql);
+			lock (DatabaseSync)
+			{
+				if (Database == null) return new List<NameValueCollection>();
+				return Database.GetResultFromQuery(sql);
+			}
 		}
 		private static List<NameValueCollection> Query(string sql, params object[] args)
 		{
-			if (Database == null) return new List<NameValueCollection>();
-			return Database.GetResultFromQuery(sql, args);
+			lock (DatabaseSync)
+			{
+				if (Database == null) return new List<NameValueCollection>();
+				return Database.GetResultFromQuery(sql, args);
+			}
 		}
 
 		#region Gets from Database

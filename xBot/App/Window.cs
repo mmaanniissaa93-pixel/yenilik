@@ -32,6 +32,7 @@ namespace xBot.App
 		/// Unique instance of this class.
 		/// </summary>
 		private static Window _this = null;
+		private bool _isInitializing;
 		/// <summary>
 		/// Advertising window.
 		/// </summary>
@@ -40,10 +41,27 @@ namespace xBot.App
 		private bool isUpdateAvailable;
 		private Window()
 		{
-            InitializeComponent();
-			InitializeFonts(this);
-			InitializePerformance(this);
-			InitializeValues();
+			// Publish the instance before runtime controls raise change events. Some of
+			// those events call Settings.Save* while the constructor is still running;
+			// leaving _this null there recursively creates another Window/NotifyIcon.
+			_this = this;
+			_isInitializing = true;
+			try
+			{
+				InitializeComponent();
+				InitializeFonts(this);
+				InitializePerformance(this);
+				InitializeValues();
+			}
+			catch
+			{
+				_this = null;
+				throw;
+			}
+			finally
+			{
+				_isInitializing = false;
+			}
 		}
 		/// <summary>
 		/// GetInstance. Secures an unique class creation for being used anywhere at the project.
@@ -457,6 +475,15 @@ namespace xBot.App
 					}
 				}
 			});
+		}
+		/// <summary>
+		/// Returns the existing window only after its controls are fully initialized.
+		/// Settings writers use this to avoid constructor re-entry and partial reads.
+		/// </summary>
+		internal static Window GetReadyInstance()
+		{
+			Window current = _this;
+			return current != null && !current._isInitializing ? current : null;
 		}
 		public void RemoveSkill(uint SkillID)
 		{
@@ -2005,6 +2032,12 @@ namespace xBot.App
 		/// </summary>
 		private void Window_Closing(object sender, FormClosingEventArgs e)
 		{
+			// Remove the shell icon immediately. Otherwise Windows keeps a stale icon
+			// until the notification area is repainted after an abnormal shutdown.
+			if (NotifyIcon != null)
+				NotifyIcon.Visible = false;
+			try { Settings.FlushPendingSaves(); }
+			catch (Exception ex) { Log("Ayarlar kapanışta kaydedilemedi: " + ex.Message); }
 			if (automatedLoginTimer != null)
 				automatedLoginTimer.Stop();
 			if (Bot.Get.Proxy != null && Bot.Get.Proxy.isRunning)

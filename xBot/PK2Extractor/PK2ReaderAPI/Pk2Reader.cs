@@ -26,6 +26,9 @@ namespace xBot.PK2Extractor.PK2ReaderAPI
 		private Pk2Folder m_CurrentFolder;
 		private Pk2Folder m_MainFolder;
 		private FileStream m_FileStream;
+		private readonly HashSet<long> m_VisitedEntryBlocks = new HashSet<long>();
+		private const int MaxFolderDepth = 128;
+		private const int MaxChainDepth = 4096;
 		#endregion
 
 		#region Constructor
@@ -65,12 +68,23 @@ namespace xBot.PK2Extractor.PK2ReaderAPI
 		/// <summary>
 		/// Read the Pk2 structure recursively.
 		/// </summary>
-		private void Read(long Position, string RootPath)
+		private void Read(long Position, string RootPath, int folderDepth = 0, int chainDepth = 0)
 		{
+			int blockSize = Marshal.SizeOf(typeof(sPk2EntryBlock));
+			if (folderDepth > MaxFolderDepth || chainDepth > MaxChainDepth)
+				throw new InvalidDataException("PK2 directory structure exceeds the supported depth.");
+			if (Position < 0 || Position > Size - blockSize)
+				throw new InvalidDataException($"PK2 entry block position is outside the file: {Position}.");
+			if (!m_VisitedEntryBlocks.Add(Position))
+				throw new InvalidDataException($"PK2 entry chain contains a cycle at position {Position}.");
+
 			BinaryReader reader = new BinaryReader(m_FileStream);
 			reader.BaseStream.Position = Position;
 			List<Pk2Folder> folders = new List<Pk2Folder>();
-			sPk2EntryBlock entryBlock = (sPk2EntryBlock)BufferToStruct(m_Blowfish.Decode(reader.ReadBytes(Marshal.SizeOf(typeof(sPk2EntryBlock)))), typeof(sPk2EntryBlock));
+			byte[] encryptedBlock = reader.ReadBytes(blockSize);
+			if (encryptedBlock.Length != blockSize)
+				throw new InvalidDataException("PK2 entry block is truncated.");
+			sPk2EntryBlock entryBlock = (sPk2EntryBlock)BufferToStruct(m_Blowfish.Decode(encryptedBlock), typeof(sPk2EntryBlock));
 
 			for (int i = 0; i < 20; i++)
 			{
@@ -83,15 +97,20 @@ namespace xBot.PK2Extractor.PK2ReaderAPI
 					case 1: //Folder 
 						if (entry.Name != "." && entry.Name != "..")
 						{
+							long folderPosition = entry.Position;
+							if (folderPosition < 0 || folderPosition > Size - blockSize)
+								throw new InvalidDataException($"PK2 folder '{entry.Name}' points outside the file.");
 							Pk2Folder folder = new Pk2Folder();
 							folder.Name = entry.Name;
-							folder.Position = BitConverter.ToInt64(entry.g_Position, 0);
+							folder.Position = folderPosition;
 							folders.Add(folder);
 							m_Folders[(RootPath + entry.Name).ToUpperInvariant()] = folder;
 							m_CurrentFolder.SubFolders.Add(folder);
 						}
 						break;
 					case 2: //File
+						if (entry.Position < 0 || entry.Position > Size || entry.Size > Size - entry.Position)
+							throw new InvalidDataException($"PK2 file '{entry.Name}' points outside the archive.");
 						Pk2File file = new Pk2File();
 						file.Position = entry.Position;
 						file.Name = entry.Name;
@@ -105,7 +124,7 @@ namespace xBot.PK2Extractor.PK2ReaderAPI
 			}
 			if (entryBlock.Entries[19].NextChain != 0)
 			{
-				Read(entryBlock.Entries[19].NextChain, RootPath);
+				Read(entryBlock.Entries[19].NextChain, RootPath, folderDepth, chainDepth + 1);
 			}
 
 			foreach (Pk2Folder folder in folders)
@@ -119,7 +138,7 @@ namespace xBot.PK2Extractor.PK2ReaderAPI
 				{
 					folder.SubFolders = new List<Pk2Folder>();
 				}
-				Read(folder.Position, RootPath + folder.Name + "\\");
+				Read(folder.Position, RootPath + folder.Name + "\\", folderDepth + 1, 0);
 			}
 		}
 		/// <summary>
@@ -127,7 +146,7 @@ namespace xBot.PK2Extractor.PK2ReaderAPI
 		/// </summary>
 		public void Close()
 		{
-			m_FileStream.Close();
+			m_FileStream?.Close();
 		}		
 		/// <summary>
 		/// Gets all the root files.
@@ -181,9 +200,14 @@ namespace xBot.PK2Extractor.PK2ReaderAPI
 		{
 			if (File == null)
 				return null;
+			if (File.Size > int.MaxValue || File.Position < 0 || File.Position > Size || File.Size > Size - File.Position)
+				throw new InvalidDataException("PK2 file entry is outside the archive.");
 			BinaryReader reader = new BinaryReader(m_FileStream);
 			reader.BaseStream.Position = File.Position;
-			return reader.ReadBytes((int)File.Size);
+			byte[] bytes = reader.ReadBytes((int)File.Size);
+			if (bytes.Length != (int)File.Size)
+				throw new EndOfStreamException("PK2 file content is truncated.");
+			return bytes;
 		}
 		/// <summary>
 		/// Extract the bytes from Pk2 path specified.
@@ -343,9 +367,22 @@ namespace xBot.PK2Extractor.PK2ReaderAPI
 		#region Structures
 		object BufferToStruct(byte[] buffer, Type returnStruct)
 		{
-			IntPtr pointer = Marshal.AllocHGlobal(buffer.Length);
-			Marshal.Copy(buffer, 0, pointer, buffer.Length);
-			return Marshal.PtrToStructure(pointer, returnStruct);
+			if (buffer == null)
+				throw new ArgumentNullException(nameof(buffer));
+			int requiredSize = Marshal.SizeOf(returnStruct);
+			if (buffer.Length < requiredSize)
+				throw new InvalidDataException($"PK2 structure is truncated. Expected {requiredSize} bytes, got {buffer.Length}.");
+
+			IntPtr pointer = Marshal.AllocHGlobal(requiredSize);
+			try
+			{
+				Marshal.Copy(buffer, 0, pointer, requiredSize);
+				return Marshal.PtrToStructure(pointer, returnStruct);
+			}
+			finally
+			{
+				Marshal.FreeHGlobal(pointer);
+			}
 		}
 		[StructLayout(LayoutKind.Sequential, Size = 256)]
 		public struct sPk2Header
@@ -399,6 +436,7 @@ namespace xBot.PK2Extractor.PK2ReaderAPI
 		#region Dispose
 		public void Dispose()
 		{
+			m_FileStream?.Dispose();
 			m_CurrentFolder = null;
 			m_Files = null;
 			m_FileStream = null;

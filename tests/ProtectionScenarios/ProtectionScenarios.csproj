@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
   </PropertyGroup>
@@ -25,9 +25,12 @@
     <Compile Include="..\..\xBot\App\LocalizationManager.cs" Link="LocalizationManager.cs" />
     <Compile Include="..\..\xBot\App\PotionPolicy.cs" Link="PotionPolicy.cs" />
     <Compile Include="..\..\xBot\App\SroDocsPolicy.cs" Link="SroDocsPolicy.cs" />
+    <Compile Include="..\..\xBot\Game\Objects\xDictionary.cs" Link="xDictionary.cs" />
+    <Compile Include="..\..\xBot\App\SecretStore.cs" Link="SecretStore.cs" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
   </ItemGroup>
 </Project>

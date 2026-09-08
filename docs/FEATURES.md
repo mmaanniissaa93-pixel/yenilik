@@ -2,7 +2,7 @@
 
 Bu dosya, projedeki kullanıcıya dönük işlevlerin ve geliştirme durumlarının tek takip noktasıdır. Liste kaynak kod taramasıyla hazırlanmıştır; “Kullanımda” etiketi temel akışın kodda bağlı olduğunu, “Deneysel” etiketi ise akışın sunucu/sürüm bazında ayrıca doğrulanması gerektiğini gösterir.
 
-Son kaynak taraması: 2026-09-05
+Son kaynak taraması: 2026-09-08
 
 ## Durum sözlüğü
 
@@ -31,9 +31,9 @@ Son kaynak taraması: 2026-09-05
 | F-009 | Client gizleme/gösterme ve hızlı gizleme | ✅ | `App/ClientManager.cs`, `App/Window.CustomTabs.cs` |
 | F-010 | Otomatik bot başlatma ve bağlantıda kalma | ✅ | `App/LoginStrategyManager.cs`, `App/Bot/Bot.Events.cs` |
 | F-011 | Otomatik karakter oluşturma/silme seçenekleri | ✅ | `App/Window.cs`, `Game/PacketBuilder.cs`, ayarlar |
-| F-012 | Çoklu hesap ve profil yöneticisi | ✅ | `App/AccountManager.cs`, `App/Settings.cs`, `App/Window.CustomTabs.cs`; çoklu hesap ekleme, silme, şifre/server/karakter profili kaydetme ve otomatik doldurma |
-| F-013 | İkincil güvenlik şifresi / PIN otomasyonu | ✅ | `App/SecondaryPasscodePolicy.cs`, `App/LoginStrategyManager.cs`, `Game/PacketBuilder.cs`, `Network/Agent.cs`; `0x7625`/`0x3625`/`0xB625` paketleri ve hesap başına PIN desteği |
-| F-014 | SOCKS5 proxy desteği (RFC 1928 / 1929) | ✅ | `App/Socks5Policy.cs`, `Network/Socks5Handler.cs`, `Network/Proxy.cs`; Gateway ve Agent için kimlik doğrulamalı ve hesap bazlı SOCKS5 tüneli |
+| F-012 | Çoklu hesap ve profil yöneticisi | ✅ | `App/AccountManager.cs`, `App/SecretStore.cs`, `App/Settings.cs`, `App/Window.CustomTabs.cs`; çoklu hesap ekleme, silme, otomatik doldurma ve Windows DPAPI ile korunan secret alanları |
+| F-013 | İkincil güvenlik şifresi / PIN otomasyonu | ✅ | `App/SecondaryPasscodePolicy.cs`, `App/LoginStrategyManager.cs`, `App/SecretStore.cs`, `Game/PacketBuilder.cs`, `Network/Agent.cs`; `0x7625`/`0x3625`/`0xB625` paketleri, DPAPI saklama ve hesap başına PIN desteği |
+| F-014 | SOCKS5 proxy desteği (RFC 1928 / 1929) | ✅ | `App/Socks5Policy.cs`, `Network/Socks5Handler.cs`, `Network/Proxy.cs`; Gateway ve Agent için kimlik doğrulamalı ve hesap bazlı SOCKS5 tüneli, proxy parolaları DPAPI ile saklanır |
 
 ### Bot, savaş ve koruma
 
@@ -85,7 +85,7 @@ Son kaynak taraması: 2026-09-05
 | F-055 | Degree/China/Europe filtresi | ✅ | `App/ItemFilterManager.cs`, `App/ItemFilterPolicy.cs`, `App/Window.CustomTabs.cs`; pickup kararında uygulanıyor ve UI’dan ayarlanıyor |
 | F-056 | Eşyayı satma/depolama kuralları | ✅ | `App/ItemFilterManager.cs`, `App/Bot/Bot.IA.cs`, `App/Window.CustomTabs.cs`; şehir lojistiğine bağlı ve UI’dan yönetiliyor |
 | F-057 | NPC alış/satış ve buy-back paketleri | ✅ | `Game/PacketBuilder.cs`, `Game/PacketParser.cs` |
-| F-058 | Otomatik Simya (+ Basma / Auto Alchemy) | ✅ | `App/AlchemyPolicy.cs`, `App/AlchemyManager.cs`, `Game/PacketBuilder.cs`, `Network/Agent.cs`; hedef + değerine göre otomatik elixir ve lucky powder basma, güvenlik limitleri |
+| F-058 | Otomatik Simya (+ Basma / Auto Alchemy) | ✅ | `App/AlchemyPolicy.cs`, `App/AlchemyManager.cs`, `Game/PacketBuilder.cs`, `Network/Agent.cs`; tek scheduler, sunucu cevabı bekleme, timeout, hedef item kimliği ve disconnect güvenlik kapıları |
 
 ### Party, guild, exchange, stall ve sohbet
 
@@ -142,7 +142,7 @@ Bu bölüm, çalışma ağacında yeni görünen yöneticileri ayrı izler. Yeni
 | `ItemFilterManager` | Pickup/sell/store kuralları ve item kriterleri | `ItemFilterManager` | Pickup ve şehir lojistiğinin tamamına bağlı | Gerçek client item çeşitleriyle runtime doğrulama |
 | `LocalizationManager` | Yeni özel kontroller için TR/EN metinleri | Yok | Özel UI başlatılırken bağlı | Dil anahtarları temizlendi |
 | `CommandCenterManager` | Emote ve chat ile uzaktan bot kontrolü | `CommandCenter` | Paket dinleme, `Agent.cs`, bağımsız form ve 18 testle bağlı | Gerçek party chat/emote senaryolarıyla doğrula |
-| `AccountManager` | Çoklu hesap kaydetme, profil yönetimi | `Accounts` | Settings.json ve Giriş sekmesi ile bağlı | Çoklu istemci geçişi testi |
+| `AccountManager` | Çoklu hesap kaydetme, profil yönetimi | `Accounts` | Git dışındaki `Settings.user.json`, DPAPI `SecretStore` ve Giriş sekmesi ile bağlı | Çoklu istemci geçişi testi |
 | `PartySupportManager` | Parti üyelerini iyileştirme, canlandırma, debuff silme | `PartySupport` | `Bot.IA` döngüsünde bağlı; `PartyPolicy` karar katmanı ve 18 testle doğrulandı | Oyun içi party senaryolarıyla doğrula |
 | `SecondaryPasscodePolicy` | İkincil güvenlik şifresi (PIN) kontrolü, hesap fallback çözümleme | `LoginStrategy` | `PacketBuilder`, `PacketParser` ve `Bot.Events` ile bağlı; 14 testle doğrulandı | Sunucu PIN ekranında runtime test |
 | `Socks5Config` | Gateway ve Agent bağlantılarını SOCKS5 tüneline yönlendirme | `Socks5Proxy` | `Proxy.cs`, `Socks5Handler.cs` ve `Socks5Policy` ile bağlı; 14 testle doğrulandı | Proxy IP üzerinden gateway bağlantısı testi |

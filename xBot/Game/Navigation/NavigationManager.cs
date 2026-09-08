@@ -108,6 +108,7 @@ namespace xBot.Game.Navigation
 		private List<RegionBoundsEntry> m_boundsIndex;
 		private Dictionary<int, LinkedListNode<CacheEntry>> m_cacheMap = new Dictionary<int, LinkedListNode<CacheEntry>>();
 		private LinkedList<CacheEntry> m_cacheOrder = new LinkedList<CacheEntry>();
+		private readonly object m_cacheSync = new object();
 		private const int MaxCacheSize = 8;
 		private class CacheEntry
 		{
@@ -564,26 +565,39 @@ namespace xBot.Game.Navigation
 
 		private NavRegion GetOrLoadRegion(RegionBoundsEntry entry)
 		{
-			if (m_cacheMap.TryGetValue(entry.RegionId, out LinkedListNode<CacheEntry> node))
+			lock (m_cacheSync)
 			{
-				// Gerçek LRU: kullanılanı başa al
-				m_cacheOrder.Remove(node);
-				m_cacheOrder.AddFirst(node);
-				return node.Value.Region;
+				if (m_cacheMap.TryGetValue(entry.RegionId, out LinkedListNode<CacheEntry> node))
+				{
+					m_cacheOrder.Remove(node);
+					m_cacheOrder.AddFirst(node);
+					return node.Value.Region;
+				}
 			}
 
+			// File IO is intentionally outside the cache lock.
 			NavRegion loaded = NavDataReader.Read(entry.FilePath, entry.RegionId);
 			if (loaded != null)
 			{
-				if (m_cacheMap.Count >= MaxCacheSize && m_cacheOrder.Last != null)
+				lock (m_cacheSync)
 				{
-					var lru = m_cacheOrder.Last;
-					m_cacheOrder.RemoveLast();
-					m_cacheMap.Remove(lru.Value.RegionId);
+					// Another preload may have completed while this file was read.
+					if (m_cacheMap.TryGetValue(entry.RegionId, out LinkedListNode<CacheEntry> existing))
+					{
+						m_cacheOrder.Remove(existing);
+						m_cacheOrder.AddFirst(existing);
+						return existing.Value.Region;
+					}
+					if (m_cacheMap.Count >= MaxCacheSize && m_cacheOrder.Last != null)
+					{
+						var lru = m_cacheOrder.Last;
+						m_cacheOrder.RemoveLast();
+						m_cacheMap.Remove(lru.Value.RegionId);
+					}
+					var newNode = new LinkedListNode<CacheEntry>(new CacheEntry { RegionId = entry.RegionId, Region = loaded });
+					m_cacheOrder.AddFirst(newNode);
+					m_cacheMap[entry.RegionId] = newNode;
 				}
-				var newNode = new LinkedListNode<CacheEntry>(new CacheEntry { RegionId = entry.RegionId, Region = loaded });
-				m_cacheOrder.AddFirst(newNode);
-				m_cacheMap[entry.RegionId] = newNode;
 			}
 			return loaded;
 		}

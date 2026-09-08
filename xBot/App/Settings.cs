@@ -8,6 +8,8 @@ using xBot.Game.Objects.Common;
 namespace xBot.App
 {
 	public static class Settings{
+		private const string UserSettingsPath = "Settings.user.json";
+		private const string LegacySettingsPath = "Settings.json";
 		/// <summary>
 		/// Avoid loading overload
 		/// </summary>
@@ -28,8 +30,26 @@ namespace xBot.App
 			if (System.Threading.Interlocked.Exchange(ref s_botSavePending, 1) == 1) return;
 			System.Threading.ThreadPool.QueueUserWorkItem(delegate {
 				System.Threading.Thread.Sleep(SaveDebounceMs + 100);
-				System.Threading.Interlocked.Exchange(ref s_botSavePending, 0);
-				try { s_lastBotSaveTick = 0; SaveBotSettings(); } catch { }
+				try
+				{
+					Window w = Window.GetReadyInstance();
+					if (w == null)
+					{
+						System.Threading.Interlocked.Exchange(ref s_botSavePending, 0);
+						return;
+					}
+					if (w.IsDisposed || w.Disposing || !w.IsHandleCreated)
+					{
+						System.Threading.Interlocked.Exchange(ref s_botSavePending, 0);
+						return;
+					}
+					w.BeginInvoke((MethodInvoker)delegate {
+						System.Threading.Interlocked.Exchange(ref s_botSavePending, 0);
+						s_lastBotSaveTick = 0;
+						SaveBotSettings();
+					});
+				}
+				catch { System.Threading.Interlocked.Exchange(ref s_botSavePending, 0); }
 			});
 		}
 		private static void QueueTrailingCharSave()
@@ -37,12 +57,38 @@ namespace xBot.App
 			if (System.Threading.Interlocked.Exchange(ref s_charSavePending, 1) == 1) return;
 			System.Threading.ThreadPool.QueueUserWorkItem(delegate {
 				System.Threading.Thread.Sleep(SaveDebounceMs + 100);
-				System.Threading.Interlocked.Exchange(ref s_charSavePending, 0);
-				try { s_lastCharSaveTick = 0; SaveCharacterSettings(); } catch { }
+				try
+				{
+					Window w = Window.GetReadyInstance();
+					if (w == null)
+					{
+						System.Threading.Interlocked.Exchange(ref s_charSavePending, 0);
+						return;
+					}
+					if (w.IsDisposed || w.Disposing || !w.IsHandleCreated)
+					{
+						System.Threading.Interlocked.Exchange(ref s_charSavePending, 0);
+						return;
+					}
+					w.BeginInvoke((MethodInvoker)delegate {
+						System.Threading.Interlocked.Exchange(ref s_charSavePending, 0);
+						s_lastCharSaveTick = 0;
+						SaveCharacterSettings();
+					});
+				}
+				catch { System.Threading.Interlocked.Exchange(ref s_charSavePending, 0); }
 			});
 		}
 		public static void SaveBotSettings()
 		{
+			Window uiWindow = Window.GetReadyInstance();
+			if (uiWindow == null) return;
+			if (uiWindow.IsDisposed || uiWindow.Disposing) return;
+			if (uiWindow.InvokeRequired)
+			{
+				uiWindow.BeginInvoke((MethodInvoker)SaveBotSettings);
+				return;
+			}
 			// Debounce: slider sürükleme gibi seri eventlerde her seferinde full JSON yazma
 			long now = System.Environment.TickCount;
 			if (now - s_lastBotSaveTick < SaveDebounceMs)
@@ -129,7 +175,7 @@ namespace xBot.App
 					CommandCenter.CommandCenterManager.SaveSettings(root);
 
 					// Saving (atomic: tmp + replace, yarım yazımı engeller)
-					SaveJsonAtomic("Settings.json", root.ToString());
+					SaveJsonAtomic(UserSettingsPath, root.ToString());
 				}
 			}
 		}
@@ -166,7 +212,7 @@ namespace xBot.App
 		/// <returns></returns>
 		public static void LoadBotSettings()
 		{
-			string path = "Settings.json";
+			string path = File.Exists(UserSettingsPath) ? UserSettingsPath : LegacySettingsPath;
 			if (File.Exists(path))
 			{
 				try
@@ -321,6 +367,17 @@ namespace xBot.App
 		/// </summary>
 		public static void SaveCharacterSettings()
 		{
+			// Most UI initialization events arrive before a character exists. Return
+			// before touching Window.Get so they cannot recursively construct the form.
+			if (LoadingCharacterSettings || !InfoManager.inGame) return;
+			Window uiWindow = Window.GetReadyInstance();
+			if (uiWindow == null) return;
+			if (uiWindow.IsDisposed || uiWindow.Disposing) return;
+			if (uiWindow.InvokeRequired)
+			{
+				uiWindow.BeginInvoke((MethodInvoker)SaveCharacterSettings);
+				return;
+			}
 			long now = System.Environment.TickCount;
 			if (now - s_lastCharSaveTick < SaveDebounceMs)
 			{
@@ -579,6 +636,21 @@ namespace xBot.App
 					SaveJsonAtomic(cfgFile, root.ToString());
 				}
 			}
+		}
+
+		/// <summary>
+		/// Writes the latest UI state synchronously before the window is disposed.
+		/// Must be called from the UI thread.
+		/// </summary>
+		public static void FlushPendingSaves()
+		{
+			System.Threading.Interlocked.Exchange(ref s_botSavePending, 0);
+			System.Threading.Interlocked.Exchange(ref s_charSavePending, 0);
+			s_lastBotSaveTick = 0;
+			s_lastCharSaveTick = 0;
+			SaveBotSettings();
+			if (InfoManager.inGame)
+				SaveCharacterSettings();
 		}
 		/// <summary>
 		/// Load character settings if exists or try to load default if it's checked.

@@ -38,6 +38,21 @@ namespace xBot.App.Theme
         private static readonly object fileLock = new object();
         private static readonly object traceLock = new object();
         private static readonly Queue<PacketTrace> packetTraceQueue = new Queue<PacketTrace>();
+        private const string LogFilePath = "session_debug.log";
+        private const long MaxLogFileBytes = 5L * 1024L * 1024L;
+        private static readonly HashSet<ushort> SensitiveOpcodes = new HashSet<ushort>
+        {
+            0x6102, // Gateway login
+            0x6103, // Agent authentication
+            0x610A, // Custom gateway login
+            0x6323, // Captcha answer
+            0x7625  // Secondary passcode
+        };
+
+        public static bool IsSensitiveOpcode(ushort opcode)
+        {
+            return SensitiveOpcodes.Contains(opcode);
+        }
 
         public static void LogToFile(string line)
         {
@@ -45,10 +60,22 @@ namespace xBot.App.Theme
             {
                 lock (fileLock)
                 {
-                    File.AppendAllText("session_debug.log", line + Environment.NewLine);
+                    RotateLogIfNeeded();
+                    File.AppendAllText(LogFilePath, line + Environment.NewLine);
                 }
             }
             catch { }
+        }
+
+        private static void RotateLogIfNeeded()
+        {
+            if (!File.Exists(LogFilePath) || new FileInfo(LogFilePath).Length < MaxLogFileBytes)
+                return;
+
+            string previousPath = LogFilePath + ".1";
+            if (File.Exists(previousPath))
+                File.Delete(previousPath);
+            File.Move(LogFilePath, previousPath);
         }
 
         public static void TracePacket(string direction, ushort opcode, int length, string summary = "")
@@ -57,6 +84,8 @@ namespace xBot.App.Theme
                 return;
             try
             {
+                if (IsSensitiveOpcode(opcode))
+                    summary = "<redacted>";
                 var entry = new PacketTrace
                 {
                     Timestamp = DateTime.Now,

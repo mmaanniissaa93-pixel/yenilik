@@ -1,5 +1,8 @@
 ﻿using System;
 using System.Globalization;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Threading;
 using System.Windows.Forms;
 using xBot.App;
 
@@ -7,12 +10,78 @@ namespace xBot
 {
 	static class Program
 	{
+		private const string SingleInstanceMutexName = @"Local\xBot.WinForms.SingleInstance";
+		private const int SW_RESTORE = 9;
+
+		[DllImport("user32.dll")]
+		private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+		[DllImport("user32.dll")]
+		private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+		private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+		[DllImport("user32.dll")]
+		private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
+
+		[DllImport("user32.dll")]
+		private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+		[DllImport("user32.dll")]
+		private static extern int GetWindowTextLength(IntPtr hWnd);
+
+		private static void ActivateExistingInstance()
+		{
+			try
+			{
+				Process current = Process.GetCurrentProcess();
+				foreach (Process process in Process.GetProcessesByName(current.ProcessName))
+				{
+					if (process.Id == current.Id)
+						continue;
+
+					IntPtr windowHandle = process.MainWindowHandle;
+					if (windowHandle == IntPtr.Zero)
+					{
+						uint targetProcessId = (uint)process.Id;
+						EnumWindows(delegate(IntPtr candidate, IntPtr state)
+						{
+							uint ownerProcessId;
+							GetWindowThreadProcessId(candidate, out ownerProcessId);
+							if (ownerProcessId == targetProcessId && GetWindowTextLength(candidate) > 0)
+							{
+								windowHandle = candidate;
+								return false;
+							}
+							return true;
+						}, IntPtr.Zero);
+					}
+
+					if (windowHandle == IntPtr.Zero)
+						continue;
+					ShowWindow(windowHandle, SW_RESTORE);
+					SetForegroundWindow(windowHandle);
+					break;
+				}
+			}
+			catch { }
+		}
+
 		/// <summary>
 		/// Punto de entrada principal para la aplicación.
 		/// </summary>
 		[STAThread]
 		static void Main()
 		{
+			bool createdNew;
+			using (Mutex singleInstanceMutex = new Mutex(true, SingleInstanceMutexName, out createdNew))
+			{
+				if (!createdNew)
+				{
+					ActivateExistingInstance();
+					return;
+				}
+
 			// Set  default locale for thread/ui as English
 			// made just to avoid tolower/toupper issues with the app in other locales
             CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.DefaultThreadCurrentCulture = CultureInfo.GetCultureInfo("en-US");
@@ -40,7 +109,10 @@ namespace xBot
 
             Application.EnableVisualStyles();
 			Application.SetCompatibleTextRenderingDefault(false);
-			Application.Run(Window.Get);
+			Window mainWindow = Window.Get;
+			Application.Run(mainWindow);
+			GC.KeepAlive(singleInstanceMutex);
+			}
 		}
 	}
 }

@@ -6,23 +6,32 @@
 using namespace std;
 
 template <typename T>
-void PayloadRead(ifstream& stream, T& dst)
+bool PayloadRead(istream& stream, T& dst)
 {
-	stream.read(reinterpret_cast<char*>(&dst), sizeof(T));
+	return static_cast<bool>(stream.read(reinterpret_cast<char*>(&dst), sizeof(T)));
 }
 
-void PayloadReadString(ifstream& stream, string& dst)
+bool PayloadReadString(istream& stream, string& dst, int maxLength = 4096)
 {
 	int nLength;
-	PayloadRead(stream, nLength);
+	if (!PayloadRead(stream, nLength) || nLength < 0 || nLength > maxLength)
+	{
+		dst.clear();
+		return false;
+	}
 
 	if (nLength > 0) 
 	{
 		dst.resize(nLength);
-		stream.read(&dst[0], nLength);
+		if (!stream.read(&dst[0], nLength))
+		{
+			dst.clear();
+			return false;
+		}
 	}
 	else
 		dst = "";
+	return true;
 }
 
 template <typename T>

@@ -302,7 +302,11 @@ namespace xBot.App
 
                 try
                 {
-                    PrepareTempConfigFile(pi.dwProcessId, redirectIp, redirectPort, gatewayHosts, gatewayPort, isDebug, false);
+                    if (!PrepareTempConfigFile(pi.dwProcessId, redirectIp, redirectPort, gatewayHosts, gatewayPort, isDebug, false))
+                    {
+                        CleanupProcess(pi);
+                        return null;
+                    }
                     bool mainThreadResumedForPatch = false;
 
                     Process sroProcess = Process.GetProcessById((int)pi.dwProcessId);
@@ -380,7 +384,7 @@ namespace xBot.App
             }
         }
 
-private static void PrepareTempConfigFile(
+private static bool PrepareTempConfigFile(
             uint processId,
             string redirectIp,
             ushort redirectPort,
@@ -391,34 +395,69 @@ private static void PrepareTempConfigFile(
         {
             try
             {
+				if (string.IsNullOrWhiteSpace(redirectIp) || redirectIp.Length > 255 || redirectPort == 0 || gatewayPort == 0)
+					throw new ArgumentException("Invalid client redirect configuration.");
+				if (gatewayHosts != null && gatewayHosts.Count > 64)
+					throw new ArgumentException("Too many gateway hosts in client configuration.");
+				if (gatewayHosts != null && gatewayHosts.Exists(host => string.IsNullOrWhiteSpace(host) || host.Length > 255))
+					throw new ArgumentException("Gateway host is empty or too long.");
+
                 string tmpConfigFile = Path.Combine(Path.GetTempPath(), $"xBot_{processId}.tmp");
-                using (FileStream fs = new FileStream(tmpConfigFile, FileMode.Create, FileAccess.Write))
-                using (BinaryWriter writer = new BinaryWriter(fs))
+				byte[] payload;
+				using (MemoryStream payloadStream = new MemoryStream())
+				using (BinaryWriter payloadWriter = new BinaryWriter(payloadStream))
                 {
-                    writer.Write(isDebug); // 1 byte
-                    writer.WriteAscii(redirectIp); // int32 length + ASCII bytes
-                    writer.Write(redirectPort); // 2 bytes WORD
+					payloadWriter.Write(isDebug); // 1 byte
+					payloadWriter.WriteAscii(redirectIp); // int32 length + ASCII bytes
+					payloadWriter.Write(redirectPort); // 2 bytes WORD
 
                     int count = gatewayHosts != null ? gatewayHosts.Count : 0;
-                    writer.Write(count); // int32
+					payloadWriter.Write(count); // int32
 
                     if (gatewayHosts != null)
                     {
                         foreach (string host in gatewayHosts)
                         {
-                            writer.WriteAscii(host);
+							payloadWriter.WriteAscii(host);
                         }
                     }
 
-                    writer.Write(gatewayPort); // 2 bytes WORD
-                    writer.Write(randomizeMac); // 1 byte - MAC randomization flag
+					payloadWriter.Write(gatewayPort); // 2 bytes WORD
+					payloadWriter.Write(randomizeMac); // 1 byte - MAC randomization flag
+					payloadWriter.Flush();
+					payload = payloadStream.ToArray();
                 }
+
+				using (FileStream fs = new FileStream(tmpConfigFile, FileMode.Create, FileAccess.Write, FileShare.None))
+				using (BinaryWriter writer = new BinaryWriter(fs))
+				{
+					writer.Write(0x544F4258u); // "XBOT" in little-endian
+					writer.Write((ushort)1);
+					writer.Write(payload.Length);
+					writer.Write(ComputePayloadChecksum(payload));
+					writer.Write(payload);
+				}
+				return true;
             }
             catch (Exception ex)
             {
                 LogError($"Failed to prepare temp config file: {ex.Message}");
+				return false;
             }
         }
+
+		private static uint ComputePayloadChecksum(byte[] payload)
+		{
+			const uint fnvOffset = 2166136261u;
+			const uint fnvPrime = 16777619u;
+			uint hash = fnvOffset;
+			for (int i = 0; i < payload.Length; i++)
+			{
+				hash ^= payload[i];
+				hash *= fnvPrime;
+			}
+			return hash;
+		}
 
         private static bool InjectClientLibrary(PROCESS_INFORMATION pi, byte[] buffer, uint pathLen)
         {

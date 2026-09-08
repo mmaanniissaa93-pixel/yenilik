@@ -649,12 +649,14 @@ namespace xBot.App
 			}
 			else
 			{
-			  (new Thread( ()=> {
+			  Thread teleportThread = new Thread( ()=> {
 					if (WaitSelectEntity(teleport.UniqueID, 8, 250, "Selecting teleport " + teleport.TeleportName + "..."))
 						PacketBuilder.UseTeleport(teleport.UniqueID, destinationID);
 					else
 						Window.Get.LogProcess(teleport.Name + " cannot be selected!");
-				})).Start();
+				});
+				teleportThread.IsBackground = true;
+				teleportThread.Start();
 			}
 		}
 

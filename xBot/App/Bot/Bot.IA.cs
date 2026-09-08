@@ -546,12 +546,6 @@ namespace xBot.App
                 // login'de 1 kez çalışıyordu): davet + lider yoksa ayrılma.
                 CheckPartyAutoTick();
 
-                // Check auto alchemy (+ basma)
-                if (AlchemyManager.IsRunning)
-                {
-                    AlchemyManager.RunTick();
-                }
-
                 // Check Target Assist hotkey cycle (timer tek kaynak; çift tetik önlemek için buradan çağrılmaz)
                 // TargetAssistManager.RunTick();
 

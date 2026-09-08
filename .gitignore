@@ -1,4 +1,4 @@
-# Derleme ve çıktı klasörleri
+# Derleme ve Ã§Ä±ktÄ± klasÃ¶rleri
 [Bb]in/
 [Oo]bj/
 x64/
@@ -6,13 +6,13 @@ x86/
 [Dd]ebug/
 [Rr]elease/
 
-# Çalıştırılabilir ve derlenmiş ikili dosyalar
+# Ã‡alÄ±ÅŸtÄ±rÄ±labilir ve derlenmiÅŸ ikili dosyalar
 *.exe
 *.dll
 *.so
 *.dylib
 
-# Hata ayıklama ve geçici dosyalar
+# Hata ayÄ±klama ve geÃ§ici dosyalar
 *.pdb
 *.ilk
 *.exp
@@ -23,7 +23,7 @@ x86/
 *.lastbuildstate
 *.log
 
-# Visual Studio dosyaları
+# Visual Studio dosyalarÄ±
 .vs/
 *.user
 *.suo
@@ -33,3 +33,7 @@ x86/
 # Paketler
 packages/
 *.nupkg
+
+# KullanÄ±cÄ±ya Ã¶zel Ã§alÄ±ÅŸma zamanÄ± ayarlarÄ± (parola/PIN iÃ§erebilir)
+/Settings.user.json
+/Config/

@@ -1,6 +1,23 @@
 # Changelog
 
+## 2026-09-08 - Başlangıç ve bildirim alanı düzeltmesi
+
+- Runtime filtre kontrolleri kurulurken tetiklenen ayar kaydı, tamamlanmamış ana pencereyi yeniden oluşturarak sınırsız `Window`/`NotifyIcon` üretmesine neden oluyordu. Pencere oluşturma yeniden girişi ve başlangıç sırasındaki ayar yazımı engellendi.
+- Uygulamaya süreçler arası tek örnek kilidi eklendi. İkinci çalıştırma yeni bir tray simgesi oluşturmaz ve açık pencereyi öne getirmeyi dener.
+- Normal kapanışta bildirim alanı simgesi hemen gizlenir.
+- `Release|Any CPU` yapılandırması, uygulamanın x86 bağımlılıklarıyla uyumlu olacak şekilde x86 hedefleyecek biçimde düzeltildi.
+- SQLite başvurusu geçici `bin\Release` dosyasından NuGet paketine taşındı; x86/x64 `SQLite.Interop.dll` dosyaları standart mimari alt klasörlerine kopyalanıyor ve eksik paket içeriği derleme sırasında açık hata veriyor.
+
 ### Unreleased
+- Güvenlik/stabilite turu: Auto Alchemy tek scheduler ve sunucu-cevap kapısına alındı; timeout, hedef item değişimi ve disconnect halinde güvenli durdurma eklendi.
+- Hesap parolası, proxy parolası ve ikincil PIN ortak Windows DPAPI katmanına taşındı; şifreleme hatasında düz metin kayıt kaldırıldı ve kullanıcı ayarları Git dışındaki `Settings.user.json` dosyasına ayrıldı.
+- Gateway/Agent kısmi socket gönderimi düzeltildi; hassas login/auth/captcha/PIN paketleri loglarda maskelendi ve log rotasyonu eklendi.
+- DB cache'i sunucu değişiminde izole edildi; navigasyon LRU eşzamanlı erişimi, ayar debounce UI-thread erişimi ve kapanış flush akışı düzeltildi.
+- PK2 okuyucusunda unmanaged bellek sızıntısı, stream dispose ve bozuk arşiv sınır/chain/depth kontrolleri düzeltildi; DDJ temp dosyaları exception-safe temizleniyor.
+- Native loader payload'ına magic, sürüm, boyut, FNV-1a checksum ve alan limitleri eklendi; geçersiz payload hook kurulmadan reddediliyor.
+- Reklam kaynağı ve hedef URL'ler HTTPS ile sınırlandı; response yapısı/boyutu doğrulanıyor.
+- SQLite ortak prepared-command akışına thread ownership eklendi; bağımsız sorgular yerel command nesnesi kullanıyor.
+- `xDictionary` anahtar çakışması düzeltildi; koleksiyon ve DPAPI için 5 regresyon testiyle toplam senaryo sayısı 322'ye çıkarıldı.
 - srodevs-docs uyumu: `0x3056` EXP TC-buff (cumulated/accumulated) + level-up stat points; `0x304E` STP/HWAN-source/Egypt-AP/display baytları ve otomatik stat dağıtım tetikleme.
 - srodevs-docs uyumu: logout (`0x7005/0xB005/0x7006/0xB006/0x300A`) ve rename (`0x7450/0xB450`) parser/builder/handler eklendi; `0x70A7` bodystate enumu ile Berserk uyumlu hale getirildi.
 - srodevs-docs uyumu: `0xB025` chat hata kodları, `0x302D` kısıt süresi, `0x3CA2` quest logu; gateway `0xA102` tam hata haritası + custom result `0x03`, `0x2322` IBUV imaj başlığı logu.
@@ -9,7 +26,7 @@
 - `0x302D` chat kısıtı byte düzeltmesi; `0xB006` cancel hata kodu; `0xA103` auth hata adları (C9/C10/full/IP); petition GuildWar(10)/Resurrection(8).
 - Ortam durumu `InfoManager`’da tutuluyor (`0x3020/0x3027/0x3809`); gateway `0xA104/0xA106/0xA100` tam yapıda, download stub eklendi; `RestoreCharacter` builder.
 - 10 yeni politika senaryosu (toplam 317 test).
-- Stabilite: `xDictionary/xList` kilitli hale getirildi, `RemoveAt/SetKey` bozuklukları ve `Clear` sayaç hatası düzeltildi; snapshot ile güvenli enumerasyon.
+- Stabilite: `xDictionary/xList` kilitli hale getirildi, `RemoveAt` ve `Clear` sayaç hataları düzeltildi; snapshot ile güvenli enumerasyon.
 - Ayar kaydı atomik yazıma alındı (`Settings.json` + karakter profili tmp+replace), yarım yazım riski giderildi.
 - Proxy hot-path: paket başına UI `Invoke` ve `HexDump` kaldırıldı, bayraklar döngü başına önbelleğe alındı, `TracePacket` dosya IO'su varsayılan kapalı, idle `Sleep(1)` / aktif `Sleep(0)`.
 - Captcha: `0x2322` loglanıp `0x6323 SubmitCaptcha` ile otomatik cevaplanıyor; CLI `-captcha=` sabit ayara bağlandı.

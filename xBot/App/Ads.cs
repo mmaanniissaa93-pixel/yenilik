@@ -23,6 +23,7 @@ namespace xBot.App
 		private Timer AutoClosingTimer;
 		private int AutoClosingTimeMax;
 		private int AutoClosingTimeMin;
+		private const int MaxAdvertisementBytes = 256 * 1024;
 
 		public Ads(Form w)
 		{
@@ -49,22 +50,35 @@ namespace xBot.App
 			ExcelData = null;
 			try
 			{
-				string txtFile = new WebClient().DownloadString("http://bit.ly/xBot-ads-check");
+				string txtFile;
+				using (WebClient client = new WebClient())
+				{
+					txtFile = client.DownloadString("https://bit.ly/xBot-ads-check");
+				}
+				if (txtFile.Length > MaxAdvertisementBytes)
+					throw new InvalidOperationException("Advertisement response is too large.");
 				string[] rows = txtFile.Split(new string[]{"\r\n"}, StringSplitOptions.None);
+				if (rows.Length < 2)
+					throw new FormatException("Advertisement response has no data rows.");
 				string[] colums = rows[0].Split(new string[]{ "," }, StringSplitOptions.None);
+				if (colums.Length <= (int)EXCEL.URL_MINIBANNER)
+					throw new FormatException("Advertisement header is incomplete.");
 				string[] str_today2 = colums[0].Split('(', ')')[1].Split('/', ' ', ':');
 				DateTime today = new DateTime(int.Parse(str_today2[2]), int.Parse(str_today2[1]), int.Parse(str_today2[0]), int.Parse(str_today2[3]), int.Parse(str_today2[4]), 0);
 
 				for (int i = 1; i < rows.Length; i++)
 				{
 					colums = rows[i].Split(new string[] { "," }, StringSplitOptions.None);
+					if (colums.Length <= (int)EXCEL.URL_MINIBANNER)
+						continue;
 					str_today2 = colums[0].Split('/', ' ', ':');
 					if (today <= new DateTime(int.Parse(str_today2[2]), int.Parse(str_today2[1]), int.Parse(str_today2[0]), int.Parse(str_today2[3]), int.Parse(str_today2[4]), 0)){
 						ExcelData = colums;
 						break;
 					}
 				}
-				LoadMediaData();
+				if (ExcelData != null)
+					ValidateMediaData();
 			}
 			catch
 			{
@@ -74,11 +88,28 @@ namespace xBot.App
 		}
 		private void LoadMediaData()
 		{
+			TryGetHttpsUri(GetData(EXCEL.URL_BANNER), out Uri bannerUri);
+			TryGetHttpsUri(GetData(EXCEL.URL_WEBSITE), out Uri websiteUri);
 			lblAdName.Text = GetData(EXCEL.TITLE);
 			ToolTips.SetToolTip(lblAdName,GetData(EXCEL.TITLE));
-			pbxBanner.Load(GetData(EXCEL.URL_BANNER));
-			pbxBanner.Tag = GetData(EXCEL.URL_WEBSITE);
-			ToolTipLink.SetToolTip(pbxBanner, GetData(EXCEL.URL_WEBSITE));
+			pbxBanner.Load(bannerUri.ToString());
+			pbxBanner.Tag = websiteUri;
+			ToolTipLink.SetToolTip(pbxBanner, websiteUri.ToString());
+		}
+		private void ValidateMediaData()
+		{
+			if (!TryGetHttpsUri(GetData(EXCEL.URL_BANNER), out Uri bannerUri)
+				|| !TryGetHttpsUri(GetData(EXCEL.URL_WEBSITE), out Uri websiteUri)
+				|| !TryGetHttpsUri(GetData(EXCEL.URL_MINIBANNER), out Uri miniBannerUri))
+				throw new InvalidOperationException("Advertisement URLs must use HTTPS.");
+			ExcelData[(int)EXCEL.URL_BANNER] = bannerUri.ToString();
+			ExcelData[(int)EXCEL.URL_WEBSITE] = websiteUri.ToString();
+			ExcelData[(int)EXCEL.URL_MINIBANNER] = miniBannerUri.ToString();
+		}
+		private static bool TryGetHttpsUri(string value, out Uri uri)
+		{
+			return Uri.TryCreate(value, UriKind.Absolute, out uri)
+				&& string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase);
 		}
 		public bool isLoaded()
 		{
@@ -96,6 +127,7 @@ namespace xBot.App
 		{
 			if (isLoaded())
 			{
+				LoadMediaData();
 				AutoClosingTimeMin = int.Parse(GetData(EXCEL.TIME_MIN));
 				AutoClosingTimeMax = int.Parse(GetData(EXCEL.TIME_MAX));
 				if (AutoClosingTimeMax < AutoClosingTimeMin || AutoClosingTimer != null)
@@ -148,7 +180,8 @@ namespace xBot.App
 					this.Close();
 					break;
 				case "pbxBanner":
-					System.Diagnostics.Process.Start(pbxBanner.Tag.ToString());
+					if (pbxBanner.Tag is Uri uri && string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+						System.Diagnostics.Process.Start(uri.ToString());
 					break;
 			}
 		}
