@@ -289,7 +289,7 @@ namespace xBot.App
 			string[] command = invocation.ToLegacyTokens();
 
 			// Execute the command
-			string cmd = invocation.Command;
+			string cmd = invocation.Command.ToLowerInvariant();
 			switch (cmd)
 			{
 				case "move":
@@ -325,6 +325,16 @@ namespace xBot.App
 					break;
 				case "teleport":
 					ExecuteTeleport(invocation, w, b);
+					break;
+				case "doblacksmith":
+				case "doherbalist":
+				case "dostable":
+				case "dostorage":
+				case "dostoragestore":
+				case "dogrocerytrader":
+				case "doprotectortrader":
+				case "dojupiter":
+					ExecuteTownService(cmd, w, b);
 					break;
 				case "recall":
 					ExecuteRecall(w);
@@ -504,6 +514,84 @@ namespace xBot.App
 			w.LogProcess("Script RECALL: " + pickPet.Name);
 			PacketBuilder.UnsummonPet(pickPet.UniqueID);
 			WaitInterruptible(500);
+		}
+
+		private void ExecuteTownService(string command, Window w, Bot b)
+		{
+			if (command == "dostorage" || command == "dostoragestore")
+			{
+				ExecuteStoreStep(new[] { "store", "WAREHOUSE" }, w, b, command == "dostorage");
+				return;
+			}
+
+			string npcCode;
+			switch (command)
+			{
+				case "doblacksmith": npcCode = "BLACKSMITH"; break;
+				case "doherbalist": npcCode = "HERBALIST"; break;
+				case "dostable": npcCode = "STABLE"; break;
+				case "dogrocerytrader": npcCode = "GROCERY"; break;
+				case "doprotectortrader": npcCode = "PROTECTOR"; break;
+				case "dojupiter": npcCode = "JUPITER"; break;
+				default: return;
+			}
+
+			bool nameMatched;
+			SREntity npc = FindTownNpc(npcCode, out nameMatched);
+			ScriptCommandDefinition actionDefinition = ScriptCommandCatalog.Find(command);
+			string action = actionDefinition == null ? command : actionDefinition.Name;
+			if (!PrepareNpcInteraction(npc, npcCode, nameMatched, action, w, b))
+				return;
+			if (!OpenNpcDialog(npc, action, w, b))
+				return;
+
+			try
+			{
+				bool repair = command == "doblacksmith" || command == "dojupiter";
+				bool buyPotions = command == "doherbalist" || command == "dojupiter";
+				bool buyAmmo = command == "dogrocerytrader";
+
+				string dismantleLocation = command == "doherbalist" ? "Herbalist"
+					: command == "dogrocerytrader" ? "Grocery"
+					: (command == "doblacksmith" || command == "doprotectortrader" || command == "dojupiter") ? "Blacksmith"
+					: null;
+				if (dismantleLocation != null)
+					DismantleCheck(dismantleLocation, w);
+
+				if (repair && (w.Town_cbxRepair == null || w.Town_cbxRepair.Checked))
+				{
+					w.LogProcess(action + ": repairing equipment...");
+					PacketBuilder.RepairAllEquipments(npc.UniqueID);
+					if (!WaitInterruptible(800)) return;
+				}
+
+				if (w.Town_cbxSellTrash == null || w.Town_cbxSellTrash.Checked)
+				{
+					b.ExecuteSellTrash();
+					if (!WaitInterruptible(400)) return;
+				}
+
+				if (buyPotions)
+					b.ExecuteAutoBuyPotions(npc);
+				if (buyAmmo)
+					b.ExecuteAutoBuyAmmoFromOpenNpc(npc);
+				if (command == "dostable")
+					w.LogProcess("DoStable: stable alış profili tanımlı değil; güvenli satış adımı tamamlandı.");
+			}
+			catch (Exception ex)
+			{
+				w.LogProcess(action + " hatası: " + ex.Message, Window.ProcessState.Warning);
+			}
+			finally
+			{
+				try
+				{
+					if (npc != null && IsConnectionAlive(b))
+						PacketBuilder.CloseNPC(npc.UniqueID);
+					WaitInterruptible(300);
+				}
+				catch { }
+			}
 		}
 
 		#region Town NPC steps (.rbs: store / buy / repair)
@@ -710,10 +798,12 @@ namespace xBot.App
 				return new string[] { "ARMOR", "CLOTH", "PROTECTOR", "WEAPON" };
 			if (code.Contains("GROCERY"))
 				return new string[] { "GROCERY" };
+			if (code.Contains("JUPITER"))
+				return new string[] { "JUPITER" };
 			return new string[0];
 		}
 
-		private void ExecuteStoreStep(string[] command, Window w, Bot b)
+		private void ExecuteStoreStep(string[] command, Window w, Bot b, bool includeGold = true)
 		{
 			string code = NpcCode(command);
 			// Kullanıcı Town sekmesinde Storage'ı kapattıysa script adımı da atlanır.
@@ -760,7 +850,8 @@ namespace xBot.App
 				}
 				w.Log("STORE: depo açık, depozit başlıyor...");
 				b.ExecuteStorageDeposit();
-				b.ExecuteStoreGold();
+				if (includeGold)
+					b.ExecuteStoreGold();
 				w.Log("STORE: depozit tamam.");
 			}
 			catch (Exception ex)

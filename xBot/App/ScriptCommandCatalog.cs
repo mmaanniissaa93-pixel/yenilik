@@ -20,6 +20,14 @@ namespace xBot.App
             new ScriptCommandDefinition("cast", null, "cast, skill name", "İsim, server adı veya ID ile skill kullan.", 1, 1, "Skill adı / ID", ""),
             new ScriptCommandDefinition("use", null, "use, item name", "İsim, server adı veya slot ile çantadaki itemi kullan.", 1, 1, "Item adı / slot", ""),
             new ScriptCommandDefinition("teleport", null, "teleport, source, destination", "Kaynak ve hedef adı/ID ile teleport kullan.", 2, 2, "Kaynak teleport", "Hedef teleport"),
+            new ScriptCommandDefinition("DoBlacksmith", null, "DoBlacksmith", "Demirci işlemlerini uygula: tamir ve ayarlı satış.", 0, 0, "", ""),
+            new ScriptCommandDefinition("DoHerbalist", null, "DoHerbalist", "Herbalist işlemlerini uygula: iksir/pill/scroll alımı.", 0, 0, "", ""),
+            new ScriptCommandDefinition("DoStable", null, "DoStable", "Stable NPC oturumunu doğrula ve ayarlı işlemleri uygula.", 0, 0, "", ""),
+            new ScriptCommandDefinition("DoStorage", null, "DoStorage", "Storage kurallarına göre eşya ve altın depola.", 0, 0, "", ""),
+            new ScriptCommandDefinition("DoStorageStore", null, "DoStorageStore", "Yalnızca storage kurallarındaki eşyaları depola.", 0, 0, "", ""),
+            new ScriptCommandDefinition("DoGroceryTrader", null, "DoGroceryTrader", "Grocery işlemlerini uygula ve gerekiyorsa ok/bolt al.", 0, 0, "", ""),
+            new ScriptCommandDefinition("DoProtectorTrader", null, "DoProtectorTrader", "Protector NPC'de ayarlı satış işlemlerini uygula.", 0, 0, "", ""),
+            new ScriptCommandDefinition("DoJupiter", null, "DoJupiter", "Jupiter birleşik demirci/herbalist işlemlerini uygula.", 0, 0, "", ""),
             new ScriptCommandDefinition("recall", null, "recall", "Aktif toplama petini geri çağır.", 0, 0, "", ""),
             new ScriptCommandDefinition("stop", null, "stop", "Botu ve aktif scripti durdur.", 0, 0, "", ""),
             new ScriptCommandDefinition("disconnect", null, "disconnect", "Bağlantıyı güvenli biçimde kapat.", 0, 0, "", "")
@@ -106,7 +114,7 @@ namespace xBot.App
         {
             if (definition == null)
                 return string.Empty;
-            List<string> parts = new List<string> { definition.Name.ToUpperInvariant() };
+            List<string> parts = new List<string> { definition.Name };
             if (arguments != null)
                 parts.AddRange(arguments.Where(value => !string.IsNullOrWhiteSpace(value)).Select(value => value.Trim()));
             return string.Join(", ", parts);
@@ -152,7 +160,7 @@ namespace xBot.App
 
         public override string ToString()
         {
-            return Name.ToUpperInvariant();
+            return Name;
         }
     }
 

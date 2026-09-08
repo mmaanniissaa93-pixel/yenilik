@@ -177,23 +177,17 @@ düzeyindeki seçeneklerdir.
 
 xBot'un önceki `MOVE`, `STORE`, `BUY`, `REPAIR` ve `WAIT` komutlarına ek olarak
 ilk entegrasyon diliminde `walk` takma adı, `teleport`, `cast`, `use`, `stop`,
-`disconnect` ve toplama peti `recall` komutları eklendi. `WAIT` artık kesilebilir;
+`disconnect` ve toplama peti `recall` komutları eklendi. İkinci dilimde
+`DoBlacksmith`, `DoHerbalist`, `DoStable`, `DoStorage`, `DoStorageStore`,
+`DoGroceryTrader`, `DoProtectorTrader` ve `DoJupiter` eklendi. `WAIT` artık kesilebilir;
 Training > Script alanında ortak komut kataloğunu kullanan phBot-benzeri Script
 Creator, doğrulama ve load/save akışı bulunur.
 
 Kalan eksik komutlar:
 
-- `DoBlacksmith`
-- `DoHerbalist`
-- `DoStable`
-- `DoStorage`
 - `DoGuildStorage`
-- `DoGroceryTrader`
-- `DoProtectorTrader`
-- `DoJupiter`
 - `DoStorageTake`
 - `DoGuildStorageTake`
-- `DoStorageStore`
 - `DoGuildStorageStore`
 - `DoConsignment`
 - `DoStall`

@@ -557,7 +557,15 @@ internal static class Program
         RunScriptCheck("Bilinmeyen script komutu reddedilir",
             ScriptCommandCatalog.TryParse("dance, 1", out invocation, out error), false);
         RunScriptCheck("Script Creator standart virgüllü komut üretir",
-            ScriptCommandCatalog.Format(ScriptCommandCatalog.Find("use"), "Return Scroll") == "USE, Return Scroll", true);
+            ScriptCommandCatalog.Format(ScriptCommandCatalog.Find("use"), "Return Scroll") == "use, Return Scroll", true);
+        RunScriptCheck("phBot DoBlacksmith komutu parametresiz kabul edilir",
+            ScriptCommandCatalog.TryParse("DoBlacksmith", out invocation, out error)
+                && invocation.Command == "DoBlacksmith", true);
+        string[] townCommands = { "DoHerbalist", "DoStable", "DoStorage", "DoStorageStore", "DoGroceryTrader", "DoProtectorTrader", "DoJupiter" };
+        bool allTownCommandsKnown = true;
+        for (int i = 0; i < townCommands.Length; i++)
+            allTownCommandsKnown &= ScriptCommandCatalog.TryParse(townCommands[i], out invocation, out error);
+        RunScriptCheck("phBot town komut ailesi kataloğa kayıtlıdır", allTownCommandsKnown, true);
     }
 
     private static void RunScriptCheck(string name, bool actual, bool expected)

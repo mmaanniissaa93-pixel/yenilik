@@ -1851,7 +1851,6 @@ namespace xBot.App
             AmmoType ammoType = TownLogisticsPolicy.GetAmmoType((int)weapon);
             if (ammoType == AmmoType.None)
                 return;
-            bool isBow = (ammoType == AmmoType.Arrow);
 
             SRCoord myPosition = InfoManager.Character.GetRealtimePosition();
             TownServiceInfo grocery = TownManager.Get.FindNearestService(myPosition, TownServiceType.GroceryMerchant);
@@ -1878,35 +1877,7 @@ namespace xBot.App
                 if (!Script.OpenNpcDialog(groceryNpc, "Ammo BUY", w, this))
                     return;
 
-                byte shopSlot = TownLogisticsPolicy.GetAmmoShopSlot(ammoType);
-                string ammoName = isBow ? "Arrows" : "Bolts";
-				if (DataManager.GetItemFromShop(groceryNpc.ServerName, 0, shopSlot) == null)
-				{
-					w.LogProcess($"Ammo BUY: [{groceryNpc.Name}] tab 0 / slot {shopSlot} doğrulanamadı; paket gönderilmedi.", Window.ProcessState.Warning);
-					try { PacketBuilder.CloseNPC(groceryNpc.UniqueID); } catch { }
-					return;
-				}
-                w.LogProcess($"Auto Buy: Purchasing {ammoName} from {groceryNpc.Name}...");
-                // Buy 2 stacks of ammunition
-                PacketBuilder.BuyItemFromShop(0, shopSlot, 1, groceryNpc.UniqueID);
-                Thread.Sleep(600);
-				if (!InfoManager.inGame || !isBotting || Proxy == null || !Proxy.isRunning)
-					return;
-                PacketBuilder.BuyItemFromShop(0, shopSlot, 1, groceryNpc.UniqueID);
-                Thread.Sleep(600);
-
-                // Auto-equip ammunition if secondary slot 7 is empty
-                var inv = InfoManager.Character.Inventory;
-                if (inv != null && inv.Capacity > 7 && (inv[7] == null || inv[7].Quantity == 0))
-                {
-                    byte invSlot = 0;
-                    if (Bot.Get.FindItem(3, 1, 7, ref invSlot))
-                    {
-                        w.LogProcess("Auto Equip: Equipping ammunition to slot 7...");
-                        PacketBuilder.MoveItem(invSlot, 7, SRTypes.InventoryItemMovement.InventoryToInventory);
-                        Thread.Sleep(500);
-                    }
-                }
+				ExecuteAutoBuyAmmoFromOpenNpc(groceryNpc);
 				try
 				{
 					if (InfoManager.inGame && Proxy != null && Proxy.isRunning)
@@ -1915,6 +1886,54 @@ namespace xBot.App
 				catch { }
             }
         }
+
+		/// <summary>
+		/// DoGroceryTrader ve klasik town loop için, doğrulanmış ve açık NPC
+		/// oturumunda cephane alımını ortak uygular.
+		/// </summary>
+		public void ExecuteAutoBuyAmmoFromOpenNpc(SREntity groceryNpc)
+		{
+			Window w = Window.Get;
+			if (groceryNpc == null || InfoManager.Character == null || !InfoManager.inGame || !isBotting)
+				return;
+			SRTypes.Weapon weapon = GetMyWeaponType();
+			int currentAmmo = CountEquippedAndInventoryAmmo();
+			if (!TownLogisticsPolicy.ShouldBuyAmmo((int)weapon, currentAmmo))
+				return;
+			AmmoType ammoType = TownLogisticsPolicy.GetAmmoType((int)weapon);
+			if (ammoType == AmmoType.None)
+				return;
+
+			byte shopSlot = TownLogisticsPolicy.GetAmmoShopSlot(ammoType);
+			string ammoName = ammoType == AmmoType.Arrow ? "Arrows" : "Bolts";
+			SRItem shopItem = DataManager.GetItemFromShop(groceryNpc.ServerName, 0, shopSlot);
+			if (shopItem == null || shopItem.ID2 != 3 || shopItem.ID3 != 1)
+			{
+				string actual = shopItem == null ? "boş" : shopItem.ServerName;
+				w.LogProcess($"Ammo BUY: [{groceryNpc.Name}] tab 0 / slot {shopSlot} doğrulanamadı ({actual}); paket gönderilmedi.", Window.ProcessState.Warning);
+				return;
+			}
+
+			w.LogProcess($"Auto Buy: Purchasing {ammoName} from {groceryNpc.Name}...");
+			PacketBuilder.BuyItemFromShop(0, shopSlot, 1, groceryNpc.UniqueID);
+			if (!SleepInterruptible(600) || !InfoManager.inGame || Proxy == null || !Proxy.isRunning)
+				return;
+			PacketBuilder.BuyItemFromShop(0, shopSlot, 1, groceryNpc.UniqueID);
+			if (!SleepInterruptible(600))
+				return;
+
+			var inv = InfoManager.Character.Inventory;
+			if (inv != null && inv.Capacity > 7 && (inv[7] == null || inv[7].Quantity == 0))
+			{
+				byte invSlot = 0;
+				if (FindItem(3, 1, 7, ref invSlot))
+				{
+					w.LogProcess("Auto Equip: Equipping ammunition to slot 7...");
+					PacketBuilder.MoveItem(invSlot, 7, SRTypes.InventoryItemMovement.InventoryToInventory);
+					SleepInterruptible(500);
+				}
+			}
+		}
 
         private void WalkLoop()
         {
