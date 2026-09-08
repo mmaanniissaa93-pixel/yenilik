@@ -813,7 +813,7 @@ namespace xBot.App
         private void BuildStoreGoldTab(TabPage tab)
         {
             int x = 12, y = 16;
-            optGoldEnabled = AddOptCheck(tab, "Enable gold management / Gold keep amount", x, y, 390);
+            optGoldEnabled = AddOptCheck(tab, "Gold keep amount", x, y, 390);
             txtGoldKeep = new TextBox { Location = new Point(420, y), Size = new Size(150, 22), Text = "1000000" };
             txtGoldKeep.TextChanged += (s, e) => SaveAllPickFilterLive();
             y += 32;
@@ -849,7 +849,7 @@ namespace xBot.App
             {
                 var g = ItemFilterManager.StoreGold;
                 if (g == null || optGoldEnabled == null) return;
-                optGoldEnabled.Checked = g.Enabled || g.HasEnabledAction;
+                optGoldEnabled.Checked = g.Enabled;
                 txtGoldKeep.Text = g.GoldKeepAmount.ToString();
                 optGoldTakeStorage.Checked = g.TakeGoldFromStorage;
                 optGoldTakeGuild.Checked = g.TakeGoldFromGuildStorage;
@@ -871,7 +871,7 @@ namespace xBot.App
                 g.TakeGoldFromGuildStorage = optGoldTakeGuild.Checked;
                 g.StoreGoldInStorage = optGoldStoreStorage.Checked;
                 g.StoreGoldInGuildStorage = optGoldStoreGuild.Checked;
-                g.Enabled = optGoldEnabled.Checked || g.HasEnabledAction;
+                g.Enabled = optGoldEnabled.Checked;
                 g.GoldKeepAmount = ParseGold(txtGoldKeep.Text, 1000000);
                 g.StoreGoldMax = ParseGold(txtGoldStoreMax.Text, 0);
                 g.StoreGoldGuildMax = ParseGold(txtGoldStoreGuildMax.Text, 0);

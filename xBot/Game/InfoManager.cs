@@ -30,6 +30,7 @@ namespace xBot.Game
 		private static DateTime m_SRTimeStampDate;
 		private static AutoResetEvent m_MonitorEntitySelected = new AutoResetEvent(false);
 		private static AutoResetEvent m_MonitorInventoryMovement = new AutoResetEvent(false);
+		private static AutoResetEvent m_MonitorRepairResponse = new AutoResetEvent(false);
 		private static AutoResetEvent m_MonitorWeaponChanged = new AutoResetEvent(false);
 		private static AutoResetEvent m_MonitorBuffRemoved = new AutoResetEvent(false);
 		private static AutoResetEvent m_MonitorSkillCast = new AutoResetEvent(false);
@@ -79,6 +80,8 @@ namespace xBot.Game
 		public static uint SelectedEntityUniqueID { get; private set; }
 		public static uint LastNpcTalkEntityUniqueID { get; private set; }
 		public static byte LastNpcTalkID { get; private set; }
+		public static bool LastRepairSuccess { get; private set; }
+		public static ushort LastRepairErrorCode { get; private set; }
 		/// <summary>
 		/// Gets all entities around.
 		/// </summary>
@@ -190,6 +193,7 @@ namespace xBot.Game
 		public static AutoResetEvent MonitorEntitySelected { get { return m_MonitorEntitySelected; } }
 		public static AutoResetEvent MonitorWeaponChanged { get { return m_MonitorWeaponChanged; } }
 		public static AutoResetEvent MonitorInventoryMovement { get { return m_MonitorInventoryMovement; } }
+		public static AutoResetEvent MonitorRepairResponse { get { return m_MonitorRepairResponse; } }
 		public static AutoResetEvent MonitorBuffRemoved { get { return m_MonitorBuffRemoved; } }
 		public static AutoResetEvent MonitorSkillCast { get { return m_MonitorSkillCast; } }
 		public static bool LastSkillCastSuccess { get; set; } = true;
@@ -203,6 +207,13 @@ namespace xBot.Game
 		#endregion
 
 		#region (Methods)
+		internal static void OnRepairResponse(bool success, ushort errorCode)
+		{
+			LastRepairSuccess = success;
+			LastRepairErrorCode = errorCode;
+			m_MonitorRepairResponse.Set();
+		}
+
 		public static void SetCharacter(string CharName, int selectionDelay = 0)
 		{
 			InfoManager.CharName = CharName;
@@ -329,6 +340,8 @@ namespace xBot.Game
 			SelectedEntityUniqueID = 0;
 			LastNpcTalkEntityUniqueID = 0;
 			LastNpcTalkID = 0;
+			LastRepairSuccess = false;
+			LastRepairErrorCode = 0;
 			LastGuildStorageInfoTime = DateTime.MinValue;
 			LastGuildStorageResult = byte.MaxValue;
 			m_Entities.Clear();
@@ -382,6 +395,8 @@ namespace xBot.Game
 			SelectedEntityUniqueID = 0;
 			LastNpcTalkEntityUniqueID = 0;
 			LastNpcTalkID = 0;
+			LastRepairSuccess = false;
+			LastRepairErrorCode = 0;
 			LastGuildStorageInfoTime = DateTime.MinValue;
 			LastGuildStorageResult = byte.MaxValue;
 			m_Entities.Clear();

@@ -141,6 +141,7 @@
     <Compile Include="App\Window.PickFilter.cs" />
     <Compile Include="App\ProtectionPolicy.cs" />
     <Compile Include="App\TownLogisticsPolicy.cs" />
+    <Compile Include="App\TownNpcActionPolicy.cs" />
     <Compile Include="App\PartyPolicy.cs" />
     <Compile Include="App\PartySupportManager.cs" />
     <Compile Include="App\SecondaryPasscodePolicy.cs" />

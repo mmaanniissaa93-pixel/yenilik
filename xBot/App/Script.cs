@@ -14,6 +14,8 @@ namespace xBot.App
 	{
 		private List<string> m_lines;
 		private readonly ManualResetEvent m_stopSignal = new ManualResetEvent(false);
+		private uint m_lastRepairNpcUniqueID;
+		private DateTime m_lastRepairTime = DateTime.MinValue;
 		public string FileName { get; private set; }
 		public bool Running { get; set; }
 
@@ -680,30 +682,24 @@ namespace xBot.App
 			SREntity npc = FindTownNpc(npcCode, out nameMatched);
 			ScriptCommandDefinition actionDefinition = ScriptCommandCatalog.Find(command);
 			string action = actionDefinition == null ? command : actionDefinition.Name;
+			bool repair = command == "doblacksmith" || command == "dojupiter";
+			bool buyPotions = command == "doherbalist" || command == "dojupiter";
+			bool buyAmmo = command == "dogrocerytrader";
 			if (!PrepareNpcInteraction(npc, npcCode, nameMatched, action, w, b))
 				return;
+			if (repair && (w.Town_cbxRepair == null || w.Town_cbxRepair.Checked))
+				RepairSelectedNpc(npc, action, w, b);
 			if (!OpenNpcDialog(npc, action, w, b))
 				return;
 
 			try
 			{
-				bool repair = command == "doblacksmith" || command == "dojupiter";
-				bool buyPotions = command == "doherbalist" || command == "dojupiter";
-				bool buyAmmo = command == "dogrocerytrader";
-
 				string dismantleLocation = command == "doherbalist" ? "Herbalist"
 					: command == "dogrocerytrader" ? "Grocery"
 					: (command == "doblacksmith" || command == "doprotectortrader" || command == "dojupiter") ? "Blacksmith"
 					: null;
 				if (dismantleLocation != null)
 					DismantleCheck(dismantleLocation, w);
-
-				if (repair && (w.Town_cbxRepair == null || w.Town_cbxRepair.Checked))
-				{
-					w.LogProcess(action + ": repairing equipment...");
-					PacketBuilder.RepairAllEquipments(npc.UniqueID);
-					if (!WaitInterruptible(800)) return;
-				}
 
 				if (w.Town_cbxSellTrash == null || w.Town_cbxSellTrash.Checked)
 				{
@@ -1055,6 +1051,32 @@ namespace xBot.App
 			return false;
 		}
 
+		private bool RepairSelectedNpc(SREntity npc, string action, Window w, Bot b)
+		{
+			if (npc == null || !IsConnectionAlive(b) || InfoManager.SelectedEntityUniqueID != npc.UniqueID)
+				return false;
+
+			while (InfoManager.MonitorRepairResponse.WaitOne(0)) { }
+			w.LogProcess($"{action}: [{npc.Name}] ekipmanlar tamir ediliyor...");
+			PacketBuilder.RepairAllEquipments(npc.UniqueID);
+			for (int i = 0; i < 30 && Running && IsConnectionAlive(b); i++)
+			{
+				if (!InfoManager.MonitorRepairResponse.WaitOne(100))
+					continue;
+				if (!InfoManager.LastRepairSuccess)
+				{
+					w.LogProcess($"{action}: tamir reddedildi (0x{InfoManager.LastRepairErrorCode:X4}).", Window.ProcessState.Warning);
+					return false;
+				}
+				m_lastRepairNpcUniqueID = npc.UniqueID;
+				m_lastRepairTime = DateTime.UtcNow;
+				return true;
+			}
+
+			w.LogProcess($"{action}: 0xB03E tamir cevabı gelmedi; tamamlandı sayılmadı.", Window.ProcessState.Warning);
+			return false;
+		}
+
 		private static bool ContainsAny(string name, string[] keywords)
 		{
 			foreach (string k in keywords)
@@ -1235,8 +1257,7 @@ namespace xBot.App
 			DismantleCheck(DismantleLocationForShop(code), w);
 			bool nameMatched;
 			SREntity npc = FindTownNpc(code, out nameMatched);
-			// Potion lojistiği (sell/buy paketleri) sadece ismi doğrulanmış NPC'de.
-			bool isPotionRun = (code.Contains("POTION") || code.Contains("HERBALIST")) && nameMatched;
+			TownNpcActions actions = TownNpcActionPolicy.ForNpcCode(code);
 			if (!nameMatched)
 			{
 				// Yanlış NPC (genelde az önce kapanmamış bir pencerenin NPC'si veya
@@ -1246,19 +1267,26 @@ namespace xBot.App
 			}
 			if (!PrepareNpcInteraction(npc, code, true, "BUY", w, b))
 				return;
+			if ((actions & TownNpcActions.Repair) != 0
+				&& (w.Town_cbxRepair == null || w.Town_cbxRepair.Checked))
+				RepairSelectedNpc(npc, "BUY", w, b);
 			if (!OpenNpcDialog(npc, "BUY", w, b))
 				return;
 			Thread.Sleep(200);
 			try
 			{
-				// Potion satıcısında tam lojistik: çöp sat + potion al + mermi al.
-				// Diğer dükkanlar (armor/accessory/horse) için seçim yeterli;
-				// alım listesi kullanıcı ayarlarından yapılır.
-				if (isPotionRun)
+				// Her doğrulanmış shop NPC'si kendi gerçek işlevlerini uygular. Tamir,
+				// cephane/potion hedefinden bağımsızdır ve hedef 0 olsa da atlanmaz.
+				if ((actions & TownNpcActions.Sell) != 0
+					&& (w.Town_cbxSellTrash == null || w.Town_cbxSellTrash.Checked))
 				{
 					if (!IsConnectionAlive(b)) return;
 					b.ExecuteSellTrash();
-					Thread.Sleep(500);
+					if (!WaitInterruptible(500)) return;
+				}
+
+				if ((actions & TownNpcActions.BuyPotions) != 0)
+				{
 					if (!IsConnectionAlive(b)) return;
 					SREntity live = npc;
 					try
@@ -1270,11 +1298,10 @@ namespace xBot.App
 					catch { }
 					b.ExecuteAutoBuyPotions(live);
 				}
-				else
-				{
-					w.LogProcess($"Shop [{npc.Name}] seçildi (alım listesi Town ayarlarından).");
-					Thread.Sleep(800);
-				}
+				if ((actions & TownNpcActions.BuyAmmo) != 0)
+					b.ExecuteAutoBuyAmmoFromOpenNpc(npc);
+
+				w.LogProcess($"BUY: [{npc.Name}] şehir işlevleri tamamlandı ({actions}).");
 			}
 			catch (Exception ex)
 			{
@@ -1296,6 +1323,14 @@ namespace xBot.App
 		private void ExecuteRepairStep(string[] command, Window w, Bot b)
 		{
 			string code = NpcCode(command);
+			// Eski town dosyalarında BUY SMITH satırının hemen arkasında REPAIR
+			// bulunur. BUY artık tamiri yaptığı için ikinci paketi göndermeden geç.
+			if (m_lastRepairNpcUniqueID != 0
+				&& (DateTime.UtcNow - m_lastRepairTime).TotalSeconds < 8)
+			{
+				w.Log("Town Script: REPAIR, önceki demirci BUY adımında tamamlandı.");
+				return;
+			}
 			try
 			{
 				if (w.Town_cbxRepair != null && !w.Town_cbxRepair.Checked)
@@ -1311,13 +1346,9 @@ namespace xBot.App
 			SREntity npc = FindTownNpc(code, out nameMatched);
 			if (!PrepareNpcInteraction(npc, code, nameMatched, "REPAIR", w, b))
 				return;
-			if (!OpenNpcDialog(npc, "REPAIR", w, b))
-				return;
 			try
 			{
-				w.Log("Town Script: Repairing all equipments...");
-				PacketBuilder.RepairAllEquipments(npc.UniqueID);
-				Thread.Sleep(1000);
+				RepairSelectedNpc(npc, "REPAIR", w, b);
 			}
 			catch (Exception ex)
 			{

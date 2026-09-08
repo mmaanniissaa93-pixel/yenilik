@@ -15,6 +15,7 @@
     <Compile Include="..\..\xBot\App\ImbuePolicy.cs" Link="ImbuePolicy.cs" />
     <Compile Include="..\..\xBot\App\CommandCenter\CommandCenterPolicy.cs" Link="CommandCenterPolicy.cs" />
     <Compile Include="..\..\xBot\App\TownLogisticsPolicy.cs" Link="TownLogisticsPolicy.cs" />
+    <Compile Include="..\..\xBot\App\TownNpcActionPolicy.cs" Link="TownNpcActionPolicy.cs" />
     <Compile Include="..\..\xBot\App\ReturnToAreaPolicy.cs" Link="ReturnToAreaPolicy.cs" />
     <Compile Include="..\..\xBot\App\TeleportLinkPolicy.cs" Link="TeleportLinkPolicy.cs" />
     <Compile Include="..\..\xBot\App\PartyPolicy.cs" Link="PartyPolicy.cs" />

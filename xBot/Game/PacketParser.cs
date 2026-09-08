@@ -3256,6 +3256,27 @@ namespace xBot.Game
 					item.Quantity = (ushort)Math.Min(durability, (uint)ushort.MaxValue);
 			}
 		}
+		public static void RepairAllEquipmentsResponse(Packet packet)
+		{
+			try
+			{
+				byte result = packet.RemainingRead() > 0 ? packet.ReadByte() : (byte)0;
+				ushort errorCode = result == 2 && packet.RemainingRead() >= 2
+					? packet.ReadUShort()
+					: (ushort)0;
+				bool success = result == 1;
+				InfoManager.OnRepairResponse(success, errorCode);
+				if (success)
+					Window.Get?.Log("REPAIR: sunucu tamiri kabul etti (0xB03E).");
+				else
+					Window.Get?.Log($"REPAIR: sunucu reddetti (result={result}, error=0x{errorCode:X4}).", xBot.App.Theme.LogLevel.Warning);
+			}
+			catch (Exception ex)
+			{
+				InfoManager.OnRepairResponse(false, 0);
+				Window.Get?.Log("REPAIR cevap ayrıştırma hatası: " + ex.Message, xBot.App.Theme.LogLevel.Warning);
+			}
+		}
 		public static void InventoryItemUpdate(Packet packet)
 		{
 			byte slotInventory = packet.ReadByte();

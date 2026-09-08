@@ -62,6 +62,16 @@ namespace xBot.App
                     || StoreGoldInStorage || StoreGoldInGuildStorage;
             }
         }
+
+        /// <summary>
+        /// phBot uyumu: "Gold keep amount" kendi başına bir personal-storage
+        /// aksiyonudur. İşaretliyse karakterde GoldKeepAmount bırakılır ve fazlası
+        /// depoya aktarılır; ayrıca "Store gold in storage" seçmek gerekmez.
+        /// </summary>
+        public bool ShouldStoreInPersonalStorage
+        {
+            get { return Enabled || StoreGoldInStorage; }
+        }
     }
 
     /// <summary>

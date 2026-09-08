@@ -122,6 +122,7 @@ namespace xBot.Network
                 SERVER_CHARACTER_ACTION_RESPONSE = 0xB074,
                 SERVER_INVENTORY_ITEM_USE = 0xB04C,
 				SERVER_INVENTORY_ITEM_MOVEMENT = 0xB034,
+				SERVER_REPAIR_ALL_EQUIPMENTS_RESPONSE = 0xB03E,
 				SERVER_INVENTORY_ITEM_DURABILITY_UPDATE = 0x3052,
                 SERVER_INVENTORY_ITEM_UPDATE = 0x3040,
 				SERVER_INVENTORY_CAPACITY_UPDATE = 0x3092,
@@ -663,6 +664,9 @@ namespace xBot.Network
 					break;
 				case Opcode.SERVER_INVENTORY_ITEM_MOVEMENT:
 					return PacketParser.InventoryItemMovement(packet);
+				case Opcode.SERVER_REPAIR_ALL_EQUIPMENTS_RESPONSE:
+					PacketParser.RepairAllEquipmentsResponse(packet);
+					break;
 				case Opcode.SERVER_INVENTORY_ITEM_DURABILITY_UPDATE:
 					PacketParser.InventoryItemDurabilityUpdate(packet);
 					break;

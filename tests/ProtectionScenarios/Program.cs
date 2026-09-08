@@ -588,6 +588,15 @@ internal static class Program
                 && storageMove[0] == 2 && storageMove[1] == 30 && storageMove[2] == 0
                 && storageMove[3] == 0xE9 && storageMove[4] == 0x03
                 && storageMove[5] == 0 && storageMove[6] == 0, true);
+        var gold = new StoreGoldOptions { Enabled = true, GoldKeepAmount = 1000000, StoreGoldInStorage = false };
+        RunScriptCheck("Gold keep amount tek başına personal storage depozitini etkinleştirir",
+            gold.ShouldStoreInPersonalStorage, true);
+        RunScriptCheck("Legacy BUY SMITH tamir ve satışı birlikte çalıştırır",
+            TownNpcActionPolicy.ForNpcCode("NPC_KT_SMITH") == (TownNpcActions.Sell | TownNpcActions.Repair), true);
+        RunScriptCheck("Legacy BUY POTION satış ve potion alımını birlikte çalıştırır",
+            TownNpcActionPolicy.ForNpcCode("NPC_KT_POTION") == (TownNpcActions.Sell | TownNpcActions.BuyPotions), true);
+        RunScriptCheck("Legacy BUY GROCERY cephane kontrolünü bağımsız çalıştırır",
+            TownNpcActionPolicy.ForNpcCode("NPC_EU_GROCERY") == (TownNpcActions.Sell | TownNpcActions.BuyAmmo), true);
     }
 
     private static void RunScriptCheck(string name, bool actual, bool expected)

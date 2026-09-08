@@ -1596,10 +1596,12 @@ namespace xBot.App
 				w.Log($"Store Gold: envanter={invGold}, depo={storGold}, korunacak={opt.GoldKeepAmount}, depo-maksimum={opt.StoreGoldMax}.");
 
                 // 1. Depoya altın koy (keep üstü).
-                if (opt.StoreGoldInStorage && invGold > opt.GoldKeepAmount)
+                if (opt.ShouldStoreInPersonalStorage && invGold > opt.GoldKeepAmount)
                 {
                     ulong amount = invGold - opt.GoldKeepAmount;
-                    if (opt.StoreGoldMax > 0 && storGold + amount > opt.StoreGoldMax)
+                    // Ayrı "Store gold" aksiyonu seçilmediyse yanındaki maksimum
+                    // alanı uygulanmaz; Gold keep amount bütün fazlayı yatırır.
+                    if (opt.StoreGoldInStorage && opt.StoreGoldMax > 0 && storGold + amount > opt.StoreGoldMax)
                     {
                         if (storGold >= opt.StoreGoldMax)
                             amount = 0;
@@ -1620,7 +1622,7 @@ namespace xBot.App
 						w.Log($"Store Gold: depo maksimumuna ulaşıldığı için işlem yok ({storGold} / {opt.StoreGoldMax}).");
 					}
                 }
-				else if (opt.StoreGoldInStorage)
+                else if (opt.ShouldStoreInPersonalStorage)
 				{
 					w.Log($"Store Gold: envanter altını korunacak miktarı aşmadığı için işlem yok ({invGold} <= {opt.GoldKeepAmount}).");
 				}
