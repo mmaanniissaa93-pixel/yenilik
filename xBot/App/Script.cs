@@ -343,6 +343,15 @@ namespace xBot.App
 				case "recall":
 					ExecuteRecall(w);
 					break;
+				case "mount":
+					ExecuteMount(invocation, w, b);
+					break;
+				case "dismount":
+					ExecuteDismount(w, b);
+					break;
+				case "killhorse":
+					ExecuteKillHorse(w, b);
+					break;
 				case "stop":
 					w.LogProcess("Script: bot durduruluyor...");
 					Stop();
@@ -518,6 +527,122 @@ namespace xBot.App
 			w.LogProcess("Script RECALL: " + pickPet.Name);
 			PacketBuilder.UnsummonPet(pickPet.UniqueID);
 			WaitInterruptible(500);
+		}
+
+		private void ExecuteMount(ScriptCommandInvocation command, Window w, Bot b)
+		{
+			if (InfoManager.Character == null)
+			{
+				w.LogProcess("MOUNT: karakter verisi hazır değil.", Window.ProcessState.Warning);
+				return;
+			}
+			string type = command.Arguments.Length == 0 ? "fellow" : command.Arguments[0].ToLowerInvariant();
+			SRCoService target = type == "transport"
+				? InfoManager.MyPets.Find(pet => pet != null && pet.isTransport())
+				: FindFellowMountCandidate();
+			if (target == null)
+			{
+				w.LogProcess("MOUNT: çağrılmış " + type + " pet bulunamadı.", Window.ProcessState.Warning);
+				return;
+			}
+			if (InfoManager.Character.isRiding)
+			{
+				if (InfoManager.Character.RidingUniqueID == target.UniqueID)
+					w.LogProcess("MOUNT: karakter zaten seçilen pet üzerinde.");
+				else
+					w.LogProcess("MOUNT: önce mevcut binekten inilmesi gerekiyor.", Window.ProcessState.Warning);
+				return;
+			}
+
+			while (InfoManager.MonitorPetMountResponse.WaitOne(0)) { }
+			w.LogProcess("Script MOUNT: " + type + " [" + target.Name + "]...");
+			PacketBuilder.SetPetMounted(target.UniqueID, true);
+			if (!WaitForPetMountResponse(target.UniqueID, true, b))
+				w.LogProcess("MOUNT: sunucu bindirme isteğini reddetti veya zaman aşımına uğradı.", Window.ProcessState.Warning);
+		}
+
+		private static SRCoService FindFellowMountCandidate()
+		{
+			SRCoService candidate = InfoManager.MyPets.Find(pet => pet != null && pet.isAttackPet()
+				&& IsLikelyFellow(pet));
+			// Eski/private server media tablolarında fellow ayrımı bulunmayabilir.
+			// Böyle bir durumda sunucu 0x70CB isteğini doğrulayacak güvenli aday kullanılır.
+			return candidate ?? InfoManager.MyPets.Find(pet => pet != null && pet.isAttackPet());
+		}
+
+		private static bool IsLikelyFellow(SRCoService pet)
+		{
+			string code = (pet.ServerName ?? "") + " " + (pet.Name ?? "");
+			return code.IndexOf("FELLOW", StringComparison.OrdinalIgnoreCase) >= 0
+				|| code.IndexOf("GROWTH", StringComparison.OrdinalIgnoreCase) >= 0
+				|| code.IndexOf("RIDE", StringComparison.OrdinalIgnoreCase) >= 0;
+		}
+
+		private void ExecuteDismount(Window w, Bot b)
+		{
+			if (InfoManager.Character == null || !InfoManager.Character.isRiding)
+			{
+				w.LogProcess("DISMOUNT: karakter bir binekte değil.");
+				return;
+			}
+			uint ridingID = InfoManager.Character.RidingUniqueID;
+			SRCoService ridingPet = InfoManager.MyPets.Find(pet => pet != null && pet.UniqueID == ridingID);
+			if (ridingPet != null && ridingPet.isHorse())
+			{
+				w.LogProcess("Script DISMOUNT: normal at sonlandırılıyor...");
+				TerminateTransport(ridingPet, "DISMOUNT", w, b);
+				return;
+			}
+
+			while (InfoManager.MonitorPetMountResponse.WaitOne(0)) { }
+			w.LogProcess("Script DISMOUNT: binekten iniliyor...");
+			PacketBuilder.SetPetMounted(ridingID, false);
+			if (!WaitForPetMountResponse(ridingID, false, b))
+				w.LogProcess("DISMOUNT: sunucu indirme isteğini reddetti veya zaman aşımına uğradı.", Window.ProcessState.Warning);
+		}
+
+		private void ExecuteKillHorse(Window w, Bot b)
+		{
+			uint ridingID = InfoManager.Character != null ? InfoManager.Character.RidingUniqueID : 0;
+			SRCoService target = InfoManager.MyPets.Find(pet => pet != null && pet.UniqueID == ridingID
+				&& (pet.isHorse() || pet.isTransport()));
+			if (target == null)
+				target = InfoManager.MyPets.Find(pet => pet != null && (pet.isHorse() || pet.isTransport()));
+			if (target == null)
+			{
+				w.LogProcess("KILLHORSE: aktif at veya transport bulunamadı.", Window.ProcessState.Warning);
+				return;
+			}
+			w.LogProcess("Script KILLHORSE: [" + target.Name + "] tamamen sonlandırılıyor...");
+			TerminateTransport(target, "KILLHORSE", w, b);
+		}
+
+		private void TerminateTransport(SRCoService target, string command, Window w, Bot b)
+		{
+			while (InfoManager.MonitorPetRemoved.WaitOne(0)) { }
+			PacketBuilder.TerminatePet(target.UniqueID);
+			for (int i = 0; i < 30 && Running && IsConnectionAlive(b); i++)
+			{
+				if (InfoManager.MyPets.Find(pet => pet != null && pet.UniqueID == target.UniqueID) == null)
+					return;
+				InfoManager.MonitorPetRemoved.WaitOne(100);
+			}
+			w.LogProcess(command + ": pet sonlandırma onayı gelmedi; script devam ediyor.", Window.ProcessState.Warning);
+		}
+
+		private bool WaitForPetMountResponse(uint targetUniqueID, bool mounted, Bot b)
+		{
+			for (int i = 0; i < 25 && Running && IsConnectionAlive(b); i++)
+			{
+				if (!InfoManager.MonitorPetMountResponse.WaitOne(100))
+					continue;
+				if (!InfoManager.LastPetMountSuccess || InfoManager.Character == null)
+					return false;
+				return mounted
+					? InfoManager.Character.RidingUniqueID == targetUniqueID
+					: !InfoManager.Character.isRiding;
+			}
+			return false;
 		}
 
 		private void ExecuteTownService(string command, Window w, Bot b)

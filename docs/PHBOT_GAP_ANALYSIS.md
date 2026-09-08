@@ -184,6 +184,9 @@ kilit ve sunucu-onay kapılı `DoGuildStorage` ile `DoGuildStorageStore` eklendi
 Dördüncü dilimde item filtresindeki ayrı `Take`/`TakeGuild` kurallarına bağlı
 `DoStorageTake` ve `DoGuildStorageTake`, boş envanter slotu koruması ve hareket
 başına sunucu onayıyla eklendi.
+Beşinci dilimde `mount` (varsayılan fellow veya seçilen transport), `dismount`
+ve `killhorse` komutları, sunucu cevabı/timeout kapıları ve doğru pet terminate
+opcode'u ile eklendi.
 `WAIT` artık kesilebilir;
 Training > Script alanında ortak komut kataloğunu kullanan phBot-benzeri Script
 Creator, doğrulama ve load/save akışı bulunur.
@@ -193,10 +196,7 @@ Kalan eksik komutlar:
 - `DoConsignment`
 - `DoStall`
 - `DoScript`
-- `mount`
-- `killhorse`
 - `terminate`
-- `dismount`
 - `quest`
 - `begintargettrading`
 - `settletargettrading`

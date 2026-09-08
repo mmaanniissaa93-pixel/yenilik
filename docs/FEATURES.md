@@ -71,7 +71,7 @@ Son kaynak taraması: 2026-09-08
 | F-044 | Çok bölgeli bileşik rota | ✅ | `Game/Navigation/NavigationManager.cs`; NavMesh A* ve bölgeler arası geçiş bağlı |
 | F-045 | Teleport/ferry rota bağlantısı | ✅ | `Game/Navigation/TeleportManager.cs`, `App/Bot/Bot.IA.cs`; nehir feribotları ve şehir kapısı teleport geçişleri bağlı |
 | F-046 | Minimap üzerinden hareket ve teleport | ✅ | `xGraphics/`, `Game/Navigation/` |
-| F-047 | Trace, koordinat kaydı ve Script Engine v2 | 🧪 | `App/Script.cs`, `App/ScriptCommandCatalog.cs`, `App/Bot/Bot.cs`, Training > Script; eski komutlara ek olarak `walk/cast/use/teleport/recall/stop/disconnect`, temel town komutları, kilit/onay korumalı guild storage ve filtreye bağlı `DoStorageTake/DoGuildStorageTake`, kesilebilir bekleme, satır doğrulama ve phBot-benzeri Script Creator bağlıdır. Yeni oyun komutları sunucu üzerinde doğrulanmayı bekliyor. |
+| F-047 | Trace, koordinat kaydı ve Script Engine v2 | 🧪 | `App/Script.cs`, `App/ScriptCommandCatalog.cs`, `App/Bot/Bot.cs`, Training > Script; eski komutlara ek olarak `walk/cast/use/teleport/recall/stop/disconnect`, temel town/storage komutları ve onay kontrollü `mount/dismount/killhorse`, kesilebilir bekleme, satır doğrulama ve phBot-benzeri Script Creator bağlıdır. Yeni oyun komutları sunucu üzerinde doğrulanmayı bekliyor. |
 
 ### Eşya, envanter ve şehir ekonomisi
 

@@ -570,6 +570,18 @@ internal static class Program
         for (int i = 0; i < townCommands.Length; i++)
             allTownCommandsKnown &= ScriptCommandCatalog.TryParse(townCommands[i], out invocation, out error);
         RunScriptCheck("phBot town komut ailesi kataloğa kayıtlıdır", allTownCommandsKnown, true);
+        RunScriptCheck("MOUNT parametresiz fellow varsayımıyla kabul edilir",
+            ScriptCommandCatalog.TryParse("mount", out invocation, out error)
+                && invocation.Arguments.Length == 0, true);
+        RunScriptCheck("MOUNT transport parametresini kabul eder",
+            ScriptCommandCatalog.TryParse("mount,transport", out invocation, out error)
+                && invocation.Arguments.Length == 1 && invocation.Arguments[0] == "transport", true);
+        RunScriptCheck("MOUNT bilinmeyen pet türünü reddeder",
+            ScriptCommandCatalog.TryParse("mount,wolf", out invocation, out error), false);
+        RunScriptCheck("DISMOUNT parametresiz kabul edilir",
+            ScriptCommandCatalog.TryParse("dismount", out invocation, out error), true);
+        RunScriptCheck("KILLHORSE parametresiz kabul edilir",
+            ScriptCommandCatalog.TryParse("killhorse", out invocation, out error), true);
     }
 
     private static void RunScriptCheck(string name, bool actual, bool expected)

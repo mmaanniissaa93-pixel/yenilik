@@ -37,6 +37,8 @@ namespace xBot.Game
 		private static AutoResetEvent m_MonitorNpcTalk = new AutoResetEvent(false);
 		private static AutoResetEvent m_MonitorGuildStorageResponse = new AutoResetEvent(false);
 		private static AutoResetEvent m_MonitorGuildStorageData = new AutoResetEvent(false);
+		private static AutoResetEvent m_MonitorPetMountResponse = new AutoResetEvent(false);
+		private static AutoResetEvent m_MonitorPetRemoved = new AutoResetEvent(false);
 		private static int m_stallViewsCount;
 		private static ulong m_stallEarnings;
 		#endregion
@@ -178,6 +180,10 @@ namespace xBot.Game
 		public static DateTime LastStorageInfoTime { get; private set; } = DateTime.MinValue;
 		public static DateTime LastGuildStorageInfoTime { get; private set; } = DateTime.MinValue;
 		public static byte LastGuildStorageResult { get; private set; } = byte.MaxValue;
+		public static bool LastPetMountSuccess { get; private set; }
+		public static bool LastPetMountState { get; private set; }
+		public static uint LastPetMountUniqueID { get; private set; }
+		public static uint LastPetRemovedUniqueID { get; private set; }
 		#endregion
 
 		#region (Monitors)
@@ -192,6 +198,8 @@ namespace xBot.Game
 		public static AutoResetEvent MonitorNpcTalk { get { return m_MonitorNpcTalk; } }
 		public static AutoResetEvent MonitorGuildStorageResponse { get { return m_MonitorGuildStorageResponse; } }
 		public static AutoResetEvent MonitorGuildStorageData { get { return m_MonitorGuildStorageData; } }
+		public static AutoResetEvent MonitorPetMountResponse { get { return m_MonitorPetMountResponse; } }
+		public static AutoResetEvent MonitorPetRemoved { get { return m_MonitorPetRemoved; } }
 		#endregion
 
 		#region (Methods)
@@ -1335,9 +1343,22 @@ namespace xBot.Game
 		}
 		internal static void OnPetUnsummoned(SRCoService cos)
 		{
+			if (cos == null)
+				return;
 			m_PetsOwned.RemoveKey(cos.UniqueID);
+			if (Character != null && Character.RidingUniqueID == cos.UniqueID)
+				Character.RidingUniqueID = 0;
+			LastPetRemovedUniqueID = cos.UniqueID;
+			m_MonitorPetRemoved.Set();
 
 			Bot.Get.OnPetUnsummoned(cos);
+		}
+		internal static void OnPetMountResponse(bool success, uint petUniqueID, bool mounted)
+		{
+			LastPetMountSuccess = success;
+			LastPetMountUniqueID = petUniqueID;
+			LastPetMountState = mounted;
+			m_MonitorPetMountResponse.Set();
 		}
 		internal static void OnStallOpened(SRPlayer Staller = null)
 		{

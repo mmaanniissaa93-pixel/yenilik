@@ -3447,16 +3447,20 @@ namespace xBot.Game
 		}
 		public static void PetPlayerMounted(Packet packet)
 		{
-			// success
-			if(packet.ReadBool())
+			bool success = packet.ReadBool();
+			if (!success)
 			{
-				SRPlayer player = (SRPlayer)InfoManager.GetEntity(packet.ReadUInt());
-				bool isMounting = packet.ReadBool();
-				if (isMounting)
-					player.RidingUniqueID = packet.ReadUInt();
-				else
-					player.RidingUniqueID = 0;
+				InfoManager.OnPetMountResponse(false, 0, false);
+				return;
 			}
+			uint playerUniqueID = packet.ReadUInt();
+			bool isMounting = packet.ReadBool();
+			uint petUniqueID = isMounting ? packet.ReadUInt() : 0;
+			SRPlayer player = InfoManager.GetEntity(playerUniqueID) as SRPlayer;
+			if (player != null)
+				player.RidingUniqueID = petUniqueID;
+			if (InfoManager.Character != null && playerUniqueID == InfoManager.Character.UniqueID)
+				InfoManager.OnPetMountResponse(true, petUniqueID, isMounting);
 		}
 		public static void StallCreateResponse(Packet packet)
 		{

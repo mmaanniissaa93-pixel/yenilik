@@ -774,6 +774,19 @@ namespace xBot.Game
 			p.WriteUInt(uniqueID);
 			Bot.Get.Proxy.Agent.InjectToServer(p);
 		}
+		public static void SetPetMounted(uint uniqueID, bool mounted)
+		{
+			Packet p = new Packet(Agent.Opcode.CLIENT_PET_MOUNTED);
+			p.WriteBool(mounted);
+			p.WriteUInt(uniqueID);
+			Bot.Get.Proxy.Agent.InjectToServer(p);
+		}
+		public static void TerminatePet(uint uniqueID)
+		{
+			Packet p = new Packet(Agent.Opcode.CLIENT_PET_TERMINATE);
+			p.WriteUInt(uniqueID);
+			Bot.Get.Proxy.Agent.InjectToServer(p);
+		}
 		public static void ResurrectAtPresentPoint()
 		{
 			Packet p = new Packet(Agent.Opcode.CLIENT_CHARACTER_AUTORESURRECTION);

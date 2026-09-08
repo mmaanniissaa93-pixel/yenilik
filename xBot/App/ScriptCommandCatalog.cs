@@ -33,6 +33,9 @@ namespace xBot.App
             new ScriptCommandDefinition("DoProtectorTrader", null, "DoProtectorTrader", "Protector NPC'de ayarlı satış işlemlerini uygula.", 0, 0, "", ""),
             new ScriptCommandDefinition("DoJupiter", null, "DoJupiter", "Jupiter birleşik demirci/herbalist işlemlerini uygula.", 0, 0, "", ""),
             new ScriptCommandDefinition("recall", null, "recall", "Aktif toplama petini geri çağır.", 0, 0, "", ""),
+            new ScriptCommandDefinition("mount", null, "mount, fellow|transport", "Çağrılmış fellow veya transport petine bin.", 0, 1, "Pet türü (fellow/transport)", ""),
+            new ScriptCommandDefinition("dismount", null, "dismount", "Fellow/transporttan in; normal atı sonlandır.", 0, 0, "", ""),
+            new ScriptCommandDefinition("killhorse", null, "killhorse", "Aktif atı veya transportu tamamen sonlandır.", 0, 0, "", ""),
             new ScriptCommandDefinition("stop", null, "stop", "Botu ve aktif scripti durdur.", 0, 0, "", ""),
             new ScriptCommandDefinition("disconnect", null, "disconnect", "Bağlantıyı güvenli biçimde kapat.", 0, 0, "", "")
         };
@@ -101,6 +104,13 @@ namespace xBot.App
                     error = "WAIT: süre 0-3600000 ms arasında olmalı.";
                     return false;
                 }
+            }
+            if (definition.Name == "mount" && arguments.Length == 1
+                && !arguments[0].Equals("fellow", StringComparison.OrdinalIgnoreCase)
+                && !arguments[0].Equals("transport", StringComparison.OrdinalIgnoreCase))
+            {
+                error = "MOUNT: pet türü fellow veya transport olmalı.";
+                return false;
             }
 
             invocation = new ScriptCommandInvocation(definition, arguments, line);
