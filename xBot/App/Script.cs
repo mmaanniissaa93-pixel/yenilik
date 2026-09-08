@@ -425,6 +425,8 @@ namespace xBot.App
 		/// </summary>
 		private static bool PrepareNpcInteraction(SREntity npc, string code, bool nameMatched, string action, Window w, Bot b)
 		{
+			if (!IsConnectionAlive(b))
+				return false;
 			if (npc == null)
 			{
 				w.LogProcess($"{action}: NPC bulunamadı [{code}], atlanıyor.", Window.ProcessState.Warning);
@@ -461,7 +463,37 @@ namespace xBot.App
 				return false;
 			}
 			Thread.Sleep(500);
-			return true;
+			return IsConnectionAlive(b);
+		}
+
+		private static bool IsConnectionAlive(Bot b)
+		{
+			return b != null && b.isBotting && InfoManager.inGame
+				&& b.Proxy != null && b.Proxy.isRunning;
+		}
+
+		/// <summary>
+		/// Seçim (0x7045) tek başına dükkânı açmaz. Sunucudan başarılı
+		/// 0xB046 cevabı gelmeden satış/alım paketi göndermek bazı sunucularda DC'ye yol açar.
+		/// </summary>
+		internal static bool OpenNpcDialog(SREntity npc, string action, Window w, Bot b)
+		{
+			if (npc == null || !IsConnectionAlive(b))
+				return false;
+
+			while (InfoManager.MonitorNpcTalk.WaitOne(0)) { }
+			w.LogProcess($"{action}: [{npc.Name}] dükkânı açılıyor...");
+			PacketBuilder.TalkNPC(npc.UniqueID, 3);
+			for (int i = 0; i < 30 && IsConnectionAlive(b); i++)
+			{
+				if (InfoManager.MonitorNpcTalk.WaitOne(100)
+					&& InfoManager.LastNpcTalkEntityUniqueID == npc.UniqueID
+					&& InfoManager.LastNpcTalkID == 3)
+					return true;
+			}
+
+			w.LogProcess($"{action}: [{npc.Name}] dükkânı açılmadı; güvenlik için işlem atlandı.", Window.ProcessState.Warning);
+			return false;
 		}
 
 		private static bool ContainsAny(string name, string[] keywords)
@@ -631,6 +663,8 @@ namespace xBot.App
 			}
 			if (!PrepareNpcInteraction(npc, code, true, "BUY", w, b))
 				return;
+			if (!OpenNpcDialog(npc, "BUY", w, b))
+				return;
 			Thread.Sleep(200);
 			try
 			{
@@ -639,8 +673,10 @@ namespace xBot.App
 				// alım listesi kullanıcı ayarlarından yapılır.
 				if (isPotionRun)
 				{
+					if (!IsConnectionAlive(b)) return;
 					b.ExecuteSellTrash();
 					Thread.Sleep(500);
+					if (!IsConnectionAlive(b)) return;
 					SREntity live = npc;
 					try
 					{
@@ -650,7 +686,6 @@ namespace xBot.App
 					}
 					catch { }
 					b.ExecuteAutoBuyPotions(live);
-					b.ExecuteAutoBuyAmmo();
 				}
 				else
 				{
@@ -667,7 +702,7 @@ namespace xBot.App
 				// Dükkân penceresi açık kalırsa sonraki yürümeler reddedilir.
 				try
 				{
-					if (npc != null)
+					if (npc != null && IsConnectionAlive(b))
 						PacketBuilder.CloseNPC(npc.UniqueID);
 					Thread.Sleep(300);
 				}
@@ -692,6 +727,8 @@ namespace xBot.App
 			bool nameMatched;
 			SREntity npc = FindTownNpc(code, out nameMatched);
 			if (!PrepareNpcInteraction(npc, code, nameMatched, "REPAIR", w, b))
+				return;
+			if (!OpenNpcDialog(npc, "REPAIR", w, b))
 				return;
 			try
 			{

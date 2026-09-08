@@ -401,17 +401,17 @@ namespace xBot.App
                 w.Log("Town Loop: town script bulunamadı, atlanıyor.", Theme.LogLevel.Warning);
             }
 
-            // Town sekmesindeki "çöp sat" onayı script dışı çağrılarda da çalışsın:
-            // potion satıcısına uğranmadıysa bile envanterdeki sell-kurallı eşyalar
-            // burada elden çıkarılır (script zaten sattıysa döngü boş geçer).
-            try
-            {
-                bool sellTrash = false;
-                w.Town_cbxSellTrash.InvokeIfRequired(() => { sellTrash = w.Town_cbxSellTrash.Checked; });
-                if (sellTrash)
-                    ExecuteSellTrash();
-            }
-            catch { }
+			if (!InfoManager.inGame || !isBotting || m_stopBottingRequested
+				|| Proxy == null || !Proxy.isRunning)
+				return;
+
+			// Script tüm dükkânları kapattıktan sonra bağlamsız satış paketi
+			// gönderilmez. Cephane alımı kendi doğrulanmış dükkân oturumunu açar.
+			ExecuteAutoBuyAmmo();
+
+			if (!InfoManager.inGame || !isBotting || m_stopBottingRequested
+				|| Proxy == null || !Proxy.isRunning)
+				return;
 
             w.Log("Town Loop: Logistics routine completed. Returning to training area...");
             try
@@ -1723,9 +1723,9 @@ namespace xBot.App
 
             if (missingHp > 0)
             {
-                w.LogProcess($"Auto Buy: Purchasing {missingHp} HP potions from {potionNpc.Name}...");
                 byte slotInShop = (byte)hpIndex;
-                PacketBuilder.BuyItemFromShop(0, slotInShop, (ushort)missingHp, potionNpc.UniqueID);
+                if (!TryBuyVerifiedShopItem(potionNpc, 0, slotInShop, (ushort)missingHp, 3, 1, 1, "HP potion"))
+                    return;
                 Thread.Sleep(600);
             }
 
@@ -1741,9 +1741,9 @@ namespace xBot.App
 
             if (missingMp > 0)
             {
-                w.LogProcess($"Auto Buy: Purchasing {missingMp} MP potions from {potionNpc.Name}...");
                 byte slotInShop = (byte)(5 + mpIndex);
-                PacketBuilder.BuyItemFromShop(0, slotInShop, (ushort)missingMp, potionNpc.UniqueID);
+                if (!TryBuyVerifiedShopItem(potionNpc, 0, slotInShop, (ushort)missingMp, 3, 1, 2, "MP potion"))
+                    return;
                 Thread.Sleep(600);
             }
 
@@ -1757,8 +1757,8 @@ namespace xBot.App
                 int missingPills = targetPills - currentPills;
                 if (missingPills > 0)
                 {
-                    w.LogProcess($"Auto Buy: Purchasing {missingPills} Universal Pills...");
-                    PacketBuilder.BuyItemFromShop(0, 13, (ushort)missingPills, potionNpc.UniqueID);
+                    if (!TryBuyVerifiedShopItem(potionNpc, 0, 13, (ushort)missingPills, 3, 2, 1, "Universal Pills"))
+                        return;
                     Thread.Sleep(600);
                 }
             }
@@ -1769,11 +1769,32 @@ namespace xBot.App
             int missingScrolls = targetScrolls - currentScrolls;
             if (missingScrolls > 0)
             {
-                w.LogProcess($"Auto Buy: Purchasing {missingScrolls} Return Scrolls...");
-                PacketBuilder.BuyItemFromShop(0, 14, (ushort)missingScrolls, potionNpc.UniqueID);
+                if (!TryBuyVerifiedShopItem(potionNpc, 0, 14, (ushort)missingScrolls, 3, 3, 1, "Return Scroll"))
+                    return;
                 Thread.Sleep(600);
             }
         }
+
+		private bool TryBuyVerifiedShopItem(SREntity npc, byte tab, byte slot, ushort quantity,
+			byte expectedId2, byte expectedId3, byte expectedId4, string description)
+		{
+			Window w = Window.Get;
+			if (npc == null || quantity == 0 || !InfoManager.inGame || !isBotting
+				|| Proxy == null || !Proxy.isRunning)
+				return false;
+
+			SRItem shopItem = DataManager.GetItemFromShop(npc.ServerName, tab, slot);
+			if (shopItem == null || !shopItem.isType(expectedId2, expectedId3, expectedId4))
+			{
+				string actual = shopItem == null ? "boş" : shopItem.ServerName;
+				w.LogProcess($"Auto Buy: {description} için [{npc.Name}] tab {tab} / slot {slot} doğrulanamadı ({actual}); riskli paket gönderilmedi.", Window.ProcessState.Warning);
+				return false;
+			}
+
+			w.LogProcess($"Auto Buy: Purchasing {quantity} {description} from {npc.Name}...");
+			PacketBuilder.BuyItemFromShop(tab, slot, quantity, npc.UniqueID);
+			return true;
+		}
 
         private int CountReturnScrolls()
         {
@@ -1850,17 +1871,27 @@ namespace xBot.App
             }
 
             SREntity groceryNpc = TownManager.Get.FindLiveNpc(grocery);
-            if (groceryNpc != null)
+            if (groceryNpc != null && IsVerifiedTownNpc(grocery, groceryNpc, w, "Ammo BUY"))
             {
-                WaitSelectEntity(groceryNpc.UniqueID, 8, 250, "Selecting Grocery Merchant...");
-                Thread.Sleep(500);
+                if (!WaitSelectEntity(groceryNpc.UniqueID, 8, 250, "Selecting Grocery Merchant..."))
+                    return;
+                if (!Script.OpenNpcDialog(groceryNpc, "Ammo BUY", w, this))
+                    return;
 
                 byte shopSlot = TownLogisticsPolicy.GetAmmoShopSlot(ammoType);
                 string ammoName = isBow ? "Arrows" : "Bolts";
+				if (DataManager.GetItemFromShop(groceryNpc.ServerName, 0, shopSlot) == null)
+				{
+					w.LogProcess($"Ammo BUY: [{groceryNpc.Name}] tab 0 / slot {shopSlot} doğrulanamadı; paket gönderilmedi.", Window.ProcessState.Warning);
+					try { PacketBuilder.CloseNPC(groceryNpc.UniqueID); } catch { }
+					return;
+				}
                 w.LogProcess($"Auto Buy: Purchasing {ammoName} from {groceryNpc.Name}...");
                 // Buy 2 stacks of ammunition
                 PacketBuilder.BuyItemFromShop(0, shopSlot, 1, groceryNpc.UniqueID);
                 Thread.Sleep(600);
+				if (!InfoManager.inGame || !isBotting || Proxy == null || !Proxy.isRunning)
+					return;
                 PacketBuilder.BuyItemFromShop(0, shopSlot, 1, groceryNpc.UniqueID);
                 Thread.Sleep(600);
 
@@ -1876,6 +1907,12 @@ namespace xBot.App
                         Thread.Sleep(500);
                     }
                 }
+				try
+				{
+					if (InfoManager.inGame && Proxy != null && Proxy.isRunning)
+						PacketBuilder.CloseNPC(groceryNpc.UniqueID);
+				}
+				catch { }
             }
         }
 

@@ -80,8 +80,6 @@ namespace xBot.App.Theme
 
         public static void TracePacket(string direction, ushort opcode, int length, string summary = "")
         {
-            if (!EnablePacketTrace)
-                return;
             try
             {
                 if (IsSensitiveOpcode(opcode))
@@ -102,8 +100,11 @@ namespace xBot.App.Theme
                     packetTraceQueue.Enqueue(entry);
                 }
 
-                string detail = string.IsNullOrEmpty(summary) ? "" : $" | {summary}";
-                LogToFile($"[{entry.Timestamp:HH:mm:ss.fff}] [{direction,-14}] 0x{opcode:X4} ({length,4} bytes){detail}");
+                if (EnablePacketTrace)
+                {
+                    string detail = string.IsNullOrEmpty(summary) ? "" : $" | {summary}";
+                    LogToFile($"[{entry.Timestamp:HH:mm:ss.fff}] [{direction,-14}] 0x{opcode:X4} ({length,4} bytes){detail}");
+                }
             }
             catch { }
         }

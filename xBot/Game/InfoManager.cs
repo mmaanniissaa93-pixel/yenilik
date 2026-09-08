@@ -34,6 +34,7 @@ namespace xBot.Game
 		private static AutoResetEvent m_MonitorBuffRemoved = new AutoResetEvent(false);
 		private static AutoResetEvent m_MonitorSkillCast = new AutoResetEvent(false);
 		private static AutoResetEvent m_MonitorMobSpawnChanged = new AutoResetEvent(false);
+		private static AutoResetEvent m_MonitorNpcTalk = new AutoResetEvent(false);
 		private static int m_stallViewsCount;
 		private static ulong m_stallEarnings;
 		#endregion
@@ -72,6 +73,8 @@ namespace xBot.Game
 		/// Get the last entity unique ID selected.
 		/// </summary>
 		public static uint SelectedEntityUniqueID { get; private set; }
+		public static uint LastNpcTalkEntityUniqueID { get; private set; }
+		public static byte LastNpcTalkID { get; private set; }
 		/// <summary>
 		/// Gets all entities around.
 		/// </summary>
@@ -182,6 +185,7 @@ namespace xBot.Game
 		public static bool LastSkillCastSuccess { get; set; } = true;
 		public static ushort LastSkillCastErrorCode { get; set; } = 0;
 		public static AutoResetEvent MonitorMobSpawnChanged { get { return m_MonitorMobSpawnChanged; } }
+		public static AutoResetEvent MonitorNpcTalk { get { return m_MonitorNpcTalk; } }
 		#endregion
 
 		#region (Methods)
@@ -309,6 +313,8 @@ namespace xBot.Game
 			b.StopInventorySort();
 			// Reset data
 			SelectedEntityUniqueID = 0;
+			LastNpcTalkEntityUniqueID = 0;
+			LastNpcTalkID = 0;
 			m_Entities.Clear();
 			m_Players.Clear();
 			m_Mobs.Clear();
@@ -358,6 +364,8 @@ namespace xBot.Game
 
 			// Reset data
 			SelectedEntityUniqueID = 0;
+			LastNpcTalkEntityUniqueID = 0;
+			LastNpcTalkID = 0;
 			m_Entities.Clear();
 			m_Players.Clear();
 			m_Mobs.Clear();
@@ -1841,7 +1849,12 @@ namespace xBot.Game
 		}
 		internal static void OnTalkNpc(byte talkID)
 		{
-			SREntity entity = m_Entities[SelectedEntityUniqueID];
+			LastNpcTalkEntityUniqueID = SelectedEntityUniqueID;
+			LastNpcTalkID = talkID;
+			m_MonitorNpcTalk.Set();
+			SREntity entity = GetEntity(SelectedEntityUniqueID);
+			if (entity == null)
+				return;
 			switch (talkID)
 			{
 				case 3:

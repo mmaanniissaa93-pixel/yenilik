@@ -853,11 +853,14 @@ namespace xBot.Network
 				});
 				return;
 			}
-			if (ModernLogger.EnablePacketTrace)
 			{
 				byte[] bytes = p.GetBytes();
-				string hexPreview = Utility.HexDump(bytes).Replace("\r", "").Replace("\n", " ").Trim();
-				if (hexPreview.Length > 80) hexPreview = hexPreview.Substring(0, 80) + "...";
+				string hexPreview = "";
+				if (ModernLogger.EnablePacketTrace)
+				{
+					hexPreview = Utility.HexDump(bytes).Replace("\r", "").Replace("\n", " ").Trim();
+					if (hexPreview.Length > 80) hexPreview = hexPreview.Substring(0, 80) + "...";
+				}
 				ModernLogger.TracePacket("Bot->Server", p.Opcode, bytes.Length, hexPreview);
 			}
 			Remote.Security.Send(p);

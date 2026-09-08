@@ -630,11 +630,14 @@ namespace xBot.Network
 							foreach (Packet packet in packets)
 							{
 								didWork = true;
-								if (traceOn)
 								{
 									byte[] bytes = packet.GetBytes();
-									string hex = Utility.HexDump(bytes).Replace("\r", "").Replace("\n", " ").Trim();
-									if (hex.Length > 80) hex = hex.Substring(0, 80) + "...";
+									string hex = "";
+									if (traceOn)
+									{
+										hex = Utility.HexDump(bytes).Replace("\r", "").Replace("\n", " ").Trim();
+										if (hex.Length > 80) hex = hex.Substring(0, 80) + "...";
+									}
 									ModernLogger.TracePacket(context == Agent.Remote ? "Server->Client" : "Client->Server", packet.Opcode, bytes.Length, hex);
 								}
 
@@ -672,7 +675,7 @@ namespace xBot.Network
 									Packet packet = kvp.Value;
 
 									didWork = true;
-									if (traceOn && context == Agent.Remote)
+									if (context == Agent.Remote)
 									{
 										ModernLogger.TracePacket("Proxy->Server", packet.Opcode, buffer.Size);
 									}
@@ -727,11 +730,12 @@ namespace xBot.Network
 				w?.Log("========== DISCONNECT DIAGNOSTIC ==========", LogLevel.Warning);
 				w?.Log($"[Sunucu Bağlantıyı Kesti] Neden: {reason}", LogLevel.Warning);
 				w?.Log("Kopma anından hemen önceki son paketler:", LogLevel.Warning);
-				int start = Math.Max(0, recent.Count - 15);
+				int start = Math.Max(0, recent.Count - 30);
 				for (int i = start; i < recent.Count; i++)
 				{
 					var t = recent[i];
-					string line = $"  #{i - start + 1} [{t.Timestamp:HH:mm:ss.fff}] [{t.Direction}] 0x{t.Opcode:X4} ({t.Length}B) {t.Summary}";
+					string opcodeName = Enum.GetName(typeof(Agent.Opcode), t.Opcode) ?? "UNKNOWN";
+					string line = $"  #{i - start + 1} [{t.Timestamp:HH:mm:ss.fff}] [{t.Direction}] 0x{t.Opcode:X4} {opcodeName} ({t.Length}B) {t.Summary}";
 					ModernLogger.LogToFile(line);
 					w?.Log(line, LogLevel.Info);
 				}
