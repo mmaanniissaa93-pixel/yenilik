@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.IO;
 using System.Threading;
 using xBot.Game;
@@ -12,6 +13,7 @@ namespace xBot.App
 	public class Script
 	{
 		private List<string> m_lines;
+		private readonly ManualResetEvent m_stopSignal = new ManualResetEvent(false);
 		public string FileName { get; private set; }
 		public bool Running { get; set; }
 
@@ -245,6 +247,7 @@ namespace xBot.App
 		public void Run(int startIndex = 0)
 		{
 			Bot b = Bot.Get;
+			m_stopSignal.Reset();
 			Running = true;
 			// Parsing script
 			for (int j = startIndex; j < m_lines.Count && Running && b.isBotting; j++)
@@ -261,6 +264,7 @@ namespace xBot.App
 			Bot b = Bot.Get;
 			if (startIndex < 0 || startIndex >= m_lines.Count)
 				startIndex = m_lines.Count - 1;
+			m_stopSignal.Reset();
 			Running = true;
 			for (int j = startIndex; j >= 0 && Running && b.isBotting; j--)
 				ExecuteLine(j);
@@ -275,12 +279,17 @@ namespace xBot.App
 			Bot b = Bot.Get;
 			if (m_lines[j].StartsWith("//") || string.IsNullOrWhiteSpace(m_lines[j]))
 				return;
-			string[] command = Tokenize(m_lines[j]);
-			if (command.Length == 0)
+			ScriptCommandInvocation invocation;
+			string parseError;
+			if (!ScriptCommandCatalog.TryParse(m_lines[j], out invocation, out parseError))
+			{
+				w.LogProcess($"Script [{j + 1}]: {parseError}", Window.ProcessState.Warning);
 				return;
+			}
+			string[] command = invocation.ToLegacyTokens();
 
 			// Execute the command
-			string cmd = command[0].Trim().ToLower();
+			string cmd = invocation.Command;
 			switch (cmd)
 			{
 				case "move":
@@ -306,11 +315,31 @@ namespace xBot.App
 					ExecuteRepairStep(command, w, b);
 					break;
 				case "wait":
-					int ms = 1000;
-					if (command.Length > 1 && int.TryParse(command[1], out int parsedMs))
-						ms = parsedMs;
-					w.LogProcess($"Script waiting ({ms}ms)...");
-					Thread.Sleep(ms);
+					ExecuteWait(invocation, w);
+					break;
+				case "cast":
+					ExecuteCast(invocation, w, b);
+					break;
+				case "use":
+					ExecuteUse(invocation, w, b);
+					break;
+				case "teleport":
+					ExecuteTeleport(invocation, w, b);
+					break;
+				case "recall":
+					ExecuteRecall(w);
+					break;
+				case "stop":
+					w.LogProcess("Script: bot durduruluyor...");
+					Stop();
+					b.Stop();
+					break;
+				case "disconnect":
+					w.LogProcess("Script: bağlantı kapatılıyor...");
+					Stop();
+					b.Stop();
+					if (b.Proxy != null)
+						b.Proxy.Stop();
 					break;
 			}
 		}
@@ -318,6 +347,163 @@ namespace xBot.App
 		public void Stop()
 		{
 			Running = false;
+			m_stopSignal.Set();
+		}
+
+		private bool WaitInterruptible(int milliseconds)
+		{
+			if (milliseconds <= 0)
+				return Running;
+			int waited = 0;
+			while (waited < milliseconds && Running)
+			{
+				int slice = Math.Min(100, milliseconds - waited);
+				if (m_stopSignal.WaitOne(slice))
+					return false;
+				waited += slice;
+			}
+			return Running;
+		}
+
+		private void ExecuteWait(ScriptCommandInvocation command, Window w)
+		{
+			int milliseconds;
+			if (!int.TryParse(command.Arguments[0], out milliseconds) || milliseconds < 0 || milliseconds > 3600000)
+			{
+				w.LogProcess("WAIT: süre 0-3600000 ms arasında olmalı.", Window.ProcessState.Warning);
+				return;
+			}
+			w.LogProcess($"Script waiting ({milliseconds}ms)...");
+			WaitInterruptible(milliseconds);
+		}
+
+		private void ExecuteCast(ScriptCommandInvocation command, Window w, Bot b)
+		{
+			if (InfoManager.Character == null || InfoManager.Character.Skills == null)
+			{
+				w.LogProcess("CAST: karakter skill listesi hazır değil.", Window.ProcessState.Warning);
+				return;
+			}
+			string query = command.Arguments[0];
+			uint skillID;
+			uint.TryParse(query, out skillID);
+			SRSkill skill = InfoManager.Character.Skills.Find(candidate => candidate != null
+				&& (candidate.ID == skillID
+					|| string.Equals(candidate.Name, query, StringComparison.OrdinalIgnoreCase)
+					|| string.Equals(candidate.ServerName, query, StringComparison.OrdinalIgnoreCase)));
+			if (skill == null)
+				skill = InfoManager.Character.Skills.Find(candidate => candidate != null
+					&& ((candidate.Name != null && candidate.Name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
+						|| (candidate.ServerName != null && candidate.ServerName.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)));
+			if (skill == null)
+			{
+				w.LogProcess("CAST: skill bulunamadı [" + query + "].", Window.ProcessState.Warning);
+				return;
+			}
+			if (!skill.isCastingEnabled)
+			{
+				w.LogProcess("CAST: skill bekleme süresinde [" + skill.Name + "].", Window.ProcessState.Warning);
+				return;
+			}
+			b.CheckWeaponSwitch(skill);
+			uint target = skill.isTargetRequired ? InfoManager.SelectedEntityUniqueID : 0;
+			if (skill.isTargetRequired && target == 0)
+			{
+				w.LogProcess("CAST: hedef isteyen skill için seçili hedef yok [" + skill.Name + "].", Window.ProcessState.Warning);
+				return;
+			}
+			w.LogProcess("Script CAST: " + skill.Name);
+			PacketBuilder.CastSkill(skill.ID, target);
+			WaitInterruptible(Math.Max(250, skill.CastingTime));
+		}
+
+		private void ExecuteUse(ScriptCommandInvocation command, Window w, Bot b)
+		{
+			if (InfoManager.Character == null || InfoManager.Character.Inventory == null)
+			{
+				w.LogProcess("USE: envanter hazır değil.", Window.ProcessState.Warning);
+				return;
+			}
+			string query = command.Arguments[0];
+			int slot;
+			if (!int.TryParse(query, out slot))
+			{
+				slot = InfoManager.Character.Inventory.FindIndex(item => item != null
+					&& (string.Equals(item.Name, query, StringComparison.OrdinalIgnoreCase)
+						|| string.Equals(item.ServerName, query, StringComparison.OrdinalIgnoreCase)), 13);
+				if (slot == -1)
+					slot = InfoManager.Character.Inventory.FindIndex(item => item != null
+						&& ((item.Name != null && item.Name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
+							|| (item.ServerName != null && item.ServerName.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)), 13);
+			}
+			if (slot < 13 || slot >= InfoManager.Character.Inventory.Capacity || !b.UseItem((byte)slot))
+			{
+				w.LogProcess("USE: kullanılabilir item bulunamadı [" + query + "].", Window.ProcessState.Warning);
+				return;
+			}
+			w.LogProcess("Script USE: slot " + slot);
+			WaitInterruptible(500);
+		}
+
+		private void ExecuteTeleport(ScriptCommandInvocation command, Window w, Bot b)
+		{
+			string source = command.Arguments[0];
+			string destination = command.Arguments[1];
+			uint sourceID;
+			uint destinationModelID;
+			uint destinationID = 0;
+			SRTeleport teleport = null;
+			if (uint.TryParse(source, out sourceID) && uint.TryParse(destination, out destinationModelID))
+			{
+				destinationID = DataManager.GetTeleportLinkDestinationID(sourceID, destinationModelID);
+				teleport = InfoManager.TeleportAndBuildings.Find(item => item != null && item.ID == sourceID);
+			}
+			else
+			{
+				NameValueCollection link = DataManager.GetTeleportLink(source, destination);
+				if (link != null && uint.TryParse(link["id"], out sourceID))
+				{
+					uint.TryParse(link["destinationid"], out destinationID);
+					teleport = InfoManager.TeleportAndBuildings.Find(item => item != null && item.ID == sourceID);
+				}
+			}
+			if (destinationID == 0 || teleport == null)
+			{
+				w.LogProcess("TELEPORT: yakın bağlantı bulunamadı [" + source + " -> " + destination + "].", Window.ProcessState.Warning);
+				return;
+			}
+			w.LogProcess("Script TELEPORT: " + source + " -> " + destination);
+			if (b.Proxy.ClientlessMode)
+			{
+				if (!InfoManager.isEntityNear(teleport.UniqueID))
+				{
+					w.LogProcess("TELEPORT: kaynak kapı yakında değil.", Window.ProcessState.Warning);
+					return;
+				}
+			}
+			else if (!b.WaitSelectEntity(teleport.UniqueID, 8, 250, "Selecting teleport " + teleport.TeleportName + "..."))
+			{
+				w.LogProcess("TELEPORT: kaynak kapı seçilemedi.", Window.ProcessState.Warning);
+				return;
+			}
+			PacketBuilder.UseTeleport(teleport.UniqueID, destinationID);
+			for (int i = 0; i < 100 && Running && !InfoManager.inTeleport; i++)
+				WaitInterruptible(100);
+			for (int i = 0; i < 300 && Running && InfoManager.inTeleport; i++)
+				WaitInterruptible(100);
+		}
+
+		private void ExecuteRecall(Window w)
+		{
+			SRCoService pickPet = InfoManager.MyPets.Find(pet => pet != null && pet.isPickPet());
+			if (pickPet == null)
+			{
+				w.LogProcess("RECALL: aktif toplama peti yok.", Window.ProcessState.Warning);
+				return;
+			}
+			w.LogProcess("Script RECALL: " + pickPet.Name);
+			PacketBuilder.UnsummonPet(pickPet.UniqueID);
+			WaitInterruptible(500);
 		}
 
 		#region Town NPC steps (.rbs: store / buy / repair)

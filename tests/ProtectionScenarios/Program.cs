@@ -525,6 +525,7 @@ internal static class Program
 
         RunDictionaryRenameScenarios();
         RunSecretStoreScenarios();
+        RunScriptCommandScenarios();
 
         if (failures != 0)
         {
@@ -532,8 +533,42 @@ internal static class Program
             return 1;
         }
 
-        Console.WriteLine("Koruma, item filtre, combat, skill, imbue, command center, lojistik, parti, PIN, SOCKS5, Auto Alchemy, Target Assist, Localization, Potion, Alana Dönüş, Teleport, SroDocs, koleksiyon ve secret senaryoları başarılı: 325");
+        Console.WriteLine("Koruma, item filtre, combat, skill, script, imbue, command center, lojistik, parti, PIN, SOCKS5, Auto Alchemy, Target Assist, Localization, Potion, Alana Dönüş, Teleport, SroDocs, koleksiyon ve secret senaryoları başarılı.");
         return 0;
+    }
+
+    private static void RunScriptCommandScenarios()
+    {
+        ScriptCommandInvocation invocation;
+        string error;
+        RunScriptCheck("WALK phBot alias'ı MOVE olarak çözülür",
+            ScriptCommandCatalog.TryParse("walk, 100, 200", out invocation, out error)
+                && invocation.Command == "move" && invocation.Arguments.Length == 2, true);
+        RunScriptCheck("Virgüllü CAST boşluklu skill adını korur",
+            ScriptCommandCatalog.TryParse("cast, Moving March", out invocation, out error)
+                && invocation.Arguments[0] == "Moving March", true);
+        RunScriptCheck("TELEPORT iki isim parametresini korur",
+            ScriptCommandCatalog.TryParse("teleport, Jangan South, Donwhang West", out invocation, out error)
+                && invocation.Arguments.Length == 2 && invocation.Arguments[1] == "Donwhang West", true);
+        RunScriptCheck("STOP parametresiz kabul edilir",
+            ScriptCommandCatalog.TryParse("stop", out invocation, out error), true);
+        RunScriptCheck("Eksik CAST parametresi reddedilir",
+            ScriptCommandCatalog.TryParse("cast", out invocation, out error), false);
+        RunScriptCheck("Bilinmeyen script komutu reddedilir",
+            ScriptCommandCatalog.TryParse("dance, 1", out invocation, out error), false);
+        RunScriptCheck("Script Creator standart virgüllü komut üretir",
+            ScriptCommandCatalog.Format(ScriptCommandCatalog.Find("use"), "Return Scroll") == "USE, Return Scroll", true);
+    }
+
+    private static void RunScriptCheck(string name, bool actual, bool expected)
+    {
+        if (actual == expected)
+        {
+            Console.WriteLine("PASS: " + name);
+            return;
+        }
+        failures++;
+        Console.WriteLine("FAIL: " + name + " | beklenen=" + expected + ", gerçek=" + actual);
     }
 
     private static void RunDictionaryRenameScenarios()

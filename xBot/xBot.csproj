@@ -197,6 +197,7 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="App\Script.cs" />
+    <Compile Include="App\ScriptCommandCatalog.cs" />
     <Compile Include="App\Settings.cs" />
     <Compile Include="App\PotionPolicy.cs" />
     <Compile Include="App\SroDocsPolicy.cs" />

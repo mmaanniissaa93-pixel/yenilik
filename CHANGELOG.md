@@ -9,6 +9,7 @@
 - SQLite başvurusu geçici `bin\Release` dosyasından NuGet paketine taşındı; x86/x64 `SQLite.Interop.dll` dosyaları standart mimari alt klasörlerine kopyalanıyor ve eksik paket içeriği derleme sırasında açık hata veriyor.
 
 ### Unreleased
+- Script Engine v2 ilk dilimi: merkezi komut kataloğu ve doğrulama, phBot uyumlu `walk` takma adı, `cast`, `use`, `teleport`, `recall`, `stop`, `disconnect` komutları ve kesilebilir `wait` eklendi. Training > Script alanına komut seçici, parametre editörü, doğrulama ve load/save içeren phBot-benzeri Script Creator yerleştirildi.
 - Güvenlik/stabilite turu: Auto Alchemy tek scheduler ve sunucu-cevap kapısına alındı; timeout, hedef item değişimi ve disconnect halinde güvenli durdurma eklendi.
 - Hesap parolası, proxy parolası ve ikincil PIN ortak Windows DPAPI katmanına taşındı; şifreleme hatasında düz metin kayıt kaldırıldı ve kullanıcı ayarları Git dışındaki `Settings.user.json` dosyasına ayrıldı.
 - Gateway/Agent kısmi socket gönderimi düzeltildi; hassas login/auth/captcha/PIN paketleri loglarda maskelendi ve log rotasyonu eklendi.

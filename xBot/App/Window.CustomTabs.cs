@@ -27,6 +27,18 @@ namespace xBot.App
         public Button Login_btnAccountSetup;
         private bool _isPopulatingSavedAccounts = false;
 
+        // phBot-benzeri Script Creator controls
+        private ComboBox cmbxScriptCommand;
+        private Label lblScriptSyntax;
+        private Label lblScriptParam1;
+        private Label lblScriptParam2;
+        private TextBox txtScriptParam1;
+        private TextBox txtScriptParam2;
+        private Button btnScriptAddCommand;
+        private Button btnScriptValidate;
+        private Button btnScriptLoad;
+        private Button btnScriptSave;
+
         // Alchemy controls
         public Panel TabPageV_Control01_Alchemy_Panel;
         private Theme.ModernCard gbxAlchemySettings;
@@ -207,8 +219,9 @@ namespace xBot.App
                 BuildHeaderWidgets();
                 BuildGeneralTabWidgets();
                 BuildCombatTabWidgets();
-                BuildReturnToAreaWidgets();
-                BuildSkillsTabWidgets();
+                  BuildReturnToAreaWidgets();
+                  BuildScriptCreator();
+                  BuildSkillsTabWidgets();
                 BuildProtectionTabWidgets();
                 BuildItemFilterWidgets();
                 BuildPickFilterTabs();
@@ -217,7 +230,7 @@ namespace xBot.App
                 StartCombatUiSyncTimer();
                 ApplyLanguageToWindow();
                 ApplyModernTheme();
-                ApplyPickFilterLightTheme();
+                  ApplyPickFilterLightTheme();
             }
             catch (Exception ex)
             {
@@ -2437,6 +2450,199 @@ namespace xBot.App
 
             tab.Location = new Point(x, 0);
             tab.Size = new Size(width, tab.Height);
+        }
+
+        private void BuildScriptCreator()
+        {
+            if (groupBox2 == null || Training_rtbxRecordOutput == null)
+                return;
+
+            groupBox2.SuspendLayout();
+            groupBox2.Controls.Clear();
+            groupBox2.Text = "Script Creator";
+
+            Label commandLabel = new Label
+            {
+                AutoSize = true,
+                Location = new Point(10, 23),
+                Text = "Command"
+            };
+            cmbxScriptCommand = new ComboBox
+            {
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Location = new Point(10, 40),
+                Size = new Size(314, 24),
+                DataSource = ScriptCommandCatalog.Definitions.ToList()
+            };
+            lblScriptSyntax = new Label
+            {
+                AutoEllipsis = true,
+                Location = new Point(10, 69),
+                Size = new Size(314, 34),
+                ForeColor = Color.Silver
+            };
+            lblScriptParam1 = new Label { AutoSize = true, Location = new Point(10, 108) };
+            txtScriptParam1 = new TextBox { Location = new Point(10, 125), Size = new Size(314, 23) };
+            lblScriptParam2 = new Label { AutoSize = true, Location = new Point(10, 153) };
+            txtScriptParam2 = new TextBox { Location = new Point(10, 170), Size = new Size(314, 23) };
+
+            btnScriptAddCommand = new Button
+            {
+                Location = new Point(10, 202),
+                Size = new Size(314, 30),
+                Text = "Add command"
+            };
+            btnScriptValidate = new Button
+            {
+                Location = new Point(10, 240),
+                Size = new Size(98, 28),
+                Text = "Validate"
+            };
+            btnScriptLoad = new Button
+            {
+                Location = new Point(118, 240),
+                Size = new Size(98, 28),
+                Text = "Load"
+            };
+            btnScriptSave = new Button
+            {
+                Location = new Point(226, 240),
+                Size = new Size(98, 28),
+                Text = "Save"
+            };
+
+            Label hint = new Label
+            {
+                Location = new Point(10, 278),
+                Size = new Size(314, 40),
+                ForeColor = Color.DarkGray,
+                Text = "Komutlar soldaki editöre eklenir. Virgül, boşluk içeren adları korur."
+            };
+
+            groupBox2.Controls.AddRange(new Control[]
+            {
+                commandLabel, cmbxScriptCommand, lblScriptSyntax,
+                lblScriptParam1, txtScriptParam1, lblScriptParam2, txtScriptParam2,
+                btnScriptAddCommand, btnScriptValidate, btnScriptLoad, btnScriptSave, hint
+            });
+
+            cmbxScriptCommand.SelectedIndexChanged += delegate { RefreshScriptCreatorCommand(); };
+            btnScriptAddCommand.Click += delegate { AddScriptCreatorCommand(); };
+            btnScriptValidate.Click += delegate { ValidateScriptCreatorText(true); };
+            btnScriptLoad.Click += delegate { LoadScriptCreatorFile(); };
+            btnScriptSave.Click += delegate { SaveScriptCreatorFile(); };
+            if (cmbxScriptCommand.Items.Count > 0)
+                cmbxScriptCommand.SelectedIndex = 0;
+            RefreshScriptCreatorCommand();
+            groupBox2.ResumeLayout(false);
+        }
+
+        private void RefreshScriptCreatorCommand()
+        {
+            ScriptCommandDefinition definition = cmbxScriptCommand == null
+                ? null : cmbxScriptCommand.SelectedItem as ScriptCommandDefinition;
+            if (definition == null)
+                return;
+            lblScriptSyntax.Text = definition.Syntax + Environment.NewLine + definition.Description;
+            ConfigureScriptParameter(lblScriptParam1, txtScriptParam1,
+                definition.MaximumArguments >= 1, definition.FirstParameterLabel);
+            ConfigureScriptParameter(lblScriptParam2, txtScriptParam2,
+                definition.MaximumArguments >= 2, definition.SecondParameterLabel);
+        }
+
+        private static void ConfigureScriptParameter(Label label, TextBox textBox, bool visible, string caption)
+        {
+            label.Visible = visible;
+            textBox.Visible = visible;
+            label.Text = string.IsNullOrWhiteSpace(caption) ? "Parameter" : caption;
+            if (!visible)
+                textBox.Clear();
+        }
+
+        private void AddScriptCreatorCommand()
+        {
+            ScriptCommandDefinition definition = cmbxScriptCommand.SelectedItem as ScriptCommandDefinition;
+            if (definition == null)
+                return;
+            string line = ScriptCommandCatalog.Format(definition, txtScriptParam1.Text, txtScriptParam2.Text);
+            ScriptCommandInvocation parsed;
+            string error;
+            if (!ScriptCommandCatalog.TryParse(line, out parsed, out error))
+            {
+                MessageBox.Show(this, error, "Script Creator", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            if (Training_rtbxRecordOutput.TextLength > 0 && !Training_rtbxRecordOutput.Text.EndsWith(Environment.NewLine))
+                Training_rtbxRecordOutput.AppendText(Environment.NewLine);
+            Training_rtbxRecordOutput.AppendText(line + Environment.NewLine);
+            Training_rtbxRecordOutput.SelectionStart = Training_rtbxRecordOutput.TextLength;
+            Training_rtbxRecordOutput.ScrollToCaret();
+        }
+
+        private bool ValidateScriptCreatorText(bool showSuccess)
+        {
+            string[] lines = Training_rtbxRecordOutput.Lines;
+            for (int i = 0; i < lines.Length; i++)
+            {
+                if (string.IsNullOrWhiteSpace(lines[i]) || lines[i].TrimStart().StartsWith("//"))
+                    continue;
+                ScriptCommandInvocation invocation;
+                string error;
+                if (!ScriptCommandCatalog.TryParse(lines[i], out invocation, out error))
+                {
+                    MessageBox.Show(this, "Line " + (i + 1) + ": " + error,
+                        "Script validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+            }
+            if (showSuccess)
+                MessageBox.Show(this, "Script syntax is valid.", "Script validation",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return true;
+        }
+
+        private void LoadScriptCreatorFile()
+        {
+            using (OpenFileDialog dialog = new OpenFileDialog())
+            {
+                dialog.Filter = "xBot scripts (*.txt;*.rbs)|*.txt;*.rbs|All files (*.*)|*.*";
+                dialog.Title = "Load script";
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                    return;
+                try
+                {
+                    Training_rtbxRecordOutput.Lines = System.IO.File.ReadAllLines(dialog.FileName);
+                    Training_gbxOutput.Text = "Script - " + System.IO.Path.GetFileName(dialog.FileName);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(this, ex.Message, "Load script", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+
+        private void SaveScriptCreatorFile()
+        {
+            if (!ValidateScriptCreatorText(false))
+                return;
+            using (SaveFileDialog dialog = new SaveFileDialog())
+            {
+                dialog.Filter = "xBot script (*.txt)|*.txt|phBot route script (*.rbs)|*.rbs";
+                dialog.DefaultExt = "txt";
+                dialog.Title = "Save script";
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                    return;
+                try
+                {
+                    System.IO.File.WriteAllLines(dialog.FileName, Training_rtbxRecordOutput.Lines);
+                    Training_gbxOutput.Text = "Script - " + System.IO.Path.GetFileName(dialog.FileName);
+                    LogProcess("Script saved: " + System.IO.Path.GetFileName(dialog.FileName));
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(this, ex.Message, "Save script", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
         }
 
         private void BuildSkillsTabWidgets()
