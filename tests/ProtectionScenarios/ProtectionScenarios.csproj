@@ -26,6 +26,7 @@
     <Compile Include="..\..\xBot\App\PotionPolicy.cs" Link="PotionPolicy.cs" />
     <Compile Include="..\..\xBot\App\SroDocsPolicy.cs" Link="SroDocsPolicy.cs" />
     <Compile Include="..\..\xBot\App\ScriptCommandCatalog.cs" Link="ScriptCommandCatalog.cs" />
+    <Compile Include="..\..\xBot\App\StorageMovementPolicy.cs" Link="StorageMovementPolicy.cs" />
     <Compile Include="..\..\xBot\Game\Objects\xDictionary.cs" Link="xDictionary.cs" />
     <Compile Include="..\..\xBot\App\SecretStore.cs" Link="SecretStore.cs" />
   </ItemGroup>

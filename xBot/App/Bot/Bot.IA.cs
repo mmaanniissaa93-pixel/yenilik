@@ -1235,14 +1235,15 @@ namespace xBot.App
             catch { }
         }
 
-        public void ExecuteStorageDeposit()
+        public bool ExecuteStorageDeposit(uint npcUniqueID)
         {
             Window w = Window.Get;
             if (InfoManager.Character == null || InfoManager.Character.Storage == null)
-                return;
+                return false;
 
             var inv = InfoManager.Character.Inventory;
             var storage = InfoManager.Character.Storage;
+            bool completed = true;
 
             for (byte slot = 13; slot < inv.Capacity && isBotting; slot++)
             {
@@ -1266,12 +1267,14 @@ namespace xBot.App
                     {
                         w.Log($"Depositing [{item.Name}] x{item.Quantity} (inv:{slot} -> stor:{emptyStorageSlot})...");
                         InfoManager.MonitorInventoryMovement.Reset();
-                        PacketBuilder.MoveItem(slot, (byte)emptyStorageSlot, SRTypes.InventoryItemMovement.InventoryToStorage, item.Quantity);
+                        PacketBuilder.MoveStorageItem(slot, (byte)emptyStorageSlot,
+                            SRTypes.InventoryItemMovement.InventoryToStorage, npcUniqueID);
                         // Server yankısı (0xB034) gelmezse paket reddedilmiş demektir:
                         // üst üste göndermek kick yedirir, o yüzden dur.
-                        if (!InfoManager.MonitorInventoryMovement.WaitOne(2000))
+                        if (!WaitForInventoryMovementAck(2000))
                         {
                             w.Log($"STORE: [{item.Name}] server tarafından kabul edilmedi (yankı yok) — depozit durduruldu.");
+                            completed = false;
                             break;
                         }
                         Thread.Sleep(350);
@@ -1279,13 +1282,14 @@ namespace xBot.App
                     else
                     {
                         w.LogProcess("Town Loop: Storage is full!", Window.ProcessState.Warning);
+                        completed = false;
                         break;
                     }
                 }
             }
 
             // Unload and store items from active Pick Pet
-            if (InfoManager.MyPets != null)
+            if (completed && InfoManager.MyPets != null)
             {
                 SRCoService pickPet = InfoManager.MyPets.Find(p => p != null && p.isPickPet() && p.Inventory != null);
                 if (pickPet != null && pickPet.Inventory != null)
@@ -1311,6 +1315,7 @@ namespace xBot.App
                             if (emptyStorageSlot == -1)
                             {
                                 w.LogProcess("Town Loop: Storage is full for pet items!", Window.ProcessState.Warning);
+                                completed = false;
                                 break;
                             }
 
@@ -1321,19 +1326,22 @@ namespace xBot.App
                                 w.Log($"Transferring [{pItem.Name}] from pet slot {pSlot} to inventory...");
                                 InfoManager.MonitorInventoryMovement.Reset();
                                 PacketBuilder.MoveItem(pSlot, (byte)emptyCharSlot, SRTypes.InventoryItemMovement.PetToInventory, pickPet.UniqueID);
-                                if (!InfoManager.MonitorInventoryMovement.WaitOne(2000))
+                                if (!WaitForInventoryMovementAck(2000))
                                 {
                                     w.Log($"STORE: pet transferi kabul edilmedi — depozit durduruldu.");
+                                    completed = false;
                                     break;
                                 }
                                 Thread.Sleep(350);
 
                                 w.Log($"Depositing [{pItem.Name}] x{pItem.Quantity} (inv:{emptyCharSlot} -> stor:{emptyStorageSlot})...");
                                 InfoManager.MonitorInventoryMovement.Reset();
-                                PacketBuilder.MoveItem((byte)emptyCharSlot, (byte)emptyStorageSlot, SRTypes.InventoryItemMovement.InventoryToStorage, pItem.Quantity);
-                                if (!InfoManager.MonitorInventoryMovement.WaitOne(2000))
+                                PacketBuilder.MoveStorageItem((byte)emptyCharSlot, (byte)emptyStorageSlot,
+                                    SRTypes.InventoryItemMovement.InventoryToStorage, npcUniqueID);
+                                if (!WaitForInventoryMovementAck(2000))
                                 {
                                     w.Log($"STORE: [{pItem.Name}] server tarafından kabul edilmedi (yankı yok) — depozit durduruldu.");
+                                    completed = false;
                                     break;
                                 }
                                 Thread.Sleep(350);
@@ -1341,6 +1349,7 @@ namespace xBot.App
                             else
                             {
                                 w.LogProcess("Town Loop: Character inventory full while transferring pet items.", Window.ProcessState.Warning);
+                                completed = false;
                                 break;
                             }
                         }
@@ -1349,7 +1358,22 @@ namespace xBot.App
             }
 
             ReportUnhandledFilterItems(w);
+            return completed && isBotting && InfoManager.inGame && Proxy != null && Proxy.isRunning;
         }
+
+		private bool WaitForInventoryMovementAck(int timeoutMilliseconds)
+		{
+			int waited = 0;
+			while (waited < timeoutMilliseconds && isBotting && InfoManager.inGame
+				&& Proxy != null && Proxy.isRunning)
+			{
+				int slice = Math.Min(100, timeoutMilliseconds - waited);
+				if (InfoManager.MonitorInventoryMovement.WaitOne(slice))
+					return true;
+				waited += slice;
+			}
+			return false;
+		}
 
 		private int CountEmptyInventorySlots()
 		{
@@ -1387,8 +1411,8 @@ namespace xBot.App
 				w.Log($"Storage Take: [{item.Name}] x{item.Quantity} (storage:{storageSlot} -> inv:{inventorySlot})...");
 				InfoManager.MonitorInventoryMovement.Reset();
 				PacketBuilder.MoveStorageItem((byte)storageSlot, (byte)inventorySlot,
-					SRTypes.InventoryItemMovement.StorageToInventory, item.Quantity, npcUniqueID);
-				if (!InfoManager.MonitorInventoryMovement.WaitOne(2500))
+					SRTypes.InventoryItemMovement.StorageToInventory, npcUniqueID);
+				if (!WaitForInventoryMovementAck(2500))
 				{
 					w.LogProcess("Storage Take: hareket onayı gelmedi; işlem durduruldu.", Window.ProcessState.Warning);
 					break;
@@ -1420,8 +1444,8 @@ namespace xBot.App
 				w.Log($"Guild Storage: [{item.Name}] x{item.Quantity} (inv:{slot} -> guild:{emptySlot})...");
 				InfoManager.MonitorInventoryMovement.Reset();
 				PacketBuilder.MoveStorageItem(slot, (byte)emptySlot, SRTypes.InventoryItemMovement.InventoryToGuild,
-					item.Quantity, npcUniqueID);
-				if (!InfoManager.MonitorInventoryMovement.WaitOne(2500))
+					npcUniqueID);
+				if (!WaitForInventoryMovementAck(2500))
 				{
 					w.LogProcess("Guild Storage: hareket onayı gelmedi; işlem güvenli biçimde durduruldu.", Window.ProcessState.Warning);
 					break;
@@ -1455,8 +1479,8 @@ namespace xBot.App
 				w.Log($"Guild Storage Take: [{item.Name}] x{item.Quantity} (guild:{storageSlot} -> inv:{inventorySlot})...");
 				InfoManager.MonitorInventoryMovement.Reset();
 				PacketBuilder.MoveStorageItem((byte)storageSlot, (byte)inventorySlot,
-					SRTypes.InventoryItemMovement.GuildToInventory, item.Quantity, npcUniqueID);
-				if (!InfoManager.MonitorInventoryMovement.WaitOne(2500))
+					SRTypes.InventoryItemMovement.GuildToInventory, npcUniqueID);
+				if (!WaitForInventoryMovementAck(2500))
 				{
 					w.LogProcess("Guild Storage Take: hareket onayı gelmedi; işlem durduruldu.", Window.ProcessState.Warning);
 					break;
@@ -1469,7 +1493,7 @@ namespace xBot.App
 		{
 			Window w = Window.Get;
 			var options = ItemFilterManager.StoreGold;
-			if (options == null || !options.Enabled || InfoManager.Character == null
+			if (options == null || (!options.Enabled && !options.HasEnabledAction) || InfoManager.Character == null
 				|| InfoManager.Guild == null || !isBotting)
 				return;
 			try
@@ -1491,7 +1515,7 @@ namespace xBot.App
 						w.Log($"Guild Storage: {amount} gold depolanıyor...");
 						InfoManager.MonitorInventoryMovement.Reset();
 						PacketBuilder.MoveGold(SRTypes.InventoryItemMovement.InventoryGoldToGuild, amount);
-						if (!InfoManager.MonitorInventoryMovement.WaitOne(2500))
+						if (!WaitForInventoryMovementAck(2500))
 							return;
 						SleepInterruptible(400);
 					}
@@ -1508,7 +1532,8 @@ namespace xBot.App
 						w.Log($"Guild Storage: {amount} gold alınıyor...");
 						InfoManager.MonitorInventoryMovement.Reset();
 						PacketBuilder.MoveGold(SRTypes.InventoryItemMovement.GuildGoldToInventory, amount);
-						InfoManager.MonitorInventoryMovement.WaitOne(2500);
+						if (!WaitForInventoryMovementAck(2500))
+							return;
 						SleepInterruptible(400);
 					}
 				}
@@ -1560,7 +1585,7 @@ namespace xBot.App
         {
             Window w = Window.Get;
             var opt = ItemFilterManager.StoreGold;
-            if (opt == null || !opt.Enabled)
+            if (opt == null || (!opt.Enabled && !opt.HasEnabledAction))
                 return;
             if (InfoManager.Character == null || !isBotting)
                 return;
@@ -1568,6 +1593,7 @@ namespace xBot.App
             {
                 ulong invGold = InfoManager.Character.Gold;
                 ulong storGold = InfoManager.Character.StorageGold;
+				w.Log($"Store Gold: envanter={invGold}, depo={storGold}, korunacak={opt.GoldKeepAmount}, depo-maksimum={opt.StoreGoldMax}.");
 
                 // 1. Depoya altın koy (keep üstü).
                 if (opt.StoreGoldInStorage && invGold > opt.GoldKeepAmount)
@@ -1585,10 +1611,19 @@ namespace xBot.App
                         w.Log($"Store Gold: depoya {amount} altın konuyor...");
                         InfoManager.MonitorInventoryMovement.Reset();
                         PacketBuilder.MoveGold(SRTypes.InventoryItemMovement.InventoryGoldToStorage, amount);
-                        InfoManager.MonitorInventoryMovement.WaitOne(2000);
+                        if (!WaitForInventoryMovementAck(2000))
+                            return;
                         Thread.Sleep(400);
                     }
+					else
+					{
+						w.Log($"Store Gold: depo maksimumuna ulaşıldığı için işlem yok ({storGold} / {opt.StoreGoldMax}).");
+					}
                 }
+				else if (opt.StoreGoldInStorage)
+				{
+					w.Log($"Store Gold: envanter altını korunacak miktarı aşmadığı için işlem yok ({invGold} <= {opt.GoldKeepAmount}).");
+				}
 
                 // 2. Depodan altın al (keep altı).
                 if (opt.TakeGoldFromStorage)
@@ -1604,7 +1639,8 @@ namespace xBot.App
                             w.Log($"Store Gold: depodan {amount} altın alınıyor...");
                             InfoManager.MonitorInventoryMovement.Reset();
                             PacketBuilder.MoveGold(SRTypes.InventoryItemMovement.StorageGoldToInventory, amount);
-                            InfoManager.MonitorInventoryMovement.WaitOne(2000);
+                            if (!WaitForInventoryMovementAck(2000))
+                                return;
                             Thread.Sleep(400);
                         }
                     }

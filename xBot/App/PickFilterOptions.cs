@@ -53,6 +53,15 @@ namespace xBot.App
         public ulong StoreGoldMax { get; set; } = 0; // 0 = limitsiz
         public bool StoreGoldInGuildStorage { get; set; } = false;
         public ulong StoreGoldGuildMax { get; set; } = 0; // 0 = limitsiz
+
+        public bool HasEnabledAction
+        {
+            get
+            {
+                return TakeGoldFromStorage || TakeGoldFromGuildStorage
+                    || StoreGoldInStorage || StoreGoldInGuildStorage;
+            }
+        }
     }
 
     /// <summary>

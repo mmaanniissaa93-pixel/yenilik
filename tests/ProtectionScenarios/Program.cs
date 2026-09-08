@@ -582,6 +582,12 @@ internal static class Program
             ScriptCommandCatalog.TryParse("dismount", out invocation, out error), true);
         RunScriptCheck("KILLHORSE parametresiz kabul edilir",
             ScriptCommandCatalog.TryParse("killhorse", out invocation, out error), true);
+        byte[] storageMove = StorageMovementPolicy.BuildCrossContainerPayload(2, 30, 0, 1001);
+        RunScriptCheck("Storage çapraz hareket paketi 7 bayt ve NPC UID içerir",
+            storageMove.Length == 7
+                && storageMove[0] == 2 && storageMove[1] == 30 && storageMove[2] == 0
+                && storageMove[3] == 0xE9 && storageMove[4] == 0x03
+                && storageMove[5] == 0 && storageMove[6] == 0, true);
     }
 
     private static void RunScriptCheck(string name, bool actual, bool expected)

@@ -1143,14 +1143,11 @@ namespace xBot.Game
 			Bot.Get.Proxy.Agent.InjectToServer(p);
 		}
 		public static void MoveStorageItem(byte slotInitial, byte slotFinal, SRTypes.InventoryItemMovement type,
-			ushort quantity, uint npcUniqueID)
+			uint npcUniqueID)
 		{
 			Packet p = new Packet(Agent.Opcode.CLIENT_INVENTORY_ITEM_MOVEMENT);
-			p.WriteByte(type);
-			p.WriteByte(slotInitial);
-			p.WriteByte(slotFinal);
-			p.WriteUShort(quantity);
-			p.WriteUInt(npcUniqueID);
+			p.WriteByteArray(StorageMovementPolicy.BuildCrossContainerPayload(
+				(byte)type, slotInitial, slotFinal, npcUniqueID));
 			Bot.Get.Proxy.Agent.InjectToServer(p);
 		}
 		public static void LockGuildStorage(uint npcUniqueID)

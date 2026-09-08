@@ -600,7 +600,6 @@ namespace xBot.Network
 								int count = context.Socket.Receive(context.Buffer.Buffer);
 								if (count == 0)
 								{
-									DumpDisconnectDiagnostic(w, "Sunucu soketi kapattı (Receive count == 0)");
 									throw new Exception("The remote connection has been lost.");
 								}
 								context.Security.Recv(context.Buffer.Buffer, 0, count);

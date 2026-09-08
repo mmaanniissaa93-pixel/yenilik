@@ -743,25 +743,19 @@ namespace xBot.App
 			try
 			{
 				DateTime openTime = DateTime.Now;
-				if (InfoManager.isStorageLoaded)
+				bool storageWasLoaded = InfoManager.isStorageLoaded;
+				while (InfoManager.MonitorNpcTalk.WaitOne(0)) { }
+				if (storageWasLoaded)
 					PacketBuilder.TalkNPC(npc.UniqueID, 3);
 				else
 					PacketBuilder.OpenStorage(npc.UniqueID);
-				bool opened = false;
-				for (int i = 0; i < 40 && IsConnectionAlive(b) && Running; i++)
-				{
-					if (InfoManager.LastStorageInfoTime > openTime || InfoManager.inStorage)
-					{
-						opened = true;
-						break;
-					}
-					if (!WaitInterruptible(100)) return;
-				}
+				bool opened = WaitForStorageSession(npc.UniqueID, openTime, storageWasLoaded, b);
 				if (!opened || InfoManager.Character.Storage == null)
 				{
 					w.LogProcess("DoStorageTake: güncel storage verisi alınamadı.", Window.ProcessState.Warning);
 					return;
 				}
+				if (!WaitInterruptible(700)) return;
 				b.ExecuteStorageTake(npc.UniqueID);
 			}
 			catch (Exception ex)
@@ -1118,34 +1112,37 @@ namespace xBot.App
 			{
 				w.Log($"STORE: [{npc.Name}] açılıyor...");
 				DateTime openTime = DateTime.Now;
+				bool storageWasLoaded = InfoManager.isStorageLoaded;
+				while (InfoManager.MonitorNpcTalk.WaitOne(0)) { }
 				// Depo daha önce hiç yüklenmediyse veri iste, açıksa diyalogu tazele
 				// (programdaki manuel butonla aynı mantık).
-				if (InfoManager.isStorageLoaded)
+				if (storageWasLoaded)
 					PacketBuilder.TalkNPC(npc.UniqueID, 3);
 				else
 					PacketBuilder.OpenStorage(npc.UniqueID);
 				// Depo penceresi gerçekten açıldı mı? Server 0x3047/48/49 göndermeden
 				// eşya taşıma paketi atmak kick yedirir — en fazla 4sn bekle.
-				bool opened = false;
-				for (int i = 0; i < 40 && b.isBotting; i++)
-				{
-					if (InfoManager.LastStorageInfoTime > openTime || InfoManager.inStorage)
-					{
-						opened = true;
-						break;
-					}
-					Thread.Sleep(100);
-				}
+				bool opened = WaitForStorageSession(npc.UniqueID, openTime, storageWasLoaded, b);
 				if (!opened)
 				{
 					w.Log("STORE: depo penceresi açılmadı (server veri göndermedi) — depozit atlanıyor, kick riski alınmadı.");
 					return;
 				}
+				if (!WaitInterruptible(700)) return;
 				w.Log("STORE: depo açık, depozit başlıyor...");
-				b.ExecuteStorageDeposit();
+				bool depositCompleted = b.ExecuteStorageDeposit(npc.UniqueID);
+				if (!depositCompleted)
+				{
+					if (!IsConnectionAlive(b) || !Running)
+					{
+						w.LogProcess("STORE: bağlantı/script durduğu için kalan storage işlemleri atlandı.", Window.ProcessState.Warning);
+						return;
+					}
+					w.LogProcess("STORE: bazı eşya hareketleri tamamlanamadı; gold işlemi bağımsız olarak sürdürülecek.", Window.ProcessState.Warning);
+				}
 				if (includeGold)
 					b.ExecuteStoreGold();
-				w.Log("STORE: depozit tamam.");
+				w.Log(depositCompleted ? "STORE: depozit tamam." : "STORE: kısmi depozit tamamlandı.");
 			}
 			catch (Exception ex)
 			{
@@ -1162,6 +1159,22 @@ namespace xBot.App
 				}
 				catch { }
 			}
+		}
+
+		private bool WaitForStorageSession(uint npcUniqueID, DateTime requestTime,
+			bool cachedStorageAvailable, Bot b)
+		{
+			for (int i = 0; i < 40 && Running && IsConnectionAlive(b); i++)
+			{
+				if (InfoManager.LastStorageInfoTime > requestTime)
+					return true;
+				if (InfoManager.MonitorNpcTalk.WaitOne(100)
+					&& cachedStorageAvailable
+					&& InfoManager.LastNpcTalkEntityUniqueID == npcUniqueID
+					&& InfoManager.LastNpcTalkID == 3)
+					return true;
+			}
+			return false;
 		}
 
 		/// <summary>

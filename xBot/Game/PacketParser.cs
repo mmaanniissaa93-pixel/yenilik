@@ -2887,12 +2887,14 @@ namespace xBot.Game
 			ulong gold =  p.ReadULong();
 			// End of Packet
 			InfoManager.Character.StorageGold -= gold;
+			InfoManager.OnInventoryMovementAck();
 		}
 		private static void InventoryItemMovement_InventoryGoldToStorage(Packet p)
 		{
 			ulong gold =  p.ReadULong();
 			// End of Packet
 			InfoManager.Character.StorageGold += gold;
+			InfoManager.OnInventoryMovementAck();
 		}
 		private static void InventoryItemMovement_InventoryGoldToExchange(Packet p)
 		{
@@ -3032,6 +3034,7 @@ namespace xBot.Game
 
 			myInventory[slotMyInventory] = petInventory[slotPetInventory];
 			petInventory[slotPetInventory] = null;
+			InfoManager.OnInventoryMovementAck();
 		}
 		private static void InventoryItemMovement_InventoryToPet(Packet p)
 		{
@@ -3055,6 +3058,7 @@ namespace xBot.Game
 
 			petInventory[slotPetInventory] = myInventory[slotMyInventory];
 			myInventory[slotMyInventory] = null;
+			InfoManager.OnInventoryMovementAck();
 		}
 		private static void InventoryItemMovement_GroundToPetToInventory(Packet p)
 		{
@@ -3126,12 +3130,14 @@ namespace xBot.Game
 			ulong gold = p.ReadULong();
 			// End of Packet
 			InfoManager.Guild.StorageGold += gold;
+			InfoManager.OnInventoryMovementAck();
 		}
 		private static void InventoryItemMovement_GuildGoldToInventory(Packet p)
 		{
 			ulong gold = p.ReadULong();
 			// End of Packet
 			InfoManager.Guild.StorageGold -= gold;
+			InfoManager.OnInventoryMovementAck();
 		}
 		private static void InventoryItemMovement_ShopBuyBack(Packet p)
 		{
