@@ -3184,6 +3184,7 @@ namespace xBot.App
                 SetProtectionCheck(cbxFilterEurope, ItemFilterManager.FilterEurope);
                 SetProtectionCheck(cbxFilterMale, ItemFilterManager.FilterMale);
                 SetProtectionCheck(cbxFilterFemale, ItemFilterManager.FilterFemale);
+                LoadPickFilterSettingsToUi();
 
                 // Skills
                 SetProtectionCheck(Skills_cbxCastInOrder, SkillManager.InOrderCombo);

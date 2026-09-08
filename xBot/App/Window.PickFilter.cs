@@ -22,12 +22,13 @@ namespace xBot.App
         private TextBox txtPickSearch;
         private Label lblPickCount;
         private int pickCtxColumn = -1;
+        private bool loadingPickFilterUi;
 
+        private CheckBox optPickupEnabled;
         private CheckBox optPickItemsFirst;
         private CheckBox optUsePickPet;
         private CheckBox optPickOthers;
         private CheckBox optPickParty;
-        private CheckBox optDontPick;
         private CheckBox optAllowSellAll;
         private CheckBox optOnlyPickRareBlue;
         private CheckBox optOnlyStoreRareBlue;
@@ -156,13 +157,9 @@ namespace xBot.App
                 }
                 catch { }
 
-                LoadPickOptionsToUi();
-                LoadGoldToUi();
-                LoadDismantleToUi();
                 // Eşya listesi açılışta YÜKLENMEZ (RAM + isimsiz yığın): kullanıcı
                 // kategori seçince ya da isim arayınca dolar. Blues/Degree küçüktür.
-                RefreshBluesList();
-                RefreshDegreeList();
+                LoadPickFilterSettingsToUi();
             }
             catch (Exception ex)
             {
@@ -349,6 +346,8 @@ namespace xBot.App
         {
             try
             {
+                if (loadingPickFilterUi)
+                    return;
                 SavePickOptionsFromUi();
                 SaveGoldFromUi();
                 SaveDismantleFromUi();
@@ -507,17 +506,9 @@ namespace xBot.App
         {
             try
             {
-                ItemFilterManager.ClearRules();
-                ItemFilterManager.ClearBlues();
-                ItemFilterManager.Pick = new PickFilterOptions();
-                ItemFilterManager.StoreGold = new StoreGoldOptions();
-                ItemFilterManager.Dismantle = new DismantleOptions();
-                LoadPickOptionsToUi();
-                LoadGoldToUi();
-                LoadDismantleToUi();
+                ItemFilterManager.Reset();
                 try { lstPickItems.Items.Clear(); lblPickCount.Text = "Kategori seçin veya isim arayın..."; } catch { }
-                RefreshBluesList();
-                RefreshDegreeList();
+                LoadPickFilterSettingsToUi();
                 try { Settings.SaveCharacterSettings(); } catch { }
                 Log("[Pick Filter] Yapılandırma sıfırlandı.");
             }
@@ -527,6 +518,28 @@ namespace xBot.App
         #endregion
 
         #region Tab: Options
+
+        private void LoadPickFilterSettingsToUi()
+        {
+            if (loadingPickFilterUi)
+                return;
+
+            loadingPickFilterUi = true;
+            try
+            {
+                LoadPickOptionsToUi();
+                LoadGoldToUi();
+                LoadDismantleToUi();
+                RefreshBluesList();
+                RefreshDegreeList();
+                if (lstPickItems != null && lstPickItems.Items.Count > 0)
+                    RefreshPickList();
+            }
+            finally
+            {
+                loadingPickFilterUi = false;
+            }
+        }
 
         /// <summary>
         /// Tema checkbox yazısını owner-draw ile beyaza boyadığı için başlık
@@ -561,11 +574,11 @@ namespace xBot.App
         private void BuildPickOptionsTab(TabPage tab)
         {
             int x = 12, y = 12, w = 300;
+            optPickupEnabled = AddOptCheck(tab, "Enable item pickup", x, y, w); y += 19;
             optPickItemsFirst = AddOptCheck(tab, "Pick items first", x, y, w); y += 19;
             optUsePickPet = AddOptCheck(tab, "Use pick pet", x, y, w); y += 19;
             optPickOthers = AddOptCheck(tab, "Pick other player's items", x, y, w); y += 19;
             optPickParty = AddOptCheck(tab, "Pick party items", x, y, w); y += 19;
-            optDontPick = AddOptCheck(tab, "Don't pick items", x, y, w); y += 19;
             optAllowSellAll = AddOptCheck(tab, "Allow selling of all item types", x, y, w); y += 19;
             optOnlyPickRareBlue = AddOptCheck(tab, "Only pick rare or blue items", x, y, w); y += 19;
             optOnlyStoreRareBlue = AddOptCheck(tab, "Only store rare or blue items", x, y, w); y += 19;
@@ -709,12 +722,12 @@ namespace xBot.App
             try
             {
                 var o = ItemFilterManager.Pick;
-                if (o == null || optPickItemsFirst == null) return;
+                if (o == null || optPickupEnabled == null || optPickItemsFirst == null) return;
+                optPickupEnabled.Checked = o.Enabled;
                 optPickItemsFirst.Checked = o.PickItemsFirst;
                 optUsePickPet.Checked = o.UsePickPet;
                 optPickOthers.Checked = o.PickOthersItems;
                 optPickParty.Checked = o.PickPartyItems;
-                optDontPick.Checked = o.DontPickItems;
                 optAllowSellAll.Checked = o.AllowSellAll;
                 optOnlyPickRareBlue.Checked = o.OnlyPickRareBlue;
                 optOnlyStoreRareBlue.Checked = o.OnlyStoreRareBlue;
@@ -738,12 +751,15 @@ namespace xBot.App
             try
             {
                 var o = ItemFilterManager.Pick;
-                if (o == null || optPickItemsFirst == null) return;
+                if (o == null || optPickupEnabled == null || optPickItemsFirst == null) return;
+                o.Enabled = optPickupEnabled.Checked;
                 o.PickItemsFirst = optPickItemsFirst.Checked;
                 o.UsePickPet = optUsePickPet.Checked;
                 o.PickOthersItems = optPickOthers.Checked;
                 o.PickPartyItems = optPickParty.Checked;
-                o.DontPickItems = optDontPick.Checked;
+                // Ana etkinleştirme seçeneği, eski ters anlamlı "Don't pick"
+                // seçeneğinin yerini aldı.
+                o.DontPickItems = false;
                 o.AllowSellAll = optAllowSellAll.Checked;
                 o.OnlyPickRareBlue = optOnlyPickRareBlue.Checked;
                 o.OnlyStoreRareBlue = optOnlyStoreRareBlue.Checked;

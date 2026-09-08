@@ -69,6 +69,9 @@ namespace xBot.App
             if (input == null)
                 return false;
 
+            if (pick != null && !pick.Enabled)
+                return false;
+
             if (pick != null && pick.DontPickItems)
                 return false;
 
@@ -130,6 +133,8 @@ namespace xBot.App
         public static bool ShouldUsePet(ItemFilterInput input, ItemFilterRule rule, PickFilterOptions pick, bool petAvailable, bool petFull)
         {
             if (!petAvailable)
+                return false;
+            if (pick != null && !pick.Enabled)
                 return false;
             if (pick != null && !pick.UsePickPet)
                 return false;

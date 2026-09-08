@@ -1167,8 +1167,9 @@ Window w = Window.Get;
 					ProtectionManager.FromJson((Newtonsoft.Json.Linq.JObject)root["ProtectionManager"]);
 				if (root.ContainsKey("StatPointManager"))
 					StatPointManager.FromJson((Newtonsoft.Json.Linq.JObject)root["StatPointManager"]);
-				if (root.ContainsKey("ItemFilterManager"))
-					ItemFilterManager.FromJson((Newtonsoft.Json.Linq.JObject)root["ItemFilterManager"]);
+				ItemFilterManager.FromJson(root.ContainsKey("ItemFilterManager")
+					? (Newtonsoft.Json.Linq.JObject)root["ItemFilterManager"]
+					: new Newtonsoft.Json.Linq.JObject());
 
 				LoadingCharacterSettings = false;
 				w.RefreshCustomSettingsWidgets();

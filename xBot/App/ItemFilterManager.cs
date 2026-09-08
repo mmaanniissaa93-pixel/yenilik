@@ -96,6 +96,22 @@ namespace xBot.App
             return Rules.Values;
         }
 
+        public static void Reset()
+        {
+            MinDegree = 1;
+            MaxDegree = 15;
+            OnlySox = false;
+            FilterChina = true;
+            FilterEurope = true;
+            FilterMale = true;
+            FilterFemale = true;
+            Rules.Clear();
+            Blues.Clear();
+            Pick = new PickFilterOptions();
+            StoreGold = new StoreGoldOptions();
+            Dismantle = new DismantleOptions();
+        }
+
         public static bool ShouldPickup(SRItem item)
         {
             if (item == null)
@@ -560,6 +576,7 @@ namespace xBot.App
 
             // Options sekmesi
             JObject p = new JObject();
+            p["Enabled"] = Pick.Enabled;
             p["PickItemsFirst"] = Pick.PickItemsFirst;
             p["UsePickPet"] = Pick.UsePickPet;
             p["PickOthersItems"] = Pick.PickOthersItems;
@@ -628,6 +645,8 @@ namespace xBot.App
 
         public static void FromJson(JObject json)
         {
+            Reset();
+
             if (json == null)
                 return;
 
@@ -681,11 +700,24 @@ namespace xBot.App
             if (json.ContainsKey("PickOptions"))
             {
                 JObject po = (JObject)json["PickOptions"];
+                // Eski profillerde ana etkinleştirme anahtarı yoktu. Yalnızca
+                // açıkça Pick/Pet kuralı bulunan profilleri otomatik etkinleştir.
+                bool hasPickupRule = false;
+                foreach (ItemFilterRule existingRule in Rules.Values)
+                {
+                    if (existingRule != null && (existingRule.Pickup || existingRule.Pet))
+                    {
+                        hasPickupRule = true;
+                        break;
+                    }
+                }
+                bool legacyDontPick = GetBool(po, "DontPickItems", false);
+                Pick.Enabled = GetBool(po, "Enabled", hasPickupRule && !legacyDontPick);
                 Pick.PickItemsFirst = GetBool(po, "PickItemsFirst", false);
                 Pick.UsePickPet = GetBool(po, "UsePickPet", true);
                 Pick.PickOthersItems = GetBool(po, "PickOthersItems", false);
                 Pick.PickPartyItems = GetBool(po, "PickPartyItems", false);
-                Pick.DontPickItems = GetBool(po, "DontPickItems", false);
+                Pick.DontPickItems = po.ContainsKey("Enabled") && legacyDontPick;
                 Pick.AllowSellAll = GetBool(po, "AllowSellAll", false);
                 Pick.OnlyPickRareBlue = GetBool(po, "OnlyPickRareBlue", false);
                 Pick.OnlyStoreRareBlue = GetBool(po, "OnlyStoreRareBlue", false);

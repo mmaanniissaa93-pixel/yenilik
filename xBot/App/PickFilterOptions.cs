@@ -7,6 +7,7 @@ namespace xBot.App
     /// </summary>
     public sealed class PickFilterOptions
     {
+        public bool Enabled { get; set; } = false;
         public bool PickItemsFirst { get; set; } = false;
         public bool UsePickPet { get; set; } = true;
         public bool PickOthersItems { get; set; } = false;

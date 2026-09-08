@@ -1529,7 +1529,7 @@ namespace xBot.App
             {
                 if (InfoManager.Character == null)
                     return false;
-                if (ItemFilterManager.Pick.DontPickItems)
+                if (!ItemFilterManager.Pick.Enabled || ItemFilterManager.Pick.DontPickItems)
                     return false;
                 SRCoord myPos = InfoManager.Character.GetRealtimePosition();
                 if (myPos == null)
@@ -1587,9 +1587,7 @@ namespace xBot.App
             if (InfoManager.Character == null || InfoManager.Character.Inventory == null)
                 return;
 
-            Window w = Window.Get;
-
-            if (ItemFilterManager.Pick.DontPickItems)
+            if (!ItemFilterManager.Pick.Enabled || ItemFilterManager.Pick.DontPickItems)
                 return;
 
             // Çantada boş yer var mı? (13. slottan itibaren)
@@ -1599,8 +1597,7 @@ namespace xBot.App
 
             SRCoord myPos = InfoManager.Character.GetRealtimePosition();
 
-            bool wantPet = ItemFilterManager.Pick.UsePickPet
-                && (w == null || w.Filter_cbxUsePet == null || w.Filter_cbxUsePet.Checked);
+            bool wantPet = ItemFilterManager.Pick.UsePickPet;
             SRCoService pickPet = wantPet ? InfoManager.MyPets.Find(p => p.isPickPet()) : null;
             uint petId = pickPet != null ? pickPet.UniqueID : 0;
             bool petFull = false;
@@ -1624,26 +1621,6 @@ namespace xBot.App
                     double dist = drop.GetRealtimePosition().DistanceTo(myPos);
                     if (dist <= 35.0)
                     {
-                        // Apply Pick Filters
-                        if (w != null && w.Filter_cbxPickGold != null)
-                        {
-                            bool isGold = drop.isGold();
-                            bool isEquip = drop.isEquipable();
-                            bool isElixirStone = (drop.ID2 == 3 && drop.ID3 == 11 && (drop.ID4 == 1 || drop.ID4 == 2));
-                            bool isMaterial = (!isGold && !isEquip && !isElixirStone);
-
-                            if (isGold && !w.Filter_cbxPickGold.Checked)
-                                continue;
-                            if (isEquip && !w.Filter_cbxPickEquip.Checked)
-                                continue;
-                            if (isElixirStone && !w.Filter_cbxPickElixirStone.Checked)
-                                continue;
-                            if (isMaterial && !w.Filter_cbxPickMaterials.Checked)
-                                continue;
-
-							// Basic UI filters are followed by the persistent item filter.
-						}
-
 						// Karakter listesi (Pick) VEYA pet listesi (Pet): ikisi de
 						// bağımsızdır, biri tutsa damla listeye girer.
 						bool charWantsDrop = ItemFilterManager.ShouldPickup(drop);

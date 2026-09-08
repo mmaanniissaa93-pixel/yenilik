@@ -48,6 +48,9 @@ internal static class Program
         RunFilter("Gold ve alchemy filtreden bağımsız alınır", new ItemFilterInput { IsGold = true, Degree = 0 }, FilterOptions(8, 8, true, false, false, false, false), null, true);
         RunFilter("Açık pickup kuralı global filtreyi geçersiz kılar", new ItemFilterInput { IsEquipable = true, Degree = 8 }, FilterOptions(1, 7), new ItemFilterRule { Pickup = true }, true);
         RunFilter("Kapalı pickup kuralı itemi engeller", new ItemFilterInput { IsEquipable = false }, FilterOptions(1, 15), new ItemFilterRule { Pickup = false }, false);
+        RunPickFilter("Ana toplama ayarı kapalıysa açık kural da eşya toplamaz", new ItemFilterInput { IsGold = true }, new ItemFilterRule { Pickup = true }, new PickFilterOptions { Enabled = false }, false);
+        RunPickFilter("Ana toplama ayarı açıksa pickup kuralı çalışır", new ItemFilterInput { IsGold = true }, new ItemFilterRule { Pickup = true }, new PickFilterOptions { Enabled = true }, true);
+        RunPickPet("Ana toplama ayarı kapalıysa pet kuralı da çalışmaz", new ItemFilterRule { Pet = true }, new PickFilterOptions { Enabled = false, UsePickPet = true }, false);
         RunAction("Elixir/stone varsayılan olarak depolanır", new ItemFilterInput { IsElixirOrStone = true }, null, true, false);
         RunAction("SoX varsayılan olarak depolanır", new ItemFilterInput { IsSox = true }, null, true, false);
         RunAction("Açık sell kuralı satışa izin verir", new ItemFilterInput(), new ItemFilterRule { Sell = true }, false, true);
@@ -529,7 +532,7 @@ internal static class Program
             return 1;
         }
 
-        Console.WriteLine("Koruma, item filtre, combat, skill, imbue, command center, lojistik, parti, PIN, SOCKS5, Auto Alchemy, Target Assist, Localization, Potion, Alana Dönüş, Teleport, SroDocs, koleksiyon ve secret senaryoları başarılı: 322");
+        Console.WriteLine("Koruma, item filtre, combat, skill, imbue, command center, lojistik, parti, PIN, SOCKS5, Auto Alchemy, Target Assist, Localization, Potion, Alana Dönüş, Teleport, SroDocs, koleksiyon ve secret senaryoları başarılı: 325");
         return 0;
     }
 
@@ -624,6 +627,32 @@ internal static class Program
     private static void RunFilter(string name, ItemFilterInput input, ItemFilterOptions options, ItemFilterRule rule, bool expected)
     {
         bool actual = ItemFilterPolicy.ShouldPickup(input, options, rule);
+        if (actual == expected)
+        {
+            Console.WriteLine("PASS: " + name);
+            return;
+        }
+
+        failures++;
+        Console.WriteLine("FAIL: " + name + " | beklenen=" + expected + ", gerçek=" + actual);
+    }
+
+    private static void RunPickFilter(string name, ItemFilterInput input, ItemFilterRule rule, PickFilterOptions pick, bool expected)
+    {
+        bool actual = ItemFilterPolicy.ShouldPickup(input, FilterOptions(1, 15), rule, pick);
+        if (actual == expected)
+        {
+            Console.WriteLine("PASS: " + name);
+            return;
+        }
+
+        failures++;
+        Console.WriteLine("FAIL: " + name + " | beklenen=" + expected + ", gerçek=" + actual);
+    }
+
+    private static void RunPickPet(string name, ItemFilterRule rule, PickFilterOptions pick, bool expected)
+    {
+        bool actual = ItemFilterPolicy.ShouldUsePet(new ItemFilterInput(), rule, pick, true, false);
         if (actual == expected)
         {
             Console.WriteLine("PASS: " + name);
