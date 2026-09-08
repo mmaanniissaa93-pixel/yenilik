@@ -1351,10 +1351,97 @@ namespace xBot.App
             ReportUnhandledFilterItems(w);
         }
 
+		public void ExecuteGuildStorageDeposit(uint npcUniqueID)
+		{
+			Window w = Window.Get;
+			if (!InfoManager.inGuild || InfoManager.Guild == null || InfoManager.Guild.Storage == null
+				|| InfoManager.Character == null || InfoManager.Character.Inventory == null)
+				return;
+
+			var inventory = InfoManager.Character.Inventory;
+			var storage = InfoManager.Guild.Storage;
+			for (byte slot = 13; slot < inventory.Capacity && isBotting; slot++)
+			{
+				SRItem item = inventory[slot];
+				if (item == null || !ItemFilterManager.ShouldStoreGuild(item))
+					continue;
+				int emptySlot = storage.FindIndex(value => value == null, 0);
+				if (emptySlot < 0)
+				{
+					w.LogProcess("Guild Storage is full!", Window.ProcessState.Warning);
+					break;
+				}
+				w.Log($"Guild Storage: [{item.Name}] x{item.Quantity} (inv:{slot} -> guild:{emptySlot})...");
+				InfoManager.MonitorInventoryMovement.Reset();
+				PacketBuilder.MoveStorageItem(slot, (byte)emptySlot, SRTypes.InventoryItemMovement.InventoryToGuild,
+					item.Quantity, npcUniqueID);
+				if (!InfoManager.MonitorInventoryMovement.WaitOne(2500))
+				{
+					w.LogProcess("Guild Storage: hareket onayı gelmedi; işlem güvenli biçimde durduruldu.", Window.ProcessState.Warning);
+					break;
+				}
+				if (!SleepInterruptible(400))
+					break;
+			}
+		}
+
+		public void ExecuteGuildStorageGold()
+		{
+			Window w = Window.Get;
+			var options = ItemFilterManager.StoreGold;
+			if (options == null || !options.Enabled || InfoManager.Character == null
+				|| InfoManager.Guild == null || !isBotting)
+				return;
+			try
+			{
+				ulong inventoryGold = InfoManager.Character.Gold;
+				ulong guildGold = InfoManager.Guild.StorageGold;
+				if (options.StoreGoldInGuildStorage && inventoryGold > options.GoldKeepAmount)
+				{
+					ulong amount = inventoryGold - options.GoldKeepAmount;
+					if (options.StoreGoldGuildMax > 0)
+					{
+						ulong available = guildGold >= options.StoreGoldGuildMax
+							? 0 : options.StoreGoldGuildMax - guildGold;
+						if (amount > available)
+							amount = available;
+					}
+					if (amount > 0)
+					{
+						w.Log($"Guild Storage: {amount} gold depolanıyor...");
+						InfoManager.MonitorInventoryMovement.Reset();
+						PacketBuilder.MoveGold(SRTypes.InventoryItemMovement.InventoryGoldToGuild, amount);
+						if (!InfoManager.MonitorInventoryMovement.WaitOne(2500))
+							return;
+						SleepInterruptible(400);
+					}
+				}
+
+				if (options.TakeGoldFromGuildStorage)
+				{
+					inventoryGold = InfoManager.Character.Gold;
+					guildGold = InfoManager.Guild.StorageGold;
+					if (inventoryGold < options.GoldKeepAmount && guildGold > 0)
+					{
+						ulong need = options.GoldKeepAmount - inventoryGold;
+						ulong amount = need < guildGold ? need : guildGold;
+						w.Log($"Guild Storage: {amount} gold alınıyor...");
+						InfoManager.MonitorInventoryMovement.Reset();
+						PacketBuilder.MoveGold(SRTypes.InventoryItemMovement.GuildGoldToInventory, amount);
+						InfoManager.MonitorInventoryMovement.WaitOne(2500);
+						SleepInterruptible(400);
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				w.LogProcess("Guild Storage Gold hatası: " + ex.Message, Window.ProcessState.Warning);
+			}
+		}
+
         /// <summary>
-        /// StoreGuild / Dismantle kurallarına takılan eşyaları raporlar.
-        /// (Guild deposu açma ve dismantle paketleri bu server sürümünde doğrulanmadığı
-        /// için motor bunları uygulamaz — sadece sayı verir, eşya çantada kalır.)
+        /// Town scriptte henüz ilgili servis adımına ulaşmamış StoreGuild öğelerini
+        /// ve paket desteği bulunmayan dismantle adaylarını raporlar.
         /// </summary>
         private void ReportUnhandledFilterItems(Window w)
         {
@@ -1378,8 +1465,8 @@ namespace xBot.App
                     }
                     catch { }
                 }
-                if (guildCount > 0)
-                    w.Log($"StoreGuild: {guildCount} eşya guild deposu istiyor (bu sürümde desteklenmiyor, çantada bırakıldı).");
+				if (guildCount > 0)
+					w.Log($"StoreGuild: {guildCount} eşya DoGuildStorage adımını bekliyor.");
                 if (dismantleCount > 0)
                     w.Log($"Dismantle: {dismantleCount} eşya söküm istiyor (bu sürümde desteklenmiyor, çantada bırakıldı).");
             }

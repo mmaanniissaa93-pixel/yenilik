@@ -561,7 +561,7 @@ internal static class Program
         RunScriptCheck("phBot DoBlacksmith komutu parametresiz kabul edilir",
             ScriptCommandCatalog.TryParse("DoBlacksmith", out invocation, out error)
                 && invocation.Command == "DoBlacksmith", true);
-        string[] townCommands = { "DoHerbalist", "DoStable", "DoStorage", "DoStorageStore", "DoGroceryTrader", "DoProtectorTrader", "DoJupiter" };
+        string[] townCommands = { "DoHerbalist", "DoStable", "DoStorage", "DoStorageStore", "DoGuildStorage", "DoGuildStorageStore", "DoGroceryTrader", "DoProtectorTrader", "DoJupiter" };
         bool allTownCommandsKnown = true;
         for (int i = 0; i < townCommands.Length; i++)
             allTownCommandsKnown &= ScriptCommandCatalog.TryParse(townCommands[i], out invocation, out error);

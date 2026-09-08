@@ -1129,6 +1129,38 @@ namespace xBot.Game
 			p.WriteByte(0);
 			Bot.Get.Proxy.Agent.InjectToServer(p);
 		}
+		public static void MoveStorageItem(byte slotInitial, byte slotFinal, SRTypes.InventoryItemMovement type,
+			ushort quantity, uint npcUniqueID)
+		{
+			Packet p = new Packet(Agent.Opcode.CLIENT_INVENTORY_ITEM_MOVEMENT);
+			p.WriteByte(type);
+			p.WriteByte(slotInitial);
+			p.WriteByte(slotFinal);
+			p.WriteUShort(quantity);
+			p.WriteUInt(npcUniqueID);
+			Bot.Get.Proxy.Agent.InjectToServer(p);
+		}
+		public static void LockGuildStorage(uint npcUniqueID)
+		{
+			Packet p = new Packet(Agent.Opcode.CLIENT_GUILD_STORAGE_REQUEST);
+			p.WriteUInt(npcUniqueID);
+			p.WriteUShort(0);
+			Bot.Get.Proxy.Agent.InjectToServer(p);
+		}
+		public static void UnlockGuildStorage(uint npcUniqueID)
+		{
+			Packet p = new Packet(Agent.Opcode.CLIENT_GUILD_STORAGE_CLOSE_REQUEST);
+			p.WriteUInt(npcUniqueID);
+			p.WriteUShort(0);
+			Bot.Get.Proxy.Agent.InjectToServer(p);
+		}
+		public static void RefreshGuildStorage(uint npcUniqueID)
+		{
+			Packet p = new Packet(Agent.Opcode.CLIENT_GUILD_STORAGE_DATA_REQUEST);
+			p.WriteUInt(npcUniqueID);
+			p.WriteUShort(0);
+			Bot.Get.Proxy.Agent.InjectToServer(p);
+		}
 		public static void MoveGold(SRTypes.InventoryItemMovement type, ulong amount)
 		{
 			Packet p = new Packet(Agent.Opcode.CLIENT_INVENTORY_ITEM_MOVEMENT);

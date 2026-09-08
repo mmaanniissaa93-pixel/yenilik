@@ -331,6 +331,8 @@ namespace xBot.App
 				case "dostable":
 				case "dostorage":
 				case "dostoragestore":
+				case "doguildstorage":
+				case "doguildstoragestore":
 				case "dogrocerytrader":
 				case "doprotectortrader":
 				case "dojupiter":
@@ -518,6 +520,11 @@ namespace xBot.App
 
 		private void ExecuteTownService(string command, Window w, Bot b)
 		{
+			if (command == "doguildstorage" || command == "doguildstoragestore")
+			{
+				ExecuteGuildStorageStep(command == "doguildstorage", w, b);
+				return;
+			}
 			if (command == "dostorage" || command == "dostoragestore")
 			{
 				ExecuteStoreStep(new[] { "store", "WAREHOUSE" }, w, b, command == "dostorage");
@@ -587,6 +594,109 @@ namespace xBot.App
 				try
 				{
 					if (npc != null && IsConnectionAlive(b))
+						PacketBuilder.CloseNPC(npc.UniqueID);
+					WaitInterruptible(300);
+				}
+				catch { }
+			}
+		}
+
+		private void ExecuteGuildStorageStep(bool includeGold, Window w, Bot b)
+		{
+			if (!InfoManager.inGuild || InfoManager.Guild == null)
+			{
+				w.LogProcess("DoGuildStorage: karakter bir guild üyesi değil.", Window.ProcessState.Warning);
+				return;
+			}
+			try
+			{
+				var me = InfoManager.Guild.Members.Find(member => member != null
+					&& string.Equals(member.Name, InfoManager.Character.Name, StringComparison.OrdinalIgnoreCase));
+				if (me != null && (uint)me.PermissionsFlags != uint.MaxValue
+					&& (((uint)me.PermissionsFlags & 8u) == 0))
+				{
+					w.LogProcess("DoGuildStorage: karakterin guild storage yetkisi yok.", Window.ProcessState.Warning);
+					return;
+				}
+			}
+			catch { }
+
+			bool nameMatched;
+			SREntity npc = FindTownNpc("GUILD_STORAGE", out nameMatched);
+			if (!PrepareNpcInteraction(npc, "GUILD_STORAGE", nameMatched, "DoGuildStorage", w, b))
+				return;
+
+			bool locked = false;
+			try
+			{
+				while (InfoManager.MonitorNpcTalk.WaitOne(0)) { }
+				PacketBuilder.TalkNPC(npc.UniqueID, 15);
+				bool dialogOpened = false;
+				for (int i = 0; i < 30 && IsConnectionAlive(b) && Running; i++)
+				{
+					if (InfoManager.MonitorNpcTalk.WaitOne(100)
+						&& InfoManager.LastNpcTalkEntityUniqueID == npc.UniqueID
+						&& InfoManager.LastNpcTalkID == 15)
+					{
+						dialogOpened = true;
+						break;
+					}
+				}
+				if (!dialogOpened)
+				{
+					w.LogProcess("DoGuildStorage: NPC guild-storage oturumu açılmadı.", Window.ProcessState.Warning);
+					return;
+				}
+
+				while (InfoManager.MonitorGuildStorageResponse.WaitOne(0)) { }
+				PacketBuilder.LockGuildStorage(npc.UniqueID);
+				if (!InfoManager.MonitorGuildStorageResponse.WaitOne(2500)
+					|| InfoManager.LastGuildStorageResult != 1)
+				{
+					w.LogProcess("DoGuildStorage: guild storage kilidi alınamadı; başka üye kullanıyor olabilir.", Window.ProcessState.Warning);
+					return;
+				}
+				locked = true;
+
+				DateTime previousData = InfoManager.LastGuildStorageInfoTime;
+				while (InfoManager.MonitorGuildStorageData.WaitOne(0)) { }
+				PacketBuilder.RefreshGuildStorage(npc.UniqueID);
+				bool loaded = false;
+				for (int i = 0; i < 40 && IsConnectionAlive(b) && Running; i++)
+				{
+					if (InfoManager.MonitorGuildStorageData.WaitOne(100)
+						&& InfoManager.LastGuildStorageInfoTime > previousData
+						&& InfoManager.Guild.Storage != null)
+					{
+						loaded = true;
+						break;
+					}
+				}
+				if (!loaded)
+				{
+					w.LogProcess("DoGuildStorage: güncel depo verisi gelmedi; eşya hareketi yapılmadı.", Window.ProcessState.Warning);
+					return;
+				}
+
+				DismantleCheck("Guild", w);
+				b.ExecuteGuildStorageDeposit(npc.UniqueID);
+				if (includeGold)
+					b.ExecuteGuildStorageGold();
+			}
+			catch (Exception ex)
+			{
+				w.LogProcess("DoGuildStorage hatası: " + ex.Message, Window.ProcessState.Warning);
+			}
+			finally
+			{
+				try
+				{
+					if (locked && IsConnectionAlive(b))
+					{
+						PacketBuilder.UnlockGuildStorage(npc.UniqueID);
+						WaitInterruptible(250);
+					}
+					if (IsConnectionAlive(b))
 						PacketBuilder.CloseNPC(npc.UniqueID);
 					WaitInterruptible(300);
 				}
@@ -784,6 +894,8 @@ namespace xBot.App
 		{
 			if (string.IsNullOrEmpty(code))
 				return new string[0];
+			if (code.Contains("GUILD_STORAGE"))
+				return new string[] { "GUILD_STORAGE", "GUILD WAREHOUSE", "GENARAL_SP", "_GUILD" };
 			if (code.Contains("WAREHOUSE") || code.Contains("STORAGE"))
 				return new string[] { "WAREHOUSE", "STORAGE" };
 			if (code.Contains("SMITH") || code.Contains("BLACKSMITH") || code.Contains("REPAIR"))

@@ -35,6 +35,8 @@ namespace xBot.Game
 		private static AutoResetEvent m_MonitorSkillCast = new AutoResetEvent(false);
 		private static AutoResetEvent m_MonitorMobSpawnChanged = new AutoResetEvent(false);
 		private static AutoResetEvent m_MonitorNpcTalk = new AutoResetEvent(false);
+		private static AutoResetEvent m_MonitorGuildStorageResponse = new AutoResetEvent(false);
+		private static AutoResetEvent m_MonitorGuildStorageData = new AutoResetEvent(false);
 		private static int m_stallViewsCount;
 		private static ulong m_stallEarnings;
 		#endregion
@@ -174,6 +176,8 @@ namespace xBot.Game
 		/// taşıma paketi GÖNDERMEMELİ (kapalı pencereye MoveItem = kick).
 		/// </summary>
 		public static DateTime LastStorageInfoTime { get; private set; } = DateTime.MinValue;
+		public static DateTime LastGuildStorageInfoTime { get; private set; } = DateTime.MinValue;
+		public static byte LastGuildStorageResult { get; private set; } = byte.MaxValue;
 		#endregion
 
 		#region (Monitors)
@@ -186,6 +190,8 @@ namespace xBot.Game
 		public static ushort LastSkillCastErrorCode { get; set; } = 0;
 		public static AutoResetEvent MonitorMobSpawnChanged { get { return m_MonitorMobSpawnChanged; } }
 		public static AutoResetEvent MonitorNpcTalk { get { return m_MonitorNpcTalk; } }
+		public static AutoResetEvent MonitorGuildStorageResponse { get { return m_MonitorGuildStorageResponse; } }
+		public static AutoResetEvent MonitorGuildStorageData { get { return m_MonitorGuildStorageData; } }
 		#endregion
 
 		#region (Methods)
@@ -315,6 +321,8 @@ namespace xBot.Game
 			SelectedEntityUniqueID = 0;
 			LastNpcTalkEntityUniqueID = 0;
 			LastNpcTalkID = 0;
+			LastGuildStorageInfoTime = DateTime.MinValue;
+			LastGuildStorageResult = byte.MaxValue;
 			m_Entities.Clear();
 			m_Players.Clear();
 			m_Mobs.Clear();
@@ -366,6 +374,8 @@ namespace xBot.Game
 			SelectedEntityUniqueID = 0;
 			LastNpcTalkEntityUniqueID = 0;
 			LastNpcTalkID = 0;
+			LastGuildStorageInfoTime = DateTime.MinValue;
+			LastGuildStorageResult = byte.MaxValue;
 			m_Entities.Clear();
 			m_Players.Clear();
 			m_Mobs.Clear();
@@ -1846,6 +1856,19 @@ namespace xBot.Game
 			{
 				PacketBuilder.TalkNPC(SelectedEntityUniqueID, 3);
 			}
+		}
+		internal static void OnGuildStorageResponse(byte result)
+		{
+			LastGuildStorageResult = result;
+			m_MonitorGuildStorageResponse.Set();
+		}
+		internal static void OnGuildStorageInfo(xList<SRItem> storage)
+		{
+			if (Guild == null)
+				return;
+			Guild.Storage = storage;
+			LastGuildStorageInfoTime = DateTime.Now;
+			m_MonitorGuildStorageData.Set();
 		}
 		internal static void OnTalkNpc(byte talkID)
 		{

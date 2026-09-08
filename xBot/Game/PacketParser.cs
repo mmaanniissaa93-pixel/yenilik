@@ -1474,6 +1474,7 @@ namespace xBot.Game
 			try
 			{
 				byte result = packet.ReadByte();
+				InfoManager.OnGuildStorageResponse(result);
 				if (result != 1)
 					Window.Get?.Log($"[Guild] Storage sonucu: {result}", LogLevel.Warning);
 			}
@@ -2497,7 +2498,7 @@ namespace xBot.Game
 				byte slot = p.ReadByte();
 				storage[slot] = ItemParsing(p);
 			}
-			InfoManager.Guild.Storage = storage;
+			InfoManager.OnGuildStorageInfo(storage);
 		}
 		public static void AcademyData(Packet packet)
 		{
