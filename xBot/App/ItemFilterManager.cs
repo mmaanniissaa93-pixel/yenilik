@@ -34,7 +34,8 @@ namespace xBot.App
             SetRuleFull(itemName, pickup, false, sell, store, false);
         }
 
-        public static void SetRuleFull(string itemName, bool pickup, bool pet, bool sell, bool store, bool storeGuild)
+        public static void SetRuleFull(string itemName, bool pickup, bool pet, bool sell, bool store, bool storeGuild,
+            bool takeStorage = false, bool takeGuildStorage = false)
         {
             if (string.IsNullOrEmpty(itemName))
                 return;
@@ -47,12 +48,15 @@ namespace xBot.App
                 Sell = sell,
                 Store = store,
                 StoreGuild = storeGuild,
+                TakeStorage = takeStorage,
+                TakeGuildStorage = takeGuildStorage,
                 MatchType = ItemFilterMatchType.Exact,
                 Pattern = ""
             };
         }
 
-        public static void SetRuleWithPattern(string itemName, bool pickup, bool sell, bool store, ItemFilterMatchType matchType, string pattern = "", bool pet = false, bool storeGuild = false)
+        public static void SetRuleWithPattern(string itemName, bool pickup, bool sell, bool store, ItemFilterMatchType matchType,
+            string pattern = "", bool pet = false, bool storeGuild = false, bool takeStorage = false, bool takeGuildStorage = false)
         {
             if (string.IsNullOrEmpty(itemName))
                 return;
@@ -65,6 +69,8 @@ namespace xBot.App
                 Sell = sell,
                 Store = store,
                 StoreGuild = storeGuild,
+                TakeStorage = takeStorage,
+                TakeGuildStorage = takeGuildStorage,
                 MatchType = matchType,
                 Pattern = pattern ?? ""
             };
@@ -171,6 +177,20 @@ namespace xBot.App
             return ItemFilterPolicy.ShouldStoreGuild(
                 CreateInput(item, item is SREquipable),
                 FindRule(item.Name, item.ServerName));
+        }
+
+        public static bool ShouldTakeStorage(SRItem item)
+        {
+            if (item == null)
+                return false;
+            return ItemFilterPolicy.ShouldTakeStorage(CreateInput(item, item is SREquipable), FindRule(item.Name, item.ServerName));
+        }
+
+        public static bool ShouldTakeGuildStorage(SRItem item)
+        {
+            if (item == null)
+                return false;
+            return ItemFilterPolicy.ShouldTakeGuildStorage(CreateInput(item, item is SREquipable), FindRule(item.Name, item.ServerName));
         }
 
         public static bool ShouldUsePet(SRDrop drop, bool petAvailable, bool petFull)
@@ -568,6 +588,8 @@ namespace xBot.App
                 r["Sell"] = rule.Sell;
                 r["Store"] = rule.Store;
                 r["StoreGuild"] = rule.StoreGuild;
+                r["TakeStorage"] = rule.TakeStorage;
+                r["TakeGuildStorage"] = rule.TakeGuildStorage;
                 r["MatchType"] = (int)rule.MatchType;
                 r["Pattern"] = rule.Pattern ?? "";
                 rulesArray.Add(r);
@@ -596,6 +618,7 @@ namespace xBot.App
             p["NoSellPlusEnabled"] = Pick.NoSellPlusEnabled;
             p["NoSellPlus"] = Pick.NoSellPlus;
             p["PickEvenWhenFull"] = Pick.PickEvenWhenFull;
+            p["StorageTakeKeepEmptySlots"] = Pick.StorageTakeKeepEmptySlots;
             json["PickOptions"] = p;
 
             JArray bluesArray = new JArray();
@@ -674,9 +697,11 @@ namespace xBot.App
                     bool sell = r.ContainsKey("Sell") && (bool)r["Sell"];
                     bool store = r.ContainsKey("Store") && (bool)r["Store"];
                     bool storeGuild = r.ContainsKey("StoreGuild") && (bool)r["StoreGuild"];
+                    bool takeStorage = r.ContainsKey("TakeStorage") && (bool)r["TakeStorage"];
+                    bool takeGuildStorage = r.ContainsKey("TakeGuildStorage") && (bool)r["TakeGuildStorage"];
                     if (matchType == ItemFilterMatchType.Exact && string.IsNullOrEmpty(pattern))
                     {
-                        SetRuleFull(name, pickup, pet, sell, store, storeGuild);
+                        SetRuleFull(name, pickup, pet, sell, store, storeGuild, takeStorage, takeGuildStorage);
                     }
                     else
                     {
@@ -688,6 +713,8 @@ namespace xBot.App
                             Sell = sell,
                             Store = store,
                             StoreGuild = storeGuild,
+                            TakeStorage = takeStorage,
+                            TakeGuildStorage = takeGuildStorage,
                             MatchType = matchType,
                             Pattern = pattern
                         };
@@ -732,6 +759,7 @@ namespace xBot.App
                 Pick.NoSellPlusEnabled = GetBool(po, "NoSellPlusEnabled", false);
                 Pick.NoSellPlus = GetInt(po, "NoSellPlus", 0);
                 Pick.PickEvenWhenFull = GetBool(po, "PickEvenWhenFull", false);
+                Pick.StorageTakeKeepEmptySlots = Math.Max(0, Math.Min(50, GetInt(po, "StorageTakeKeepEmptySlots", 3)));
             }
 
             if (json.ContainsKey("Blues"))

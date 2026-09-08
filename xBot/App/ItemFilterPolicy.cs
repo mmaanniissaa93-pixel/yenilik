@@ -56,6 +56,8 @@ namespace xBot.App
         public bool Sell { get; set; } = false;
         public bool Store { get; set; } = false;
         public bool StoreGuild { get; set; } = false;
+        public bool TakeStorage { get; set; } = false;
+        public bool TakeGuildStorage { get; set; } = false;
 
         // Pattern matching support
         public ItemFilterMatchType MatchType { get; set; } = ItemFilterMatchType.Exact;
@@ -219,6 +221,16 @@ namespace xBot.App
         public static bool ShouldStoreGuild(ItemFilterInput input, ItemFilterRule rule)
         {
             return input != null && rule != null && rule.StoreGuild;
+        }
+
+        public static bool ShouldTakeStorage(ItemFilterInput input, ItemFilterRule rule)
+        {
+            return input != null && rule != null && rule.TakeStorage;
+        }
+
+        public static bool ShouldTakeGuildStorage(ItemFilterInput input, ItemFilterRule rule)
+        {
+            return input != null && rule != null && rule.TakeGuildStorage;
         }
 
         /// <summary>

@@ -55,6 +55,10 @@ internal static class Program
         RunAction("SoX varsayılan olarak depolanır", new ItemFilterInput { IsSox = true }, null, true, false);
         RunAction("Açık sell kuralı satışa izin verir", new ItemFilterInput(), new ItemFilterRule { Sell = true }, false, true);
         RunAction("Store=false açık kuralı varsayılan SoX depolamasını kapatır", new ItemFilterInput { IsSox = true }, new ItemFilterRule { Store = false }, false, false);
+        RunTakeAction("TakeStorage yalnız kişisel depodan almayı işaretler",
+            new ItemFilterRule { TakeStorage = true }, true, false);
+        RunTakeAction("TakeGuildStorage yalnız guild deposundan almayı işaretler",
+            new ItemFilterRule { TakeGuildStorage = true }, false, true);
 
         RunCombat("Avoid kuralındaki mob hedeflenmez", new CombatTargetInput { Avoided = true }, false);
         RunCombat("Dimension pillar ayarı açıkken hedeflenmez", new CombatTargetInput { IsDimensionPillar = true, IgnoreDimensionPillars = true }, false);
@@ -561,7 +565,7 @@ internal static class Program
         RunScriptCheck("phBot DoBlacksmith komutu parametresiz kabul edilir",
             ScriptCommandCatalog.TryParse("DoBlacksmith", out invocation, out error)
                 && invocation.Command == "DoBlacksmith", true);
-        string[] townCommands = { "DoHerbalist", "DoStable", "DoStorage", "DoStorageStore", "DoGuildStorage", "DoGuildStorageStore", "DoGroceryTrader", "DoProtectorTrader", "DoJupiter" };
+        string[] townCommands = { "DoHerbalist", "DoStable", "DoStorage", "DoStorageStore", "DoStorageTake", "DoGuildStorage", "DoGuildStorageStore", "DoGuildStorageTake", "DoGroceryTrader", "DoProtectorTrader", "DoJupiter" };
         bool allTownCommandsKnown = true;
         for (int i = 0; i < townCommands.Length; i++)
             allTownCommandsKnown &= ScriptCommandCatalog.TryParse(townCommands[i], out invocation, out error);
@@ -719,6 +723,20 @@ internal static class Program
         failures++;
         Console.WriteLine("FAIL: " + name + " | store beklenen=" + expectedStore + ", gerçek=" + actualStore
             + "; sell beklenen=" + expectedSell + ", gerçek=" + actualSell);
+    }
+
+    private static void RunTakeAction(string name, ItemFilterRule rule, bool expectedStorage, bool expectedGuild)
+    {
+        ItemFilterInput input = new ItemFilterInput();
+        bool actualStorage = ItemFilterPolicy.ShouldTakeStorage(input, rule);
+        bool actualGuild = ItemFilterPolicy.ShouldTakeGuildStorage(input, rule);
+        if (actualStorage == expectedStorage && actualGuild == expectedGuild)
+        {
+            Console.WriteLine("PASS: " + name);
+            return;
+        }
+        failures++;
+        Console.WriteLine("FAIL: " + name + " | storage=" + actualStorage + ", guild=" + actualGuild);
     }
 
     private static void RunCombat(string name, CombatTargetInput input, bool expected)

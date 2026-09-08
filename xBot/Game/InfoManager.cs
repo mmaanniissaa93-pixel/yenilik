@@ -1277,6 +1277,10 @@ namespace xBot.Game
 				m_MonitorWeaponChanged.Set();
 			m_MonitorInventoryMovement.Set();
 		}
+		internal static void OnInventoryMovementAck()
+		{
+			m_MonitorInventoryMovement.Set();
+		}
 
 		internal static void OnInventoryToExchange(byte slotInventory)
 		{

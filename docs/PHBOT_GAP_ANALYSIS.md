@@ -181,14 +181,15 @@ ilk entegrasyon diliminde `walk` takma adı, `teleport`, `cast`, `use`, `stop`,
 `DoBlacksmith`, `DoHerbalist`, `DoStable`, `DoStorage`, `DoStorageStore`,
 `DoGroceryTrader`, `DoProtectorTrader` ve `DoJupiter` eklendi. Üçüncü dilimde
 kilit ve sunucu-onay kapılı `DoGuildStorage` ile `DoGuildStorageStore` eklendi.
+Dördüncü dilimde item filtresindeki ayrı `Take`/`TakeGuild` kurallarına bağlı
+`DoStorageTake` ve `DoGuildStorageTake`, boş envanter slotu koruması ve hareket
+başına sunucu onayıyla eklendi.
 `WAIT` artık kesilebilir;
 Training > Script alanında ortak komut kataloğunu kullanan phBot-benzeri Script
 Creator, doğrulama ve load/save akışı bulunur.
 
 Kalan eksik komutlar:
 
-- `DoStorageTake`
-- `DoGuildStorageTake`
 - `DoConsignment`
 - `DoStall`
 - `DoScript`

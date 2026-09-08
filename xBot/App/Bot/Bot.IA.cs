@@ -1351,6 +1351,52 @@ namespace xBot.App
             ReportUnhandledFilterItems(w);
         }
 
+		private int CountEmptyInventorySlots()
+		{
+			if (InfoManager.Character == null || InfoManager.Character.Inventory == null)
+				return 0;
+			int count = 0;
+			var inventory = InfoManager.Character.Inventory;
+			for (int slot = 13; slot < inventory.Capacity; slot++)
+				if (inventory[slot] == null) count++;
+			return count;
+		}
+
+		public void ExecuteStorageTake(uint npcUniqueID)
+		{
+			Window w = Window.Get;
+			if (InfoManager.Character == null || InfoManager.Character.Inventory == null
+				|| InfoManager.Character.Storage == null)
+				return;
+			var inventory = InfoManager.Character.Inventory;
+			var storage = InfoManager.Character.Storage;
+			int keepEmpty = Math.Max(0, ItemFilterManager.Pick.StorageTakeKeepEmptySlots);
+			for (int storageSlot = 0; storageSlot < storage.Capacity && isBotting; storageSlot++)
+			{
+				SRItem item = storage[storageSlot];
+				if (item == null || !ItemFilterManager.ShouldTakeStorage(item))
+					continue;
+				if (CountEmptyInventorySlots() <= keepEmpty)
+				{
+					w.LogProcess($"Storage Take: envanterde {keepEmpty} boş slot korunuyor.");
+					break;
+				}
+				int inventorySlot = inventory.FindIndex(value => value == null, 13);
+				if (inventorySlot < 0)
+					break;
+				w.Log($"Storage Take: [{item.Name}] x{item.Quantity} (storage:{storageSlot} -> inv:{inventorySlot})...");
+				InfoManager.MonitorInventoryMovement.Reset();
+				PacketBuilder.MoveStorageItem((byte)storageSlot, (byte)inventorySlot,
+					SRTypes.InventoryItemMovement.StorageToInventory, item.Quantity, npcUniqueID);
+				if (!InfoManager.MonitorInventoryMovement.WaitOne(2500))
+				{
+					w.LogProcess("Storage Take: hareket onayı gelmedi; işlem durduruldu.", Window.ProcessState.Warning);
+					break;
+				}
+				if (!SleepInterruptible(400)) break;
+			}
+		}
+
 		public void ExecuteGuildStorageDeposit(uint npcUniqueID)
 		{
 			Window w = Window.Get;
@@ -1382,6 +1428,40 @@ namespace xBot.App
 				}
 				if (!SleepInterruptible(400))
 					break;
+			}
+		}
+
+		public void ExecuteGuildStorageTake(uint npcUniqueID)
+		{
+			Window w = Window.Get;
+			if (!InfoManager.inGuild || InfoManager.Guild == null || InfoManager.Guild.Storage == null
+				|| InfoManager.Character == null || InfoManager.Character.Inventory == null)
+				return;
+			var inventory = InfoManager.Character.Inventory;
+			var storage = InfoManager.Guild.Storage;
+			int keepEmpty = Math.Max(0, ItemFilterManager.Pick.StorageTakeKeepEmptySlots);
+			for (int storageSlot = 0; storageSlot < storage.Capacity && isBotting; storageSlot++)
+			{
+				SRItem item = storage[storageSlot];
+				if (item == null || !ItemFilterManager.ShouldTakeGuildStorage(item))
+					continue;
+				if (CountEmptyInventorySlots() <= keepEmpty)
+				{
+					w.LogProcess($"Guild Storage Take: envanterde {keepEmpty} boş slot korunuyor.");
+					break;
+				}
+				int inventorySlot = inventory.FindIndex(value => value == null, 13);
+				if (inventorySlot < 0) break;
+				w.Log($"Guild Storage Take: [{item.Name}] x{item.Quantity} (guild:{storageSlot} -> inv:{inventorySlot})...");
+				InfoManager.MonitorInventoryMovement.Reset();
+				PacketBuilder.MoveStorageItem((byte)storageSlot, (byte)inventorySlot,
+					SRTypes.InventoryItemMovement.GuildToInventory, item.Quantity, npcUniqueID);
+				if (!InfoManager.MonitorInventoryMovement.WaitOne(2500))
+				{
+					w.LogProcess("Guild Storage Take: hareket onayı gelmedi; işlem durduruldu.", Window.ProcessState.Warning);
+					break;
+				}
+				if (!SleepInterruptible(400)) break;
 			}
 		}
 

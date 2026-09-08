@@ -21,6 +21,7 @@ namespace xBot.App
         private ComboBox cmbPickDegree;
         private TextBox txtPickSearch;
         private Label lblPickCount;
+        private NumericUpDown nudTakeKeepEmptySlots;
         private int pickCtxColumn = -1;
         private bool loadingPickFilterUi;
 
@@ -266,13 +267,15 @@ namespace xBot.App
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
             lstPickItems.Columns.Add("ID", 50);
-            lstPickItems.Columns.Add("Name", 250);
+            lstPickItems.Columns.Add("Name", 155);
             lstPickItems.Columns.Add("Level", 45);
             lstPickItems.Columns.Add("Pick", 42);
             lstPickItems.Columns.Add("Pet", 42);
             lstPickItems.Columns.Add("Sell", 42);
             lstPickItems.Columns.Add("Store", 50);
             lstPickItems.Columns.Add("StoreGuild", 65);
+            lstPickItems.Columns.Add("Take", 48);
+            lstPickItems.Columns.Add("TakeGuild", 68);
 
             var ctx = new ContextMenuStrip();
             var miYes = new ToolStripMenuItem("Yes");
@@ -334,9 +337,26 @@ namespace xBot.App
                 Text = "* SOX items will not be sold, and your primary/secondary weapon will not be sold/stored"
             };
 
+            var lblKeepEmpty = new Label
+            {
+                Location = new Point(8, fy + 66),
+                Size = new Size(245, 22),
+                Text = "Storage take: keep inventory slots empty"
+            };
+            nudTakeKeepEmptySlots = new NumericUpDown
+            {
+                Location = new Point(258, fy + 63),
+                Size = new Size(62, 22),
+                Minimum = 0,
+                Maximum = 50,
+                Value = 3
+            };
+            nudTakeKeepEmptySlots.ValueChanged += (s, e) => SaveAllPickFilterLive();
+
             tab.Controls.AddRange(new Control[] {
                 lstPickItems, cmbPickGroup, cmbPickRace, cmbPickGender, cmbPickDegree,
-                txtPickSearch, lblPickCount, btnClear, btnUpdate, btnReset, lblNote });
+                txtPickSearch, lblPickCount, btnClear, btnUpdate, btnReset, lblNote,
+                lblKeepEmpty, nudTakeKeepEmptySlots });
         }
 
         /// <summary>
@@ -369,7 +389,7 @@ namespace xBot.App
                         continue;
                     if (value == "Reset")
                     {
-                        for (int c = 3; c <= 7 && c < item.SubItems.Count; c++)
+                        for (int c = 3; c <= 9 && c < item.SubItems.Count; c++)
                             item.SubItems[c].Text = "No";
                     }
                     else
@@ -391,8 +411,9 @@ namespace xBot.App
                 if (string.IsNullOrEmpty(servername)) return;
                 bool pick = GetFlag(item, 3), pet = GetFlag(item, 4), sell = GetFlag(item, 5);
                 bool store = GetFlag(item, 6), guild = GetFlag(item, 7);
-                if (pick || pet || sell || store || guild)
-                    ItemFilterManager.SetRuleFull(servername, pick, pet, sell, store, guild);
+                bool take = GetFlag(item, 8), takeGuild = GetFlag(item, 9);
+                if (pick || pet || sell || store || guild || take || takeGuild)
+                    ItemFilterManager.SetRuleFull(servername, pick, pet, sell, store, guild, take, takeGuild);
                 else
                     ItemFilterManager.RemoveRule(servername);
             }
@@ -429,7 +450,7 @@ namespace xBot.App
                         string servername = row["servername"] ?? "";
                         string level = row["level"] ?? "0";
                         var rule = ItemFilterManager.GetRule(name) ?? ItemFilterManager.GetRule(servername);
-                        string pick = "No", pet = "No", sell = "No", store = "No", guild = "No";
+                        string pick = "No", pet = "No", sell = "No", store = "No", guild = "No", take = "No", takeGuild = "No";
                         if (rule != null)
                         {
                             pick = rule.Pickup ? "Yes" : "No";
@@ -437,8 +458,10 @@ namespace xBot.App
                             sell = rule.Sell ? "Yes" : "No";
                             store = rule.Store ? "Yes" : "No";
                             guild = rule.StoreGuild ? "Yes" : "No";
+                            take = rule.TakeStorage ? "Yes" : "No";
+                            takeGuild = rule.TakeGuildStorage ? "Yes" : "No";
                         }
-                        var item = new ListViewItem(new string[] { id, name, level, pick, pet, sell, store, guild });
+                        var item = new ListViewItem(new string[] { id, name, level, pick, pet, sell, store, guild, take, takeGuild });
                         item.Tag = servername;
                         lstPickItems.Items.Add(item);
                     }
@@ -466,9 +489,10 @@ namespace xBot.App
                         if (string.IsNullOrEmpty(servername)) continue;
                         bool pick = GetFlag(item, 3), pet = GetFlag(item, 4), sell = GetFlag(item, 5);
                         bool store = GetFlag(item, 6), guild = GetFlag(item, 7);
-                        if (pick || pet || sell || store || guild)
+                        bool take = GetFlag(item, 8), takeGuild = GetFlag(item, 9);
+                        if (pick || pet || sell || store || guild || take || takeGuild)
                         {
-                            ItemFilterManager.SetRuleFull(servername, pick, pet, sell, store, guild);
+                            ItemFilterManager.SetRuleFull(servername, pick, pet, sell, store, guild, take, takeGuild);
                             saved++;
                         }
                         else
@@ -742,6 +766,8 @@ namespace xBot.App
                 optNoSellPlus.Checked = o.NoSellPlusEnabled;
                 try { nudNoSellPlus.Value = Math.Max(0, Math.Min(15, o.NoSellPlus)); } catch { }
                 optPickEvenWhenFull.Checked = o.PickEvenWhenFull;
+                if (nudTakeKeepEmptySlots != null)
+                    nudTakeKeepEmptySlots.Value = Math.Max(0, Math.Min(50, o.StorageTakeKeepEmptySlots));
             }
             catch { }
         }
@@ -774,6 +800,8 @@ namespace xBot.App
                 o.NoSellPlusEnabled = optNoSellPlus.Checked;
                 try { o.NoSellPlus = (int)nudNoSellPlus.Value; } catch { }
                 o.PickEvenWhenFull = optPickEvenWhenFull.Checked;
+                if (nudTakeKeepEmptySlots != null)
+                    o.StorageTakeKeepEmptySlots = (int)nudTakeKeepEmptySlots.Value;
             }
             catch { }
         }

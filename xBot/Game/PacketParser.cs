@@ -2745,6 +2745,7 @@ namespace xBot.Game
 			// Just move it leaving an empty space at inventory
 			storage[slotStorage] = inventory[slotInventory];
 			inventory[slotInventory] = null;
+			InfoManager.OnInventoryMovementAck();
 		}
 		private static void InventoryItemMovement_StorageToInventory(Packet p)
 		{
@@ -2758,6 +2759,7 @@ namespace xBot.Game
 			// Just move it leaving an empty space at storage
 			inventory[slotInventory] = storage[slotStorage];
 			storage[slotStorage] = null;
+			InfoManager.OnInventoryMovementAck();
 		}
 		private static void InventoryItemMovement_InventoryToExchange(Packet p)
 		{
@@ -3103,6 +3105,7 @@ namespace xBot.Game
 			// Just move it leaving an empty space at inventory
 			storage[slotStorage] = inventory[slotInventory];
 			inventory[slotInventory] = null;
+			InfoManager.OnInventoryMovementAck();
 		}
 		private static void InventoryItemMovement_GuildToInventory(Packet p)
 		{
@@ -3116,6 +3119,7 @@ namespace xBot.Game
 			// Just move it leaving an empty space at storage
 			inventory[slotInventory] = storage[slotStorage];
 			storage[slotStorage] = null;
+			InfoManager.OnInventoryMovementAck();
 		}
 		private static void InventoryItemMovement_InventoryGoldToGuild(Packet p)
 		{

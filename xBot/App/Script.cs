@@ -331,8 +331,10 @@ namespace xBot.App
 				case "dostable":
 				case "dostorage":
 				case "dostoragestore":
+				case "dostoragetake":
 				case "doguildstorage":
 				case "doguildstoragestore":
+				case "doguildstoragetake":
 				case "dogrocerytrader":
 				case "doprotectortrader":
 				case "dojupiter":
@@ -520,9 +522,15 @@ namespace xBot.App
 
 		private void ExecuteTownService(string command, Window w, Bot b)
 		{
-			if (command == "doguildstorage" || command == "doguildstoragestore")
+			if (command == "doguildstorage" || command == "doguildstoragestore" || command == "doguildstoragetake")
 			{
-				ExecuteGuildStorageStep(command == "doguildstorage", w, b);
+				ExecuteGuildStorageStep(command != "doguildstoragetake", command == "doguildstorage",
+					command == "doguildstoragetake", w, b);
+				return;
+			}
+			if (command == "dostoragetake")
+			{
+				ExecuteStorageTakeStep(w, b);
 				return;
 			}
 			if (command == "dostorage" || command == "dostoragestore")
@@ -601,7 +609,52 @@ namespace xBot.App
 			}
 		}
 
-		private void ExecuteGuildStorageStep(bool includeGold, Window w, Bot b)
+		private void ExecuteStorageTakeStep(Window w, Bot b)
+		{
+			bool nameMatched;
+			SREntity npc = FindTownNpc("WAREHOUSE", out nameMatched);
+			if (!PrepareNpcInteraction(npc, "WAREHOUSE", nameMatched, "DoStorageTake", w, b))
+				return;
+			try
+			{
+				DateTime openTime = DateTime.Now;
+				if (InfoManager.isStorageLoaded)
+					PacketBuilder.TalkNPC(npc.UniqueID, 3);
+				else
+					PacketBuilder.OpenStorage(npc.UniqueID);
+				bool opened = false;
+				for (int i = 0; i < 40 && IsConnectionAlive(b) && Running; i++)
+				{
+					if (InfoManager.LastStorageInfoTime > openTime || InfoManager.inStorage)
+					{
+						opened = true;
+						break;
+					}
+					if (!WaitInterruptible(100)) return;
+				}
+				if (!opened || InfoManager.Character.Storage == null)
+				{
+					w.LogProcess("DoStorageTake: güncel storage verisi alınamadı.", Window.ProcessState.Warning);
+					return;
+				}
+				b.ExecuteStorageTake(npc.UniqueID);
+			}
+			catch (Exception ex)
+			{
+				w.LogProcess("DoStorageTake hatası: " + ex.Message, Window.ProcessState.Warning);
+			}
+			finally
+			{
+				try
+				{
+					if (IsConnectionAlive(b)) PacketBuilder.CloseNPC(npc.UniqueID);
+					WaitInterruptible(300);
+				}
+				catch { }
+			}
+		}
+
+		private void ExecuteGuildStorageStep(bool storeItems, bool includeGold, bool takeItems, Window w, Bot b)
 		{
 			if (!InfoManager.inGuild || InfoManager.Guild == null)
 			{
@@ -679,7 +732,10 @@ namespace xBot.App
 				}
 
 				DismantleCheck("Guild", w);
-				b.ExecuteGuildStorageDeposit(npc.UniqueID);
+				if (storeItems)
+					b.ExecuteGuildStorageDeposit(npc.UniqueID);
+				if (takeItems && Running)
+					b.ExecuteGuildStorageTake(npc.UniqueID);
 				if (includeGold)
 					b.ExecuteGuildStorageGold();
 			}

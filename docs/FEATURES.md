@@ -71,7 +71,7 @@ Son kaynak taraması: 2026-09-08
 | F-044 | Çok bölgeli bileşik rota | ✅ | `Game/Navigation/NavigationManager.cs`; NavMesh A* ve bölgeler arası geçiş bağlı |
 | F-045 | Teleport/ferry rota bağlantısı | ✅ | `Game/Navigation/TeleportManager.cs`, `App/Bot/Bot.IA.cs`; nehir feribotları ve şehir kapısı teleport geçişleri bağlı |
 | F-046 | Minimap üzerinden hareket ve teleport | ✅ | `xGraphics/`, `Game/Navigation/` |
-| F-047 | Trace, koordinat kaydı ve Script Engine v2 | 🧪 | `App/Script.cs`, `App/ScriptCommandCatalog.cs`, `App/Bot/Bot.cs`, Training > Script; eski komutlara ek olarak `walk/cast/use/teleport/recall/stop/disconnect`, temel town komutları ve kilit/onay korumalı `DoGuildStorage/DoGuildStorageStore`, kesilebilir bekleme, satır doğrulama ve phBot-benzeri Script Creator bağlıdır. Yeni oyun komutları sunucu üzerinde doğrulanmayı bekliyor. |
+| F-047 | Trace, koordinat kaydı ve Script Engine v2 | 🧪 | `App/Script.cs`, `App/ScriptCommandCatalog.cs`, `App/Bot/Bot.cs`, Training > Script; eski komutlara ek olarak `walk/cast/use/teleport/recall/stop/disconnect`, temel town komutları, kilit/onay korumalı guild storage ve filtreye bağlı `DoStorageTake/DoGuildStorageTake`, kesilebilir bekleme, satır doğrulama ve phBot-benzeri Script Creator bağlıdır. Yeni oyun komutları sunucu üzerinde doğrulanmayı bekliyor. |
 
 ### Eşya, envanter ve şehir ekonomisi
 
@@ -83,7 +83,7 @@ Son kaynak taraması: 2026-09-08
 | F-053 | Pet ile eşya toplama | ✅ | `App/Bot/Bot.IA.cs` |
 | F-054 | Eşya pickup filtresi: SoX, cinsiyet ve açık kurallar | ✅ | `App/ItemFilterManager.cs`, `App/Bot/Bot.IA.cs`, `App/Window.CustomTabs.cs`; tüm drop türlerinde bağlı ve UI kural editörü mevcut |
 | F-055 | Degree/China/Europe filtresi | ✅ | `App/ItemFilterManager.cs`, `App/ItemFilterPolicy.cs`, `App/Window.CustomTabs.cs`; pickup kararında uygulanıyor ve UI’dan ayarlanıyor |
-| F-056 | Eşyayı satma/depolama kuralları | ✅ | `App/ItemFilterManager.cs`, `App/Bot/Bot.IA.cs`, `App/Window.CustomTabs.cs`; şehir lojistiğine bağlı ve UI’dan yönetiliyor |
+| F-056 | Eşyayı satma/depolama ve depodan alma kuralları | 🧪 | `App/ItemFilterManager.cs`, `App/Bot/Bot.IA.cs`, `App/Window.PickFilter.cs`; kişisel/guild depo için ayrı Store ve Take sütunları, boş slot koruması, JSON kalıcılığı ve hareket başına sunucu onayı bağlıdır. Take paketlerinin oyun içi sunucu doğrulaması bekleniyor. |
 | F-057 | NPC alış/satış ve buy-back paketleri | ✅ | `Game/PacketBuilder.cs`, `Game/PacketParser.cs` |
 | F-058 | Otomatik Simya (+ Basma / Auto Alchemy) | ✅ | `App/AlchemyPolicy.cs`, `App/AlchemyManager.cs`, `Game/PacketBuilder.cs`, `Network/Agent.cs`; tek scheduler, sunucu cevabı bekleme, timeout, hedef item kimliği ve disconnect güvenlik kapıları |
 

@@ -27,6 +27,7 @@ namespace xBot.App
         public bool NoSellPlusEnabled { get; set; } = false;
         public int NoSellPlus { get; set; } = 0;
         public bool PickEvenWhenFull { get; set; } = false;
+        public int StorageTakeKeepEmptySlots { get; set; } = 3;
     }
 
     /// <summary>
