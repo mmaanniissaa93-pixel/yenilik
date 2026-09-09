@@ -128,7 +128,7 @@ Son kaynak taraması: 2026-09-08
 | F-097 | Gateway notice/ping/patch + download stub (srodevs-docs) | ✅ | `0xA104` notice, `0xA106` ping, `0xA100` PatchErrorCode + dosya listesi, `0x6004/0x1001/0xA004` download stub; `RequestNotice/RequestShardListPing/RestoreCharacter` builder |
 | F-098 | Auth/patch/petition/weather politika haritası (srodevs-docs) | ✅ | `0xA103` auth hata kodları (C9/C10/full/IP), patch hata adları, petition GuildWar(10)/Resurrection(8), `SroDocsPolicy` + 32 senaryo |
 | F-099 | Quest Automation v1 | 🧪 | `App/QuestAutomationManager.cs`, `QuestAutomationPolicy.cs`, modern Görevler paneli, karakter profili `QuestAutomation`; aktif liste, enable/disable, abandon, tamamlanınca return/script ve event/So-Ok ödülü bağlı. RefQuest kataloğu ile normal kabul/teslim v2 kapsamında. |
-| F-100 | Quest Automation v2 — görev yaşam döngüsü | 🧪 | Her görev için pasifse kabul, bitince teslim ve sunulursa tekrar seçenekleri; gerektiğinde return, PK2 `NoticeNPC`/öğrenilmiş konum ile NPC çözümü ve navmesh yürüyüşü. `0x30D4/0x3514/0x7515` akışında sabit ödül 5 bayt (`selection=0`), seçilebilir ödül 9 bayttır; çoklu ödül yalnız kesin silah eşleşmesiyle seçilir. Mevcut DB bir kez yeniden oluşturulmalı. |
+| F-100 | Quest Automation v2 — görev yaşam döngüsü | 🧪 | Tek NPC konuşması; `0x30D5` add/remove ile kabul/teslim onayı, 12 sn timeout ve en fazla 3 deneme, kontrollü tekrar kabul. PK2 `npcpos.txt` + görev metniyle genel NPC keşfi; silah türü/ad/kullanıcı ödül tercihi; açık UI durumları. [Doğrulama ve kalan canlı kontroller](QUEST_AUTOMATION_VALIDATION.md). PK2 DB yeniden oluşturulmalı. |
 
 ## Geliştirilmekte olan yöneticiler
 

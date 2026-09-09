@@ -234,3 +234,10 @@ Issues at GetPosition().. Looks like is not calculating the realtime position co
 - Fixed buff tracking on entity spawns
 - Fixed message on item pick up
 - Updated README
+
+### Quest Automation v2 — normal görev onayı ve NPC keşfi
+
+- Kabul yalnız eşleşen `0x30D5` add ile, teslim ödül isteğinden sonraki remove ile onaylanır. Timeout, üç deneme sınırı, tekrar beklemesi ve stop/teleport iptali eklendi.
+- Genel PK2 NPC konumları ve görev metinleri içe aktarılır; X/Z/Y ve işaretli dungeon bölgesi korunur. Belirsiz NPC eşleşmeleri otomatik yürüyüş başlatmaz.
+- Ödül tercihi ve görev bazında açık UI durumları eklendi. Yerel manager senaryoları ve salt-okunur PK2 kapsam denetimi eklendi.
+- Canlı normal görev/tekrar zinciri henüz doğrulanmadı; bkz. `docs/QUEST_AUTOMATION_VALIDATION.md`.

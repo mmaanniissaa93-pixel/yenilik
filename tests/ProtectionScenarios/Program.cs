@@ -541,6 +541,7 @@ internal static class Program
         RunSroCheck("Tamamlanan otomatik NPC teslimi kuyruğa alınır",
             QuestAutomationPolicy.ShouldQueue(true, QuestCompletionAction.TurnInAtNpc, 2, false), true);
         RunQuestTalkScenarios();
+        RunQuestRuntimeScenarios();
 
         RunDictionaryRenameScenarios();
         RunSecretStoreScenarios();
@@ -725,6 +726,74 @@ internal static class Program
         RunSroCheck("Tekrarlanabilir görev sunulduğunda yeniden kabul edilir",
             QuestAutomationPolicy.ResolveNpcOperation(false, 0, true, true, true, true, false)
                 == QuestNpcOperation.Accept, true);
+    }
+
+    private static void RunQuestRuntimeScenarios()
+    {
+        DateTime now = new DateTime(2026, 9, 9, 12, 0, 0, DateTimeKind.Utc);
+        var accept = new QuestNpcTransaction { QuestId = 100, Operation = QuestNpcOperation.Accept };
+        RunSroCheck("Kabul denemesi tek sahip ile başlar", accept.Begin(now) && !accept.Begin(now), true);
+        RunSroCheck("Seçim gönderilmeden add onay değildir", accept.Observe(100, 1), false);
+        accept.ActionSent = true;
+        RunSroCheck("İlgisiz görev add paketi onay değildir", accept.Observe(101, 1), false);
+        RunSroCheck("Progress update kabul onayı değildir", accept.Observe(100, 2), false);
+        RunSroCheck("Add kabulü doğrular", accept.Observe(100, 1) && accept.Confirmed && !accept.Waiting, true);
+        RunSroCheck("Çift add ikinci onay üretmez", accept.Observe(100, 1), false);
+
+        var turnIn = new QuestNpcTransaction { QuestId = 100, Operation = QuestNpcOperation.TurnIn };
+        turnIn.Begin(now); turnIn.ActionSent = true;
+        RunSroCheck("Ödül gönderilmeden remove başarı değildir", turnIn.Observe(100, 3), false);
+        turnIn.RewardSent = true;
+        RunSroCheck("Ödül isteği tek başına başarı değildir", turnIn.Confirmed, false);
+        RunSroCheck("Abandon teslim onayı değildir", turnIn.Observe(100, 4), false);
+        RunSroCheck("Completed update görev silinmesi değildir", turnIn.Observe(100, 2), false);
+        turnIn.Fail(now.AddSeconds(13), "timeout");
+        RunSroCheck("Backoff dolmadan tekrar gönderilmez", turnIn.Begin(now.AddSeconds(14)), false);
+        RunSroCheck("Gecikmiş remove teslimi doğrular", turnIn.Observe(100, 3), true);
+        RunSroCheck("Gecikmiş onaydan sonra tekrar teslim edilmez", turnIn.Begin(now.AddMinutes(1)), false);
+        RunSroCheck("Silinme sonrası repeat kabulü seçer", QuestAutomationPolicy.ResolveNpcOperation(false, 0, true, true, true, true, false) == QuestNpcOperation.Accept, true);
+        var repeat = new QuestNpcTransaction { QuestId = 100, Operation = QuestNpcOperation.Accept };
+        repeat.Begin(now.AddSeconds(20)); repeat.ActionSent = true;
+        RunSroCheck("Tekrar kabul eski remove ile doğrulanmaz", repeat.Observe(100, 3), false);
+        RunSroCheck("Tekrar kabul yeni add bekler", repeat.Observe(100, 1), true);
+        var timeout = new QuestNpcTransaction { QuestId = 200 };
+        for (int i = 0; i < 3; i++) { timeout.Begin(now.AddMinutes(i)); timeout.Fail(now.AddMinutes(i).AddSeconds(13), "timeout"); }
+        RunSroCheck("Üç başarısız denemeden sonra otomatik döngü durur", timeout.Terminal && timeout.Attempts == 3 && !timeout.Begin(now.AddDays(1)), true);
+
+        var position = QuestNpcCatalogPolicy.ParsePosition("2015\t25001\t183.8\t-35.990002\t913.08002");
+        RunSroCheck("PK2 NPC X/Z/Y sırası korunur", position != null && position.X == 184 && position.Z == -36 && position.Y == 913 && position.Region == 25001, true);
+        RunSroCheck("NPC NaN reddedilir", QuestNpcCatalogPolicy.ParsePosition("2015 25001 NaN 0 10") == null, true);
+        RunSroCheck("NPC eksik satır reddedilir", QuestNpcCatalogPolicy.ParsePosition("2015 25001 10 20") == null, true);
+        RunSroCheck("Dış dünyada taşan yerel koordinat reddedilir", QuestNpcCatalogPolicy.ParsePosition("2015 25001 99999 0 10") == null, true);
+        RunSroCheck("NPC eşleşmesi NoticeNPC sözcük sırasından bağımsızdır", QuestNpcCatalogPolicy.MatchesNotice("Soboi, blacksmith of Hotan", "NPC_KT_SMITH", "Blacksmith Soboi"), true);
+        RunSroCheck("Aynı hizmetin başka NPC'sine gidilmez", QuestNpcCatalogPolicy.MatchesNotice("Soboi, blacksmith of Hotan", "NPC_CA_SMITH", "Blacksmith Chulsan"), false);
+        RunSroCheck("NPC adı kısmi sözcükle eşleşmez", QuestNpcCatalogPolicy.MatchesNotice("Blacksmith Soboix", "NPC_KT_SMITH", "Blacksmith Soboi"), false);
+
+        var dungeon = QuestNpcCatalogPolicy.ParsePosition("1971 -32767 605.84 -9.98 202.72");
+        RunSroCheck("İşaretli PK2 dungeon bölgesi UInt16 olarak korunur", dungeon != null && dungeon.Region == 32769, true);
+        RunSroCheck("NPC görev ailesi ve görünür isim birlikte doğrulanır", QuestNpcCatalogPolicy.MatchesQuestNpc("QNO_WC_GENARAL_SP_1", "Baekako of Donwhang", "NPC_WC_GENARAL_SP", "General Baekako"), true);
+        RunSroCheck("Görev kodu tek başına NPC eşleşmesi sayılmaz", QuestNpcCatalogPolicy.MatchesQuestNpc("QNO_WC_GENARAL_SP_1", "Some other person", "NPC_WC_GENARAL_SP", "General Baekako"), false);
+
+        RunSroCheck("Unvan ve kod farklı kişi adına üstün gelmez", QuestNpcCatalogPolicy.MatchesQuestNpc("QNO_WC_GENARAL_SP_1", "General Honmusa", "NPC_WC_GENARAL_SP", "General Baekako"), false);
+
+        var rewards = new List<System.Collections.Specialized.NameValueCollection> {
+            RewardRow(1, "Sword", 1, 6, 3), RewardRow(2, "Blade", 1, 6, 4), RewardRow(3, "Ring", 1, 5, 3)
+        };
+        uint id;
+        RunSroCheck("Silah türü aynı TID4 aksesuarını seçmez", QuestRewardPolicy.TryResolve(rewards, QuestRewardPreference.WeaponType, 0, 3, "", out id) && id == 1, true);
+        RunSroCheck("Kullanıcı ödülü ID ile seçer", QuestRewardPolicy.TryResolve(rewards, QuestRewardPreference.RewardId, 2, 0, "", out id) && id == 2, true);
+        RunSroCheck("Eşya adı kesin eşleşir", QuestRewardPolicy.TryResolve(rewards, QuestRewardPreference.ItemName, 0, 0, "blade", out id) && id == 2, true);
+        RunSroCheck("Katalog dışı ödül gönderilmez", QuestRewardPolicy.TryResolve(rewards, QuestRewardPreference.RewardId, 99, 0, "", out id), false);
+        rewards.Add(RewardRow(4, "Sword", 1, 6, 3));
+        RunSroCheck("İki aynı tür silah arasında tahmin yapılmaz", QuestRewardPolicy.TryResolve(rewards, QuestRewardPreference.EquippedWeapon, 0, 3, "", out id), false);
+        RunSroCheck("Aynı görünen isimli iki ödül ID tercihi gerektirir", QuestRewardPolicy.TryResolve(rewards, QuestRewardPreference.ItemName, 0, 0, "Sword", out id), false);
+    }
+
+    private static System.Collections.Specialized.NameValueCollection RewardRow(uint id, string name, byte tid2, byte tid3, byte tid4)
+    {
+        return new System.Collections.Specialized.NameValueCollection {
+            ["reward_id"] = id.ToString(), ["name"] = name, ["tid2"] = tid2.ToString(), ["tid3"] = tid3.ToString(), ["tid4"] = tid4.ToString()
+        };
     }
 
     private static byte[] QuestTalkPayload(byte type, string header, string[] choices, string footer, uint referenceId)

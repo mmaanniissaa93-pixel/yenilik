@@ -258,7 +258,11 @@ namespace xBot.Game
 			LastQuestAbandonSuccess = success;
 			LastQuestAbandonId = questId;
 			if (success && Character != null && Character.Quests != null)
-				Character.Quests.RemoveKey(questId);
+            {
+                Character.Quests.RemoveKey(questId);
+                // Some servers acknowledge abandonment without a separate 0x30D5.
+                QuestAutomationManager.ObserveServerUpdate(questId, 4);
+            }
 			LastQuestUpdateTime = DateTime.UtcNow;
 			m_MonitorQuestAbandon.Set();
 		}
@@ -417,6 +421,7 @@ namespace xBot.Game
 		internal static void OnDisconnected()
 		{
 			inGame = false;
+			xBot.App.QuestAutomationManager.CancelSession();
 			inTeleport = false;
 
 			// Try stop bot process
@@ -478,6 +483,7 @@ namespace xBot.Game
 		internal static void OnTeleporting()
 		{
 			inTeleport = true;
+			xBot.App.QuestAutomationManager.Suspend();
 
 			// Try stop bot process
 			Bot b = Bot.Get;

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Windows.Forms;
 using xBot.Game;
 using xBot.Game.Objects.Entity;
+using xBot.Game.Objects.Common;
 
 namespace xBot.App
 {
@@ -249,6 +250,10 @@ namespace xBot.App
         private CheckBox Quest_cbxRepeat;
         private TextBox Quest_tbxDisplayName;
         private ComboBox Quest_cmbxCompletionAction;
+        private ComboBox Quest_cmbxRewardPreference;
+        private ComboBox Quest_cmbxRewardWeapon;
+        private ComboBox Quest_cmbxRewardItem;
+        private TextBox Quest_tbxRewardName;
         private TextBox Quest_tbxCompletionScript;
         private ListView Quest_lstvCatalog;
         private TextBox Quest_tbxCatalogSearch;
@@ -2917,16 +2922,16 @@ namespace xBot.App
             };
             Quest_lstvActive.Columns.Add("Quest ID", 90);
             Quest_lstvActive.Columns.Add("Name / Alias", 180);
-            Quest_lstvActive.Columns.Add("State", 55);
+            Quest_lstvActive.Columns.Add("State", 125);
             Quest_lstvActive.Columns.Add("Type", 55);
             Quest_lstvActive.Columns.Add("Automation", 115);
-            Quest_lstvActive.Columns.Add("Objectives", 235);
+            Quest_lstvActive.Columns.Add("Objectives", 165);
 
             Button refresh = new Button { Location = new Point(18, 337), Size = new Size(135, 30), Text = "Refresh quests", FlatStyle = FlatStyle.Flat };
             Button abandon = new Button { Location = new Point(163, 337), Size = new Size(160, 30), Text = "Abandon selected", FlatStyle = FlatStyle.Flat };
             Quest_lblStatus = new Label { Location = new Point(337, 337), Size = new Size(460, 30), TextAlign = ContentAlignment.MiddleLeft, Text = "Durum: Hazır" };
 
-            GroupBox automationBox = new GroupBox { Location = new Point(18, 378), Size = new Size(780, 125), Text = "Selected quest automation" };
+            GroupBox automationBox = new GroupBox { Location = new Point(18, 378), Size = new Size(780, 160), Text = "Selected quest automation" };
             Quest_cbxEnabled = new CheckBox { Location = new Point(18, 27), Size = new Size(85, 24), Text = "Enabled" };
             Quest_tbxDisplayName = new TextBox { Location = new Point(105, 27), Size = new Size(210, 24) };
             Quest_cmbxCompletionAction = new ComboBox { Location = new Point(325, 27), Size = new Size(145, 24), DropDownStyle = ComboBoxStyle.DropDownList };
@@ -2939,6 +2944,22 @@ namespace xBot.App
             Button browseCompletion = new Button { Location = new Point(480, 87), Size = new Size(42, 27), Text = "...", FlatStyle = FlatStyle.Flat };
             Button saveAutomation = new Button { Location = new Point(535, 26), Size = new Size(105, 87), Text = "Save quest", FlatStyle = FlatStyle.Flat };
             Button selectQuestAtNpc = new Button { Location = new Point(650, 26), Size = new Size(105, 87), Text = "Select at NPC", FlatStyle = FlatStyle.Flat };
+            Quest_cmbxRewardPreference = new ComboBox { Location = new Point(105, 122), Size = new Size(145, 24), DropDownStyle = ComboBoxStyle.DropDownList };
+            Quest_cmbxRewardPreference.Items.AddRange(new object[] { "Equipped weapon", "Weapon type", "Exact item name", "Choose reward" });
+            Quest_tbxRewardName = new TextBox { Location = new Point(260, 122), Size = new Size(495, 24), Visible = false };
+            Quest_cmbxRewardWeapon = new ComboBox { Location = Quest_tbxRewardName.Location, Size = Quest_tbxRewardName.Size, DropDownStyle = ComboBoxStyle.DropDownList, Visible = false };
+            foreach (SRTypes.Weapon weapon in Enum.GetValues(typeof(SRTypes.Weapon))) Quest_cmbxRewardWeapon.Items.Add(weapon);
+            Quest_cmbxRewardItem = new ComboBox { Location = Quest_tbxRewardName.Location, Size = Quest_tbxRewardName.Size, DropDownStyle = ComboBoxStyle.DropDownList, Visible = false, DisplayMember = "Value", ValueMember = "Key" };
+            Quest_cmbxRewardPreference.SelectedIndexChanged += (s, e) => {
+                Quest_cmbxRewardWeapon.Visible = Quest_cmbxRewardPreference.SelectedIndex == 1;
+                Quest_tbxRewardName.Visible = Quest_cmbxRewardPreference.SelectedIndex == 2;
+                Quest_cmbxRewardItem.Visible = Quest_cmbxRewardPreference.SelectedIndex == 3;
+            };
+            Quest_cmbxRewardPreference.SelectedIndex = 0;
+            automationBox.Controls.AddRange(new Control[] {
+                new Label { Location = new Point(18, 124), Size = new Size(80, 22), Text = "Reward" },
+                Quest_cmbxRewardPreference, Quest_tbxRewardName, Quest_cmbxRewardWeapon, Quest_cmbxRewardItem
+            });
             automationBox.Controls.AddRange(new Control[] {
                 Quest_cbxEnabled, Quest_tbxDisplayName, Quest_cmbxCompletionAction,
                 Quest_cbxAutoAccept, Quest_cbxAutoTurnIn, Quest_cbxRepeat,
@@ -2946,16 +2967,16 @@ namespace xBot.App
                 browseCompletion, saveAutomation, selectQuestAtNpc
             });
 
-            GroupBox eventBox = new GroupBox { Location = new Point(18, 513), Size = new Size(780, 130), Text = "Event / So-Ok quest reward" };
+            GroupBox eventBox = new GroupBox { Location = new Point(18, 548), Size = new Size(780, 95), Text = "Event / So-Ok quest reward" };
             Quest_nudEventQuestId = new NumericUpDown { Location = new Point(105, 32), Size = new Size(150, 24), Maximum = uint.MaxValue, ThousandsSeparator = true };
             Quest_nudRewardId = new NumericUpDown { Location = new Point(360, 32), Size = new Size(150, 24), Maximum = uint.MaxValue, ThousandsSeparator = true };
             Button getId = new Button { Location = new Point(530, 29), Size = new Size(220, 30), Text = "Get ID from selected NPC", FlatStyle = FlatStyle.Flat };
-            Button receive = new Button { Location = new Point(530, 72), Size = new Size(220, 30), Text = "Receive event reward", FlatStyle = FlatStyle.Flat };
+            Button receive = new Button { Location = new Point(530, 59), Size = new Size(220, 27), Text = "Receive event reward", FlatStyle = FlatStyle.Flat };
             eventBox.Controls.AddRange(new Control[] {
                 new Label { Location=new Point(18,34), Size=new Size(80,22), Text="Quest ID" }, Quest_nudEventQuestId,
                 new Label { Location=new Point(275,34), Size=new Size(80,22), Text="Reward ID" }, Quest_nudRewardId,
                 getId, receive,
-                new Label { Location=new Point(18,76), Size=new Size(490,44), ForeColor=Color.DarkGray,
+                new Label { Location=new Point(18,65), Size=new Size(490,22), ForeColor=Color.DarkGray,
                     Text="Önce oyun içinde event NPC'sini seçin. Reward ID sunucu veritabanındaki ödül seçeneğidir." }
             });
 
@@ -3008,9 +3029,12 @@ namespace xBot.App
             _questUiTimer = new Timer { Interval = 1000 };
             _questUiTimer.Tick += (s, e) =>
             {
+                QuestAutomationManager.PollTimeout();
                 if (!TabPageV_Control01_Quest_Panel.Visible) return;
                 if (_lastQuestUiRefresh != InfoManager.LastQuestUpdateTime)
                     RefreshQuestList();
+                foreach (ListViewItem row in Quest_lstvActive.Items)
+                    row.SubItems[2].Text = QuestAutomationManager.GetStateText((uint)row.Tag);
                 if (InfoManager.LastEventQuestId != 0 && Quest_nudEventQuestId.Value != InfoManager.LastEventQuestId)
                     Quest_nudEventQuestId.Value = InfoManager.LastEventQuestId;
                 if (!string.IsNullOrWhiteSpace(QuestAutomationManager.Status))
@@ -3051,13 +3075,24 @@ namespace xBot.App
                     row.Tag = quest.ID;
                     row.Checked = rule.Enabled;
                     row.SubItems.Add(string.IsNullOrWhiteSpace(rule.DisplayName) ? suggestedName : rule.DisplayName);
-                    row.SubItems.Add(quest.State.ToString());
+                    row.SubItems.Add(QuestAutomationManager.GetStateText(quest.ID));
                     row.SubItems.Add(quest.QuestType.ToString());
                     row.SubItems.Add(QuestActionText(rule));
                     row.SubItems.Add(objectives);
                     Quest_lstvActive.Items.Add(row);
                     if (quest.ID == selectedId) row.Selected = true;
                 }
+            }
+            foreach (QuestAutomationRule rule in QuestAutomationManager.GetRules())
+            {
+                if (InfoManager.Character?.Quests?[rule.QuestId] != null) continue;
+                var data = DataManager.GetQuestData(rule.QuestId);
+                ListViewItem row = new ListViewItem(rule.QuestId.ToString()) { Tag = rule.QuestId, Checked = rule.Enabled };
+                row.SubItems.Add(string.IsNullOrWhiteSpace(rule.DisplayName) ? data?["name"] ?? ("Quest " + rule.QuestId) : rule.DisplayName);
+                row.SubItems.Add(QuestAutomationManager.GetStateText(rule.QuestId));
+                row.SubItems.Add("-"); row.SubItems.Add(QuestActionText(rule)); row.SubItems.Add("-");
+                Quest_lstvActive.Items.Add(row);
+                if (rule.QuestId == selectedId) row.Selected = true;
             }
             Quest_lstvActive.EndUpdate();
             _lastQuestUiRefresh = InfoManager.LastQuestUpdateTime;
@@ -3087,6 +3122,18 @@ namespace xBot.App
             {
                 System.Collections.Specialized.NameValueCollection data = DataManager.GetQuestData(questId);
                 rule = QuestAutomationManager.EnsureRule(questId, data == null ? "" : data["name"]);
+            }
+            Quest_cmbxRewardPreference.SelectedIndex = (int)rule.RewardPreference;
+            Quest_tbxRewardName.Text = rule.PreferredItemName ?? "";
+            Quest_cmbxRewardWeapon.SelectedItem = (SRTypes.Weapon)rule.PreferredWeaponType;
+            Quest_cmbxRewardItem.Items.Clear();
+            foreach (var reward in DataManager.GetQuestRewardItems(questId))
+            {
+                uint id;
+                if (!uint.TryParse(reward["reward_id"], out id) || id == 0) continue;
+                var option = new System.Collections.Generic.KeyValuePair<uint, string>(id, (reward["name"] ?? reward["item_servername"]) + " (" + id + ")");
+                Quest_cmbxRewardItem.Items.Add(option);
+                if (id == rule.PreferredRewardId) Quest_cmbxRewardItem.SelectedItem = option;
             }
             Quest_cbxEnabled.Checked = rule.Enabled;
             Quest_cbxAutoAccept.Checked = rule.AutoAccept;
@@ -3185,6 +3232,11 @@ namespace xBot.App
                 AutoAccept = Quest_cbxAutoAccept.Checked,
                 AutoTurnIn = Quest_cbxAutoTurnIn.Checked,
                 RepeatIfAvailable = Quest_cbxRepeat.Checked,
+                RewardPreference = (QuestRewardPreference)Math.Max(0, Quest_cmbxRewardPreference.SelectedIndex),
+                PreferredItemName = Quest_tbxRewardName.Text.Trim(),
+                PreferredWeaponType = Quest_cmbxRewardWeapon.SelectedItem is SRTypes.Weapon ? (byte)(SRTypes.Weapon)Quest_cmbxRewardWeapon.SelectedItem : (byte)0,
+                PreferredRewardId = Quest_cmbxRewardItem.SelectedItem is System.Collections.Generic.KeyValuePair<uint, string>
+                    ? ((System.Collections.Generic.KeyValuePair<uint, string>)Quest_cmbxRewardItem.SelectedItem).Key : 0,
                 CompletionAction = action,
                 ScriptPath = Quest_tbxCompletionScript.Text.Trim()
             });
@@ -3208,6 +3260,7 @@ namespace xBot.App
             if (!InfoManager.inGame) { Log("Quest: önce oyuna bağlanın."); return; }
             if (Quest_lstvActive.SelectedItems.Count == 0) { Log("Quest: bırakılacak görevi seçin."); return; }
             uint questId = (uint)Quest_lstvActive.SelectedItems[0].Tag;
+            if (InfoManager.Character?.Quests?[questId] == null) { Log("Quest: görev aktif değil."); return; }
             PacketBuilder.AbandonQuest(questId);
             Quest_lblStatus.Text = "Durum: " + questId + " bırakma isteği gönderildi";
             Log("Quest: " + questId + " bırakma isteği gönderildi.");
@@ -3247,6 +3300,7 @@ namespace xBot.App
 
         private void BeginEventQuestOperation(bool receiveReward)
         {
+            if (QuestAutomationManager.IsBusy) { Log("Quest: devam eden NPC işleminin bitmesini bekleyin."); return; }
             if (!InfoManager.inGame) { Log("Quest: önce oyuna bağlanın."); return; }
             uint npcUid = InfoManager.SelectedEntityUniqueID;
             if (npcUid == 0 || InfoManager.Npcs[npcUid] == null)

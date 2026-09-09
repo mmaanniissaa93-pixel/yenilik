@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Diagnostics;
@@ -490,16 +490,48 @@ namespace xBot.Game
 		{
 			lock (DatabaseSync) return Database != null && QuestCatalogAvailable;
 		}
+		public static List<NameValueCollection> GetQuestNpcPositions(uint questId, uint modelId, string serverName)
+        {
+            if (!IsDbReady()) return new List<NameValueCollection>();
+            try
+            {
+                string sql = "SELECT p.*,m.servername,m.name FROM npc_positions p JOIN models m ON m.id=p.model_id ";
+                if (modelId != 0) return Query(sql + "WHERE m.id=@p0", modelId);
+                if (!string.IsNullOrWhiteSpace(serverName)) return Query(sql + "WHERE m.servername=@p0", serverName);
+                NameValueCollection quest = GetQuestData(questId);
+                string notice = quest?["notice_npc_text"];
+                string reference = quest?["notice_npc"];
+                List<NameValueCollection> matches = new List<NameValueCollection>();
+                foreach (NameValueCollection row in Query(sql + "WHERE m.tid2=2 AND m.tid3=2"))
+                    if (QuestNpcCatalogPolicy.MatchesQuestNpc(quest?["servername"], notice, row["servername"], row["name"])
+                        || QuestNpcCatalogPolicy.MatchesNotice(reference, row["servername"], row["name"])) matches.Add(row);
+                // Multiple placements of one model are valid; different identities are ambiguous.
+                HashSet<string> ids = new HashSet<string>();
+                foreach (NameValueCollection match in matches) ids.Add(match["model_id"]);
+                return ids.Count == 1 ? matches : new List<NameValueCollection>();
+            }
+            catch { return new List<NameValueCollection>(); } // Older catalogs need rebuilding.
+        }
+
 		public static List<NameValueCollection> GetQuestRewardItems(uint questId)
-		{
-			if (!IsDbReady() || questId == 0) return new List<NameValueCollection>();
-			try
-			{
-				return Query("SELECT q.quest_id,q.reward_type,q.item_servername,q.amount,i.id AS reward_id,i.name,i.tid2,i.tid3,i.tid4 "
-					+ "FROM quest_reward_items q LEFT JOIN items i ON i.servername=q.item_servername WHERE q.quest_id=@p0 ORDER BY q.item_servername", questId);
-			}
-			catch { return new List<NameValueCollection>(); }
-		}
+        {
+            List<NameValueCollection> rewards;
+            TryGetQuestRewardItems(questId, out rewards);
+            return rewards;
+        }
+
+        public static bool TryGetQuestRewardItems(uint questId, out List<NameValueCollection> rewards)
+        {
+            rewards = new List<NameValueCollection>();
+            if (!IsDbReady() || questId == 0) return false;
+            try
+            {
+                rewards = Query("SELECT q.quest_id,q.reward_type,q.item_servername,q.amount,i.id AS reward_id,i.name,i.tid2,i.tid3,i.tid4 "
+                    + "FROM quest_reward_items q LEFT JOIN items i ON i.servername=q.item_servername WHERE q.quest_id=@p0 ORDER BY q.item_servername", questId);
+                return true;
+            }
+            catch { return false; }
+        }
 		/// <summary>
 		/// NPC mağazasındaki bütün paketleri slot sırasıyla döndürür. Eski vSRO
 		/// trade komutu buradan yalnız TID2=3/TID3=8 specialty goods seçer.

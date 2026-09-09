@@ -24,6 +24,7 @@
     <Compile Include="..\..\xBot\App\AlchemyPolicy.cs" Link="AlchemyPolicy.cs" />
     <Compile Include="..\..\xBot\App\TargetAssistPolicy.cs" Link="TargetAssistPolicy.cs" />
     <Compile Include="..\..\xBot\App\QuestAutomationPolicy.cs" Link="QuestAutomationPolicy.cs" />
+    <Compile Include="..\..\xBot\App\QuestAutomationRuntime.cs" Link="QuestAutomationRuntime.cs" />
     <Compile Include="..\..\xBot\App\LocalizationManager.cs" Link="LocalizationManager.cs" />
     <Compile Include="..\..\xBot\App\PotionPolicy.cs" Link="PotionPolicy.cs" />
     <Compile Include="..\..\xBot\App\SroDocsPolicy.cs" Link="SroDocsPolicy.cs" />

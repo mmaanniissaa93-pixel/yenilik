@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0-windows</TargetFramework><ImplicitUsings>disable</ImplicitUsings></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../xBot/App/QuestAutomationManager.cs" Link="QuestAutomationManager.cs" />
+    <Compile Include="../../xBot/App/QuestAutomationPolicy.cs" Link="QuestAutomationPolicy.cs" />
+    <Compile Include="../../xBot/App/QuestAutomationRuntime.cs" Link="QuestAutomationRuntime.cs" />
+    <Compile Include="../../xBot/Game/Objects/Common/SRCoord.cs" Link="SRCoord.cs" />
+    <Compile Include="../../xBot/Game/Objects/xDictionary.cs" Link="xDictionary.cs" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+  </ItemGroup>
+</Project>

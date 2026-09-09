@@ -94,6 +94,7 @@ namespace xBot.App
             if (isBotting)
             {
                 m_stopBottingRequested = true;
+                QuestAutomationManager.Suspend();
                 try { m_botCts?.Cancel(); } catch { }
                 Thread t = tBotting;
                 tBotting = null;

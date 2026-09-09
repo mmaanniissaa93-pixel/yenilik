@@ -22,6 +22,10 @@ namespace xBot.App
         public QuestCompletionAction CompletionAction { get; set; }
         public string ScriptPath { get; set; } = "";
         public string NpcServerName { get; set; } = "";
+        public QuestRewardPreference RewardPreference { get; set; }
+        public uint PreferredRewardId { get; set; }
+        public byte PreferredWeaponType { get; set; }
+        public string PreferredItemName { get; set; } = "";
         public uint NpcModelId { get; set; }
         public ushort NpcRegion { get; set; }
         public int NpcX { get; set; }
@@ -43,7 +47,7 @@ namespace xBot.App
 
     /// <summary>
     /// Character-profile quest rules and a single-owner completion queue.
-    /// Network handlers only observe state; the bot thread executes actions.
+    /// The bot owns navigation; packet handlers advance the one pending conversation.
     /// </summary>
     public static class QuestAutomationManager
     {
@@ -51,19 +55,26 @@ namespace xBot.App
         private static readonly Dictionary<uint, QuestAutomationRule> Rules = new Dictionary<uint, QuestAutomationRule>();
         private static readonly HashSet<string> HandledCompletions = new HashSet<string>();
         private static readonly HashSet<uint> CompletedThisSession = new HashSet<uint>();
-        private static readonly HashSet<uint> UnavailableThisSession = new HashSet<uint>();
         private static readonly Queue<QuestAutomationRequest> Pending = new Queue<QuestAutomationRequest>();
-        private static readonly Dictionary<uint, DateTime> LastTownQuestAttempts = new Dictionary<uint, DateTime>();
-        private static readonly Dictionary<uint, DateTime> LastReturnAttempts = new Dictionary<uint, DateTime>();
-        private static uint PendingTalkQuestId;
-        private static DateTime PendingTalkExpiresUtc;
+        private static readonly Dictionary<uint, QuestNpcTransaction> Transactions = new Dictionary<uint, QuestNpcTransaction>();
+        private static readonly Dictionary<uint, QuestAutomationState> States = new Dictionary<uint, QuestAutomationState>();
+        private static readonly Dictionary<uint, DateTime> RepeatAfterUtc = new Dictionary<uint, DateTime>();
+        private static QuestNpcTransaction Current;
         private static uint PendingTalkNpcUniqueId;
-        private static bool PendingAutoReward;
-        private static QuestNpcOperation PendingNpcOperation;
+        private static bool MenuSelected;
 
         public static string Status { get; private set; } = "Hazır";
         public static QuestTalkSnapshot LastTalk { get; private set; }
         public static byte? LastTalkChoice { get; private set; }
+
+        public static bool IsBusy { get { lock (Sync) return Current != null; } }
+
+        public static void PollTimeout()
+        {
+            lock (Sync)
+                if (Current != null && PendingTalkNpcUniqueId != 0 && DateTime.UtcNow > Current.DeadlineUtc)
+                    FailCurrent("Sunucu onayı zaman aşımı");
+        }
 
         public static bool ArmQuestTalkSelection(uint questId, uint npcUniqueId, bool autoReward, out string error)
         {
@@ -83,14 +94,21 @@ namespace xBot.App
             }
             lock (Sync)
             {
-                PendingTalkQuestId = questId;
-                PendingTalkExpiresUtc = DateTime.UtcNow.AddSeconds(10);
+                if (operation == QuestNpcOperation.Accept && InfoManager.Character?.Quests?[questId] != null)
+                { error = "Görev zaten aktif."; return false; }
+                if (Current != null) { error = "Başka bir görev işlemi sunucu onayı bekliyor."; return false; }
+                QuestNpcTransaction transaction;
+                if (!Transactions.TryGetValue(questId, out transaction) || transaction.Confirmed
+                    || transaction.Operation != operation)
+                    Transactions[questId] = transaction = new QuestNpcTransaction { QuestId = questId, Operation = operation };
+                if (!transaction.Begin(DateTime.UtcNow)) { error = transaction.Error; return false; }
+                Current = transaction;
+                MenuSelected = false;
                 PendingTalkNpcUniqueId = npcUniqueId;
-                PendingNpcOperation = operation;
-                PendingAutoReward = operation == QuestNpcOperation.TurnIn;
                 LearnNpc(Rules.ContainsKey(questId) ? Rules[questId] : null, npcUniqueId);
-                Status = (operation == QuestNpcOperation.TurnIn ? "Teslim" : "Kabul")
-                    + " menüsü bekleniyor: " + ResolveDisplayName(null, questId);
+                States[questId] = operation == QuestNpcOperation.Accept ? QuestAutomationState.Accepting : QuestAutomationState.TurningIn;
+                Status = StateText(States[questId]) + ": " + ResolveDisplayName(null, questId)
+                    + " (" + transaction.Attempts + "/3)";
             }
             return true;
         }
@@ -98,115 +116,156 @@ namespace xBot.App
         public static void ObserveTalkPacket(byte[] raw)
         {
             QuestTalkSnapshot snapshot = QuestAutomationPolicy.ParseTalkPacket(raw);
-            uint pendingQuestId;
             lock (Sync)
             {
                 LastTalk = snapshot;
-                pendingQuestId = DateTime.UtcNow <= PendingTalkExpiresUtc ? PendingTalkQuestId : 0;
-                if (pendingQuestId == 0)
-                {
-                    PendingTalkQuestId = 0;
-                    PendingTalkNpcUniqueId = 0;
-                    PendingAutoReward = false;
-                    PendingNpcOperation = QuestNpcOperation.Accept;
-                }
-                Status = string.IsNullOrWhiteSpace(snapshot.Error)
-                    ? "Quest konuşması alındı: tip " + snapshot.Type + ", " + snapshot.Choices.Count + " seçenek"
-                    : "Quest konuşması çözülemedi: " + snapshot.Error;
-            }
-            string details = "[QuestTalk][S->C] type=" + snapshot.Type
-                + ", header=" + Safe(snapshot.Header)
-                + ", choices=" + string.Join(" | ", snapshot.Choices)
-                + (snapshot.ReferenceId == 0 ? "" : ", ref=" + snapshot.ReferenceId)
-                + (string.IsNullOrWhiteSpace(snapshot.Error) ? "" : ", error=" + snapshot.Error)
-                + ", raw=" + snapshot.RawHex;
-            Window.Get?.Log(details, string.IsNullOrWhiteSpace(snapshot.Error)
-                ? Theme.LogLevel.Info : Theme.LogLevel.Warning);
-
-            if (pendingQuestId != 0 && string.IsNullOrWhiteSpace(snapshot.Error))
-            {
-                System.Collections.Specialized.NameValueCollection data = DataManager.GetQuestData(pendingQuestId);
-                string nameString = data == null ? "" : data["namestring"];
-                int menuPosition = QuestAutomationPolicy.FindTalkChoice(snapshot.Choices, nameString);
-                byte actionCode = QuestAutomationPolicy.ResolveTalkActionCode(snapshot.Type, snapshot.Choices, nameString);
-                lock (Sync)
-                {
-                    PendingTalkExpiresUtc = DateTime.MinValue;
-                    Status = actionCode != 0
-                        ? "Quest NPC seçimi gönderiliyor: " + nameString + " (menü #" + menuPosition + ", kod " + actionCode + ")"
-                        : "Quest NPC menüsünde bulunamadı: " + nameString;
-                }
-                if (actionCode != 0)
-                {
-                    Window.Get?.Log("[QuestTalk] PK2 eşleşmesi: " + nameString
-                        + " -> menu=" + menuPosition + ", action=" + actionCode);
-                    PacketBuilder.SelectQuestTalkOption(actionCode);
-                }
-                else
-
-                {
-                    lock (Sync)
-                    {
-                        UnavailableThisSession.Add(pendingQuestId);
-                        PendingTalkQuestId = 0;
-                        PendingTalkNpcUniqueId = 0;
-                        PendingAutoReward = false;
-                    }
-                    Window.Get?.Log("[QuestTalk] Açık NPC menüsünde " + nameString + " bulunamadı.", Theme.LogLevel.Warning);
-
-                }
+                Window.Get?.Log("[QuestTalk][S->C] type=" + snapshot.Type + ", choices="
+                    + string.Join(" | ", snapshot.Choices) + ", raw=" + snapshot.RawHex);
+                if (Current == null || PendingTalkNpcUniqueId == 0 || MenuSelected) return;
+                if (DateTime.UtcNow > Current.DeadlineUtc) { FailCurrent("NPC menü zaman aşımı"); return; }
+                if (!string.IsNullOrWhiteSpace(snapshot.Error)) { FailCurrent(snapshot.Error); return; }
+                // Other dialog types are not the quest list; keep waiting for type 4.
+                if (snapshot.Type != 4) return;
+                NameValueCollection data = DataManager.GetQuestData(Current.QuestId);
+                byte action = QuestAutomationPolicy.ResolveTalkActionCode(snapshot.Type, snapshot.Choices, data?["namestring"]);
+                if (action == 0) { FailCurrent("Görev NPC menüsünde sunulmadı"); return; }
+                MenuSelected = true;
+                Current.ActionSent = true;
+                Current.AwaitConfirmation(DateTime.UtcNow);
+                PacketBuilder.SelectQuestTalkOption(action);
             }
         }
 
         public static void ObserveQuestIdResponse(uint questId)
         {
-            uint requestedQuestId;
-            uint npcUniqueId;
-            bool autoReward;
             lock (Sync)
             {
-                requestedQuestId = PendingTalkQuestId;
-                npcUniqueId = PendingTalkNpcUniqueId;
-                autoReward = PendingAutoReward;
-                PendingTalkQuestId = 0;
+                if (Current == null || !MenuSelected || Current.RewardSent) return;
+                if (DateTime.UtcNow > Current.DeadlineUtc) { FailCurrent("Quest ID zaman aşımı"); return; }
+                if (Current.QuestId != questId) { FailCurrent("NPC farklı quest ID döndürdü"); return; }
+                if (Current.Operation != QuestNpcOperation.TurnIn) return;
+                uint rewardId;
+                string error;
+                if (!TryResolveRewardId(questId, out rewardId, out error)) { FailCurrent(error, true); return; }
+                Current.RewardSent = true;
+                Current.AwaitConfirmation(DateTime.UtcNow);
+                Status = "Turning in: " + questId + " — 0x30D5 silinme onayı bekleniyor";
+                PacketBuilder.ReceiveEventQuestReward(questId, rewardId);
+            }
+        }
+
+        private static void FailCurrent(string error, bool terminal = false)
+        {
+            if (Current == null) return;
+            Current.Fail(DateTime.UtcNow, error, terminal);
+            States[Current.QuestId] = QuestAutomationState.Failed;
+            Status = "Failed: " + Current.QuestId + " — " + error
+                + (Current.Terminal ? " (Save quest ile yeniden dene)" : " (kontrollü tekrar bekleniyor)");
+            Window.Get?.Log("Quest: " + Status, Theme.LogLevel.Warning);
+            ReleaseConversation();
+        }
+
+        private static void ReleaseConversation()
+        {
+            uint npc = PendingTalkNpcUniqueId;
+            Current = null;
+            PendingTalkNpcUniqueId = 0;
+            MenuSelected = false;
+            if (npc != 0 && InfoManager.inGame) PacketBuilder.CloseNPC(npc);
+        }
+
+        public static void ObserveServerUpdate(uint questId, byte updateType)
+        {
+            lock (Sync)
+            {
+                QuestNpcTransaction transaction;
+                if (Transactions.TryGetValue(questId, out transaction) && transaction.Observe(questId, updateType))
+                {
+                    if (transaction.Operation == QuestNpcOperation.TurnIn)
+                    {
+                        CompletedThisSession.Add(questId);
+                        RepeatAfterUtc[questId] = DateTime.UtcNow.AddSeconds(5);
+                        QuestAutomationRule rule;
+                        States[questId] = Rules.TryGetValue(questId, out rule) && rule.RepeatIfAvailable
+                            ? QuestAutomationState.WaitingToRepeat : QuestAutomationState.Inactive;
+                    }
+                    else
+                    {
+                        CompletedThisSession.Remove(questId);
+                        RepeatAfterUtc.Remove(questId);
+                        States[questId] = QuestAutomationState.Active;
+                    }
+                    RemoveHandledKeys(questId);
+                    Status = StateText(States[questId]) + ": " + questId + " — 0x30D5 onaylandı";
+                    Window.Get?.Log("Quest: " + Status);
+                    if (Current == transaction) ReleaseConversation();
+                }
+                if (updateType == 3 && Transactions.TryGetValue(questId, out transaction) && !transaction.Confirmed
+                    && transaction.Operation == QuestNpcOperation.TurnIn)
+                {
+                    if (Current == transaction) FailCurrent("Ödül isteğiyle eşleşmeyen görev silinmesi", true);
+                    transaction.Fail(DateTime.UtcNow, "Teslim doğrulanamadı", true);
+                    States[questId] = QuestAutomationState.Failed;
+                }
+                if (updateType == 4)
+                {
+                    if (Current != null && Current.QuestId == questId) FailCurrent("Görev bırakıldı", true);
+                    Transactions[questId] = transaction = new QuestNpcTransaction { QuestId = questId };
+                    transaction.Fail(DateTime.UtcNow, "Görev bırakıldı", true);
+                    States[questId] = QuestAutomationState.Failed;
+                    RemoveHandledKeys(questId);
+                }
+            }
+        }
+
+        public static void Suspend()
+        {
+            lock (Sync) if (Current != null) FailCurrent("Bot durduruldu veya teleport başladı");
+        }
+
+        public static void CancelSession()
+        {
+            lock (Sync)
+            {
+                Current = null;
                 PendingTalkNpcUniqueId = 0;
-                PendingAutoReward = false;
+                MenuSelected = false;
+                Transactions.Clear();
+                States.Clear();
+                RepeatAfterUtc.Clear();
+                Pending.Clear();
+                HandledCompletions.Clear();
+                CompletedThisSession.Clear();
             }
-            if (!autoReward || requestedQuestId == 0) return;
-            if (questId != requestedQuestId)
-            {
-                Status = "NPC farklı quest döndürdü: beklenen " + requestedQuestId + ", gelen " + questId;
-                Window.Get?.Log("Quest: " + Status, Theme.LogLevel.Warning);
-                return;
-            }
-            uint rewardId;
-            string rewardError;
-            if (!TryResolveRewardId(questId, out rewardId, out rewardError))
-            {
-                Status = "Quest ödülü otomatik seçilemedi: " + questId + " — " + rewardError;
-                Window.Get?.Log("Quest: " + Status, Theme.LogLevel.Warning);
-                return;
-            }
-            Status = rewardId == 0 ? "Sabit quest ödülü alınıyor: " + questId
-                : "Quest ödülü alınıyor: " + questId + " / " + rewardId;
-            Window.Get?.Log("Quest: " + Status);
-            PacketBuilder.ReceiveEventQuestReward(questId, rewardId);
+        }
+
+        public static string GetStateText(uint questId)
+        {
             lock (Sync)
             {
-                CompletedThisSession.Add(questId);
-                UnavailableThisSession.Remove(questId);
-                LastTownQuestAttempts[questId] = DateTime.UtcNow;
+                QuestAutomationState state;
+                if (States.TryGetValue(questId, out state) && state != QuestAutomationState.Active
+                    && state != QuestAutomationState.Completed) return StateText(state);
+                SRQuest quest = InfoManager.Character?.Quests?[questId];
+                return quest == null ? "Inactive" : QuestAutomationPolicy.IsReadyToTurnIn(quest.State) ? "Completed" : "Active";
             }
-            if (npcUniqueId != 0) PacketBuilder.CloseNPC(npcUniqueId);
+        }
+
+        private static string StateText(QuestAutomationState state)
+        {
+            switch (state)
+            {
+                case QuestAutomationState.GoingToNpc: return "Going to NPC";
+                case QuestAutomationState.TurningIn: return "Turning in";
+                case QuestAutomationState.WaitingToRepeat: return "Waiting to repeat";
+                default: return state.ToString();
+            }
         }
 
         public static void ObserveTalkChoice(byte choice, byte[] raw)
         {
-            lock (Sync)
-            {
-                LastTalkChoice = choice;
-                Status = "Quest konuşma action kodu gönderildi: " + choice;
-            }
+            lock (Sync) { LastTalkChoice = choice; }
+
             // This byte is an action code (normally 6 for dynamic SN_ quest rows),
             // not a menu index, so it must not be associated by position here.
             Window.Get?.Log("[QuestTalk][C->S] action=" + choice + ", raw=" + ToHex(raw));
@@ -273,8 +332,10 @@ namespace xBot.App
                     rule.NpcZ = existing.NpcZ;
                 }
                 Rules[rule.QuestId] = Clone(rule);
-                if (!rule.Enabled)
-                    RemoveHandledKeys(rule.QuestId);
+                if (Current != null && Current.QuestId == rule.QuestId) ReleaseConversation();
+                Transactions.Remove(rule.QuestId);
+                States.Remove(rule.QuestId);
+                RemoveHandledKeys(rule.QuestId);
             }
         }
 
@@ -282,17 +343,12 @@ namespace xBot.App
         {
             lock (Sync)
             {
+                if (Current != null) ReleaseConversation();
                 Rules.Clear();
                 HandledCompletions.Clear();
                 CompletedThisSession.Clear();
-                UnavailableThisSession.Clear();
+                CancelSession();
                 Pending.Clear();
-                LastTownQuestAttempts.Clear();
-                LastReturnAttempts.Clear();
-                PendingTalkQuestId = 0;
-                PendingTalkNpcUniqueId = 0;
-                PendingAutoReward = false;
-                PendingNpcOperation = QuestNpcOperation.Accept;
                 Status = "Quest ayarları sıfırlandı";
             }
         }
@@ -307,18 +363,11 @@ namespace xBot.App
                 if (!QuestAutomationPolicy.IsReadyToTurnIn(quest.State))
                 {
                     RemoveHandledKeys(quest.ID);
-                    UnavailableThisSession.Remove(quest.ID);
-                    if (PendingTalkQuestId == quest.ID && PendingNpcOperation == QuestNpcOperation.Accept)
-                    {
-                        PendingTalkQuestId = 0;
-                        PendingTalkNpcUniqueId = 0;
-                        PendingAutoReward = false;
-                        Status = "Görev kabul edildi: " + ResolveDisplayName(rule, quest.ID);
-                    }
                     return;
                 }
                 string key = QuestAutomationPolicy.CompletionKey(quest.ID, quest.State);
-                if (!rule.AutoTurnIn) return;
+                if (!rule.AutoTurnIn || rule.CompletionAction == QuestCompletionAction.None
+                    || rule.CompletionAction == QuestCompletionAction.TurnInAtNpc) return;
                 QuestCompletionAction completionAction = rule.CompletionAction == QuestCompletionAction.None
                     ? QuestCompletionAction.TurnInAtNpc : rule.CompletionAction;
                 if (!QuestAutomationPolicy.ShouldQueue(rule.Enabled, completionAction, quest.State,
@@ -332,7 +381,7 @@ namespace xBot.App
                     ScriptPath = rule.ScriptPath,
                     NpcServerName = rule.NpcServerName,
                     NpcModelId = rule.NpcModelId,
-                    NpcPosition = rule.NpcRegion == 0 ? null : new SRCoord(rule.NpcRegion, rule.NpcX, rule.NpcY, rule.NpcZ),
+                    NpcPosition = rule.NpcRegion == 0 ? null : new SRCoord(rule.NpcRegion, rule.NpcX, rule.NpcZ, rule.NpcY),
                     NpcOperation = QuestNpcOperation.TurnIn
                 });
                 Status = "Tamamlandı: " + (string.IsNullOrWhiteSpace(rule.DisplayName) ? quest.ID.ToString() : rule.DisplayName);
@@ -347,7 +396,15 @@ namespace xBot.App
 
         public static bool TryExecutePending(Bot bot)
         {
-            if (bot == null) return false;
+            if (bot == null || !InfoManager.inGame || InfoManager.inTeleport) return false;
+            lock (Sync)
+            {
+                if (Current != null)
+                {
+                    if (DateTime.UtcNow > Current.DeadlineUtc) FailCurrent("Sunucu onayı zaman aşımı");
+                    return true; // Own the bot loop until acknowledgment or timeout.
+                }
+            }
             QuestAutomationRequest request;
             lock (Sync)
             {
@@ -355,6 +412,15 @@ namespace xBot.App
             }
             if (request == null) request = CreateAutomaticTownQuestRequest();
             if (request == null) return false;
+            QuestAutomationRule activeRule = GetRule(request.QuestId);
+            if (activeRule == null || !activeRule.Enabled) return false;
+            if (request.Action == QuestCompletionAction.ReturnTown || request.Action == QuestCompletionAction.RunScript)
+            {
+                SRQuest active = InfoManager.Character?.Quests?[request.QuestId];
+                if (active == null || !QuestAutomationPolicy.IsReadyToTurnIn(active.State)
+                    || !activeRule.AutoTurnIn || activeRule.CompletionAction != request.Action
+                    || (request.Action == QuestCompletionAction.RunScript && activeRule.ScriptPath != request.ScriptPath)) return false;
+            }
             if (request.Action == QuestCompletionAction.ReturnTown)
             {
                 bool sent = bot.UseReturnScroll();
@@ -398,6 +464,10 @@ namespace xBot.App
                     ["AutoTurnIn"] = rule.AutoTurnIn,
                     ["RepeatIfAvailable"] = rule.RepeatIfAvailable,
                     ["CompletionAction"] = rule.CompletionAction.ToString(),
+                    ["RewardPreference"] = rule.RewardPreference.ToString(),
+                    ["PreferredRewardId"] = rule.PreferredRewardId,
+                    ["PreferredWeaponType"] = rule.PreferredWeaponType,
+                    ["PreferredItemName"] = rule.PreferredItemName,
                     ["ScriptPath"] = rule.ScriptPath
                     ,["NpcServerName"] = rule.NpcServerName
                     ,["NpcModelId"] = rule.NpcModelId
@@ -414,17 +484,12 @@ namespace xBot.App
         {
             lock (Sync)
             {
+                if (Current != null) ReleaseConversation();
                 Rules.Clear();
                 HandledCompletions.Clear();
                 CompletedThisSession.Clear();
-                UnavailableThisSession.Clear();
+                CancelSession();
                 Pending.Clear();
-                LastTownQuestAttempts.Clear();
-                LastReturnAttempts.Clear();
-                PendingTalkQuestId = 0;
-                PendingTalkNpcUniqueId = 0;
-                PendingAutoReward = false;
-                PendingNpcOperation = QuestNpcOperation.Accept;
                 Status = "Hazır";
                 JArray rules = root == null ? null : root["Rules"] as JArray;
                 if (rules == null) return;
@@ -434,6 +499,8 @@ namespace xBot.App
                     if (questId == 0) continue;
                     QuestCompletionAction action;
                     if (!Enum.TryParse((string)item["CompletionAction"], true, out action)) action = QuestCompletionAction.None;
+                    QuestRewardPreference preference;
+                    if (!Enum.TryParse((string)item["RewardPreference"], true, out preference) || !Enum.IsDefined(typeof(QuestRewardPreference), preference)) preference = QuestRewardPreference.EquippedWeapon;
                     bool enabled = item["Enabled"] != null && (bool)item["Enabled"];
                     // v1 stored Enabled + DoNothing even though users reasonably
                     // expected an enabled quest to be handled automatically.
@@ -447,6 +514,10 @@ namespace xBot.App
                         AutoTurnIn = item["AutoTurnIn"] == null || (bool)item["AutoTurnIn"],
                         RepeatIfAvailable = item["RepeatIfAvailable"] == null || (bool)item["RepeatIfAvailable"],
                         CompletionAction = action,
+                        RewardPreference = preference,
+                        PreferredRewardId = ReadUInt(item, "PreferredRewardId"),
+                        PreferredWeaponType = (byte)ReadUInt(item, "PreferredWeaponType"),
+                        PreferredItemName = (string)item["PreferredItemName"] ?? "",
                         ScriptPath = (string)item["ScriptPath"] ?? ""
                         ,NpcServerName = (string)item["NpcServerName"] ?? ""
                         ,NpcModelId = ReadUInt(item, "NpcModelId")
@@ -466,6 +537,8 @@ namespace xBot.App
                 QuestId = rule.QuestId, DisplayName = rule.DisplayName, Enabled = rule.Enabled,
                 AutoAccept = rule.AutoAccept, AutoTurnIn = rule.AutoTurnIn,
                 RepeatIfAvailable = rule.RepeatIfAvailable,
+                RewardPreference = rule.RewardPreference, PreferredRewardId = rule.PreferredRewardId,
+                PreferredWeaponType = rule.PreferredWeaponType, PreferredItemName = rule.PreferredItemName,
                 CompletionAction = rule.CompletionAction, ScriptPath = rule.ScriptPath
                 ,NpcServerName = rule.NpcServerName, NpcModelId = rule.NpcModelId,
                 NpcRegion = rule.NpcRegion, NpcX = rule.NpcX, NpcY = rule.NpcY, NpcZ = rule.NpcZ
@@ -521,26 +594,20 @@ namespace xBot.App
         {
             rewardId = 0;
             error = "";
-            List<NameValueCollection> rewards = DataManager.GetQuestRewardItems(questId);
-            // No selectable row, or a single fixed item row: the retail client
-            // confirms with selection=0 and does not append an item reference.
-            if (rewards.Count <= 1) return true;
-            SRItem weapon = InfoManager.Character == null || InfoManager.Character.Inventory == null
-                ? null : InfoManager.Character.Inventory[6];
-            if (weapon != null)
+            List<NameValueCollection> rewards;
+            if (!DataManager.TryGetQuestRewardItems(questId, out rewards))
             {
-                foreach (NameValueCollection reward in rewards)
-                {
-                    byte tid4;
-                    if (byte.TryParse(reward["tid4"], out tid4) && tid4 == weapon.ID4)
-                    {
-                        rewardId = ReadRowUInt(reward, "reward_id");
-                        if (rewardId != 0) return true;
-                    }
-                }
+                error = "Ödül kataloğu okunamadı; PK2 veritabanını güncelleyin";
+                return false;
             }
-            error = "birden fazla seçilebilir ödül var ve kullanılan silahla eşleşme bulunamadı";
-            return false; // never guess among multiple selectable rewards
+            QuestAutomationRule rule = GetRule(questId) ?? new QuestAutomationRule();
+            SRItem weapon = InfoManager.Character?.Inventory?[6];
+            byte weaponType = rule.RewardPreference == QuestRewardPreference.WeaponType
+                ? rule.PreferredWeaponType : weapon == null ? (byte)0 : weapon.ID4;
+            if (QuestRewardPolicy.TryResolve(rewards, rule.RewardPreference, rule.PreferredRewardId,
+                weaponType, rule.PreferredItemName, out rewardId)) return true;
+            error = "Ödül tercihi tek bir eşyayla eşleşmedi; eşya adı veya ödül seçip kaydedin";
+            return false;
         }
 
         private static uint ReadRowUInt(NameValueCollection row, string key)
@@ -549,182 +616,148 @@ namespace xBot.App
             return row != null && uint.TryParse(row[key], out value) ? value : 0;
         }
 
+        private static SRNpc FindRequestNpc(QuestAutomationRequest request, SRCoord origin)
+        {
+            SRNpc best = null;
+            double distance = double.MaxValue;
+            foreach (SRNpc npc in InfoManager.Npcs.Snapshot())
+            {
+                if (npc == null || (request.NpcModelId != 0 ? npc.ID != request.NpcModelId
+                    : string.IsNullOrWhiteSpace(request.NpcServerName)
+                        || !string.Equals(npc.ServerName, request.NpcServerName, StringComparison.OrdinalIgnoreCase))) continue;
+                SRCoord position = npc.GetRealtimePosition();
+                if (!SameWorld(origin, position)) continue;
+                double next = origin.DistanceTo(position);
+                if (next < distance) { best = npc; distance = next; }
+            }
+            return best;
+        }
+
+        private static bool SameWorld(SRCoord a, SRCoord b)
+        {
+            return a != null && b != null && ((!a.inDungeon() && !b.inDungeon()) || a.Region == b.Region);
+        }
+
         private static void ExecuteNpcTurnIn(Bot bot, QuestAutomationRequest request)
         {
-            SRNpc npc = InfoManager.Npcs.Find(n => n != null
-                && ((request.NpcModelId != 0 && n.ID == request.NpcModelId)
-                    || (!string.IsNullOrWhiteSpace(request.NpcServerName)
-                        && string.Equals(n.ServerName, request.NpcServerName, StringComparison.OrdinalIgnoreCase))));
-            SRCoord current = InfoManager.Character == null ? null : InfoManager.Character.GetRealtimePosition();
-            SRCoord target = npc == null ? request.NpcPosition : npc.GetRealtimePosition();
-
-            NameValueCollection questData = DataManager.GetQuestData(request.QuestId);
-            string questServerName = questData == null ? "" : questData["servername"];
-            TownServiceType serviceType;
-            bool hasTownService = TryResolveTownService(questData, out serviceType);
-            // PK2 NoticeNPC resolves common town quest givers. The level-milestone
-            // QEV family is known to use the current town's potion merchant.
-            if (npc == null && current != null && (hasTownService
-                || (!string.IsNullOrWhiteSpace(questServerName)
-                    && questServerName.StartsWith("QEV_ALL_BASIC_", StringComparison.OrdinalIgnoreCase))))
+            string error;
+            if (!ArmQuestTalkSelection(request.QuestId, 0, request.NpcOperation, out error)) return;
+            QuestNpcTransaction owner;
+            lock (Sync) { owner = Current; States[request.QuestId] = QuestAutomationState.GoingToNpc; }
+            try
             {
-                if (!hasTownService) serviceType = TownServiceType.PotionMerchant;
-                TownServiceInfo service = TownManager.Get.FindNearestService(current, serviceType);
-                if (service != null)
+                SRCoord current = InfoManager.Character?.GetRealtimePosition();
+                SRNpc npc = FindRequestNpc(request, current);
+                SRCoord target = npc == null ? request.NpcPosition : npc.GetRealtimePosition();
+                if (target == null)
                 {
-                    target = service.Coord;
-                    npc = TownManager.Get.FindLiveNpc(service) as SRNpc;
-                    if (npc != null) target = npc.GetRealtimePosition();
-                    request.NpcModelId = service.NpcId;
-                    request.NpcServerName = npc == null ? "" : npc.ServerName;
+                    double distance = double.MaxValue;
+                    foreach (NameValueCollection row in DataManager.GetQuestNpcPositions(request.QuestId, request.NpcModelId, request.NpcServerName))
+                    {
+                        SRCoord candidate = new SRCoord((ushort)ReadRowUInt(row, "region"),
+                            int.Parse(row["x"]), int.Parse(row["z"]), int.Parse(row["y"]));
+                        if (!SameWorld(current, candidate)) continue;
+                        double next = current.DistanceTo(candidate);
+                        if (next >= distance) continue;
+                        distance = next;
+                        target = candidate;
+                        request.NpcModelId = ReadRowUInt(row, "model_id");
+                        request.NpcServerName = row["servername"];
+                    }
+                }
+                // Only the verified milestone event family uses a generic town merchant.
+                NameValueCollection data = DataManager.GetQuestData(request.QuestId);
+                if (target == null && (data?["servername"] ?? "").StartsWith("QEV_ALL_BASIC_", StringComparison.OrdinalIgnoreCase))
+                {
+                    TownServiceInfo service = TownManager.Get.FindNearestService(current, TownServiceType.PotionMerchant);
+                    if (service != null) { target = service.Coord; request.NpcModelId = service.NpcId; }
+                }
+                if (!SameWorld(current, target))
+                {
+                    lock (Sync) if (Current == owner) FailCurrent("NPC kimliği/konumu çözülemedi veya başka dünyada; PK2 kataloğunu güncelleyin", true);
+                    return;
+                }
+                Status = "Going to NPC: " + request.DisplayName;
+                if (current.DistanceTo(target) > 18)
+                {
+                    // Stop short of the NPC's collision volume; do not walk onto its center.
+                    double distance = current.DistanceTo(target);
+                    SRCoord stand = new SRCoord(target.PosX + (current.PosX - target.PosX) * 12 / distance,
+                        target.PosY + (current.PosY - target.PosY) * 12 / distance, target.Region, target.Z);
+                    List<SRCoord> path = NavigationManager.Get.FindPath(current, stand);
+                    if (path == null || path.Count == 0)
+                    {
+                        lock (Sync) if (Current == owner) FailCurrent("NPC için navmesh yolu bulunamadı");
+                        return;
+                    }
+                    foreach (SRCoord point in path)
+                    {
+                        lock (Sync) if (Current != owner) return;
+                        if (!bot.isBotting || !InfoManager.inGame || InfoManager.inTeleport || !bot.WaitMovement(point, 8))
+                        {
+                            lock (Sync) if (Current == owner) FailCurrent("NPC yürüyüşü kesildi");
+                            return;
+                        }
+                    }
+                }
+                current = InfoManager.Character?.GetRealtimePosition();
+                npc = FindRequestNpc(request, current);
+                if (npc == null || current.DistanceTo(npc.GetRealtimePosition()) > 20
+                    || !bot.WaitSelectEntity(npc.UniqueID, 10, 250, "Quest NPC seçiliyor..."))
+                {
+                    lock (Sync) if (Current == owner) FailCurrent("NPC yakınında seçim doğrulanamadı");
+                    return;
+                }
+                lock (Sync)
+                {
+                    if (Current != owner || !bot.isBotting || !InfoManager.inGame || InfoManager.inTeleport) return;
+                    PendingTalkNpcUniqueId = npc.UniqueID;
+                    owner.AwaitConfirmation(DateTime.UtcNow);
+                    States[request.QuestId] = request.NpcOperation == QuestNpcOperation.Accept ? QuestAutomationState.Accepting : QuestAutomationState.TurningIn;
+                    Status = StateText(States[request.QuestId]) + ": " + request.DisplayName;
+                    PacketBuilder.TalkNPC(npc.UniqueID, 2);
                 }
             }
-            if (string.IsNullOrWhiteSpace(request.NpcServerName) && request.NpcModelId == 0 && target == null)
-            {
-                Status = "Quest NPC'si PK2/collision verisinden çözülemedi: " + request.DisplayName;
-                Window.Get?.Log("Quest: " + Status, Theme.LogLevel.Warning);
-                return;
-            }
-            if (target == null || current == null)
-            {
-                Status = "Quest NPC konumu bulunamadı: " + request.DisplayName;
-                Window.Get?.Log("Quest: " + Status, Theme.LogLevel.Warning);
-                return;
-            }
-            if (current.DistanceTo(target) > 18.0)
-            {
-                Status = "Quest NPC'sine yürünüyor: " + request.DisplayName;
-                List<SRCoord> path = NavigationManager.Get.FindPath(current, target);
-                if (path != null && path.Count > 0)
-                    foreach (SRCoord point in path) bot.WaitMovement(point, 8);
-                else
-                    bot.WaitMovement(target, 12);
-            }
-            npc = InfoManager.Npcs.Find(n => n != null
-                && ((request.NpcModelId != 0 && n.ID == request.NpcModelId)
-                    || (!string.IsNullOrWhiteSpace(request.NpcServerName)
-                        && string.Equals(n.ServerName, request.NpcServerName, StringComparison.OrdinalIgnoreCase))));
-            if (npc == null || !bot.WaitSelectEntity(npc.UniqueID, 10, 250, "Quest NPC seçiliyor..."))
-            {
-                Status = "Quest NPC'si seçilemedi: " + request.DisplayName;
-                Window.Get?.Log("Quest: " + Status, Theme.LogLevel.Warning);
-                return;
-            }
-            string error;
-            if (!ArmQuestTalkSelection(request.QuestId, npc.UniqueID, request.NpcOperation, out error))
-            {
-                Status = error;
-                Window.Get?.Log("Quest: " + error, Theme.LogLevel.Warning);
-                return;
-            }
-            Status = (request.NpcOperation == QuestNpcOperation.TurnIn ? "Görev teslim" : "Görev kabul")
-                + " konuşması açılıyor: " + request.DisplayName;
-            PacketBuilder.TalkNPC(npc.UniqueID, 2);
+            catch (Exception ex) { lock (Sync) if (Current == owner) FailCurrent(ex.Message); }
         }
 
         private static QuestAutomationRequest CreateAutomaticTownQuestRequest()
         {
-            if (InfoManager.Character == null || InfoManager.Character.Quests == null) return null;
-            SRCoord current = InfoManager.Character.GetRealtimePosition();
-            if (current == null) return null;
-            bool isInTown = TownManager.Get.IsNearTown(current, 220.0);
+            if (InfoManager.Character?.Quests == null) return null;
             foreach (QuestAutomationRule rule in GetRules())
             {
                 if (!rule.Enabled) continue;
                 NameValueCollection data = DataManager.GetQuestData(rule.QuestId);
-                string serverName = data == null ? "" : data["servername"];
-                bool isEventClaim = !string.IsNullOrWhiteSpace(serverName)
-                    && serverName.StartsWith("QEV_ALL_BASIC_", StringComparison.OrdinalIgnoreCase);
+                if (data == null) continue;
                 byte requiredLevel;
                 if (byte.TryParse(data["level"], out requiredLevel) && requiredLevel > InfoManager.Character.Level) continue;
-                SRQuest activeQuest = InfoManager.Character.Quests[rule.QuestId];
-                bool completedThisSession;
+                bool eventClaim = (data["servername"] ?? "").StartsWith("QEV_ALL_BASIC_", StringComparison.OrdinalIgnoreCase);
+                SRQuest active = InfoManager.Character.Quests[rule.QuestId];
                 lock (Sync)
                 {
-                    if (UnavailableThisSession.Contains(rule.QuestId)) continue;
-                    completedThisSession = CompletedThisSession.Contains(rule.QuestId);
-                }
-                QuestNpcOperation? resolvedOperation = QuestAutomationPolicy.ResolveNpcOperation(
-                    activeQuest != null, activeQuest == null ? (byte)0 : activeQuest.State,
-                    rule.AutoAccept, rule.AutoTurnIn, completedThisSession,
-                    rule.RepeatIfAvailable, isEventClaim);
-                if (!resolvedOperation.HasValue) continue;
-                QuestNpcOperation operation = resolvedOperation.Value;
-                if (!isInTown)
-                {
-                    lock (Sync)
-                    {
-                        DateTime lastReturn;
-                        if (LastReturnAttempts.TryGetValue(rule.QuestId, out lastReturn)
-                            && DateTime.UtcNow - lastReturn < TimeSpan.FromSeconds(20)) continue;
-                        LastReturnAttempts[rule.QuestId] = DateTime.UtcNow;
-                    }
+                    DateTime repeatAt;
+                    if (RepeatAfterUtc.TryGetValue(rule.QuestId, out repeatAt) && DateTime.UtcNow < repeatAt) continue;
+                    QuestNpcTransaction transaction;
+                    if (Transactions.TryGetValue(rule.QuestId, out transaction)
+                        && (transaction.Terminal || (!transaction.Confirmed && DateTime.UtcNow < transaction.RetryAtUtc))) continue;
+                    if (active == null && transaction != null && transaction.Operation == QuestNpcOperation.TurnIn && !transaction.Confirmed) continue;
+                    // Return/script completions remain separate from NPC turn-in.
+                    if (active != null && (rule.CompletionAction == QuestCompletionAction.ReturnTown
+                        || rule.CompletionAction == QuestCompletionAction.RunScript)) continue;
+                    QuestNpcOperation? operation = QuestAutomationPolicy.ResolveNpcOperation(active != null,
+                        active == null ? (byte)0 : active.State, rule.AutoAccept, rule.AutoTurnIn,
+                        CompletedThisSession.Contains(rule.QuestId), rule.RepeatIfAvailable, eventClaim);
+                    if (!operation.HasValue) continue;
                     return new QuestAutomationRequest
                     {
-                        QuestId = rule.QuestId,
-                        DisplayName = ResolveDisplayName(rule, rule.QuestId),
-                        Action = QuestCompletionAction.ReturnTown,
-                        NpcOperation = operation
+                        QuestId = rule.QuestId, DisplayName = ResolveDisplayName(rule, rule.QuestId),
+                        Action = QuestCompletionAction.TurnInAtNpc, NpcOperation = operation.Value,
+                        NpcModelId = rule.NpcModelId, NpcServerName = rule.NpcServerName,
+                        NpcPosition = rule.NpcRegion == 0 ? null : new SRCoord(rule.NpcRegion, rule.NpcX, rule.NpcZ, rule.NpcY)
                     };
                 }
-                bool hasKnownNpc = rule.NpcModelId != 0 || !string.IsNullOrWhiteSpace(rule.NpcServerName)
-                    || rule.NpcRegion != 0;
-                TownServiceType ignoredService;
-                bool canResolveTownNpc = TryResolveTownService(data, out ignoredService);
-                if (!hasKnownNpc && !isEventClaim && !canResolveTownNpc)
-                {
-                    Status = "Görev NPC'si henüz öğrenilmedi: " + ResolveDisplayName(rule, rule.QuestId)
-                        + " (bir kez NPC yanında 'Select at NPC' kullanın)";
-                    continue;
-                }
-                lock (Sync)
-                {
-                    DateTime last;
-                    if (LastTownQuestAttempts.TryGetValue(rule.QuestId, out last)
-                        && DateTime.UtcNow - last < TimeSpan.FromMinutes(2)) continue;
-                    LastTownQuestAttempts[rule.QuestId] = DateTime.UtcNow;
-                }
-                return new QuestAutomationRequest
-                {
-                    QuestId = rule.QuestId,
-                    DisplayName = ResolveDisplayName(rule, rule.QuestId),
-                    Action = QuestCompletionAction.TurnInAtNpc,
-                    NpcServerName = rule.NpcServerName,
-                    NpcModelId = rule.NpcModelId,
-                    NpcPosition = rule.NpcRegion == 0 ? null : new SRCoord(rule.NpcRegion, rule.NpcX, rule.NpcY, rule.NpcZ),
-                    NpcOperation = operation
-                };
             }
             return null;
-        }
-
-        private static bool TryResolveTownService(NameValueCollection questData, out TownServiceType serviceType)
-        {
-            serviceType = TownServiceType.PotionMerchant;
-            if (questData == null) return false;
-            string notice = (questData["notice_npc"] ?? "").ToUpperInvariant();
-            if (notice.Contains("POTION") || notice.Contains("HERBALIST") || notice.Contains("ALCHEMY"))
-            {
-                serviceType = TownServiceType.PotionMerchant;
-                return true;
-            }
-            if (notice.Contains("BLACKSMITH") || notice.Contains("SMITH")
-                || notice.Contains("WEAPON") || notice.Contains("ARMOR"))
-            {
-                serviceType = TownServiceType.Blacksmith;
-                return true;
-            }
-            if (notice.Contains("STORAGE") || notice.Contains("WAREHOUSE"))
-            {
-                serviceType = TownServiceType.Storage;
-                return true;
-            }
-            if (notice.Contains("GROCERY") || notice.Contains("ACCESSORY"))
-            {
-                serviceType = TownServiceType.GroceryMerchant;
-                return true;
-            }
-            return false;
         }
 
         private static string Safe(string value)

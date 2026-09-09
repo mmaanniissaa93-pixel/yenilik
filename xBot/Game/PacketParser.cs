@@ -1440,11 +1440,13 @@ namespace xBot.Game
 				if (updateType == 3 || updateType == 4)
 				{
 					InfoManager.Character.Quests.RemoveKey(questId);
+					QuestAutomationManager.ObserveServerUpdate(questId, updateType);
 				}
 				else if (updateType == 1 || updateType == 2)
 				{
 					SRQuest quest = ReadActiveQuest(packet, questId);
 					InfoManager.Character.Quests[questId] = quest;
+					QuestAutomationManager.ObserveServerUpdate(questId, updateType);
 					QuestAutomationManager.ObserveQuest(quest);
 				}
 				InfoManager.OnQuestUpdated();

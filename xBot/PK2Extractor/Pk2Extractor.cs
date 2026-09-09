@@ -280,6 +280,7 @@ namespace xBot.PK2Extractor
 				SetLanguageIndex();
 				Log("Loading name references...");
 				LoadNameReferences();
+				LoadQuestTextReferences();
 				Log("Loading & Adding text references...");
 				LoadTextReferences();
 				AddTextReferences();
@@ -293,6 +294,8 @@ namespace xBot.PK2Extractor
 				AddMagicOptions();
 				Log("Adding Characters & Mobs...");
 				AddModels();
+				Log("Adding NPC positions...");
+				AddNpcPositions();
 				Log("Adding Masteries & Skills...");
 				AddMasteries();
 				AddSkills();

@@ -215,6 +215,31 @@ namespace xBot.PK2Extractor
 				}
 			}
 		}
+		private void LoadQuestTextReferences()
+        {
+            const string basePath = "server_dep\\silkroad\\textdata\\";
+            string index = pk2.GetFileText(basePath + "textquest.txt");
+            if (string.IsNullOrWhiteSpace(index)) return;
+            foreach (string entry in index.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                string file = entry.Trim();
+                if (file.StartsWith("//")) continue;
+                string source = pk2.GetFileText(basePath + file);
+                if (string.IsNullOrWhiteSpace(source)) continue;
+                using (StringReader reader = new StringReader(source))
+                {
+                    string row;
+                    while ((row = reader.ReadLine()) != null)
+                    {
+                        string[] fields = row.Split(pk2_split, StringSplitOptions.None);
+                        if (fields.Length > LanguageIndex && fields[0] == "1"
+                            && !string.IsNullOrWhiteSpace(fields[LanguageIndex]) && fields[LanguageIndex] != "0")
+                            NameReferences[fields[1]] = fields[LanguageIndex];
+                    }
+                }
+            }
+        }
+
 		private string GetNameReference(string ServerName)
 		{
 			if (NameReferences.ContainsKey(ServerName))
@@ -308,7 +333,7 @@ namespace xBot.PK2Extractor
 			sql += "namestring VARCHAR(128),";
 			sql += "description VARCHAR(256),";
 			sql += "notice_npc VARCHAR(128),";
-			sql += "notice_condition VARCHAR(256)";
+			sql += "notice_condition VARCHAR(256),notice_npc_text VARCHAR(512)";
 			sql += ");";
 			db.ExecuteQuery(sql);
 
@@ -374,7 +399,7 @@ namespace xBot.PK2Extractor
 						string translated = GetNameReference(data[5]);
 						if (string.IsNullOrWhiteSpace(translated)) translated = GetTextReference(data[5]);
 						if (string.IsNullOrWhiteSpace(translated)) translated = data[2];
-						db.Prepare("INSERT OR REPLACE INTO quests (id,servername,level,name,namestring,description,notice_npc,notice_condition) VALUES (?,?,?,?,?,?,?,?);");
+						db.Prepare("INSERT OR REPLACE INTO quests (id,servername,level,name,namestring,description,notice_npc,notice_condition,notice_npc_text) VALUES (?,?,?,?,?,?,?,?,?);");
 						db.Bind("id", questId);
 						db.Bind("servername", data[2]);
 						db.Bind("level", questLevel);
@@ -383,6 +408,7 @@ namespace xBot.PK2Extractor
 						db.Bind("description", data[4]);
 						db.Bind("notice_npc", data.Length > 9 ? data[9] : "");
 						db.Bind("notice_condition", data.Length > 10 ? data[10] : "");
+						db.Bind("notice_npc_text", data.Length > 9 ? GetNameReference(data[9]) : "");
 						db.ExecuteQuery();
 						added++;
 					}
@@ -466,6 +492,36 @@ namespace xBot.PK2Extractor
 				}
 			}
 		}
+		private void AddNpcPositions()
+        {
+            db.ExecuteQuery("CREATE TABLE npc_positions (model_id INTEGER,region INTEGER,x INTEGER,z INTEGER,y INTEGER, PRIMARY KEY(model_id,region,x,z,y));");
+            int added = 0, rejected = 0;
+            db.Begin();
+            foreach (PK2ReaderAPI.Pk2File file in pk2.Files)
+            {
+                if (!string.Equals(file.Name, "npcpos.txt", StringComparison.OrdinalIgnoreCase)) continue;
+                using (StringReader reader = new StringReader(pk2.GetFileText(file)))
+                {
+                    string row;
+                    while ((row = reader.ReadLine()) != null)
+                    {
+                        if (string.IsNullOrWhiteSpace(row) || row.TrimStart().StartsWith("//")) continue;
+                        QuestNpcPosition position = QuestNpcCatalogPolicy.ParsePosition(row);
+                        if (position == null) { rejected++; continue; }
+                        db.Prepare("INSERT OR IGNORE INTO npc_positions(model_id,region,x,z,y) VALUES(?,?,?,?,?);");
+                        db.Bind("model_id", position.ModelId);
+                        db.Bind("region", position.Region);
+                        db.Bind("x", position.X);
+                        db.Bind("z", position.Z);
+                        db.Bind("y", position.Y);
+                        added += Math.Max(0, db.ExecuteQuery());
+                    }
+                }
+            }
+            db.End();
+            Log("NPC positions: " + added + " unique placements, " + rejected + " invalid rows.");
+        }
+
 		private void AddQuestRewardItems()
 		{
 			db.ExecuteQuery("CREATE TABLE quest_reward_items (quest_id INTEGER, quest_servername VARCHAR(128), reward_type INTEGER, item_servername VARCHAR(128), amount INTEGER, PRIMARY KEY (quest_id,item_servername));");
