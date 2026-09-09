@@ -527,6 +527,18 @@ internal static class Program
         RunSroCheck("Petition ResurrectionAgain(8) tanınır", SroDocsPolicy.IsKnownPetitionType(8), true);
         RunSroCheck("Petition 7 tanınmaz", SroDocsPolicy.IsKnownPetitionType(7), false);
 
+        RunSroCheck("Quest state 2 teslim edilmeye hazırdır", QuestAutomationPolicy.IsReadyToTurnIn(2), true);
+        RunSroCheck("Quest state 8 teslim edilmeye hazırdır", QuestAutomationPolicy.IsReadyToTurnIn(8), true);
+        RunSroCheck("Quest state 3 yeniden aksiyon üretmez", QuestAutomationPolicy.IsReadyToTurnIn(3), false);
+        RunSroCheck("Enabled return quest aksiyonu kuyruğa alınır",
+            QuestAutomationPolicy.ShouldQueue(true, QuestCompletionAction.ReturnTown, 2, false), true);
+        RunSroCheck("Disabled quest aksiyonu kuyruğa alınmaz",
+            QuestAutomationPolicy.ShouldQueue(false, QuestCompletionAction.ReturnTown, 2, false), false);
+        RunSroCheck("İşlenmiş quest completion tekrar kuyruğa alınmaz",
+            QuestAutomationPolicy.ShouldQueue(true, QuestCompletionAction.RunScript, 8, true), false);
+        RunSroCheck("Do nothing seçimi aksiyon üretmez",
+            QuestAutomationPolicy.ShouldQueue(true, QuestCompletionAction.None, 2, false), false);
+
         RunDictionaryRenameScenarios();
         RunSecretStoreScenarios();
         RunScriptCommandScenarios();

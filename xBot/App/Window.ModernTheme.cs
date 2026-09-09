@@ -533,6 +533,8 @@ namespace xBot.App
             modernSidebar.AddItem("Skills", "Beceriler", "✦", "BOT AYARLARI", TabPageV_Control01_Skills_Panel);
             modernSidebar.AddItem("Character", "Koruma", "🛡", "BOT AYARLARI", TabPageV_Control01_Character_Panel);
             modernSidebar.AddItem("Town", "Şehir & İtem", "🏛", "BOT AYARLARI", TabPageV_Control01_Town_Panel);
+            modernSidebar.AddItem("Trade", "Trade", "⇄", "BOT AYARLARI", TabPageV_Control01_Trade_Panel);
+            modernSidebar.AddItem("Quest", "Görevler", "☑", "BOT AYARLARI", TabPageV_Control01_Quest_Panel);
             modernSidebar.AddItem("Alchemy", "Simya (+ Basma)", "⚗", "BOT AYARLARI", TabPageV_Control01_Alchemy_Panel);
             modernSidebar.AddItem("TargetAssist", "Target Assist", "🎯", "BOT AYARLARI", TabPageV_Control01_TargetAssist_Panel);
 
@@ -610,6 +612,8 @@ namespace xBot.App
                 TabPageV_Control01_Minimap_Panel,
                 TabPageV_Control01_GameInfo_Panel,
                 TabPageV_Control01_Settings_Panel,
+                TabPageV_Control01_Trade_Panel,
+                TabPageV_Control01_Quest_Panel,
                 TabPageV_Control01_Alchemy_Panel,
                 TabPageV_Control01_TargetAssist_Panel
             };

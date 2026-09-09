@@ -344,17 +344,23 @@ atlar.
 Kaynaklar: `xBot/App/ItemFilterManager.cs`,
 `xBot/App/Window.PickFilter.cs` ve `xBot/App/Script.cs`.
 
-## 13. Quest — ❌ Kullanılabilir otomasyon yok
+## 13. Quest — ⚠️ Kısmi
 
-Quest paketleri ve modelleri bulunur, ancak phBot seviyesinde Quest sekmesi ve
-motoru yoktur:
+Tamamlanan Quest Automation v1 kapsamı:
 
-- Active quest listesi.
-- Quest abandon.
-- Tüm quest kataloğu ve arama.
-- Quest enable/disable.
-- Tamamlanınca return.
-- Tamamlanınca script.
+- Modern sol menüye bağlı aktif quest listesi.
+- `0x30D5` add/update/remove/abandon canlı quest güncellemeleri.
+- `0x70D9/0xB0D9` ile seçili quest'i bırakma.
+- Quest ID başına profil-kalıcı ad/alias ve enable/disable kuralı.
+- State `2` veya `8` olduğunda tek-seferlik tamamlanma algılama.
+- Tamamlanınca return scroll veya kullanıcı tarafından seçilen scripti çalıştırma.
+- Network thread'in yalnız kuyruk oluşturduğu, aksiyonu bot thread'inin çalıştırdığı tek-sahipli motor.
+- Seçili event/So-Ok NPC için `0x30D4/0x3514/0x7515` quest ID ve ödül akışı.
+
+Kalan phBot kapsamı:
+
+- PK2/RefQuest tabanlı tüm quest kataloğu, gerçek quest adları ve arama.
+- Normal quest kabul ve NPC'ye teslim protokolü.
 - Seviyenin üstündeki quest'i alma.
 - EXP ratio kontrolü.
 - Training area'dan town'a yürüyerek teslim.
@@ -367,8 +373,9 @@ motoru yoktur:
 - Job Cave quest döngüsü.
 - Quest return scripti.
 
-`0x3CA2` quest script parser'ının bulunması bu kullanıcı otomasyonlarını
-sağlamaz.
+Aktif listede RefQuest kataloğu henüz bulunmadığından görev adı yerine kullanıcı
+alias'ı veya objective özeti kullanılır; otomasyon kararı quest ID üzerinden
+verilir.
 
 ## 14. Guild ve Academy — ⚠️/❌
 
@@ -630,7 +637,7 @@ görünmektedir:
 
 İşlevleri phBot'a yaklaştırmak için önerilen geliştirme sırası:
 
-1. Quest motoru ve genişletilmiş script komutları.
+1. Quest Automation v2: RefQuest kataloğu, normal kabul/teslim ve gelişmiş döngüler.
 2. Guild storage, dismantle ve consignment gibi yarım kalmış mevcut UI
    akışlarının tamamlanması.
 3. Party buff/resurrect/heal yapılandırmasının tamamlanması.

@@ -1262,5 +1262,25 @@ namespace xBot.Game
 			p.WriteUInt(npcUniqueID);
 			Bot.Get.Proxy.Agent.InjectToServer(p);
 		}
+		public static void RequestEventQuestId()
+		{
+			Packet p = new Packet(Agent.Opcode.CLIENT_EVENT_QUEST_ID_REQUEST);
+			p.WriteByte(5);
+			Bot.Get.Proxy.Agent.InjectToServer(p);
+		}
+		public static void ReceiveEventQuestReward(uint questId, uint rewardId)
+		{
+			Packet p = new Packet(Agent.Opcode.CLIENT_EVENT_QUEST_REWARD_REQUEST);
+			p.WriteUInt(questId);
+			p.WriteByte(1);
+			p.WriteUInt(rewardId);
+			Bot.Get.Proxy.Agent.InjectToServer(p);
+		}
+		public static void AbandonQuest(uint questId)
+		{
+			Packet p = new Packet(Agent.Opcode.CLIENT_QUEST_ABANDON_REQUEST);
+			p.WriteUInt(questId);
+			Bot.Get.Proxy.Agent.InjectToServer(p);
+		}
 	}
 }

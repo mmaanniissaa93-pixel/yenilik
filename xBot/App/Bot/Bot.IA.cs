@@ -153,6 +153,14 @@ namespace xBot.App
             Window w = Window.Get;
             while (!m_stopBottingRequested && tBotting != null)
             {
+                // Quest packet thread only queues completion work. Execute it here
+                // so movement/scripts keep a single bot-thread owner.
+                QuestAutomationManager.ObserveActiveQuests();
+                if (QuestAutomationManager.TryExecutePending(this))
+                {
+                    SleepInterruptible(500);
+                    continue;
+                }
                 // Checking where am I ?
                 w.LogProcess("Checking current location...");
                 SRCoord myPosition = InfoManager.Character.GetRealtimePosition();

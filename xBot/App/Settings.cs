@@ -599,6 +599,7 @@ namespace xBot.App
 					#endregion
 
 					root["Trade"] = TradeLoopManager.ToJson();
+					root["QuestAutomation"] = QuestAutomationManager.ToJson();
 
 				#region (Stall Tab)
 				JObject Stall = new JObject();
@@ -1192,6 +1193,8 @@ Window w = Window.Get;
 
 				TradeLoopManager.FromJson(root.ContainsKey("Trade") ? (JObject)root["Trade"] : null);
 				try { w.RefreshTradeLoopUi(); } catch { }
+				QuestAutomationManager.FromJson(root.ContainsKey("QuestAutomation") ? (JObject)root["QuestAutomation"] : null);
+				try { w.RefreshQuestAutomationUi(); } catch { }
 
 			#region (Stall Tab)
 			JObject Stall = root.ContainsKey("Stall") ? (JObject)root["Stall"] : new JObject();

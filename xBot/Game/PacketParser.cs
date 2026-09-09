@@ -1400,6 +1400,75 @@ namespace xBot.Game
 			}
 			catch { }
 		}
+		public static void EventQuestIdResponse(Packet packet)
+		{
+			try
+			{
+				if (packet.RemainingRead() < 4) return;
+				uint questId = packet.ReadUInt();
+				InfoManager.OnEventQuestId(questId);
+				Window.Get?.Log("Quest: event quest ID alındı: " + questId);
+			}
+			catch (Exception ex) { Window.Get?.Log("Quest ID cevabı okunamadı: " + ex.Message, LogLevel.Warning); }
+		}
+		public static void QuestAbandonResponse(Packet packet)
+		{
+			try
+			{
+				bool success = packet.RemainingRead() >= 1 && packet.ReadByte() == 1;
+				uint questId = success && packet.RemainingRead() >= 4 ? packet.ReadUInt() : 0;
+				InfoManager.OnQuestAbandon(success, questId);
+				Window.Get?.Log(success ? "Quest: " + questId + " bırakıldı." : "Quest: bırakma isteği reddedildi.",
+					success ? LogLevel.Info : LogLevel.Warning);
+			}
+			catch (Exception ex) { Window.Get?.Log("Quest bırakma cevabı okunamadı: " + ex.Message, LogLevel.Warning); }
+		}
+		public static void QuestUpdate(Packet packet)
+		{
+			try
+			{
+				if (packet.RemainingRead() < 5) return;
+				byte updateType = packet.ReadByte(); // 1=add, 2=update, 3=remove, 4=abandon
+				uint questId = packet.ReadUInt();
+				if (InfoManager.Character == null || InfoManager.Character.Quests == null) return;
+				if (updateType == 3 || updateType == 4)
+				{
+					InfoManager.Character.Quests.RemoveKey(questId);
+				}
+				else if (updateType == 1 || updateType == 2)
+				{
+					SRQuest quest = ReadActiveQuest(packet, questId);
+					InfoManager.Character.Quests[questId] = quest;
+					QuestAutomationManager.ObserveQuest(quest);
+				}
+				InfoManager.OnQuestUpdated();
+			}
+			catch (Exception ex) { Window.Get?.Log("Quest güncellemesi okunamadı: " + ex.Message, LogLevel.Warning); }
+		}
+		private static SRQuest ReadActiveQuest(Packet packet, uint questId)
+		{
+			SRQuest quest = new SRQuest(questId);
+			quest.Achievements = packet.ReadByte();
+			quest.isAutoShareRequired = packet.ReadBool();
+			quest.QuestType = packet.ReadByte();
+			if (quest.QuestType == 28) quest.TimeRemain = packet.ReadUInt();
+			quest.State = packet.ReadByte();
+			if (quest.QuestType != 8)
+			{
+				xList<SRQuestObjective> objectives = new xList<SRQuestObjective>(packet.ReadByte());
+				for (byte i = 0; i < objectives.Capacity; i++)
+				{
+					SRQuestObjective objective = new SRQuestObjective(packet.ReadByte());
+					objective.isEnabled = packet.ReadBool();
+					objective.Name = packet.ReadAscii();
+					objective.TasksID = packet.ReadUIntArray(packet.ReadByte());
+					objectives[i] = objective;
+				}
+				quest.Objectives = objectives;
+			}
+			if (quest.QuestType == 88) quest.NpcsID = packet.ReadUIntArray(packet.ReadByte());
+			return quest;
+		}
 		public static void TeleportUseResponse(Packet packet)
 		{
 			// 0xB05A: normal başarı sırası iki pakettir — önce 3 baytlık

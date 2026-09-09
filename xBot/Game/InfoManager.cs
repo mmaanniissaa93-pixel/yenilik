@@ -46,6 +46,8 @@ namespace xBot.Game
 		private static AutoResetEvent m_MonitorGuildStorageData = new AutoResetEvent(false);
 		private static AutoResetEvent m_MonitorPetMountResponse = new AutoResetEvent(false);
 		private static AutoResetEvent m_MonitorPetRemoved = new AutoResetEvent(false);
+		private static AutoResetEvent m_MonitorEventQuestId = new AutoResetEvent(false);
+		private static AutoResetEvent m_MonitorQuestAbandon = new AutoResetEvent(false);
 		private static int m_stallViewsCount;
 		private static ulong m_stallEarnings;
 		#endregion
@@ -208,6 +210,10 @@ namespace xBot.Game
 		public static bool LastPetMountState { get; private set; }
 		public static uint LastPetMountUniqueID { get; private set; }
 		public static uint LastPetRemovedUniqueID { get; private set; }
+		public static uint LastEventQuestId { get; private set; }
+		public static bool LastQuestAbandonSuccess { get; private set; }
+		public static uint LastQuestAbandonId { get; private set; }
+		public static DateTime LastQuestUpdateTime { get; private set; } = DateTime.MinValue;
 		#endregion
 
 		#region (Monitors)
@@ -231,6 +237,8 @@ namespace xBot.Game
 		public static AutoResetEvent MonitorGuildStorageData { get { return m_MonitorGuildStorageData; } }
 		public static AutoResetEvent MonitorPetMountResponse { get { return m_MonitorPetMountResponse; } }
 		public static AutoResetEvent MonitorPetRemoved { get { return m_MonitorPetRemoved; } }
+		public static AutoResetEvent MonitorEventQuestId { get { return m_MonitorEventQuestId; } }
+		public static AutoResetEvent MonitorQuestAbandon { get { return m_MonitorQuestAbandon; } }
 		#endregion
 
 		#region (Methods)
@@ -239,6 +247,24 @@ namespace xBot.Game
 			LastRepairSuccess = success;
 			LastRepairErrorCode = errorCode;
 			m_MonitorRepairResponse.Set();
+		}
+		internal static void OnEventQuestId(uint questId)
+		{
+			LastEventQuestId = questId;
+			m_MonitorEventQuestId.Set();
+		}
+		internal static void OnQuestAbandon(bool success, uint questId)
+		{
+			LastQuestAbandonSuccess = success;
+			LastQuestAbandonId = questId;
+			if (success && Character != null && Character.Quests != null)
+				Character.Quests.RemoveKey(questId);
+			LastQuestUpdateTime = DateTime.UtcNow;
+			m_MonitorQuestAbandon.Set();
+		}
+		internal static void OnQuestUpdated()
+		{
+			LastQuestUpdateTime = DateTime.UtcNow;
 		}
 		internal static void OnConsignmentList(byte[] payload, List<ConsignmentListing> listings = null)
 		{

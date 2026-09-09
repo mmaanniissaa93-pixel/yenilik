@@ -104,7 +104,10 @@ namespace xBot.Network
 			CLIENT_LOGOUT_REQUEST = 0x7005,
 			CLIENT_LOGOUT_CANCEL_REQUEST = 0x7006,
 			CLIENT_RENAME_REQUEST = 0x7450,
-			CLIENT_REPAIR_ALL_EQUIPMENTS = 0x703E,
+				CLIENT_REPAIR_ALL_EQUIPMENTS = 0x703E,
+			CLIENT_EVENT_QUEST_ID_REQUEST = 0x30D4,
+			CLIENT_EVENT_QUEST_REWARD_REQUEST = 0x7515,
+			CLIENT_QUEST_ABANDON_REQUEST = 0x70D9,
 
 			SERVER_AUTH_RESPONSE = 0xA103,
 				SERVER_SECONDARY_PASSCODE_REQUEST = 0x3625,
@@ -223,6 +226,9 @@ namespace xBot.Network
 				SERVER_LOGOUT_SUCCESS = 0x300A,
 				SERVER_RENAME_RESPONSE = 0xB450,
 				SERVER_CHAT_RESTRICT = 0x302D,
+				SERVER_EVENT_QUEST_ID_RESPONSE = 0x3514,
+				SERVER_QUEST_UPDATE = 0x30D5,
+				SERVER_QUEST_ABANDON_RESPONSE = 0xB0D9,
 				SERVER_QUEST_SCRIPT = 0x3CA2,
 
 				GLOBAL_HANDSHAKE = 0x5000,
@@ -776,6 +782,15 @@ namespace xBot.Network
 					break;
 				case Opcode.SERVER_CHAT_RESTRICT:
 					PacketParser.ChatRestrict(packet);
+					break;
+				case Opcode.SERVER_EVENT_QUEST_ID_RESPONSE:
+					PacketParser.EventQuestIdResponse(packet);
+					break;
+				case Opcode.SERVER_QUEST_UPDATE:
+					PacketParser.QuestUpdate(packet);
+					break;
+				case Opcode.SERVER_QUEST_ABANDON_RESPONSE:
+					PacketParser.QuestAbandonResponse(packet);
 					break;
 				case Opcode.SERVER_QUEST_SCRIPT:
 					PacketParser.QuestScript(packet);

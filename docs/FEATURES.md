@@ -127,6 +127,7 @@ Son kaynak taraması: 2026-09-08
 | F-096 | Ortam saati ve hava durumu (srodevs-docs) | ✅ | `0x3020/0x3027` moonphase/saat/dakika + `0x3809` weather `InfoManager`’da tutulur (`GameHour/Minute/Moonphase/WeatherType/Intensity`) |
 | F-097 | Gateway notice/ping/patch + download stub (srodevs-docs) | ✅ | `0xA104` notice, `0xA106` ping, `0xA100` PatchErrorCode + dosya listesi, `0x6004/0x1001/0xA004` download stub; `RequestNotice/RequestShardListPing/RestoreCharacter` builder |
 | F-098 | Auth/patch/petition/weather politika haritası (srodevs-docs) | ✅ | `0xA103` auth hata kodları (C9/C10/full/IP), patch hata adları, petition GuildWar(10)/Resurrection(8), `SroDocsPolicy` + 32 senaryo |
+| F-099 | Quest Automation v1 | 🧪 | `App/QuestAutomationManager.cs`, `QuestAutomationPolicy.cs`, modern Görevler paneli, karakter profili `QuestAutomation`; aktif liste, enable/disable, abandon, tamamlanınca return/script ve event/So-Ok ödülü bağlı. RefQuest kataloğu ile normal kabul/teslim v2 kapsamında. |
 
 ## Geliştirilmekte olan yöneticiler
 
@@ -148,6 +149,7 @@ Bu bölüm, çalışma ağacında yeni görünen yöneticileri ayrı izler. Yeni
 | `Socks5Config` | Gateway ve Agent bağlantılarını SOCKS5 tüneline yönlendirme | `Socks5Proxy` | `Proxy.cs`, `Socks5Handler.cs` ve `Socks5Policy` ile bağlı; 14 testle doğrulandı | Proxy IP üzerinden gateway bağlantısı testi |
 | `AlchemyManager` | Otomatik simya (+ basma), slot ve elixir/powder eşleme, güvenlik limitleri | `Alchemy` | `Bot.IA` döngüsünde bağlı; `AlchemyPolicy` karar katmanı ve 25 bağımsız testle doğrulandı | Oyun içi simya ve elixir tüketimi ile runtime test |
 | `SroDocsPolicy` | srodevs-docs mesaj/karar haritası (login/auth/logout/chat/rename/patch/petition/weather/angle) | Yok | `PacketParser`, `Agent.cs`, `Proxy.cs`, `Gateway.cs` ile bağlı; 32 bağımsız testle doğrulandı | Gerçek server paketleriyle runtime test |
+| `QuestAutomationManager` | Aktif görev kuralları ve tamamlanma aksiyonları | `QuestAutomation` | `0x30D5` parser, bot thread kuyruğu ve Görevler paneline bağlı; return/script tekrar koruması var | Gerçek sunucuda state 2/8 ve event ödül testi |
 
 ## Yeni özellik ekleme akışı
 
