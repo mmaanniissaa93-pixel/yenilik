@@ -27,7 +27,7 @@ namespace xGraphics
 		private IntPtr _EventMask;
 		private int _SuspendIndex = 0;
 		private int _SuspendLength = 0;
-		private bool _ReadOnly;
+		private bool _Trimming;
 
 		public bool AutoScroll
 		{
@@ -35,6 +35,7 @@ namespace xGraphics
 				return _AutoScroll;
 			}
 			set{
+				if (_AutoScroll == value) return;
 				if (value)
 					this.TextChanged += xRichTextBox_TextChanged_AutoScroll;
 				else
@@ -75,16 +76,6 @@ namespace xGraphics
 
 		public new void AppendText(string text)
 		{
-			if (base.Lines.Length >= MaxLines)
-			{
-				SuspendPainting();
-				Select(0, GetFirstCharIndexFromLine(1));
-				_ReadOnly = base.ReadOnly;
-				this.ReadOnly = false;
-				SelectedText = "";
-				this.ReadOnly = _ReadOnly;
-				ResumePainting();
-			}
 			if (AutoScroll)
 			{
 				base.AppendText(text);
@@ -97,10 +88,42 @@ namespace xGraphics
 			}
 		}
 
+		protected override void OnTextChanged(EventArgs e)
+		{
+			if (_Trimming) return;
+			// Also enforce the limit when callers use a RichTextBox reference or
+			// append a multi-line packet. Lines would copy/split the entire buffer.
+			if (MaxLines > 0 && MaxLines < int.MaxValue && TextLength > 0)
+			{
+				int excess = GetLineFromCharIndex(TextLength) + 1 - MaxLines;
+				int cutIndex = excess > 0 ? GetFirstCharIndexFromLine(excess) : 0;
+				if (cutIndex > 0)
+				{
+					bool wasPainting = _Painting;
+					bool wasReadOnly = ReadOnly;
+					_Trimming = true;
+					try
+					{
+						SuspendPainting();
+						ReadOnly = false;
+						Select(0, cutIndex);
+						SelectedText = string.Empty;
+					}
+					finally
+					{
+						ReadOnly = wasReadOnly;
+						if (wasPainting) ResumePainting();
+						_Trimming = false;
+					}
+				}
+			}
+			base.OnTextChanged(e);
+		}
+
 		private void xRichTextBox_TextChanged_AutoScroll(object sender, EventArgs e)
 		{
 			//SendMessage(base.Handle, WM_VSCROLL, SB_PAGEBOTTOM, IntPtr.Zero);
-			base.SelectionStart = Text.Length;
+			base.SelectionStart = TextLength;
 			ScrollToCaret();
 		}
 	}

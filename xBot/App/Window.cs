@@ -1710,24 +1710,29 @@ namespace xBot.App
 		double lastDegreeAngle = 0;
 		public void Minimap_Character_Angle(double degreeAngle)
 		{
-			// Update if it's necessary only
-			if (lastDegreeAngle != degreeAngle)
-			{
-				lastDegreeAngle = degreeAngle;
-				Bitmap mm_sign_character = Properties.Resources.mm_sign_character;
-				// Generate an image rotation
-				Bitmap mm_sign_character_rotated = new Bitmap(mm_sign_character.Width, mm_sign_character.Height);
-				mm_sign_character_rotated.SetResolution(mm_sign_character.HorizontalResolution, mm_sign_character.VerticalResolution);
-				Graphics g = Graphics.FromImage(mm_sign_character_rotated);
-				g.TranslateTransform(mm_sign_character.Width / 2, mm_sign_character.Height / 2);
-				g.RotateTransform(-(float)degreeAngle);
-				g.TranslateTransform(-mm_sign_character.Width / 2, -mm_sign_character.Height / 2);
-				g.DrawImage(mm_sign_character, new Point(0, 0));
-				// Update pointer Image angle
-				Minimap_xmcCharacterMark.InvokeIfRequired(() => {
-					Minimap_xmcCharacterMark.Image = mm_sign_character_rotated;
-				});
-			}
+			Minimap_xmcCharacterMark.InvokeIfRequired(() => {
+				if (Minimap_xmcCharacterMark.IsDisposed || lastDegreeAngle == degreeAngle) return;
+				Bitmap source = Properties.Resources.mm_sign_character;
+				Bitmap rotated = new Bitmap(source.Width, source.Height);
+				try
+				{
+					rotated.SetResolution(source.HorizontalResolution, source.VerticalResolution);
+					using (Graphics g = Graphics.FromImage(rotated))
+					{
+						g.TranslateTransform(source.Width / 2, source.Height / 2);
+						g.RotateTransform(-(float)degreeAngle);
+						g.TranslateTransform(-source.Width / 2, -source.Height / 2);
+						g.DrawImage(source, new Point(0, 0));
+					}
+					Minimap_xmcCharacterMark.SetOwnedImage(rotated);
+					rotated = null;
+					lastDegreeAngle = degreeAngle;
+				}
+				finally
+				{
+					rotated?.Dispose();
+				}
+			});
 		}
 		public void Minimap_Object_Add(uint uniqueID, SREntity entity)
 		{
@@ -1790,6 +1795,7 @@ namespace xBot.App
 					}
 
 					marker.ContextMenuStrip = menuTeleport;
+					marker.Disposed += (sender, args) => menuTeleport.Dispose();
 					marker.Image = Properties.Resources.xy_gate;
 				}
 			}
@@ -1807,6 +1813,8 @@ namespace xBot.App
 				marker.Tag = entity;
 				Minimap_pnlMap.AddMarker(uniqueID, marker);
 			}
+			else
+				marker.Dispose();
 		}
 		public void Minimap_Object_Remove(uint UniqueID)
 		{

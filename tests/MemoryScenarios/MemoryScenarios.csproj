@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>disable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../xBot/Game/Navigation/NavDataReader.cs" Link="NavDataReader.cs" />
+    <Compile Include="../../xBot/Game/Navigation/NavPoint.cs" Link="NavPoint.cs" />
+    <Compile Include="../../xBot/Game/Navigation/NavRegion.cs" Link="NavRegion.cs" />
+    <Compile Include="../../xBot/Game/Objects/Common/SRCoord.cs" Link="SRCoord.cs" />
+    <Compile Include="../../xBot/Game/Objects/xDictionary.cs" Link="xDictionary.cs" />
+    <Compile Include="../../xBot/xGraphics/xMap.cs" Link="xMap.cs" />
+    <Compile Include="../../xBot/xGraphics/xMapTile.cs" Link="xMapTile.cs" />
+    <Compile Include="../../xBot/xGraphics/xMapControl.cs" Link="xMapControl.cs" />
+    <Compile Include="../../xBot/xGraphics/xRichTextBox.cs" Link="xRichTextBox.cs" />
+  </ItemGroup>
+  <PropertyGroup Condition="'$(BaselineReader)' != ''">
+    <DefineConstants>$(DefineConstants);BASELINE</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(BaselineReader)' != ''">
+    <Compile Include="$(BaselineReader)" Link="BaselineReader.cs" />
+  </ItemGroup>
+</Project>

@@ -174,6 +174,7 @@ namespace xGraphics
 		/// </summary>
 		public void UpdateTiles()
 		{
+			ClearCache();
 			// Calculate the sectors range to draw
 			int tileAvg = m_TileCount / 2;
 			// Margin to point center
@@ -230,64 +231,42 @@ namespace xGraphics
 		/// </summary>
 		public void ClearCache()
 		{
-			int minAvg = m_TileCount / 2;
-			int ySectorMin = -minAvg + ViewPoint.ySector;
-			int ySectorMax = -minAvg + ViewPoint.ySector;
-			int xSectorMin = -minAvg + ViewPoint.xSector;
-			int xSectorMax = -minAvg + ViewPoint.xSector;
+			this.InvokeIfRequired(() => {
+				int minAvg = m_TileCount / 2;
+				int ySectorMin = -minAvg + ViewPoint.ySector;
+				int ySectorMax = minAvg + ViewPoint.ySector;
+				int xSectorMin = -minAvg + ViewPoint.xSector;
+				int xSectorMax = minAvg + ViewPoint.xSector;
 
-			List<string> deleteCache = new List<string>();
-			foreach (xMapTile tile in m_Sectors.Values)
-			{
-				if (tile.SectorX < xSectorMin || tile.SectorX > xSectorMax
-					|| tile.SectorY < ySectorMin || tile.SectorY > ySectorMax)
+				List<string> deleteCache = null;
+				foreach (xMapTile tile in m_Sectors.Values)
 				{
-					deleteCache.Add(tile.Name);
-				}
-			}
-			if (deleteCache.Count>0)
-			{
-				this.InvokeIfRequired(() => {
-					for (int i = 0; i < deleteCache.Count; i++)
+					if (tile.SectorX < xSectorMin || tile.SectorX > xSectorMax
+						|| tile.SectorY < ySectorMin || tile.SectorY > ySectorMax)
 					{
-						this.Controls.RemoveByKey(deleteCache[i]);
-						m_Sectors.Remove(deleteCache[i]);
+						if (deleteCache == null) deleteCache = new List<string>();
+						deleteCache.Add(tile.Name);
 					}
-				});
-			}
-		}
-		/// <summary>
-		/// Clear all tiles not visibles from map.
-		/// </summary>
-		private void ClearTiles()
-		{
-			int minAvg = m_TileCount / 2;
-
-			int ySectorMin = -minAvg + ViewPoint.ySector;
-			int ySectorMax = -minAvg + ViewPoint.ySector;
-			int xSectorMin = -minAvg + ViewPoint.xSector;
-			int xSectorMax = -minAvg + ViewPoint.xSector;
-
-			List<string> notVisible = new List<string>();
-			foreach (xMapTile tile in m_Sectors.Values)
-			{
-				if (tile.SectorX < xSectorMin || tile.SectorX > xSectorMax
-					|| tile.SectorY < ySectorMin || tile.SectorY > ySectorMax)
-				{
-					tile.InvokeIfRequired(() => {
-						tile.Visible = false;
-					});
 				}
-			}
+				if (deleteCache == null) return;
+				foreach (string key in deleteCache)
+				{
+					xMapTile tile = m_Sectors[key];
+					this.Controls.Remove(tile);
+					tile.Dispose();
+					m_Sectors.Remove(key);
+				}
+			});
 		}
 		private void RemoveTiles()
 		{
 			this.InvokeIfRequired(() => {
 				foreach (xMapTile tile in m_Sectors.Values){
-					this.Controls.RemoveByKey(tile.Name);
+					this.Controls.Remove(tile);
+					tile.Dispose();
 				}
+				m_Sectors.Clear();
 			});
-			m_Sectors.Clear();
 		}
 		#endregion
 
@@ -298,23 +277,18 @@ namespace xGraphics
 		/// </summary>
 		public void SetView(SRCoord ViewPoint)
 		{
-			if (!m_ViewPoint.Equals(ViewPoint))
-			{
-				// Update layer
-				if (m_ViewPoint.Region != ViewPoint.Region && ViewPoint.inDungeon())
+			this.InvokeIfRequired(() => {
+				if (!m_ViewPoint.Equals(ViewPoint) || m_ViewPoint.Z != ViewPoint.Z)
 				{
+					string previousLayer = m_FilePath;
+					m_ViewPoint = ViewPoint;
 					SelectMapLayer(ViewPoint.Region);
-					RemoveTiles();
-					m_ViewPoint = ViewPoint;
+					if (previousLayer != m_FilePath)
+						RemoveTiles();
+					UpdateTiles();
 				}
-				else
-				{
-					m_ViewPoint = ViewPoint;
-					ClearTiles();
-				}
-				UpdateTiles();
-			}
-			UpdateMarkerLocations();
+				UpdateMarkerLocations();
+			});
 		}
 		#endregion
 
@@ -347,6 +321,9 @@ namespace xGraphics
 		{
 			Marker.Name = this.Name + "_" + UniqueID;
 			this.InvokeIfRequired(()=> {
+				xMapControl previous = m_Markers[UniqueID];
+				if (previous != null && previous != Marker)
+					RemoveMarker(UniqueID);
 				Controls.Add(Marker);
 				Controls.SetChildIndex(Marker, 1);
 				m_Markers[UniqueID] = Marker;
@@ -354,22 +331,27 @@ namespace xGraphics
 		}
 		public void RemoveMarker(uint UniqueID)
 		{
-			xMapControl Marker = m_Markers[UniqueID];
-			if (Marker != null)
-			{
-				this.InvokeIfRequired(() => {
-					this.Controls.RemoveByKey(Marker.Name);
-				});
-				this.m_Markers.RemoveKey(UniqueID);
-			}
+			this.InvokeIfRequired(() => {
+				xMapControl Marker = m_Markers[UniqueID];
+				if (Marker != null)
+				{
+					this.Controls.Remove(Marker);
+					Marker.Dispose();
+					this.m_Markers.RemoveKey(UniqueID);
+				}
+			});
 		}
 		public void ClearMarkers()
 		{
 			this.InvokeIfRequired(() => {
 				for (int i = 0; i < m_Markers.Count; i++)
-					this.Controls.RemoveByKey(m_Markers.GetAt(i).Name);
+				{
+					xMapControl marker = m_Markers.GetAt(i);
+					this.Controls.Remove(marker);
+					marker.Dispose();
+				}
+				this.m_Markers.Clear();
 			});
-			this.m_Markers.Clear();
 		}
 		public void UpdateMarkerLocations()
 		{

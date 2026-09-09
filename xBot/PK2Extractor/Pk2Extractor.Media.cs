@@ -50,7 +50,7 @@ namespace xBot.PK2Extractor
 				try
 				{
 					// Convert DDJ to DDS to Bitmap
-					Bitmap img = DDSReader.FromDDJ(pk2.GetFileBytes(DDJFile));
+					using (Bitmap img = DDSReader.FromDDJ(pk2.GetFileBytes(DDJFile)))
 					if (img != null)
 					{
 						// Save as png
@@ -91,7 +91,7 @@ namespace xBot.PK2Extractor
 				try
 				{
 					// Convert DDJ to DDS to Bitmap
-					Bitmap img = DDSReader.FromDDJ(pk2.GetFileBytes(DDJFile));
+					using (Bitmap img = DDSReader.FromDDJ(pk2.GetFileBytes(DDJFile)))
 					if (img != null)
 					{
 						// Save as png
@@ -142,7 +142,7 @@ namespace xBot.PK2Extractor
 				try
 				{
 					// Convert DDJ to DDS to Bitmap
-					Bitmap img = DDSReader.FromDDJ(pk2.GetFileBytes(f));
+					using (Bitmap img = DDSReader.FromDDJ(pk2.GetFileBytes(f)))
 					if (img != null)
 					{
 						// Save as png

@@ -77,13 +77,9 @@ namespace xBot.Game.Navigation
 				offset += RecordSize;
 			}
 
-			// Parse Topology with UNDIRECTED (two-way) graph expansion
-			List<int>[] tempNeighbors = new List<int>[pointCount];
-			for (int i = 0; i < pointCount; i++)
-			{
-				tempNeighbors[i] = new List<int>(6);
-			}
-
+			// Count both directions first, then allocate exact-sized adjacency buffers.
+			// This avoids a List and backing array for every point in a large region.
+			int[] neighborCounts = new int[pointCount];
 			int cursor = (int)requiredBytes;
 			for (int i = 0; i < pointCount && cursor < decompressed.Length; i++)
 			{
@@ -94,19 +90,45 @@ namespace xBot.Game.Navigation
 					cursor += 4;
 					if (target >= 0 && target < pointCount && target != i)
 					{
-						tempNeighbors[i].Add(target);
-						tempNeighbors[target].Add(i); // Crucial: make two-way
+						neighborCounts[i]++;
+						neighborCounts[target]++;
 					}
 				}
 			}
 
 			int[][] neighbors = new int[pointCount][];
 			for (int i = 0; i < pointCount; i++)
+				neighbors[i] = neighborCounts[i] == 0 ? Array.Empty<int>() : new int[neighborCounts[i]];
+			Array.Clear(neighborCounts, 0, neighborCounts.Length);
+
+			cursor = (int)requiredBytes;
+			for (int i = 0; i < pointCount && cursor < decompressed.Length; i++)
 			{
-				HashSet<int> unique = new HashSet<int>(tempNeighbors[i]);
-				int[] arr = new int[unique.Count];
-				unique.CopyTo(arr);
-				neighbors[i] = arr;
+				byte neighborCount = decompressed[cursor++];
+				for (int n = 0; n < neighborCount && cursor + 4 <= decompressed.Length; n++)
+				{
+					int target = BitConverter.ToInt32(decompressed, cursor);
+					cursor += 4;
+					if (target >= 0 && target < pointCount && target != i)
+					{
+						neighbors[i][neighborCounts[i]++] = target;
+						neighbors[target][neighborCounts[target]++] = i;
+					}
+				}
+			}
+
+			// Reuse one set instead of allocating a HashSet per point.
+			HashSet<int> unique = new HashSet<int>();
+			for (int i = 0; i < pointCount; i++)
+			{
+				unique.Clear();
+				int[] adjacent = neighbors[i];
+				int length = 0;
+				for (int j = 0; j < adjacent.Length; j++)
+					if (unique.Add(adjacent[j]))
+						adjacent[length++] = adjacent[j];
+				if (length != adjacent.Length)
+					Array.Resize(ref neighbors[i], length);
 			}
 
 			return new NavRegion
@@ -137,29 +159,24 @@ namespace xBot.Game.Navigation
 				if (!File.Exists(filePath))
 					return false;
 
-				byte[] compressed = File.ReadAllBytes(filePath);
-				byte[] decompressed = DecompressZlib(compressed);
-
-				if (decompressed.Length < 4)
-					return false;
-
-				uint count = BitConverter.ToUInt32(decompressed, 0);
-				int pointCount = (int)count;
-				if (pointCount <= 0 || 4 + pointCount * RecordSize > decompressed.Length)
-					return false;
-
-				int offset = 4;
-				for (int i = 0; i < pointCount; i++)
+				// Bounds need only point records; do not inflate the entire topology.
+				using (FileStream file = File.OpenRead(filePath))
+				using (DeflateStream stream = OpenZlibPayload(file))
+				using (BinaryReader reader = new BinaryReader(stream))
 				{
-					float x = BitConverter.ToSingle(decompressed, offset);
-					float y = BitConverter.ToSingle(decompressed, offset + 4);
-
-					if (x < minX) minX = x;
-					if (x > maxX) maxX = x;
-					if (y < minY) minY = y;
-					if (y > maxY) maxY = y;
-
-					offset += RecordSize;
+					uint count = reader.ReadUInt32();
+					if (count == 0 || count > 300000)
+						return false;
+					for (int i = 0; i < count; i++)
+					{
+						float x = reader.ReadSingle();
+						float y = reader.ReadSingle();
+						reader.ReadUInt32(); // Z and edge flag.
+						if (x < minX) minX = x;
+						if (x > maxX) maxX = x;
+						if (y < minY) minY = y;
+						if (y > maxY) maxY = y;
+					}
 				}
 				return true;
 			}
@@ -167,6 +184,14 @@ namespace xBot.Game.Navigation
 			{
 				return false;
 			}
+		}
+
+		private static DeflateStream OpenZlibPayload(FileStream file)
+		{
+			if (file.Length < 6)
+				throw new InvalidDataException("Invalid zlib data length.");
+			file.Position = 2;
+			return new DeflateStream(file, CompressionMode.Decompress);
 		}
 	}
 }

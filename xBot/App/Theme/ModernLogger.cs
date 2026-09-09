@@ -209,12 +209,16 @@ namespace xBot.App.Theme
                 }
 
                 // Fast append with colored badge
-                int start = rtbx.TextLength;
-                rtbx.AppendText(timeStr + tagStr + bodyStr);
+                string entry = (timeStr + tagStr + bodyStr).Replace("\r\n", "\n");
+                rtbx.AppendText(entry);
 
-                // Colorize the level badge
-                rtbx.Select(start + timeStr.Length, tagStr.Length);
-                rtbx.SelectionColor = GetLevelColor(resolvedLevel);
+                // Appending may trim old lines in xRichTextBox.
+                int start = rtbx.TextLength - entry.Length;
+                if (start >= 0)
+                {
+                    rtbx.Select(start + timeStr.Length, tagStr.Length);
+                    rtbx.SelectionColor = GetLevelColor(resolvedLevel);
+                }
 
                 // Restore caret to end
                 rtbx.Select(rtbx.TextLength, 0);
