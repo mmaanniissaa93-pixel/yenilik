@@ -69,7 +69,7 @@ namespace xBot.Game.Navigation
 {
     public enum TownServiceType { PotionMerchant }
     public class TownServiceInfo { public SRCoord Coord; public uint NpcId; }
-    public class TownManager { public static TownManager Get = new TownManager(); public TownServiceInfo FindNearestService(SRCoord coord, TownServiceType type) => null; }
+    public class TownManager { public bool IsNearTown(SRCoord coord, double distance) => true; public static TownManager Get = new TownManager(); public TownServiceInfo FindNearestService(SRCoord coord, TownServiceType type) => null; }
     public class NavigationManager
     {
         public static NavigationManager Get = new NavigationManager();

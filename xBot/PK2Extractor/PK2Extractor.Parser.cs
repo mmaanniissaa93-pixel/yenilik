@@ -333,7 +333,7 @@ namespace xBot.PK2Extractor
 			sql += "namestring VARCHAR(128),";
 			sql += "description VARCHAR(256),";
 			sql += "notice_npc VARCHAR(128),";
-			sql += "notice_condition VARCHAR(256),notice_npc_text VARCHAR(512)";
+			sql += "notice_condition VARCHAR(256),notice_npc_text VARCHAR(512),mission_text TEXT,reward_text TEXT,completion_text TEXT";
 			sql += ");";
 			db.ExecuteQuery(sql);
 
@@ -399,7 +399,7 @@ namespace xBot.PK2Extractor
 						string translated = GetNameReference(data[5]);
 						if (string.IsNullOrWhiteSpace(translated)) translated = GetTextReference(data[5]);
 						if (string.IsNullOrWhiteSpace(translated)) translated = data[2];
-						db.Prepare("INSERT OR REPLACE INTO quests (id,servername,level,name,namestring,description,notice_npc,notice_condition,notice_npc_text) VALUES (?,?,?,?,?,?,?,?,?);");
+						db.Prepare("INSERT OR REPLACE INTO quests (id,servername,level,name,namestring,description,notice_npc,notice_condition,notice_npc_text,mission_text,reward_text,completion_text) VALUES (?,?,?,?,?,?,?,?,?,?,?,?);");
 						db.Bind("id", questId);
 						db.Bind("servername", data[2]);
 						db.Bind("level", questLevel);
@@ -409,6 +409,9 @@ namespace xBot.PK2Extractor
 						db.Bind("notice_npc", data.Length > 9 ? data[9] : "");
 						db.Bind("notice_condition", data.Length > 10 ? data[10] : "");
 						db.Bind("notice_npc_text", data.Length > 9 ? GetNameReference(data[9]) : "");
+                        db.Bind("mission_text", data.Length > 10 ? GetNameReference(data[10]) : "");
+                        db.Bind("reward_text", data.Length > 6 ? GetNameReference(data[6]) : "");
+                        db.Bind("completion_text", data.Length > 8 ? GetNameReference(data[8]) : "");
 						db.ExecuteQuery();
 						added++;
 					}

@@ -50,3 +50,11 @@ Rebuild the PK2 database to populate `npc_positions` and `quests.notice_npc_text
 5. Validate a quest with different accepting/delivering NPCs separately: NoticeNPC alone does not encode a universal per-stage NPC mapping. Confirm server-specific selectable reward semantics with an actual multiple-reward quest.
 
 No live normal quest or repeat cycle was executed during this implementation. Quest Automation remains open until those checks and unresolved NPC mappings are addressed. The next feature order remains Dismantle, guild storage/gold, consignment, party buffs, mastery/skills.
+
+## Quest UI revision
+
+The quest panel uses Active / All / Options tabs (Turkish labels in the current view). Active contains only server-active quests. All contains the searchable catalog, readable NPC names, automation status and completion behavior. Double-click opens details; the context menu enables/disables automation and changes completion, repeat and reward preferences with immediate profile persistence. The permanent per-quest form and manual event/ID fields have been removed from the main workflow.
+
+Options currently implemented: level margin (0–20), wait for all enabled **active** quests before delivery, and process event quests only in town. Higher-level attempts remain subject to server eligibility. Other advanced reference behaviors, including EXP-ratio gating, danger mode and objective-specific training-area discovery, are not represented by nonfunctional controls.
+
+Newly generated PK2 databases include localized mission, reward and completion text for the details window. Older databases still load and explicitly show missing details until rebuilt. `tests/QuestPanelPreview.ps1` renders the real standalone WinForms panel with sample data, without opening a game session.

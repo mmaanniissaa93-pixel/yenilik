@@ -75,32 +75,48 @@ namespace xGraphics
 
 			Rectangle rect = base.ClientRectangle;
 			Graphics g = e.Graphics;
+			g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+			g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+			g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
-			// Sleek modern dark track
-			using (SolidBrush trackBrush = new SolidBrush(Color.FromArgb(24, 28, 38)))
-			{
-				g.FillRectangle(trackBrush, rect);
-			}
-			using (Pen borderPen = new Pen(Color.FromArgb(45, 51, 69), 1f))
-			{
-				g.DrawRectangle(borderPen, rect.X, rect.Y, Math.Max(0, rect.Width - 1), Math.Max(0, rect.Height - 1));
-			}
+			int radius = Math.Min(4, Math.Min(rect.Width, rect.Height) / 2);
+			Rectangle outerRect = new Rectangle(rect.X, rect.Y, Math.Max(0, rect.Width - 1), Math.Max(0, rect.Height - 1));
 
-			rect.Inflate(-2, -2);
-			if (Value != 0 && ValueMaximum > 0 && rect.Width > 0 && rect.Height > 0)
+			// Rounded track background
+			using (System.Drawing.Drawing2D.GraphicsPath trackPath = CreateRoundedRect(outerRect, radius))
 			{
-				int x0 = rect.X;
-				int fillWidth = (int)Math.Round((double)rect.Width * (ValuePercentage / 100.0));
-				int xf = Math.Max(x0, Math.Min(rect.Right, x0 + fillWidth));
-				if (xf > x0)
+				using (SolidBrush trackBrush = new SolidBrush(Color.FromArgb(24, 28, 38)))
 				{
-					Rectangle fillRect = new Rectangle(x0, rect.Y, xf - x0, rect.Height);
-					using (SolidBrush barBrush = new SolidBrush(BackColor))
+					g.FillPath(trackBrush, trackPath);
+				}
+				using (Pen borderPen = new Pen(Color.FromArgb(45, 51, 69), 1f))
+				{
+					g.DrawPath(borderPen, trackPath);
+				}
+			}
+
+			// Fill bar with rounded clip
+			Rectangle innerRect = new Rectangle(rect.X + 2, rect.Y + 2, Math.Max(0, rect.Width - 4), Math.Max(0, rect.Height - 4));
+			if (Value != 0 && ValueMaximum > 0 && innerRect.Width > 0 && innerRect.Height > 0)
+			{
+				int fillWidth = (int)Math.Round((double)innerRect.Width * (ValuePercentage / 100.0));
+				fillWidth = Math.Max(0, Math.Min(innerRect.Width, fillWidth));
+				if (fillWidth > 0)
+				{
+					int fillRadius = Math.Min(radius - 1, Math.Min(fillWidth, innerRect.Height) / 2);
+					fillRadius = Math.Max(0, fillRadius);
+					Rectangle fillRect = new Rectangle(innerRect.X, innerRect.Y, fillWidth, innerRect.Height);
+					using (System.Drawing.Drawing2D.GraphicsPath fillPath = CreateRoundedRect(fillRect, fillRadius))
 					{
-						g.FillRectangle(barBrush, fillRect);
+						using (SolidBrush barBrush = new SolidBrush(BackColor))
+						{
+							g.FillPath(barBrush, fillPath);
+						}
 					}
 				}
 			}
+
+			// Centered text with shadow
 			string text = GetDisplayText();
 			SizeF len = g.MeasureString(text, Font);
 			int px = Convert.ToInt32((base.Width / 2) - len.Width / 2f);
@@ -113,6 +129,27 @@ namespace xGraphics
 			{
 				g.DrawString(text, Font, textBrush, px, py);
 			}
+		}
+		private static System.Drawing.Drawing2D.GraphicsPath CreateRoundedRect(Rectangle bounds, int radius)
+		{
+			System.Drawing.Drawing2D.GraphicsPath path = new System.Drawing.Drawing2D.GraphicsPath();
+			if (radius <= 0 || bounds.Width <= 0 || bounds.Height <= 0)
+			{
+				path.AddRectangle(bounds);
+				return path;
+			}
+			int d = radius * 2;
+			Size size = new Size(d, d);
+			Rectangle arc = new Rectangle(bounds.Location, size);
+			path.AddArc(arc, 180, 90);
+			arc.X = bounds.Right - d;
+			path.AddArc(arc, 270, 90);
+			arc.Y = bounds.Bottom - d;
+			path.AddArc(arc, 0, 90);
+			arc.X = bounds.Left;
+			path.AddArc(arc, 90, 90);
+			path.CloseFigure();
+			return path;
 		}
 		private string GetDisplayText()
 		{

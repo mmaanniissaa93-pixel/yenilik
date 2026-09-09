@@ -121,6 +121,20 @@ internal static class Program
             QuestAutomationManager.ObserveTalkPacket(Menu(400));
             QuestAutomationManager.ObserveQuestIdResponse(400);
             Check("Stop/teleport cannot send from delayed dialog", !QuestAutomationManager.IsBusy && PacketBuilder.Sent.Count == sent);
+            QuestAutomationManager.ResetRules();
+            QuestAutomationManager.SetOptions(5, true, false);
+            var optionsJson = QuestAutomationManager.ToJson();
+            QuestAutomationManager.SetOptions(0, false, true);
+            QuestAutomationManager.FromJson(optionsJson);
+            Check("Global quest options persist", QuestAutomationManager.MaximumLevelAbovePlayer == 5 && QuestAutomationManager.WaitForAllEnabledQuests && !QuestAutomationManager.EventQuestsInTownOnly);
+            QuestAutomationManager.SaveRule(new QuestAutomationRule { QuestId = 501, Enabled = true });
+            QuestAutomationManager.SaveRule(new QuestAutomationRule { QuestId = 502, Enabled = true });
+            InfoManager.Character.Quests[501] = new SRQuest { ID = 501, State = 2 };
+            InfoManager.Character.Quests[502] = new SRQuest { ID = 502, State = 1 };
+            Check("Wait all defers completed quest delivery", !QuestAutomationManager.TryExecutePending(new Bot()));
+            InfoManager.Character.Quests[502].State = 2;
+            Check("All completed releases delivery", QuestAutomationManager.TryExecutePending(new Bot()) && Transaction.Operation == QuestNpcOperation.TurnIn);
+            QuestAutomationManager.ResetRules();
             Console.WriteLine(checks + " manager scenarios passed.");
             return 0;
         }

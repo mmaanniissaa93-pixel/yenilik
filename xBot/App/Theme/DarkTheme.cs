@@ -36,6 +36,11 @@ namespace xBot.App.Theme
         public static readonly Color AccentHover     = Color.FromArgb(59, 130, 246);   // #3B82F6 (Hover highlight)
         public static readonly Color AccentPressed   = Color.FromArgb(29, 78, 216);    // #1D4ED8 (Mouse down)
         public static readonly Color AccentSubtle    = Color.FromArgb(30, 41, 59);     // #1E293B (Active tab background)
+        public static readonly Color BgTabActive     = Color.FromArgb(30, 34, 45);     // #1E222D (Active tab background)
+        public static readonly Color BgTabInactive   = Color.FromArgb(24, 28, 38);     // #181C26 (Inactive tab background)
+        public static readonly Color BgTabHover      = Color.FromArgb(38, 43, 58);     // #262B3A (Hovered tab)
+        public static readonly Color TextTabActive   = Color.FromArgb(248, 250, 252);  // #F8FAFC
+        public static readonly Color TextTabInactive = Color.FromArgb(148, 163, 184);  // #94A3B8
 
         // -------------------------------------------------------------
         // Typography Colors
@@ -56,6 +61,9 @@ namespace xBot.App.Theme
         public static readonly Color Mana            = Color.FromArgb(6, 182, 212);    // #06B6D4 (MP bar / Mana skills)
         public static readonly Color InfoBlue        = Color.FromArgb(56, 189, 248);   // #38BDF8 (Info log)
         public static readonly Color SystemPurple    = Color.FromArgb(168, 85, 247);   // #A855F7 (System log)
+        public static readonly Color RowAlternate    = Color.FromArgb(26, 29, 38);     // #1A1D26 (Zebra stripe alternate)
+        public static readonly Color RowSelected     = Color.FromArgb(30, 41, 59);     // #1E293B (Selected row highlight)
+        public static readonly Color RowHover        = Color.FromArgb(34, 38, 50);     // #222632 (Hovered row)
 
         // -------------------------------------------------------------
         // Window & Layout Metrics (8px Grid System)
@@ -70,6 +78,10 @@ namespace xBot.App.Theme
         public const int SpacingDefault      = 16;
         public const int SpacingLarge        = 24;
         public const int DefaultRadius       = 8;
+        public const int CardPadding     = 12;
+        public const int StatusBarHeight = 28;
+        public const int TabStripHeight  = 32;
+        public const int SubTabHeight    = 30;
 
         // -------------------------------------------------------------
         // Typography Factories
@@ -291,6 +303,27 @@ namespace xBot.App.Theme
                         TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis);
                 }
             };
+        }
+
+        public static void StyleTreeView(TreeView tv)
+        {
+            if (tv == null) return;
+            tv.BackColor = BgCard;
+            tv.ForeColor = TextPrimary;
+            tv.BorderStyle = BorderStyle.FixedSingle;
+            tv.Font = FontBody;
+            tv.LineColor = BorderSubtle;
+            tv.ItemHeight = 22;
+        }
+
+        public static void StyleListBox(ListBox lb)
+        {
+            if (lb == null) return;
+            lb.BackColor = BgCard;
+            lb.ForeColor = TextPrimary;
+            lb.BorderStyle = BorderStyle.FixedSingle;
+            lb.Font = FontBody;
+            lb.ItemHeight = 20;
         }
     }
 }

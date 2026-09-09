@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.ComponentModel;
 using System.Drawing;
@@ -13,6 +13,7 @@ namespace xGraphics
 		private bool m_allowReorder;
 		private bool m_dragDropRemoveFromSource;
 		private Color m_lineColor;
+		private Color m_alternateRowColor;
 		#endregion
 
 		#region Public Properties
@@ -34,6 +35,12 @@ namespace xGraphics
 			get { return m_lineColor; }
 			set { m_lineColor = value; }
 		}
+		[Category("Appearance")]
+		public Color AlternateRowColor
+		{
+			get { return m_alternateRowColor; }
+			set { m_alternateRowColor = value; Invalidate(); }
+		}
 		#endregion
 
 		#region Protected and Public Methods
@@ -43,6 +50,8 @@ namespace xGraphics
 			m_allowReorder = true;
 			m_dragDropRemoveFromSource = false;
 			m_lineColor = Color.Red;
+			m_alternateRowColor = Color.FromArgb(26, 29, 38); // DarkTheme.RowAlternate
+			SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint, true);
 		}
 		protected override void OnDragDrop(DragEventArgs drgevent)
 		{

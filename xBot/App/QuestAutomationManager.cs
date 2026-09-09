@@ -63,6 +63,33 @@ namespace xBot.App
         private static uint PendingTalkNpcUniqueId;
         private static bool MenuSelected;
 
+        public static int MaximumLevelAbovePlayer { get; private set; }
+        public static bool WaitForAllEnabledQuests { get; private set; }
+        public static bool EventQuestsInTownOnly { get; private set; } = true;
+
+        public static void SetOptions(int levelMargin, bool waitForAll, bool eventsInTown)
+        {
+            lock (Sync)
+            {
+                MaximumLevelAbovePlayer = Math.Max(0, Math.Min(20, levelMargin));
+                WaitForAllEnabledQuests = waitForAll;
+                EventQuestsInTownOnly = eventsInTown;
+            }
+        }
+
+        private static bool MustWaitForOtherQuests()
+        {
+            if (!WaitForAllEnabledQuests) return false;
+            foreach (QuestAutomationRule rule in Rules.Values)
+            {
+                if (!rule.Enabled) continue;
+                SRQuest active = InfoManager.Character?.Quests?[rule.QuestId];
+                // Inactive/unavailable catalog entries must not block completed active quests forever.
+                if (active != null && !QuestAutomationPolicy.IsReadyToTurnIn(active.State)) return true;
+            }
+            return false;
+        }
+
         public static string Status { get; private set; } = "Hazır";
         public static QuestTalkSnapshot LastTalk { get; private set; }
         public static byte? LastTalkChoice { get; private set; }
@@ -160,7 +187,7 @@ namespace xBot.App
             Current.Fail(DateTime.UtcNow, error, terminal);
             States[Current.QuestId] = QuestAutomationState.Failed;
             Status = "Failed: " + Current.QuestId + " — " + error
-                + (Current.Terminal ? " (Save quest ile yeniden dene)" : " (kontrollü tekrar bekleniyor)");
+                + (Current.Terminal ? " (otomasyonu yeniden etkinleştirerek tekrar dene)" : " (kontrollü tekrar bekleniyor)");
             Window.Get?.Log("Quest: " + Status, Theme.LogLevel.Warning);
             ReleaseConversation();
         }
@@ -236,6 +263,15 @@ namespace xBot.App
                 Pending.Clear();
                 HandledCompletions.Clear();
                 CompletedThisSession.Clear();
+            }
+        }
+
+        public static string GetFailureReason(uint questId)
+        {
+            lock (Sync)
+            {
+                QuestNpcTransaction transaction;
+                return Transactions.TryGetValue(questId, out transaction) ? transaction.Error : "";
             }
         }
 
@@ -349,6 +385,7 @@ namespace xBot.App
                 CompletedThisSession.Clear();
                 CancelSession();
                 Pending.Clear();
+                SetOptions(0, false, true);
                 Status = "Quest ayarları sıfırlandı";
             }
         }
@@ -365,6 +402,7 @@ namespace xBot.App
                     RemoveHandledKeys(quest.ID);
                     return;
                 }
+                if (MustWaitForOtherQuests()) return;
                 string key = QuestAutomationPolicy.CompletionKey(quest.ID, quest.State);
                 if (!rule.AutoTurnIn || rule.CompletionAction == QuestCompletionAction.None
                     || rule.CompletionAction == QuestCompletionAction.TurnInAtNpc) return;
@@ -412,6 +450,14 @@ namespace xBot.App
             }
             if (request == null) request = CreateAutomaticTownQuestRequest();
             if (request == null) return false;
+            lock (Sync)
+            {
+                if (request.NpcOperation == QuestNpcOperation.TurnIn && MustWaitForOtherQuests())
+                {
+                    Pending.Enqueue(request);
+                    return false;
+                }
+            }
             QuestAutomationRule activeRule = GetRule(request.QuestId);
             if (activeRule == null || !activeRule.Enabled) return false;
             if (request.Action == QuestCompletionAction.ReturnTown || request.Action == QuestCompletionAction.RunScript)
@@ -477,7 +523,7 @@ namespace xBot.App
                     ,["NpcZ"] = rule.NpcZ
                 });
             }
-            return new JObject { ["Rules"] = rules };
+            return new JObject { ["Rules"] = rules, ["MaximumLevelAbovePlayer"] = MaximumLevelAbovePlayer, ["WaitForAllEnabledQuests"] = WaitForAllEnabledQuests, ["EventQuestsInTownOnly"] = EventQuestsInTownOnly };
         }
 
         public static void FromJson(JObject root)
@@ -491,6 +537,9 @@ namespace xBot.App
                 CancelSession();
                 Pending.Clear();
                 Status = "Hazır";
+                SetOptions(root == null ? 0 : ReadInt(root, "MaximumLevelAbovePlayer"),
+                    root?["WaitForAllEnabledQuests"] != null && (bool)root["WaitForAllEnabledQuests"],
+                    root?["EventQuestsInTownOnly"] == null || (bool)root["EventQuestsInTownOnly"]);
                 JArray rules = root == null ? null : root["Rules"] as JArray;
                 if (rules == null) return;
                 foreach (JObject item in rules)
@@ -730,7 +779,7 @@ namespace xBot.App
                 NameValueCollection data = DataManager.GetQuestData(rule.QuestId);
                 if (data == null) continue;
                 byte requiredLevel;
-                if (byte.TryParse(data["level"], out requiredLevel) && requiredLevel > InfoManager.Character.Level) continue;
+                if (byte.TryParse(data["level"], out requiredLevel) && requiredLevel > InfoManager.Character.Level + MaximumLevelAbovePlayer) continue;
                 bool eventClaim = (data["servername"] ?? "").StartsWith("QEV_ALL_BASIC_", StringComparison.OrdinalIgnoreCase);
                 SRQuest active = InfoManager.Character.Quests[rule.QuestId];
                 lock (Sync)
@@ -748,6 +797,8 @@ namespace xBot.App
                         active == null ? (byte)0 : active.State, rule.AutoAccept, rule.AutoTurnIn,
                         CompletedThisSession.Contains(rule.QuestId), rule.RepeatIfAvailable, eventClaim);
                     if (!operation.HasValue) continue;
+                    if (operation == QuestNpcOperation.TurnIn && MustWaitForOtherQuests()) continue;
+                    if (eventClaim && EventQuestsInTownOnly && !TownManager.Get.IsNearTown(InfoManager.Character.GetRealtimePosition(), 220)) continue;
                     return new QuestAutomationRequest
                     {
                         QuestId = rule.QuestId, DisplayName = ResolveDisplayName(rule, rule.QuestId),

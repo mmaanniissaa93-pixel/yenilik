@@ -9933,8 +9933,7 @@ namespace xBot.App
             this.Town_gbxLogistics.Controls.Add(this.Town_cbxSellTrash);
             this.Town_gbxLogistics.Controls.Add(this.Town_cbxReturnNavMesh);
             this.Town_gbxLogistics.Controls.Add(this.Town_lblInfo);
-            this.Town_gbxLogistics.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(122)))), ((int)(((byte)(204)))));
-            this.Town_gbxLogistics.Location = new System.Drawing.Point(10, 8);
+            this.Town_gbxLogistics.ForeColor = System.Drawing.Color.LightGray;            this.Town_gbxLogistics.Location = new System.Drawing.Point(10, 8);
             this.Town_gbxLogistics.Name = "Town_gbxLogistics";
             this.Town_gbxLogistics.Size = new System.Drawing.Size(305, 325);
             this.Town_gbxLogistics.TabIndex = 0;
@@ -10027,8 +10026,7 @@ namespace xBot.App
             this.Town_gbxAutoBuy.Controls.Add(this.Town_lblMpAmount);
             this.Town_gbxAutoBuy.Controls.Add(this.Town_nudMpAmount);
             this.Town_gbxAutoBuy.Controls.Add(this.Town_cbxBuyPills);
-            this.Town_gbxAutoBuy.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(122)))), ((int)(((byte)(204)))));
-            this.Town_gbxAutoBuy.Location = new System.Drawing.Point(325, 8);
+            this.Town_gbxAutoBuy.ForeColor = System.Drawing.Color.LightGray;            this.Town_gbxAutoBuy.Location = new System.Drawing.Point(325, 8);
             this.Town_gbxAutoBuy.Name = "Town_gbxAutoBuy";
             this.Town_gbxAutoBuy.Size = new System.Drawing.Size(320, 325);
             this.Town_gbxAutoBuy.TabIndex = 10;

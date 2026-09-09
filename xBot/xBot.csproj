@@ -155,6 +155,10 @@
     <Compile Include="App\TargetAssistManager.cs" />
     <Compile Include="App\QuestAutomationPolicy.cs" />
     <Compile Include="App\QuestAutomationRuntime.cs" />
+    <Compile Include="App\Theme\ModernStatusStrip.cs" />
+    <Compile Include="App\Theme\ModernTabStrip.cs" />
+    <Compile Include="App\QuestPanel.cs" />
+    <Compile Include="App\Window.Quest.cs" />
     <Compile Include="App\QuestAutomationManager.cs" />
     <Compile Include="App\AccountSetupForm.cs" />
     <Compile Include="App\Window.CustomTabs.cs" />

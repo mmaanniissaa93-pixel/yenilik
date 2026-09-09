@@ -126,7 +126,7 @@ namespace xBot.App.Theme
         private List<LayoutRow> ComputeLayout()
         {
             List<LayoutRow> rows = new List<LayoutRow>();
-            int currentY = 6;
+            int currentY = 8;
             int itemW = Width;
             string lastCategory = null;
 
@@ -134,11 +134,16 @@ namespace xBot.App.Theme
             {
                 if (item.Category != lastCategory)
                 {
+                    // Add extra spacing before non-first categories
+                    if (lastCategory != null)
+                    {
+                        currentY += 8;
+                    }
                     lastCategory = item.Category;
                     // Category Header Row
-                    Rectangle headerRect = new Rectangle(0, currentY, itemW, 20);
+                    Rectangle headerRect = new Rectangle(0, currentY, itemW, 22);
                     rows.Add(new LayoutRow { IsHeader = true, Text = lastCategory, Bounds = headerRect });
-                    currentY += 21;
+                    currentY += 24;
                 }
 
                 // Nav Item Row (compact 28px)
@@ -232,6 +237,12 @@ namespace xBot.App.Theme
                             LineAlignment = StringAlignment.Center
                         };
                         g.DrawString(row.Text.ToUpperInvariant(), DarkTheme.FontCategory, headerBrush, textRect, sf);
+                    }
+                    // Subtle separator line below category header
+                    int lineY = row.Bounds.Bottom - 1;
+                    using (Pen sepPen = new Pen(DarkTheme.BorderSubtle, 1f))
+                    {
+                        g.DrawLine(sepPen, 14, lineY, Width - 14, lineY);
                     }
                 }
                 else

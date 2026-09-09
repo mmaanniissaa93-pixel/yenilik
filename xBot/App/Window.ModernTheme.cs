@@ -69,7 +69,7 @@ namespace xBot.App
 
         private void SkinControlHierarchy(Control parent)
         {
-            if (parent == null) return;
+            if (parent == null || parent is QuestPanel) return;
             SkinSingleControl(parent);
 
             foreach (Control c in parent.Controls)
@@ -344,6 +344,34 @@ namespace xBot.App
                     };
                     lv.DrawItem += (s, e) => { e.DrawDefault = true; };
                     lv.DrawSubItem += (s, e) => { e.DrawDefault = true; };
+                }
+                else if (c is ListBox lb)
+                {
+                    lb.BackColor = DarkTheme.BgCard;
+                    lb.ForeColor = DarkTheme.TextPrimary;
+                    lb.BorderStyle = BorderStyle.FixedSingle;
+                    lb.Font = DarkTheme.FontBody;
+                    lb.ItemHeight = 20;
+                }
+                else if (c is TreeView tv)
+                {
+                    tv.BackColor = DarkTheme.BgCard;
+                    tv.ForeColor = DarkTheme.TextPrimary;
+                    tv.BorderStyle = BorderStyle.FixedSingle;
+                    tv.Font = DarkTheme.FontBody;
+                    tv.LineColor = DarkTheme.BorderSubtle;
+                    tv.ItemHeight = 22;
+                }
+                else if (c is TrackBar tb)
+                {
+                    tb.BackColor = DarkTheme.BgDark;
+                }
+                else if (c is Panel pnl && !(c is ModernSidebar) && !(c is Theme.ModernCard) && !(c is Theme.ModernStatusBar))
+                {
+                    if (pnl.BorderStyle == BorderStyle.Fixed3D)
+                    {
+                        pnl.BorderStyle = BorderStyle.FixedSingle;
+                    }
                 }
         }
 
@@ -2477,49 +2505,53 @@ namespace xBot.App
                 }
             }
 
-            // Sleek bottom status label (Ready / Connected)
+            // Sleek bottom status strip (replaces old text label)
             if (lblBotState != null)
             {
-                if (pnlWindow != null && lblBotState.Parent != pnlWindow)
-                {
-                    this.Controls.Remove(lblBotState);
-                    pnlWindow.Controls.Add(lblBotState);
-                }
-                lblBotState.Location = new Point(consoleX, consoleY + consoleH + 2);
-                lblBotState.Size = new Size(consoleW, 20);
-                lblBotState.BackColor = DarkTheme.BgDark;
-                lblBotState.ForeColor = DarkTheme.Accent;
-                lblBotState.Font = DarkTheme.FontCaption;
-                lblBotState.TextAlign = ContentAlignment.MiddleLeft;
-                lblBotState.Text = "● Hazır (Ready)";
-                lblBotState.Visible = true;
-                lblBotState.BringToFront();
+                lblBotState.Visible = false; // Hide old text-only status label
             }
+
+            var modernStatusStrip = new Theme.ModernStatusStrip
+            {
+                Location = new Point(0, DarkTheme.DefaultWindowHeight - DarkTheme.StatusBarHeight),
+                Size = new Size(DarkTheme.DefaultWindowWidth, DarkTheme.StatusBarHeight),
+                BotStatus = "Hazır (Ready)",
+                BotStatusColor = DarkTheme.Accent,
+                ConnectionInfo = "Bağlantı bekleniyor...",
+                LocationText = ""
+            };
+            pnlWindow.Controls.Add(modernStatusStrip);
+            modernStatusStrip.BringToFront();
 
             // Quick Bot Start and Client Options buttons positioned cleanly in sidebar footer
             if (btnBotStart != null)
             {
-                btnBotStart.Location = new Point(10, DarkTheme.DefaultWindowHeight - 48);
-                btnBotStart.Size = new Size(80, 36);
+                btnBotStart.Location = new Point(10, DarkTheme.DefaultWindowHeight - DarkTheme.StatusBarHeight - 44);
+                btnBotStart.Size = new Size(90, 36);
                 btnBotStart.FlatStyle = FlatStyle.Flat;
                 btnBotStart.FlatAppearance.BorderSize = 0;
+                btnBotStart.FlatAppearance.MouseOverBackColor = DarkTheme.SuccessHover;
                 btnBotStart.BackColor = DarkTheme.Success;
                 btnBotStart.ForeColor = Color.White;
                 btnBotStart.Font = DarkTheme.FontBodyBold;
-                btnBotStart.Text = "BAŞLAT";
+                btnBotStart.Text = "▶ BAŞLAT";
+                btnBotStart.Cursor = Cursors.Hand;
                 btnBotStart.BringToFront();
             }
 
             if (btnClientOptions != null)
             {
-                btnClientOptions.Location = new Point(95, DarkTheme.DefaultWindowHeight - 48);
-                btnClientOptions.Size = new Size(80, 36);
+                btnClientOptions.Location = new Point(105, DarkTheme.DefaultWindowHeight - DarkTheme.StatusBarHeight - 44);
+                btnClientOptions.Size = new Size(90, 36);
                 btnClientOptions.FlatStyle = FlatStyle.Flat;
-                btnClientOptions.FlatAppearance.BorderSize = 0;
+                btnClientOptions.FlatAppearance.BorderSize = 1;
+                btnClientOptions.FlatAppearance.BorderColor = DarkTheme.BorderSubtle;
+                btnClientOptions.FlatAppearance.MouseOverBackColor = DarkTheme.BgInputFocus;
                 btnClientOptions.BackColor = DarkTheme.BgInput;
                 btnClientOptions.ForeColor = DarkTheme.TextPrimary;
                 btnClientOptions.Font = DarkTheme.FontBodyBold;
-                btnClientOptions.Text = "SEÇENEK";
+                btnClientOptions.Text = "⚙ SEÇENEK";
+                btnClientOptions.Cursor = Cursors.Hand;
                 btnClientOptions.BringToFront();
             }
 
