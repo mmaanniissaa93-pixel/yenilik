@@ -1,4 +1,5 @@
 using Newtonsoft.Json.Linq;
+using System;
 using System.IO;
 using System.Windows.Forms;
 using xBot.Game;
@@ -24,6 +25,11 @@ namespace xBot.App
 		private static long s_lastCharSaveTick = 0;
 		private static int s_botSavePending;
 		private static int s_charSavePending;
+		private static string s_loadedCharacterProfilePath = "";
+		public static string LoadedCharacterProfile
+		{
+			get { return string.IsNullOrEmpty(s_loadedCharacterProfilePath) ? "" : Path.GetFileNameWithoutExtension(s_loadedCharacterProfilePath); }
+		}
 		private const int SaveDebounceMs = 800;
 		private static void QueueTrailingBotSave()
 		{
@@ -592,6 +598,8 @@ namespace xBot.App
 					}
 					#endregion
 
+					root["Trade"] = TradeLoopManager.ToJson();
+
 				#region (Stall Tab)
 				JObject Stall = new JObject();
 				root["Stall"] = Stall;
@@ -601,6 +609,7 @@ namespace xBot.App
 					Options["Title"] = w.Stall_tbxStallTitle.Text;
 					Options["Note"] = w.Stall_tbxStallNote.Text;
 					try { Options["Price"] = w.Stall_tbxPrice.Text; } catch { }
+					Stall["Consignment"] = ConsignmentManager.ToJson();
 				}
 				#endregion
 
@@ -692,6 +701,57 @@ Window w = Window.Get;
 				w.Log("Error loading character configs... Using the configs partially loaded");
 				SaveCharacterSettings();
 			}
+		}
+		public static bool TryLoadCharacterProfile(string profileName, out string error)
+		{
+			error = "";
+			string name = (profileName ?? "").Trim();
+			if (name.Length == 0 || name.Equals("Default", StringComparison.OrdinalIgnoreCase))
+				name = "Default";
+			if (name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
+				|| name.IndexOf(Path.DirectorySeparatorChar) >= 0
+				|| name.IndexOf(Path.AltDirectorySeparatorChar) >= 0
+				|| name == "." || name == "..")
+			{
+				error = "Geçersiz profil adı.";
+				return false;
+			}
+			if (name.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+				name = name.Substring(0, name.Length - 5);
+			string configRoot = Path.GetFullPath("Config");
+			string profilePath = Path.GetFullPath(Path.Combine(configRoot, name + ".json"));
+			if (!profilePath.StartsWith(configRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+			{
+				error = "Profil yolu Config klasörünün dışında olamaz.";
+				return false;
+			}
+			if (!File.Exists(profilePath))
+			{
+				error = "Profil bulunamadı: " + name;
+				return false;
+			}
+			if (string.Equals(s_loadedCharacterProfilePath, profilePath, StringComparison.OrdinalIgnoreCase))
+				return true;
+
+			Window w = Window.GetReadyInstance();
+			if (w == null || w.IsDisposed || w.Disposing)
+			{
+				error = "Ayar penceresi hazır değil.";
+				return false;
+			}
+			Exception failure = null;
+			MethodInvoker load = delegate
+			{
+				try { LoadCharacterSettings(profilePath); }
+				catch (Exception ex) { failure = ex; }
+			};
+			if (w.InvokeRequired) w.Invoke(load); else load();
+			if (failure != null)
+			{
+				error = failure.Message;
+				return false;
+			}
+			return true;
 		}
 		private static void LoadCharacterSettings(string path)
 		{
@@ -1130,6 +1190,9 @@ Window w = Window.Get;
 				}
 				#endregion
 
+				TradeLoopManager.FromJson(root.ContainsKey("Trade") ? (JObject)root["Trade"] : null);
+				try { w.RefreshTradeLoopUi(); } catch { }
+
 			#region (Stall Tab)
 			JObject Stall = root.ContainsKey("Stall") ? (JObject)root["Stall"] : new JObject();
 			{
@@ -1140,6 +1203,8 @@ Window w = Window.Get;
 				{
 					try { w.Stall_tbxPrice.Text = (string)Options["Price"]; } catch { }
 				}
+				ConsignmentManager.FromJson(Stall.ContainsKey("Consignment") ? (JObject)Stall["Consignment"] : null);
+				try { w.RefreshConsignmentRulesUi(); } catch { }
 			}
 			#endregion
 
@@ -1172,6 +1237,7 @@ Window w = Window.Get;
 					: new Newtonsoft.Json.Linq.JObject());
 
 				LoadingCharacterSettings = false;
+				s_loadedCharacterProfilePath = string.IsNullOrEmpty(path) ? "" : Path.GetFullPath(path);
 				w.RefreshCustomSettingsWidgets();
 			}
 		}

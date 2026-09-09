@@ -565,7 +565,7 @@ internal static class Program
         RunScriptCheck("phBot DoBlacksmith komutu parametresiz kabul edilir",
             ScriptCommandCatalog.TryParse("DoBlacksmith", out invocation, out error)
                 && invocation.Command == "DoBlacksmith", true);
-        string[] townCommands = { "DoHerbalist", "DoStable", "DoStorage", "DoStorageStore", "DoStorageTake", "DoGuildStorage", "DoGuildStorageStore", "DoGuildStorageTake", "DoGroceryTrader", "DoProtectorTrader", "DoJupiter" };
+        string[] townCommands = { "DoHerbalist", "DoStable", "DoStorage", "DoStorageStore", "DoStorageTake", "DoGuildStorage", "DoGuildStorageStore", "DoGuildStorageTake", "DoGroceryTrader", "DoProtectorTrader", "DoJupiter", "DoConsignment", "DoStall", "DoScript" };
         bool allTownCommandsKnown = true;
         for (int i = 0; i < townCommands.Length; i++)
             allTownCommandsKnown &= ScriptCommandCatalog.TryParse(townCommands[i], out invocation, out error);
@@ -582,6 +582,30 @@ internal static class Program
             ScriptCommandCatalog.TryParse("dismount", out invocation, out error), true);
         RunScriptCheck("KILLHORSE parametresiz kabul edilir",
             ScriptCommandCatalog.TryParse("killhorse", out invocation, out error), true);
+        RunScriptCheck("TERMINATE parametresiz tüm pet varsayımıyla kabul edilir",
+            ScriptCommandCatalog.TryParse("terminate", out invocation, out error)
+                && invocation.Arguments.Length == 0, true);
+        RunScriptCheck("TERMINATE transport türünü kabul eder",
+            ScriptCommandCatalog.TryParse("terminate,transport", out invocation, out error)
+                && invocation.Arguments.Length == 1, true);
+        RunScriptCheck("TERMINATE bilinmeyen pet türünü reddeder",
+            ScriptCommandCatalog.TryParse("terminate,fellow", out invocation, out error), false);
+        RunScriptCheck("PROFILE parametresiz Default profilini kabul eder",
+            ScriptCommandCatalog.TryParse("profile", out invocation, out error)
+                && invocation.Arguments.Length == 0, true);
+        RunScriptCheck("PROFILE boşluklu profil adını korur",
+            ScriptCommandCatalog.TryParse("profile, Farm Build", out invocation, out error)
+                && invocation.Arguments[0] == "Farm Build", true);
+        RunScriptCheck("OLDTRADE SPAWN isteğe bağlı taşıt adını kabul eder",
+            ScriptCommandCatalog.TryParse("oldtrade,spawn,Ironclad trade Horse", out invocation, out error)
+                && invocation.Arguments.Length == 2, true);
+        RunScriptCheck("OLDTRADE BUY miktar ve item adını kabul eder",
+            ScriptCommandCatalog.TryParse("oldtrade,buy,250,Horseshoe", out invocation, out error)
+                && invocation.Arguments.Length == 3 && invocation.Arguments[1] == "250", true);
+        RunScriptCheck("OLDTRADE BUY miktarsız kullanımını reddeder",
+            ScriptCommandCatalog.TryParse("oldtrade,buy", out invocation, out error), false);
+        RunScriptCheck("OLDTRADE bilinmeyen işlemi reddeder",
+            ScriptCommandCatalog.TryParse("oldtrade,exchange", out invocation, out error), false);
         byte[] storageMove = StorageMovementPolicy.BuildCrossContainerPayload(2, 30, 0, 1001);
         RunScriptCheck("Storage çapraz hareket paketi 7 bayt ve NPC UID içerir",
             storageMove.Length == 7
@@ -597,6 +621,39 @@ internal static class Program
             TownNpcActionPolicy.ForNpcCode("NPC_KT_POTION") == (TownNpcActions.Sell | TownNpcActions.BuyPotions), true);
         RunScriptCheck("Legacy BUY GROCERY cephane kontrolünü bağımsız çalıştırır",
             TownNpcActionPolicy.ForNpcCode("NPC_EU_GROCERY") == (TownNpcActions.Sell | TownNpcActions.BuyAmmo), true);
+        var consignmentRule = new ConsignmentRule { ItemName = "ITEM_ETC_TEST", Enabled = true, Quantity = 30, Price = 1250000 };
+        var consignmentCandidate = ConsignmentPolicy.CreateCandidate(consignmentRule, 19, 2);
+        RunScriptCheck("Consignment miktarı gerçek envanter adedini aşamaz",
+            consignmentCandidate != null && consignmentCandidate.InventorySlot == 19
+                && consignmentCandidate.Quantity == 2 && consignmentCandidate.Price == 1250000, true);
+        RunScriptCheck("Consignment sıfır fiyatlı kuralı reddeder",
+            !string.IsNullOrEmpty(ConsignmentPolicy.ValidateRule(new ConsignmentRule
+            { ItemName = "ITEM_ETC_TEST", Quantity = 1, Price = 0 })), true);
+        RunScriptCheck("Kapalı Consignment kuralı kayıt adayı üretmez",
+            ConsignmentPolicy.CreateCandidate(new ConsignmentRule
+            { ItemName = "ITEM_ETC_TEST", Enabled = false, Quantity = 1, Price = 1 }, 19, 1) == null, true);
+        RunScriptCheck("Generic stall filtresi ServerName wildcard eşleştirir",
+            ConsignmentPolicy.MatchesItemPattern("ITEM_CH_SWORD_*", "Blade", "ITEM_CH_SWORD_06_A_RARE"), true);
+        RunScriptCheck("Generic stall filtresi ilgisiz itemi eşleştirmez",
+            ConsignmentPolicy.MatchesItemPattern("ITEM_CH_SWORD_??_A", "Bow", "ITEM_CH_BOW_06_A"), false);
+        byte[] listingPayload = new byte[43];
+        listingPayload[0] = 1;
+        listingPayload[1] = 1;
+        Buffer.BlockCopy(BitConverter.GetBytes((uint)77), 0, listingPayload, 2, 4);
+        listingPayload[6] = 2;
+        Buffer.BlockCopy(BitConverter.GetBytes((uint)1234), 0, listingPayload, 7, 4);
+        Buffer.BlockCopy(BitConverter.GetBytes((uint)3), 0, listingPayload, 11, 4);
+        Buffer.BlockCopy(BitConverter.GetBytes((ulong)500), 0, listingPayload, 15, 8);
+        Buffer.BlockCopy(BitConverter.GetBytes((ulong)50), 0, listingPayload, 23, 8);
+        Buffer.BlockCopy(BitConverter.GetBytes((ulong)999999), 0, listingPayload, 31, 8);
+        Buffer.BlockCopy(BitConverter.GetBytes((uint)1800000000), 0, listingPayload, 39, 4);
+        List<ConsignmentListing> parsedListings;
+        string listingError;
+        RunScriptCheck("B50E Consignment ilan kaydı 41 baytlık modelle ayrıştırılır",
+            ConsignmentPolicy.TryParseListingPayload(listingPayload, out parsedListings, out listingError)
+                && parsedListings.Count == 1 && parsedListings[0].ConsignmentId == 77
+                && parsedListings[0].IsSold && parsedListings[0].Quantity == 3
+                && parsedListings[0].Price == 999999, true);
     }
 
     private static void RunScriptCheck(string name, bool actual, bool expected)

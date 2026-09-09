@@ -188,6 +188,55 @@ namespace xBot.App
         private bool refreshingImbueSkills;
         private System.Windows.Forms.Timer automatedLoginTimer;
 
+        // Stall > Consignment runtime tab
+        private Button TabPageH_Stall_Option03;
+        private Panel TabPageH_Stall_Option03_Panel;
+        private ListView Stall_lstvConsignment;
+        private Label Stall_lblConsignmentState;
+        private Button Stall_btnConsignmentRefresh;
+        private ListView Stall_lstvConsignmentRules;
+        private TextBox Stall_tbxConsignmentItem;
+        private NumericUpDown Stall_nudConsignmentQuantity;
+        private TextBox Stall_tbxConsignmentPrice;
+        private CheckBox Stall_cbxConsignmentEnabled;
+        private CheckBox Stall_cbxConsignmentRetrieve;
+        private CheckBox Stall_cbxConsignmentSettle;
+        private Button Stall_btnConsignmentRuleSave;
+        private Button Stall_btnConsignmentRuleRemove;
+        private CheckBox Stall_cbxAutoOpenPlayerStall;
+        private NumericUpDown Stall_nudMinimumPlayerStallItems;
+        private Label Stall_lblMinimumPlayerStallItems;
+
+        // phBot-benzeri Trade sekmesi
+        public Button TabPageV_Control01_Trade;
+        public Label TabPageV_Control01_Trade_Icon;
+        public Panel TabPageV_Control01_Trade_Panel;
+        private Button Trade_btnLoopTab;
+        private Button Trade_btnItemsTab;
+        private Button Trade_btnOptionsTab;
+        private Panel Trade_pnlLoop;
+        private Panel Trade_pnlItems;
+        private Panel Trade_pnlOptions;
+        private TextBox Trade_tbxStartTown;
+        private TextBox Trade_tbxEndTown;
+        private TextBox Trade_tbxRoutePath;
+        private ComboBox Trade_cmbxAmountMode;
+        private NumericUpDown Trade_nudAmount;
+        private ListView Trade_lstvRoutes;
+        private TextBox Trade_tbxTransport;
+        private TextBox Trade_tbxItem;
+        private NumericUpDown Trade_nudRepeat;
+        private CheckBox Trade_cbxReturn;
+        private CheckBox Trade_cbxTerminate;
+        private CheckBox Trade_cbxSkipTown;
+        private RadioButton Trade_rbnStayMounted;
+        private RadioButton Trade_rbnStayOff;
+        private RadioButton Trade_rbnRemount;
+        private CheckBox Trade_cbxAttackThieves;
+        private NumericUpDown Trade_nudAttackRadius;
+        private Label Trade_lblStatus;
+        private Timer _tradeUiTimer;
+
         // Alchemy promoted labels
         private Label lblAlchemySelect;
         private Label lblAlchemySlot;
@@ -225,6 +274,8 @@ namespace xBot.App
                 BuildProtectionTabWidgets();
                 BuildItemFilterWidgets();
                 BuildPickFilterTabs();
+                BuildConsignmentTab();
+                BuildTradeTab();
                 WireDeadUiControls();
                 StartGameInfoLiveTimer();
                 StartCombatUiSyncTimer();
@@ -2537,6 +2588,546 @@ namespace xBot.App
             groupBox2.ResumeLayout(false);
         }
 
+        private void BuildTradeTab()
+        {
+            if (TabPageV_Control01 == null || pnlWindow == null || TabPageV_Control01_Trade_Panel != null)
+                return;
+
+            RelayoutNavigationForTrade();
+            Button template = TabPageV_Control01_Town;
+            TabPageV_Control01_Trade = new Button
+            {
+                Name = "TabPageV_Control01_Trade",
+                Text = "Trade",
+                TextAlign = ContentAlignment.MiddleLeft,
+                Location = new Point(0, 252),
+                Size = new Size(123, 28),
+                FlatStyle = template.FlatStyle,
+                BackColor = TabPageV_Control01.BackColor,
+                ForeColor = template.ForeColor,
+                Font = template.Font,
+                Margin = template.Margin,
+                Padding = template.Padding,
+                Tag = template.Tag,
+                UseVisualStyleBackColor = false
+            };
+            TabPageV_Control01_Trade.FlatAppearance.BorderSize = 0;
+            TabPageV_Control01_Trade.FlatAppearance.MouseDownBackColor = template.FlatAppearance.MouseDownBackColor;
+            TabPageV_Control01_Trade.FlatAppearance.MouseOverBackColor = template.FlatAppearance.MouseOverBackColor;
+            TabPageV_Control01_Trade.Click += TabPageV_Option_Click;
+            TabPageV_Control01_Trade.MouseEnter += TabPageV_Option_MouseEnter;
+            TabPageV_Control01_Trade.MouseLeave += TabPageV_Option_MouseLeave;
+
+            TabPageV_Control01_Trade_Icon = new Label
+            {
+                Name = "TabPageV_Control01_Trade_Icon",
+                Text = "⇄",
+                TextAlign = ContentAlignment.MiddleCenter,
+                Location = new Point(5, 255),
+                Size = new Size(24, 21),
+                BackColor = TabPageV_Control01.BackColor,
+                ForeColor = template.ForeColor,
+                Font = new Font("Segoe UI Symbol", 13F, FontStyle.Regular, GraphicsUnit.Pixel)
+            };
+            TabPageV_Control01_Trade_Icon.Click += TabPageV_Option_Click;
+            TabPageV_Control01_Trade_Icon.MouseEnter += TabPageV_Option_MouseEnter;
+            TabPageV_Control01_Trade_Icon.MouseLeave += TabPageV_Option_MouseLeave;
+            TabPageV_Control01.Controls.Add(TabPageV_Control01_Trade);
+            TabPageV_Control01.Controls.Add(TabPageV_Control01_Trade_Icon);
+            TabPageV_Control01_Trade_Icon.BringToFront();
+
+            TabPageV_Control01_Trade_Panel = new Panel
+            {
+                Name = "TabPageV_Control01_Trade_Panel",
+                Location = TabPageV_Control01_Town_Panel.Location,
+                Size = TabPageV_Control01_Town_Panel.Size,
+                BackColor = TabPageV_Control01_Town_Panel.BackColor,
+                BorderStyle = BorderStyle.FixedSingle,
+                Visible = false
+            };
+            pnlWindow.Controls.Add(TabPageV_Control01_Trade_Panel);
+            TabPageV_Control01_Trade_Panel.BringToFront();
+
+            Panel tabs = new Panel { Name = "TradeTabs", Dock = DockStyle.Top, Height = 28, BackColor = Color.FromArgb(45, 45, 48) };
+            Trade_btnLoopTab = CreateTradeTabButton("Trade_btnLoopTab", "Loop", 0);
+            Trade_btnItemsTab = CreateTradeTabButton("Trade_btnItemsTab", "Items", 219);
+            Trade_btnOptionsTab = CreateTradeTabButton("Trade_btnOptionsTab", "Options", 438);
+            tabs.Controls.AddRange(new Control[] { Trade_btnLoopTab, Trade_btnItemsTab, Trade_btnOptionsTab });
+            TabPageV_Control01_Trade_Panel.Controls.Add(tabs);
+
+            Trade_pnlLoop = CreateTradeContentPanel("Trade_btnLoopTab_Panel");
+            Trade_pnlItems = CreateTradeContentPanel("Trade_btnItemsTab_Panel");
+            Trade_pnlOptions = CreateTradeContentPanel("Trade_btnOptionsTab_Panel");
+            TabPageV_Control01_Trade_Panel.Controls.AddRange(new Control[] { Trade_pnlLoop, Trade_pnlItems, Trade_pnlOptions });
+            tabs.Tag = Trade_btnLoopTab;
+            Trade_btnLoopTab.BackColor = tabs.BackColor;
+            Trade_pnlLoop.Visible = true;
+
+            BuildTradeLoopPanel();
+            BuildTradeItemsPanel();
+            BuildTradeOptionsPanel();
+            RefreshTradeLoopUi();
+
+            _tradeUiTimer = new Timer { Interval = 1000 };
+            _tradeUiTimer.Tick += (s, e) =>
+            {
+                if (Trade_lblStatus != null && TabPageV_Control01_Trade_Panel.Visible)
+                    Trade_lblStatus.Text = "Durum: " + TradeLoopManager.Status;
+            };
+            _tradeUiTimer.Start();
+        }
+
+        private void RelayoutNavigationForTrade()
+        {
+            string[] names = { "Login", "Character", "Inventory", "Players", "Party", "Guild", "Academy", "Skills", "Training", "Trade", "Town", "Stall", "Chat", "Minimap", "GameInfo", "Settings" };
+            for (int i = 0; i < names.Length; i++)
+            {
+                if (names[i] == "Trade") continue;
+                Control button = TabPageV_Control01.Controls["TabPageV_Control01_" + names[i]];
+                Control icon = TabPageV_Control01.Controls["TabPageV_Control01_" + names[i] + "_Icon"];
+                int y = i * 28;
+                if (button != null) { button.Location = new Point(0, y); button.Size = new Size(123, 28); }
+                if (icon != null) icon.Location = new Point(5, y + 3);
+            }
+        }
+
+        private Button CreateTradeTabButton(string name, string text, int x)
+        {
+            Button button = new Button
+            {
+                Name = name, Text = text, Location = new Point(x, 0), Size = new Size(219, 28),
+                FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(34, 34, 38), ForeColor = Color.White,
+                Font = new Font("Segoe UI", 9F), UseVisualStyleBackColor = false
+            };
+            button.FlatAppearance.BorderSize = 0;
+            button.Click += TabPageH_Option_Click;
+            return button;
+        }
+
+        private Panel CreateTradeContentPanel(string name)
+        {
+            return new Panel
+            {
+                Name = name, Location = new Point(0, 28), Size = new Size(655, 342),
+                BackColor = Color.FromArgb(45, 45, 48), Visible = false
+            };
+        }
+
+        private void BuildTradeLoopPanel()
+        {
+            Trade_tbxStartTown = new TextBox { Location = new Point(18, 37), Size = new Size(125, 23) };
+            Trade_tbxEndTown = new TextBox { Location = new Point(153, 37), Size = new Size(125, 23) };
+            Trade_cmbxAmountMode = new ComboBox { Location = new Point(288, 37), Size = new Size(110, 23), DropDownStyle = ComboBoxStyle.DropDownList };
+            Trade_cmbxAmountMode.Items.AddRange(new object[] { "Fill", "Quantity", "Star (pending)" });
+            Trade_cmbxAmountMode.SelectedIndex = 0;
+            Trade_nudAmount = new NumericUpDown { Location = new Point(408, 37), Size = new Size(90, 23), Minimum = 0, Maximum = 1000000 };
+            Trade_tbxRoutePath = new TextBox { Location = new Point(18, 89), Size = new Size(480, 23), ReadOnly = true };
+            Button browse = new Button { Location = new Point(508, 88), Size = new Size(58, 25), Text = "...", FlatStyle = FlatStyle.Flat };
+            Button add = new Button { Location = new Point(576, 36), Size = new Size(60, 77), Text = "Add", FlatStyle = FlatStyle.Flat };
+            Button remove = new Button { Location = new Point(518, 294), Size = new Size(118, 28), Text = "Remove route", FlatStyle = FlatStyle.Flat };
+            Trade_lstvRoutes = new ListView { Location = new Point(18, 126), Size = new Size(618, 158), View = View.Details, FullRowSelect = true, GridLines = true, HideSelection = false };
+            Trade_lstvRoutes.Columns.Add("Start", 90); Trade_lstvRoutes.Columns.Add("End", 90); Trade_lstvRoutes.Columns.Add("Transport", 115);
+            Trade_lstvRoutes.Columns.Add("Mode", 80); Trade_lstvRoutes.Columns.Add("Item", 105); Trade_lstvRoutes.Columns.Add("Route", 130);
+            Button start = new Button { Location = new Point(18, 294), Size = new Size(150, 28), Text = "▶ Start Trade", FlatStyle = FlatStyle.Flat };
+            Button stop = new Button { Location = new Point(178, 294), Size = new Size(105, 28), Text = "■ Stop", FlatStyle = FlatStyle.Flat };
+            Trade_lblStatus = new Label { Location = new Point(293, 294), Size = new Size(215, 28), TextAlign = ContentAlignment.MiddleLeft, Text = "Durum: Hazır" };
+
+            Trade_pnlLoop.Controls.AddRange(new Control[] {
+                new Label { Location=new Point(18,15), Size=new Size(125,20), Text="Start town" },
+                new Label { Location=new Point(153,15), Size=new Size(125,20), Text="End town" },
+                new Label { Location=new Point(288,15), Size=new Size(110,20), Text="Buy mode" },
+                new Label { Location=new Point(408,15), Size=new Size(90,20), Text="Amount" },
+                new Label { Location=new Point(18,67), Size=new Size(250,20), Text="Walk script (movement/teleport route)" },
+                Trade_tbxStartTown, Trade_tbxEndTown, Trade_cmbxAmountMode, Trade_nudAmount, Trade_tbxRoutePath,
+                browse, add, Trade_lstvRoutes, start, stop, remove, Trade_lblStatus });
+
+            browse.Click += (s, e) => BrowseTradeRoute();
+            add.Click += (s, e) => AddTradeRouteFromUi();
+            remove.Click += (s, e) => RemoveSelectedTradeRoute();
+            start.Click += (s, e) => StartTradeLoopFromUi();
+            stop.Click += (s, e) => { TradeLoopManager.CancelRequest(); Bot.Get.Stop(); Trade_lblStatus.Text = "Durum: Durduruldu"; };
+            Trade_cmbxAmountMode.SelectedIndexChanged += (s, e) => Trade_nudAmount.Enabled = Trade_cmbxAmountMode.SelectedIndex != 0;
+        }
+
+        private void BuildTradeItemsPanel()
+        {
+            Trade_tbxTransport = new TextBox { Location = new Point(22, 55), Size = new Size(285, 24) };
+            Trade_tbxItem = new TextBox { Location = new Point(22, 125), Size = new Size(285, 24) };
+            Trade_pnlItems.Controls.AddRange(new Control[] {
+                new Label { Location=new Point(22,20), Size=new Size(500,24), Text="Transport scroll name (empty = first suitable transport)" },
+                Trade_tbxTransport,
+                new Label { Location=new Point(22,90), Size=new Size(500,24), Text="Trade item name (empty = first specialty good at NPC)" },
+                Trade_tbxItem,
+                new Label { Location=new Point(22,175), Size=new Size(600,65), ForeColor=Color.Silver,
+                    Text="These selections are copied into each route when Add is pressed.\nItem and transport names are matched case-insensitively against the game database." }
+            });
+        }
+
+        private void BuildTradeOptionsPanel()
+        {
+            Trade_nudRepeat = new NumericUpDown { Location = new Point(175, 22), Size = new Size(75, 23), Minimum = 1, Maximum = 999, Value = 1 };
+            Trade_cbxReturn = new CheckBox { Location = new Point(22,62), Size = new Size(330,24), Text = "Use return scroll after each full loop" };
+            Trade_cbxTerminate = new CheckBox { Location = new Point(22,92), Size = new Size(330,24), Text = "Terminate transport when loop finishes", Checked = true };
+            Trade_cbxSkipTown = new CheckBox { Location = new Point(22,122), Size = new Size(330,24), Text = "Skip normal town loop", Checked = true };
+            Trade_rbnStayMounted = new RadioButton { Location = new Point(22,176), Size = new Size(145,24), Text = "Stay mounted" };
+            Trade_rbnStayOff = new RadioButton { Location = new Point(177,176), Size = new Size(125,24), Text = "Stay off" };
+            Trade_rbnRemount = new RadioButton { Location = new Point(312,176), Size = new Size(160,24), Text = "Remount", Checked = true };
+            Trade_cbxAttackThieves = new CheckBox { Location = new Point(22,230), Size = new Size(270,24), Text = "Attack spawned thieves" };
+            Trade_nudAttackRadius = new NumericUpDown { Location = new Point(300,230), Size = new Size(70,23), Minimum = 5, Maximum = 100, Value = 30 };
+            Button save = new Button { Location = new Point(22,284), Size = new Size(170,30), Text = "Save options", FlatStyle = FlatStyle.Flat };
+            Trade_pnlOptions.Controls.AddRange(new Control[] {
+                new Label { Location=new Point(22,24), Size=new Size(145,22), Text="Repeat loop count" }, Trade_nudRepeat,
+                Trade_cbxReturn, Trade_cbxTerminate, Trade_cbxSkipTown,
+                new Label { Location=new Point(22,151), Size=new Size(250,22), Text="Transport behavior" },
+                Trade_rbnStayMounted, Trade_rbnStayOff, Trade_rbnRemount,
+                Trade_cbxAttackThieves, Trade_nudAttackRadius,
+                new Label { Location=new Point(380,230), Size=new Size(245,38), ForeColor=Color.DarkGray, Text="Checks TypeID4=2 enemies around the transport at waypoints." }, save });
+            save.Click += (s, e) => { SaveTradeOptionsFromUi(); Settings.SaveCharacterSettings(); Log("Trade options saved."); };
+        }
+
+        private void BrowseTradeRoute()
+        {
+            using (OpenFileDialog dialog = new OpenFileDialog { Filter = "Script files (*.txt;*.xcript;*.rbs)|*.txt;*.xcript;*.rbs|All files (*.*)|*.*" })
+                if (dialog.ShowDialog() == DialogResult.OK) Trade_tbxRoutePath.Text = dialog.FileName;
+        }
+
+        private void AddTradeRouteFromUi()
+        {
+            if (string.IsNullOrWhiteSpace(Trade_tbxStartTown.Text) || string.IsNullOrWhiteSpace(Trade_tbxEndTown.Text)
+                || string.IsNullOrWhiteSpace(Trade_tbxRoutePath.Text))
+            { Log("Trade route: start, end and script are required."); return; }
+            TradeAmountMode mode = Trade_cmbxAmountMode.SelectedIndex == 1 ? TradeAmountMode.Quantity
+                : Trade_cmbxAmountMode.SelectedIndex == 2 ? TradeAmountMode.Star : TradeAmountMode.Fill;
+            TradeLoopManager.AddRoute(new TradeRouteDefinition {
+                StartTown=Trade_tbxStartTown.Text.Trim(), EndTown=Trade_tbxEndTown.Text.Trim(), ScriptPath=Trade_tbxRoutePath.Text,
+                TransportName=Trade_tbxTransport.Text.Trim(), ItemName=Trade_tbxItem.Text.Trim(), AmountMode=mode, Amount=(int)Trade_nudAmount.Value });
+            RefreshTradeRouteList(); Settings.SaveCharacterSettings();
+        }
+
+        private void RemoveSelectedTradeRoute()
+        {
+            if (Trade_lstvRoutes.SelectedIndices.Count == 0) return;
+            TradeLoopManager.RemoveRouteAt(Trade_lstvRoutes.SelectedIndices[0]);
+            RefreshTradeRouteList(); Settings.SaveCharacterSettings();
+        }
+
+        private void SaveTradeOptionsFromUi()
+        {
+            TradeLoopManager.RepeatCount = (int)Trade_nudRepeat.Value;
+            TradeLoopManager.UseReturnScroll = Trade_cbxReturn.Checked;
+            TradeLoopManager.TerminateTransportAtEnd = Trade_cbxTerminate.Checked;
+            TradeLoopManager.SkipTownLoop = Trade_cbxSkipTown.Checked;
+            TradeLoopManager.MountMode = Trade_rbnStayMounted.Checked ? TradeMountMode.StayMounted
+                : Trade_rbnStayOff.Checked ? TradeMountMode.StayOff : TradeMountMode.Remount;
+            TradeLoopManager.AttackSpawnedThieves = Trade_cbxAttackThieves.Checked;
+            TradeLoopManager.AttackRadius = (int)Trade_nudAttackRadius.Value;
+        }
+
+        private void StartTradeLoopFromUi()
+        {
+            if (!InfoManager.inGame) { Log("Trade: önce oyuna bağlanın."); return; }
+            SaveTradeOptionsFromUi(); Settings.SaveCharacterSettings();
+            if (Bot.Get.isBotting) Bot.Get.Stop();
+            string error;
+            if (!TradeLoopManager.RequestStart(out error)) { Log("Trade: " + error); return; }
+            Bot.Get.Start();
+        }
+
+        private void RefreshTradeRouteList()
+        {
+            if (Trade_lstvRoutes == null) return;
+            Trade_lstvRoutes.Items.Clear();
+            foreach (TradeRouteDefinition route in TradeLoopManager.GetRoutes())
+            {
+                ListViewItem row = new ListViewItem(route.StartTown); row.SubItems.Add(route.EndTown);
+                row.SubItems.Add(string.IsNullOrWhiteSpace(route.TransportName) ? "Auto" : route.TransportName);
+                row.SubItems.Add(route.AmountMode == TradeAmountMode.Fill ? "Fill" : route.AmountMode + ":" + route.Amount);
+                row.SubItems.Add(string.IsNullOrWhiteSpace(route.ItemName) ? "Auto" : route.ItemName);
+                row.SubItems.Add(System.IO.Path.GetFileName(route.ScriptPath)); Trade_lstvRoutes.Items.Add(row);
+            }
+        }
+
+        public void RefreshTradeLoopUi()
+        {
+            if (Trade_nudRepeat == null) return;
+            Trade_nudRepeat.Value = Math.Max(Trade_nudRepeat.Minimum, Math.Min(Trade_nudRepeat.Maximum, TradeLoopManager.RepeatCount));
+            Trade_cbxReturn.Checked = TradeLoopManager.UseReturnScroll;
+            Trade_cbxTerminate.Checked = TradeLoopManager.TerminateTransportAtEnd;
+            Trade_cbxSkipTown.Checked = TradeLoopManager.SkipTownLoop;
+            Trade_rbnStayMounted.Checked = TradeLoopManager.MountMode == TradeMountMode.StayMounted;
+            Trade_rbnStayOff.Checked = TradeLoopManager.MountMode == TradeMountMode.StayOff;
+            Trade_rbnRemount.Checked = TradeLoopManager.MountMode == TradeMountMode.Remount;
+            Trade_cbxAttackThieves.Checked = TradeLoopManager.AttackSpawnedThieves;
+            Trade_nudAttackRadius.Value = Math.Max(Trade_nudAttackRadius.Minimum,
+                Math.Min(Trade_nudAttackRadius.Maximum, TradeLoopManager.AttackRadius));
+            RefreshTradeRouteList();
+        }
+
+        private void BuildConsignmentTab()
+        {
+            if (TabPageH_Stall == null || TabPageV_Control01_Stall_Panel == null
+                || TabPageH_Stall_Option03 != null)
+                return;
+
+            int width = Math.Max(1, TabPageH_Stall.Width / 3);
+            TabPageH_Stall_Option01.Location = new Point(0, 0);
+            TabPageH_Stall_Option01.Size = new Size(width, 26);
+            TabPageH_Stall_Option02.Location = new Point(width, 0);
+            TabPageH_Stall_Option02.Size = new Size(width, 26);
+
+            TabPageH_Stall_Option03 = new Button
+            {
+                Name = "TabPageH_Stall_Option03",
+                Text = "Consignment",
+                Location = new Point(width * 2, 0),
+                Size = new Size(TabPageH_Stall.Width - width * 2, 26),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = TabPageH_Stall_Option02.BackColor,
+                ForeColor = TabPageH_Stall_Option02.ForeColor,
+                Font = TabPageH_Stall_Option02.Font,
+                UseVisualStyleBackColor = false
+            };
+            TabPageH_Stall_Option03.FlatAppearance.BorderSize = 0;
+            TabPageH_Stall_Option03.Click += TabPageH_Option_Click;
+            TabPageH_Stall.Controls.Add(TabPageH_Stall_Option03);
+
+            Stall_cbxAutoOpenPlayerStall = new CheckBox
+            {
+                Location = new Point(16, 158),
+                Size = new Size(400, 24),
+                Text = "Satış filtresini oyuncu stall'ına ekle ve otomatik aç",
+                Checked = ConsignmentManager.AutoOpenPlayerStall
+            };
+            Stall_lblMinimumPlayerStallItems = new Label
+            {
+                Location = new Point(16, 194),
+                Size = new Size(205, 24),
+                Text = "Minimum stall item sayısı",
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            Stall_nudMinimumPlayerStallItems = new NumericUpDown
+            {
+                Location = new Point(226, 194),
+                Size = new Size(70, 24),
+                Minimum = 1,
+                Maximum = 10,
+                Value = Math.Max(1, Math.Min(10, ConsignmentManager.MinimumPlayerStallItems))
+            };
+            Stall_cbxAutoOpenPlayerStall.CheckedChanged += (s, e) =>
+            {
+                ConsignmentManager.AutoOpenPlayerStall = Stall_cbxAutoOpenPlayerStall.Checked;
+                Settings.SaveCharacterSettings();
+            };
+            Stall_nudMinimumPlayerStallItems.ValueChanged += (s, e) =>
+            {
+                ConsignmentManager.MinimumPlayerStallItems = (int)Stall_nudMinimumPlayerStallItems.Value;
+                Settings.SaveCharacterSettings();
+            };
+            TabPageH_Stall_Option02_Panel.Controls.Add(Stall_cbxAutoOpenPlayerStall);
+            TabPageH_Stall_Option02_Panel.Controls.Add(Stall_lblMinimumPlayerStallItems);
+            TabPageH_Stall_Option02_Panel.Controls.Add(Stall_nudMinimumPlayerStallItems);
+
+            TabPageH_Stall_Option03_Panel = new Panel
+            {
+                Name = "TabPageH_Stall_Option03_Panel",
+                Location = new Point(0, 27),
+                Size = new Size(TabPageV_Control01_Stall_Panel.Width, TabPageV_Control01_Stall_Panel.Height - 27),
+                BorderStyle = BorderStyle.FixedSingle,
+                BackColor = TabPageH_Stall_Option01_Panel.BackColor,
+                Visible = false
+            };
+
+            Stall_lblConsignmentState = new Label
+            {
+                Text = "Satış filtresinde generic eşleşme için * ve ? kullanabilirsiniz.",
+                Location = new Point(12, 12),
+                Size = new Size(420, 24),
+                ForeColor = Color.DimGray,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            Stall_btnConsignmentRefresh = new Button
+            {
+                Text = "Listeyi Yenile",
+                Location = new Point(510, 9),
+                Size = new Size(130, 28),
+                FlatStyle = FlatStyle.Flat
+            };
+            Stall_btnConsignmentRefresh.Click += (s, e) =>
+            {
+                if (!InfoManager.inGame || Bot.Get.Proxy == null || !Bot.Get.Proxy.isRunning)
+                {
+                    Stall_lblConsignmentState.Text = "Önce oyuna bağlanın.";
+                    return;
+                }
+                Stall_lblConsignmentState.Text = "İlan listesi isteniyor...";
+                PacketBuilder.RequestConsignmentList();
+            };
+
+            Stall_lstvConsignmentRules = new ListView
+            {
+                Location = new Point(12, 48),
+                Size = new Size(292, 122),
+                View = View.Details,
+                FullRowSelect = true,
+                GridLines = true,
+                HideSelection = false,
+                MultiSelect = false
+            };
+            Stall_lstvConsignmentRules.Columns.Add("Stall + Consignment", 142);
+            Stall_lstvConsignmentRules.Columns.Add("Adet", 48);
+            Stall_lstvConsignmentRules.Columns.Add("Fiyat", 78);
+            Stall_lstvConsignmentRules.SelectedIndexChanged += (s, e) =>
+            {
+                if (Stall_lstvConsignmentRules.SelectedItems.Count == 0) return;
+                var rule = Stall_lstvConsignmentRules.SelectedItems[0].Tag as ConsignmentRule;
+                if (rule == null) return;
+                Stall_tbxConsignmentItem.Text = rule.ItemName;
+                Stall_nudConsignmentQuantity.Value = Math.Max(Stall_nudConsignmentQuantity.Minimum,
+                    Math.Min(Stall_nudConsignmentQuantity.Maximum, rule.Quantity));
+                Stall_tbxConsignmentPrice.Text = rule.Price.ToString();
+                Stall_cbxConsignmentEnabled.Checked = rule.Enabled;
+            };
+
+            Stall_tbxConsignmentItem = new TextBox { Location = new Point(12, 178), Size = new Size(292, 24) };
+            Stall_nudConsignmentQuantity = new NumericUpDown
+            {
+                Location = new Point(12, 208), Size = new Size(70, 24), Minimum = 1, Maximum = ushort.MaxValue, Value = 1
+            };
+            Stall_tbxConsignmentPrice = new TextBox { Location = new Point(88, 208), Size = new Size(216, 24), Text = "1" };
+            Stall_cbxConsignmentEnabled = new CheckBox { Location = new Point(12, 238), Size = new Size(130, 22), Text = "Satışa ekle", Checked = true };
+            Stall_btnConsignmentRuleSave = new Button { Location = new Point(12, 266), Size = new Size(142, 27), Text = "Ekle / Güncelle", FlatStyle = FlatStyle.Flat };
+            Stall_btnConsignmentRuleRemove = new Button { Location = new Point(162, 266), Size = new Size(142, 27), Text = "Kaldır", FlatStyle = FlatStyle.Flat };
+            Stall_cbxConsignmentRetrieve = new CheckBox { Location = new Point(12, 300), Size = new Size(142, 22), Text = "Süresi dolanı al", Checked = ConsignmentManager.AutoRetrieveExpired };
+            Stall_cbxConsignmentSettle = new CheckBox { Location = new Point(162, 300), Size = new Size(142, 22), Text = "Satılanı tahsil et", Checked = ConsignmentManager.AutoSettleSold };
+
+            Stall_btnConsignmentRuleSave.Click += (s, e) => SaveConsignmentRuleFromUi();
+            Stall_btnConsignmentRuleRemove.Click += (s, e) => RemoveConsignmentRuleFromUi();
+            Stall_cbxConsignmentRetrieve.CheckedChanged += (s, e) => { ConsignmentManager.AutoRetrieveExpired = Stall_cbxConsignmentRetrieve.Checked; Settings.SaveCharacterSettings(); };
+            Stall_cbxConsignmentSettle.CheckedChanged += (s, e) => { ConsignmentManager.AutoSettleSold = Stall_cbxConsignmentSettle.Checked; Settings.SaveCharacterSettings(); };
+
+            Stall_lstvConsignment = new ListView
+            {
+                Location = new Point(316, 48),
+                Size = new Size(324, 274),
+                View = View.Details,
+                FullRowSelect = true,
+                GridLines = true,
+                HideSelection = false
+            };
+            Stall_lstvConsignment.Columns.Add("Item", 115);
+            Stall_lstvConsignment.Columns.Add("Durum", 66);
+            Stall_lstvConsignment.Columns.Add("Adet", 45);
+            Stall_lstvConsignment.Columns.Add("Fiyat", 82);
+
+            TabPageH_Stall_Option03_Panel.Controls.Add(Stall_lblConsignmentState);
+            TabPageH_Stall_Option03_Panel.Controls.Add(Stall_btnConsignmentRefresh);
+            TabPageH_Stall_Option03_Panel.Controls.Add(Stall_lstvConsignmentRules);
+            TabPageH_Stall_Option03_Panel.Controls.Add(Stall_tbxConsignmentItem);
+            TabPageH_Stall_Option03_Panel.Controls.Add(Stall_nudConsignmentQuantity);
+            TabPageH_Stall_Option03_Panel.Controls.Add(Stall_tbxConsignmentPrice);
+            TabPageH_Stall_Option03_Panel.Controls.Add(Stall_cbxConsignmentEnabled);
+            TabPageH_Stall_Option03_Panel.Controls.Add(Stall_btnConsignmentRuleSave);
+            TabPageH_Stall_Option03_Panel.Controls.Add(Stall_btnConsignmentRuleRemove);
+            TabPageH_Stall_Option03_Panel.Controls.Add(Stall_cbxConsignmentRetrieve);
+            TabPageH_Stall_Option03_Panel.Controls.Add(Stall_cbxConsignmentSettle);
+            TabPageH_Stall_Option03_Panel.Controls.Add(Stall_lstvConsignment);
+            TabPageV_Control01_Stall_Panel.Controls.Add(TabPageH_Stall_Option03_Panel);
+            TabPageH_Stall_Option03_Panel.BringToFront();
+            TabPageH_Stall.BringToFront();
+            RefreshConsignmentRulesUi();
+        }
+
+        public void RefreshConsignmentRulesUi()
+        {
+            if (Stall_lstvConsignmentRules == null) return;
+            Stall_lstvConsignmentRules.InvokeIfRequired(() =>
+            {
+                Stall_lstvConsignmentRules.Items.Clear();
+                foreach (ConsignmentRule rule in ConsignmentManager.GetRules().OrderBy(r => r.ItemName))
+                {
+                    var row = new ListViewItem((rule.Enabled ? "✓ " : "") + rule.ItemName) { Tag = rule };
+                    row.SubItems.Add(rule.Quantity.ToString());
+                    row.SubItems.Add(rule.Price.ToString("N0"));
+                    Stall_lstvConsignmentRules.Items.Add(row);
+                }
+                if (Stall_cbxConsignmentRetrieve != null) Stall_cbxConsignmentRetrieve.Checked = ConsignmentManager.AutoRetrieveExpired;
+                if (Stall_cbxConsignmentSettle != null) Stall_cbxConsignmentSettle.Checked = ConsignmentManager.AutoSettleSold;
+                if (Stall_cbxAutoOpenPlayerStall != null
+                    && Stall_cbxAutoOpenPlayerStall.Checked != ConsignmentManager.AutoOpenPlayerStall)
+                    Stall_cbxAutoOpenPlayerStall.Checked = ConsignmentManager.AutoOpenPlayerStall;
+                if (Stall_nudMinimumPlayerStallItems != null)
+                {
+                    decimal minimum = Math.Max(1, Math.Min(10, ConsignmentManager.MinimumPlayerStallItems));
+                    if (Stall_nudMinimumPlayerStallItems.Value != minimum)
+                        Stall_nudMinimumPlayerStallItems.Value = minimum;
+                }
+            });
+        }
+
+        private void SaveConsignmentRuleFromUi()
+        {
+            ulong price;
+            if (!ulong.TryParse((Stall_tbxConsignmentPrice.Text ?? "").Replace(".", "").Replace(",", ""), out price))
+            {
+                Stall_lblConsignmentState.Text = "Geçerli bir gold fiyatı girin.";
+                return;
+            }
+            string error = ConsignmentManager.SetRule(Stall_tbxConsignmentItem.Text,
+                (ushort)Stall_nudConsignmentQuantity.Value, price, Stall_cbxConsignmentEnabled.Checked);
+            if (!string.IsNullOrEmpty(error))
+            {
+                Stall_lblConsignmentState.Text = error;
+                return;
+            }
+            RefreshConsignmentRulesUi();
+            Settings.SaveCharacterSettings();
+            Stall_lblConsignmentState.Text = "Satış filtresi kaydedildi.";
+        }
+
+        private void RemoveConsignmentRuleFromUi()
+        {
+            string name = Stall_tbxConsignmentItem.Text;
+            if (Stall_lstvConsignmentRules.SelectedItems.Count > 0
+                && Stall_lstvConsignmentRules.SelectedItems[0].Tag is ConsignmentRule selected)
+                name = selected.ItemName;
+            ConsignmentManager.RemoveRule(name);
+            RefreshConsignmentRulesUi();
+            Settings.SaveCharacterSettings();
+            Stall_lblConsignmentState.Text = "Satış filtresi kaldırıldı.";
+        }
+
+        public void UpdateConsignmentListUi(byte[] payload, System.Collections.Generic.IList<ConsignmentListing> listings = null, string parseError = "")
+        {
+            if (Stall_lblConsignmentState == null || Stall_lstvConsignment == null)
+                return;
+            Stall_lblConsignmentState.InvokeIfRequired(() =>
+            {
+                int length = payload == null ? 0 : payload.Length;
+                byte result = length > 0 ? payload[0] : (byte)0;
+                Stall_lblConsignmentState.Text = listings != null
+                    ? $"{listings.Count} Consignment ilanı yüklendi."
+                    : $"Liste ayrıştırılamadı: {parseError} ({length} bayt)";
+                Stall_lstvConsignment.Items.Clear();
+                if (listings != null)
+                {
+                    foreach (ConsignmentListing listing in listings)
+                    {
+                        string itemName;
+                        try { itemName = xBot.Game.Objects.Item.SRItem.Create(listing.ItemId, new xBot.Game.Objects.Item.SRRentable(0)).Name; }
+                        catch { itemName = "Item #" + listing.ItemId; }
+                        string status = listing.Status == 0 ? "Satışta"
+                            : listing.Status == 1 ? "Süresi doldu"
+                            : listing.Status == 2 ? "Satıldı" : "Durum " + listing.Status;
+                        var row = new ListViewItem(itemName) { Tag = listing, ToolTipText = "ID: " + listing.ConsignmentId };
+                        row.SubItems.Add(status);
+                        row.SubItems.Add(listing.Quantity.ToString());
+                        row.SubItems.Add(listing.Price.ToString("N0"));
+                        Stall_lstvConsignment.Items.Add(row);
+                    }
+                }
+            });
+        }
+
         private void RefreshScriptCreatorCommand()
         {
             ScriptCommandDefinition definition = cmbxScriptCommand == null
@@ -3558,6 +4149,7 @@ namespace xBot.App
                     if (this.TabPageV_Control01_Party != null) this.TabPageV_Control01_Party.Text = LocalizationManager.Get("UI_Party", "Party");
                     if (this.TabPageV_Control01_Inventory != null) this.TabPageV_Control01_Inventory.Text = LocalizationManager.Get("UI_Inventory", "Inventory");
                     if (this.TabPageV_Control01_Town != null) this.TabPageV_Control01_Town.Text = LocalizationManager.Get("UI_Items", "Town & Items");
+                    if (this.TabPageV_Control01_Trade != null) this.TabPageV_Control01_Trade.Text = "Trade";
                     if (this.TabPageV_Control01_Chat != null) this.TabPageV_Control01_Chat.Text = LocalizationManager.Get("UI_Chat", "Chat");
 
                     if (this.TabPageH_Character_Option03 != null)

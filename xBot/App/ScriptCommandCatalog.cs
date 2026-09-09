@@ -32,10 +32,16 @@ namespace xBot.App
             new ScriptCommandDefinition("DoGroceryTrader", null, "DoGroceryTrader", "Grocery işlemlerini uygula ve gerekiyorsa ok/bolt al.", 0, 0, "", ""),
             new ScriptCommandDefinition("DoProtectorTrader", null, "DoProtectorTrader", "Protector NPC'de ayarlı satış işlemlerini uygula.", 0, 0, "", ""),
             new ScriptCommandDefinition("DoJupiter", null, "DoJupiter", "Jupiter birleşik demirci/herbalist işlemlerini uygula.", 0, 0, "", ""),
+            new ScriptCommandDefinition("DoConsignment", null, "DoConsignment", "Consignment NPC oturumunu aç ve mevcut ilan listesini yenile.", 0, 0, "", ""),
+            new ScriptCommandDefinition("DoStall", null, "DoStall", "Kalıcı satış filtrelerinden oyuncu stall'ı oluştur ve aç.", 0, 0, "", ""),
+            new ScriptCommandDefinition("DoScript", null, "DoScript", "Town scriptinden seçili training yürüyüş scriptini çalıştır.", 0, 0, "", ""),
             new ScriptCommandDefinition("recall", null, "recall", "Aktif toplama petini geri çağır.", 0, 0, "", ""),
             new ScriptCommandDefinition("mount", null, "mount, fellow|transport", "Çağrılmış fellow veya transport petine bin.", 0, 1, "Pet türü (fellow/transport)", ""),
             new ScriptCommandDefinition("dismount", null, "dismount", "Fellow/transporttan in; normal atı sonlandır.", 0, 0, "", ""),
             new ScriptCommandDefinition("killhorse", null, "killhorse", "Aktif atı veya transportu tamamen sonlandır.", 0, 0, "", ""),
+            new ScriptCommandDefinition("terminate", null, "terminate, horse|transport", "Seçilen türdeki veya tüm aktif at/transport petlerini sonlandır.", 0, 1, "Pet türü (horse/transport)", ""),
+            new ScriptCommandDefinition("profile", null, "profile, name", "Config klasöründen adı verilen karakter profilini yükle.", 0, 1, "Profil adı / Default", ""),
+            new ScriptCommandDefinition("oldtrade", null, "oldtrade, spawn[, item] / buy, 0|quantity[, item] / sell", "Eski vSRO ticaret taşıtını çağırır; specialty goods alır veya satar.", 1, 3, "spawn / buy / sell", "Miktar / item adı"),
             new ScriptCommandDefinition("stop", null, "stop", "Botu ve aktif scripti durdur.", 0, 0, "", ""),
             new ScriptCommandDefinition("disconnect", null, "disconnect", "Bağlantıyı güvenli biçimde kapat.", 0, 0, "", "")
         };
@@ -111,6 +117,39 @@ namespace xBot.App
             {
                 error = "MOUNT: pet türü fellow veya transport olmalı.";
                 return false;
+            }
+            if (definition.Name == "terminate" && arguments.Length == 1
+                && !arguments[0].Equals("horse", StringComparison.OrdinalIgnoreCase)
+                && !arguments[0].Equals("transport", StringComparison.OrdinalIgnoreCase))
+            {
+                error = "TERMINATE: pet türü horse veya transport olmalı.";
+                return false;
+            }
+            if (definition.Name == "oldtrade")
+            {
+                string operation = arguments[0].ToLowerInvariant();
+                if (operation != "spawn" && operation != "buy" && operation != "sell")
+                {
+                    error = "OLDTRADE: işlem spawn, buy veya sell olmalı.";
+                    return false;
+                }
+                if (operation == "sell" && arguments.Length != 1)
+                {
+                    error = "OLDTRADE SELL parametre almaz.";
+                    return false;
+                }
+                if (operation == "spawn" && arguments.Length > 2)
+                {
+                    error = "OLDTRADE SPAWN yalnızca isteğe bağlı taşıt adı alır.";
+                    return false;
+                }
+                int amount;
+                if (operation == "buy" && (arguments.Length < 2
+                    || !int.TryParse(arguments[1], out amount) || amount < 0))
+                {
+                    error = "OLDTRADE BUY için 0 (doldur) veya pozitif miktar gerekli.";
+                    return false;
+                }
             }
 
             invocation = new ScriptCommandInvocation(definition, arguments, line);

@@ -31,6 +31,12 @@ namespace xBot.Game
 		private static AutoResetEvent m_MonitorEntitySelected = new AutoResetEvent(false);
 		private static AutoResetEvent m_MonitorInventoryMovement = new AutoResetEvent(false);
 		private static AutoResetEvent m_MonitorRepairResponse = new AutoResetEvent(false);
+		private static AutoResetEvent m_MonitorConsignmentList = new AutoResetEvent(false);
+		private static AutoResetEvent m_MonitorConsignmentRegister = new AutoResetEvent(false);
+		private static AutoResetEvent m_MonitorConsignmentUnregister = new AutoResetEvent(false);
+		private static AutoResetEvent m_MonitorConsignmentSettle = new AutoResetEvent(false);
+		private static AutoResetEvent m_MonitorStallCreate = new AutoResetEvent(false);
+		private static AutoResetEvent m_MonitorStallUpdate = new AutoResetEvent(false);
 		private static AutoResetEvent m_MonitorWeaponChanged = new AutoResetEvent(false);
 		private static AutoResetEvent m_MonitorBuffRemoved = new AutoResetEvent(false);
 		private static AutoResetEvent m_MonitorSkillCast = new AutoResetEvent(false);
@@ -82,6 +88,17 @@ namespace xBot.Game
 		public static byte LastNpcTalkID { get; private set; }
 		public static bool LastRepairSuccess { get; private set; }
 		public static ushort LastRepairErrorCode { get; private set; }
+		public static byte[] LastConsignmentListPayload { get; private set; } = new byte[0];
+		public static DateTime LastConsignmentListTime { get; private set; } = DateTime.MinValue;
+		public static bool LastConsignmentRegisterSuccess { get; private set; }
+		public static ushort LastConsignmentRegisterError { get; private set; }
+		public static DateTime LastConsignmentRegisterTime { get; private set; } = DateTime.MinValue;
+		public static List<ConsignmentListing> LastConsignmentListings { get; private set; } = new List<ConsignmentListing>();
+		public static bool LastConsignmentUnregisterSuccess { get; private set; }
+		public static bool LastConsignmentSettleSuccess { get; private set; }
+		public static bool LastStallCreateSuccess { get; private set; }
+		public static bool LastStallUpdateSuccess { get; private set; }
+		public static SRTypes.StallUpdate LastStallUpdateType { get; private set; }
 		/// <summary>
 		/// Gets all entities around.
 		/// </summary>
@@ -130,6 +147,10 @@ namespace xBot.Game
 		/// Check if the character is inside of stall, including his own.
 		/// </summary>
 		public static bool inStall { get; private set; }
+		/// <summary>
+		/// True when the character's own stall is in the public/open state.
+		/// </summary>
+		public static bool IsOwnStallOpen { get; private set; }
 		/// <summary>
 		/// Get the owner from stall or null.
 		/// </summary>
@@ -194,6 +215,12 @@ namespace xBot.Game
 		public static AutoResetEvent MonitorWeaponChanged { get { return m_MonitorWeaponChanged; } }
 		public static AutoResetEvent MonitorInventoryMovement { get { return m_MonitorInventoryMovement; } }
 		public static AutoResetEvent MonitorRepairResponse { get { return m_MonitorRepairResponse; } }
+		public static AutoResetEvent MonitorConsignmentList { get { return m_MonitorConsignmentList; } }
+		public static AutoResetEvent MonitorConsignmentRegister { get { return m_MonitorConsignmentRegister; } }
+		public static AutoResetEvent MonitorConsignmentUnregister { get { return m_MonitorConsignmentUnregister; } }
+		public static AutoResetEvent MonitorConsignmentSettle { get { return m_MonitorConsignmentSettle; } }
+		public static AutoResetEvent MonitorStallCreate { get { return m_MonitorStallCreate; } }
+		public static AutoResetEvent MonitorStallUpdate { get { return m_MonitorStallUpdate; } }
 		public static AutoResetEvent MonitorBuffRemoved { get { return m_MonitorBuffRemoved; } }
 		public static AutoResetEvent MonitorSkillCast { get { return m_MonitorSkillCast; } }
 		public static bool LastSkillCastSuccess { get; set; } = true;
@@ -212,6 +239,41 @@ namespace xBot.Game
 			LastRepairSuccess = success;
 			LastRepairErrorCode = errorCode;
 			m_MonitorRepairResponse.Set();
+		}
+		internal static void OnConsignmentList(byte[] payload, List<ConsignmentListing> listings = null)
+		{
+			LastConsignmentListPayload = payload ?? new byte[0];
+			LastConsignmentListings = listings ?? new List<ConsignmentListing>();
+			LastConsignmentListTime = DateTime.UtcNow;
+			m_MonitorConsignmentList.Set();
+		}
+		internal static void OnConsignmentUnregister(bool success)
+		{
+			LastConsignmentUnregisterSuccess = success;
+			m_MonitorConsignmentUnregister.Set();
+		}
+		internal static void OnConsignmentSettle(bool success)
+		{
+			LastConsignmentSettleSuccess = success;
+			m_MonitorConsignmentSettle.Set();
+		}
+		internal static void OnStallCreateResponse(bool success)
+		{
+			LastStallCreateSuccess = success;
+			m_MonitorStallCreate.Set();
+		}
+		internal static void OnStallUpdateResponse(bool success, SRTypes.StallUpdate type)
+		{
+			LastStallUpdateSuccess = success;
+			LastStallUpdateType = type;
+			m_MonitorStallUpdate.Set();
+		}
+		internal static void OnConsignmentRegister(bool success, ushort errorCode)
+		{
+			LastConsignmentRegisterSuccess = success;
+			LastConsignmentRegisterError = errorCode;
+			LastConsignmentRegisterTime = DateTime.UtcNow;
+			m_MonitorConsignmentRegister.Set();
 		}
 
 		public static void SetCharacter(string CharName, int selectionDelay = 0)
@@ -342,6 +404,9 @@ namespace xBot.Game
 			LastNpcTalkID = 0;
 			LastRepairSuccess = false;
 			LastRepairErrorCode = 0;
+			LastConsignmentListPayload = new byte[0];
+			LastConsignmentListTime = DateTime.MinValue;
+			LastConsignmentListings = new List<ConsignmentListing>();
 			LastGuildStorageInfoTime = DateTime.MinValue;
 			LastGuildStorageResult = byte.MaxValue;
 			m_Entities.Clear();
@@ -376,6 +441,7 @@ namespace xBot.Game
 			if (inStall)
 			{
 				inStall = false;
+				IsOwnStallOpen = false;
 				StallerPlayer = null;
 				w.Stall_Clear();
 			}
@@ -397,6 +463,9 @@ namespace xBot.Game
 			LastNpcTalkID = 0;
 			LastRepairSuccess = false;
 			LastRepairErrorCode = 0;
+			LastConsignmentListPayload = new byte[0];
+			LastConsignmentListTime = DateTime.MinValue;
+			LastConsignmentListings = new List<ConsignmentListing>();
 			LastGuildStorageInfoTime = DateTime.MinValue;
 			LastGuildStorageResult = byte.MaxValue;
 			m_Entities.Clear();
@@ -432,6 +501,7 @@ namespace xBot.Game
 			if (inStall)
 			{
 				inStall = false;
+				IsOwnStallOpen = false;
 				StallerPlayer = null;
 				w.Stall_Clear();
 			}
@@ -1379,6 +1449,8 @@ namespace xBot.Game
 		{
 			inStall = true;
 			StallerPlayer = Staller;
+			if (Staller == null)
+				IsOwnStallOpen = false;
 
 			// GUI
 			Window w = Window.Get;
@@ -1480,6 +1552,7 @@ namespace xBot.Game
 		internal static void OnStallClosed()
 		{
 			inStall = false;
+			IsOwnStallOpen = false;
 
 			// Clear GUI & stuffs
 			Window w = Window.Get;
@@ -1501,6 +1574,7 @@ namespace xBot.Game
 			Window w = Window.Get;
 			if (StallerPlayer == null)
 			{
+				IsOwnStallOpen = isOpen;
 				// My stall
 				if (isOpen)
 				{

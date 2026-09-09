@@ -7,6 +7,7 @@ using xBot.Game;
 using xBot.Game.Objects;
 using xBot.Game.Objects.Common;
 using xBot.Game.Objects.Entity;
+using xBot.Game.Objects.Item;
 
 namespace xBot.App
 {
@@ -14,10 +15,12 @@ namespace xBot.App
 	{
 		private List<string> m_lines;
 		private readonly ManualResetEvent m_stopSignal = new ManualResetEvent(false);
+		private bool m_isTownScript;
 		private uint m_lastRepairNpcUniqueID;
 		private DateTime m_lastRepairTime = DateTime.MinValue;
 		public string FileName { get; private set; }
 		public bool Running { get; set; }
+		public bool IsTownScript { get { return m_isTownScript; } }
 
 		public Script()
 		{
@@ -72,7 +75,13 @@ namespace xBot.App
 					try { full = Path.Combine(dir, name); } catch { continue; }
 					if (File.Exists(full))
 					{
-						try { return new Script(full); } catch { }
+						try
+						{
+							Script town = new Script(full);
+							town.m_isTownScript = true;
+							return town;
+						}
+						catch { }
 					}
 				}
 			}
@@ -146,6 +155,7 @@ namespace xBot.App
 					try
 					{
 						Script town = new Script(file);
+						town.m_isTownScript = true;
 						if (town.GetNearMovement(position, maxRange) != -1)
 							return town;
 					}
@@ -305,6 +315,8 @@ namespace xBot.App
 							// adımları (store/buy/repair) yine de çalışır.
 							w.Log($"Script step [{j + 1}] atlandı (ulaşılamadı), devam ediliyor.");
 						}
+						if (TradeLoopManager.IsRunning)
+							b.HandleTradeWaypoint();
 					}
 					break;
 				case "store":
@@ -342,6 +354,15 @@ namespace xBot.App
 				case "dojupiter":
 					ExecuteTownService(cmd, w, b);
 					break;
+				case "doconsignment":
+					ExecuteConsignmentStep(w, b);
+					break;
+				case "dostall":
+					ExecutePlayerStallStep(w, b);
+					break;
+				case "doscript":
+					ExecuteTrainingScript(w, b);
+					break;
 				case "recall":
 					ExecuteRecall(w);
 					break;
@@ -353,6 +374,15 @@ namespace xBot.App
 					break;
 				case "killhorse":
 					ExecuteKillHorse(w, b);
+					break;
+				case "terminate":
+					ExecuteTerminate(invocation, w, b);
+					break;
+				case "profile":
+					ExecuteProfile(invocation, w);
+					break;
+				case "oldtrade":
+					ExecuteOldTrade(invocation, w, b);
 					break;
 				case "stop":
 					w.LogProcess("Script: bot durduruluyor...");
@@ -619,6 +649,256 @@ namespace xBot.App
 			TerminateTransport(target, "KILLHORSE", w, b);
 		}
 
+		private void ExecuteTerminate(ScriptCommandInvocation command, Window w, Bot b)
+		{
+			string type = command.Arguments.Length == 0 ? "all" : command.Arguments[0].ToLowerInvariant();
+			List<SRCoService> targets = InfoManager.MyPets.FindAll(pet => pet != null
+				&& (type == "all" && (pet.isHorse() || pet.isTransport())
+					|| type == "horse" && pet.isHorse()
+					|| type == "transport" && pet.isTransport()));
+			if (targets.Count == 0)
+			{
+				w.LogProcess("TERMINATE: aktif " + (type == "all" ? "at/transport" : type) + " bulunamadı.");
+				return;
+			}
+			w.LogProcess($"Script TERMINATE: {targets.Count} {type} pet sonlandırılıyor...");
+			foreach (SRCoService target in targets)
+			{
+				if (!Running || !IsConnectionAlive(b)) return;
+				TerminateTransport(target, "TERMINATE", w, b);
+			}
+		}
+
+		private void ExecuteProfile(ScriptCommandInvocation command, Window w)
+		{
+			string name = command.Arguments.Length == 0 ? "Default" : command.Arguments[0];
+			string before = Settings.LoadedCharacterProfile;
+			string error;
+			if (!Settings.TryLoadCharacterProfile(name, out error))
+			{
+				w.LogProcess("PROFILE: " + error, Window.ProcessState.Warning);
+				return;
+			}
+			string loaded = Settings.LoadedCharacterProfile;
+			if (string.Equals(before, loaded, StringComparison.OrdinalIgnoreCase))
+				w.LogProcess("PROFILE: [" + loaded + "] zaten yüklü.");
+			else
+				w.LogProcess("PROFILE: [" + loaded + "] yüklendi.");
+		}
+
+		private void ExecuteOldTrade(ScriptCommandInvocation command, Window w, Bot b)
+		{
+			string operation = command.Arguments[0].ToLowerInvariant();
+			if (operation == "spawn")
+			{
+				SpawnOldTradeTransport(command.Arguments.Length > 1 ? command.Arguments[1] : null, w, b);
+				return;
+			}
+
+			SRCoService transport = InfoManager.MyPets.Find(pet => pet != null && pet.isTransport());
+			if (transport == null || transport.Inventory == null)
+			{
+				w.LogProcess("OLDTRADE: aktif ve envanteri yüklenmiş trade taşıtı bulunamadı.", Window.ProcessState.Warning);
+				return;
+			}
+
+			int requestedAmount = 0;
+			string requestedItem = null;
+			if (operation == "buy")
+			{
+				requestedAmount = int.Parse(command.Arguments[1]);
+				requestedItem = command.Arguments.Length > 2 ? command.Arguments[2] : null;
+				// phBot'ta 1..5 değerleri adet değil yıldızdır. Core projesinde yıldız
+				// eşiği hesabı bulunmadığı için yanlış miktar almaktansa açıkça dur.
+				if (requestedAmount >= 1 && requestedAmount <= 5)
+				{
+					w.LogProcess("OLDTRADE BUY: 1-5 yıldız hesabı henüz doğrulanmadı. 0 (taşıtı doldur) veya 5'ten büyük kesin adet kullanın.", Window.ProcessState.Warning);
+					return;
+				}
+			}
+
+			bool nameMatched;
+			SREntity npc = FindTownNpc("SPECIALTY_TRADER", out nameMatched);
+			if (!PrepareNpcInteraction(npc, "SPECIALTY_TRADER", nameMatched, "OLDTRADE " + operation.ToUpperInvariant(), w, b))
+				return;
+
+			try
+			{
+				if (!OpenNpcDialog(npc, "OLDTRADE " + operation.ToUpperInvariant(), w, b, 12))
+					return;
+				List<NameValueCollection> shopRows = DataManager.GetShopItems(npc.ServerName);
+				if (operation == "buy")
+					BuyOldTradeGoods(transport, npc, shopRows, requestedAmount, requestedItem, w, b);
+				else
+					SellOldTradeGoods(transport, npc, shopRows, w, b);
+			}
+			finally
+			{
+				try
+				{
+					if (IsConnectionAlive(b)) PacketBuilder.CloseNPC(npc.UniqueID);
+					WaitInterruptible(300);
+				}
+				catch { }
+			}
+		}
+
+		private void SpawnOldTradeTransport(string requestedName, Window w, Bot b)
+		{
+			SRCoService active = InfoManager.MyPets.Find(pet => pet != null && pet.isTransport());
+			if (active != null)
+			{
+				w.LogProcess("OLDTRADE SPAWN: trade taşıtı zaten aktif [" + active.Name + "].");
+				return;
+			}
+			if (InfoManager.Character == null || InfoManager.Character.Inventory == null)
+				return;
+
+			SRItem selected = null;
+			byte selectedSlot = 0;
+			for (int slot = 13; slot < InfoManager.Character.Inventory.Capacity && slot <= byte.MaxValue; slot++)
+			{
+				SRItem item = InfoManager.Character.Inventory[slot];
+				// Summon scroll bir COS nesnesi değil, ETC/COS_TRANSPORT itemidir
+				// (core TypeIdFilter: 3,3,2,7; private serverlarda TID4 değişebilir).
+				if (item == null || item.ID2 != 3 || item.ID3 != 2
+					|| (item.ServerName ?? "").IndexOf("COS_T_", StringComparison.OrdinalIgnoreCase) < 0)
+					continue;
+				if (!string.IsNullOrWhiteSpace(requestedName)
+					&& !string.Equals(item.Name, requestedName, StringComparison.OrdinalIgnoreCase)
+					&& !string.Equals(item.ServerName, requestedName, StringComparison.OrdinalIgnoreCase))
+					continue;
+				selected = item;
+				selectedSlot = (byte)slot;
+				break;
+			}
+			if (selected == null)
+			{
+				w.LogProcess("OLDTRADE SPAWN: uygun trade taşıtı scroll'u bulunamadı"
+					+ (string.IsNullOrWhiteSpace(requestedName) ? "." : " [" + requestedName + "]."), Window.ProcessState.Warning);
+				return;
+			}
+
+			w.LogProcess("OLDTRADE SPAWN: [" + selected.Name + "] çağrılıyor...");
+			if (!PacketBuilder.UseItem(selected, selectedSlot))
+			{
+				w.LogProcess("OLDTRADE SPAWN: scroll kullanılamadı.", Window.ProcessState.Warning);
+				return;
+			}
+			for (int i = 0; i < 50 && Running && IsConnectionAlive(b); i++)
+			{
+				active = InfoManager.MyPets.Find(pet => pet != null && pet.isTransport());
+				if (active != null)
+				{
+					w.LogProcess("OLDTRADE SPAWN: trade taşıtı hazır [" + active.Name + "].");
+					return;
+				}
+				Thread.Sleep(100);
+			}
+			w.LogProcess("OLDTRADE SPAWN: taşıt spawn bilgisi alınamadı.", Window.ProcessState.Warning);
+		}
+
+		private void BuyOldTradeGoods(SRCoService transport, SREntity npc,
+			List<NameValueCollection> shopRows, int requestedAmount, string requestedName, Window w, Bot b)
+		{
+			NameValueCollection selectedRow = null;
+			SRItem selectedItem = null;
+			foreach (NameValueCollection row in shopRows)
+			{
+				SRItem item = SRItem.Create(row["item_servername"]);
+				if (item == null || item.ID2 != 3 || item.ID3 != 8) continue;
+				if (!string.IsNullOrWhiteSpace(requestedName)
+					&& !string.Equals(item.Name, requestedName, StringComparison.OrdinalIgnoreCase)
+					&& !string.Equals(item.ServerName, requestedName, StringComparison.OrdinalIgnoreCase)) continue;
+				selectedRow = row;
+				selectedItem = item;
+				break;
+			}
+			if (selectedRow == null || selectedItem == null)
+			{
+				w.LogProcess("OLDTRADE BUY: NPC mağazasında uygun specialty goods bulunamadı"
+					+ (string.IsNullOrWhiteSpace(requestedName) ? "." : " [" + requestedName + "]."), Window.ProcessState.Warning);
+				return;
+			}
+
+			byte tab, slot;
+			if (!byte.TryParse(selectedRow["tab"], out tab) || !byte.TryParse(selectedRow["slot"], out slot))
+			{
+				w.LogProcess("OLDTRADE BUY: mağaza slotu ayrıştırılamadı.", Window.ProcessState.Warning);
+				return;
+			}
+			int bought = 0;
+			int maxSteps = Math.Max(1, transport.Inventory.Capacity + 1);
+			while (Running && IsConnectionAlive(b) && maxSteps-- > 0)
+			{
+				if (transport.Inventory.Count >= transport.Inventory.Capacity) break;
+				int remaining = requestedAmount == 0 ? selectedItem.QuantityMax : requestedAmount - bought;
+				if (remaining <= 0) break;
+				ushort amount = (ushort)Math.Min(Math.Max(1, (int)selectedItem.QuantityMax), Math.Min(remaining, (int)ushort.MaxValue));
+				int before = CountTransportItem(transport, selectedItem.ID);
+				while (InfoManager.MonitorInventoryMovement.WaitOne(0)) { }
+				PacketBuilder.BuyTradeGood(transport.UniqueID, tab, slot, amount, npc.UniqueID);
+				if (!WaitForTradeInventoryChange(() => CountTransportItem(transport, selectedItem.ID) > before, b))
+				{
+					w.LogProcess("OLDTRADE BUY: sunucu hareketi onaylamadı; alım durduruldu.", Window.ProcessState.Warning);
+					break;
+				}
+				int after = CountTransportItem(transport, selectedItem.ID);
+				bought += Math.Max(0, after - before);
+			}
+			w.LogProcess("OLDTRADE BUY: [" + selectedItem.Name + "] alınan toplam " + bought + ".");
+		}
+
+		private void SellOldTradeGoods(SRCoService transport, SREntity npc,
+			List<NameValueCollection> shopRows, Window w, Bot b)
+		{
+			var localGoods = new HashSet<uint>();
+			foreach (NameValueCollection row in shopRows)
+			{
+				SRItem local = SRItem.Create(row["item_servername"]);
+				if (local != null && local.ID2 == 3 && local.ID3 == 8) localGoods.Add(local.ID);
+			}
+			int sold = 0;
+			for (int slot = 0; slot < transport.Inventory.Capacity && Running && IsConnectionAlive(b); slot++)
+			{
+				SRItem item = transport.Inventory[slot];
+				if (item == null || item.ID2 != 3 || item.ID3 != 8 || localGoods.Contains(item.ID)) continue;
+				ushort before = item.Quantity;
+				while (InfoManager.MonitorInventoryMovement.WaitOne(0)) { }
+				PacketBuilder.SellTradeGood(transport.UniqueID, (byte)slot, before, npc.UniqueID);
+				if (!WaitForTradeInventoryChange(() => transport.Inventory[slot] == null
+					|| transport.Inventory[slot].Quantity < before, b))
+				{
+					w.LogProcess("OLDTRADE SELL: [" + item.Name + "] sunucu tarafından onaylanmadı; satış durduruldu.", Window.ProcessState.Warning);
+					break;
+				}
+				sold += before;
+			}
+			w.LogProcess("OLDTRADE SELL: satılan toplam specialty goods " + sold + ".");
+		}
+
+		private static int CountTransportItem(SRCoService transport, uint itemId)
+		{
+			int total = 0;
+			if (transport == null || transport.Inventory == null) return total;
+			for (int i = 0; i < transport.Inventory.Capacity; i++)
+			{
+				SRItem item = transport.Inventory[i];
+				if (item != null && item.ID == itemId) total += item.Quantity;
+			}
+			return total;
+		}
+
+		private bool WaitForTradeInventoryChange(Func<bool> changed, Bot b)
+		{
+			for (int i = 0; i < 35 && Running && IsConnectionAlive(b); i++)
+			{
+				if (changed()) return true;
+				InfoManager.MonitorInventoryMovement.WaitOne(100);
+			}
+			return changed();
+		}
+
 		private void TerminateTransport(SRCoService target, string command, Window w, Bot b)
 		{
 			while (InfoManager.MonitorPetRemoved.WaitOne(0)) { }
@@ -766,6 +1046,287 @@ namespace xBot.App
 					WaitInterruptible(300);
 				}
 				catch { }
+			}
+		}
+
+		private void ExecuteConsignmentStep(Window w, Bot b)
+		{
+			const string npcCode = "NPC_OPEN_MARKET";
+			bool nameMatched;
+			SREntity npc = FindTownNpc(npcCode, out nameMatched);
+			if (!PrepareNpcInteraction(npc, npcCode, nameMatched, "DoConsignment", w, b))
+				return;
+
+			try
+			{
+				// Consignment/Flea Market normal shop talk=3 yerine talk=0x21 kullanır.
+				if (!OpenNpcDialog(npc, "DoConsignment", w, b, 0x21))
+					return;
+				while (InfoManager.MonitorConsignmentList.WaitOne(0)) { }
+				DateTime requestTime = DateTime.UtcNow;
+				w.LogProcess("DoConsignment: mevcut ilan listesi yenileniyor...");
+				PacketBuilder.RequestConsignmentList();
+
+				bool received = false;
+				for (int i = 0; i < 40 && Running && IsConnectionAlive(b); i++)
+				{
+					if (InfoManager.MonitorConsignmentList.WaitOne(100)
+						&& InfoManager.LastConsignmentListTime >= requestTime)
+					{
+						received = true;
+						break;
+					}
+				}
+				if (received)
+				{
+					w.LogProcess($"DoConsignment: oturum hazır ({InfoManager.LastConsignmentListPayload.Length} bayt liste verisi).");
+					if (InfoManager.LastConsignmentListPayload.Length == 0
+						|| InfoManager.LastConsignmentListPayload[0] != 1)
+					{
+						w.LogProcess("DoConsignment: liste cevabı başarılı değil; register yapılmadı.", Window.ProcessState.Warning);
+						return;
+					}
+					List<ConsignmentListing> listings = InfoManager.LastConsignmentListings;
+					if (ConsignmentManager.AutoSettleSold)
+					{
+						var soldIds = new List<uint>();
+						foreach (ConsignmentListing listing in listings)
+							if (listing.IsSold) soldIds.Add(listing.ConsignmentId);
+						if (soldIds.Count > 0)
+						{
+							while (InfoManager.MonitorConsignmentSettle.WaitOne(0)) { }
+							w.LogProcess($"DoConsignment: {soldIds.Count} satılmış ilan tahsil ediliyor...");
+							PacketBuilder.SettleConsignments(soldIds);
+							if (!InfoManager.MonitorConsignmentSettle.WaitOne(4000)
+								|| !InfoManager.LastConsignmentSettleSuccess)
+								w.LogProcess("DoConsignment: satış tahsilatı onaylanmadı.", Window.ProcessState.Warning);
+						}
+					}
+					if (ConsignmentManager.AutoRetrieveExpired)
+					{
+						bool hasExpired = false;
+						foreach (ConsignmentListing listing in listings)
+							if (listing.IsExpired) { hasExpired = true; break; }
+						if (hasExpired)
+						{
+							while (InfoManager.MonitorConsignmentUnregister.WaitOne(0)) { }
+							w.LogProcess("DoConsignment: süresi dolan ilanlar geri alınıyor...");
+							PacketBuilder.RetrieveAllExpiredConsignments();
+							if (!InfoManager.MonitorConsignmentUnregister.WaitOne(4000)
+								|| !InfoManager.LastConsignmentUnregisterSuccess)
+								w.LogProcess("DoConsignment: süresi dolanları alma işlemi onaylanmadı.", Window.ProcessState.Warning);
+						}
+					}
+
+					List<ConsignmentRegistrationCandidate> candidates = ConsignmentManager.GetInventoryCandidates();
+					if (candidates.Count == 0)
+					{
+						w.LogProcess("DoConsignment: satış filtresine uyan envanter itemi yok.");
+						return;
+					}
+
+					foreach (ConsignmentRegistrationCandidate candidate in candidates)
+					{
+						if (!Running || !IsConnectionAlive(b)) return;
+						while (InfoManager.MonitorConsignmentRegister.WaitOne(0)) { }
+						DateTime registerTime = DateTime.UtcNow;
+						w.LogProcess($"DoConsignment: [{candidate.ItemName}] x{candidate.Quantity}, {candidate.Price:N0} gold kaydediliyor...");
+						PacketBuilder.RegisterConsignmentItem(candidate.InventorySlot, candidate.RentableId,
+							candidate.ItemId, candidate.Quantity, candidate.Price);
+						bool answered = false;
+						for (int i = 0; i < 40 && Running && IsConnectionAlive(b); i++)
+						{
+							if (InfoManager.MonitorConsignmentRegister.WaitOne(100)
+								&& InfoManager.LastConsignmentRegisterTime >= registerTime)
+							{
+								answered = true;
+								break;
+							}
+						}
+						if (!answered)
+						{
+							w.LogProcess("DoConsignment: B508 onayı gelmedi; kalan kayıtlar durduruldu.", Window.ProcessState.Warning);
+							break;
+						}
+						if (!InfoManager.LastConsignmentRegisterSuccess)
+						{
+							w.LogProcess($"DoConsignment: kayıt reddedildi (0x{InfoManager.LastConsignmentRegisterError:X4}); kalan kayıtlar durduruldu.", Window.ProcessState.Warning);
+							break;
+						}
+						if (!WaitInterruptible(350)) return;
+					}
+				}
+				else
+					w.LogProcess("DoConsignment: 0xB50E liste cevabı gelmedi; güvenlik için item işlemi yapılmadı.", Window.ProcessState.Warning);
+			}
+			catch (Exception ex)
+			{
+				w.LogProcess("DoConsignment hatası: " + ex.Message, Window.ProcessState.Warning);
+			}
+			finally
+			{
+				try
+				{
+					if (IsConnectionAlive(b))
+					{
+						PacketBuilder.CloseConsignment();
+						WaitInterruptible(250);
+						PacketBuilder.CloseNPC(npc.UniqueID);
+					}
+					WaitInterruptible(300);
+				}
+				catch { }
+			}
+		}
+
+		private void ExecutePlayerStallStep(Window w, Bot b)
+		{
+			try
+			{
+				List<ConsignmentRegistrationCandidate> candidates = ConsignmentManager.GetInventoryCandidates();
+				int minimum = Math.Max(1, Math.Min(10, ConsignmentManager.MinimumPlayerStallItems));
+				if (InfoManager.inStall && InfoManager.StallerPlayer != null)
+				{
+					w.LogProcess("DoStall: başka oyuncunun stall penceresi açık; işlem yapılmadı.", Window.ProcessState.Warning);
+					return;
+				}
+
+				if (!InfoManager.inStall)
+				{
+					while (InfoManager.MonitorStallCreate.WaitOne(0)) { }
+					w.LogProcess("DoStall: oyuncu stall'ı oluşturuluyor...");
+					PacketBuilder.BeginStall(w.Stall_tbxStallTitle.Text);
+					if (!InfoManager.MonitorStallCreate.WaitOne(4000) || !InfoManager.LastStallCreateSuccess)
+					{
+						w.LogProcess("DoStall: B0B1 oluşturma onayı gelmedi.", Window.ProcessState.Warning);
+						return;
+					}
+					while (InfoManager.MonitorStallUpdate.WaitOne(0)) { }
+					PacketBuilder.EditStallNote(w.Stall_tbxStallNote.Text);
+					if (!WaitForStallUpdate(SRTypes.StallUpdate.Note, 4000))
+					{
+						w.LogProcess("DoStall: stall notu sunucu tarafından onaylanmadı.", Window.ProcessState.Warning);
+						return;
+					}
+				}
+
+				bool[] occupied = new bool[10];
+				var stallInventory = InfoManager.Character.Stall.Inventory;
+				int existingItemCount = 0;
+				if (stallInventory != null)
+				{
+					for (int i = 0; i < Math.Min(10, stallInventory.Capacity); i++)
+					{
+						occupied[i] = stallInventory[i] != null;
+						if (occupied[i]) existingItemCount++;
+					}
+				}
+				if (existingItemCount + candidates.Count < minimum)
+				{
+					w.LogProcess($"DoStall: mevcut ve filtreye uyan toplam {existingItemCount + candidates.Count} item var; minimum {minimum}, stall açılmadı.", Window.ProcessState.Warning);
+					return;
+				}
+
+				foreach (ConsignmentRegistrationCandidate candidate in candidates)
+				{
+					if (!Running || !IsConnectionAlive(b)) return;
+					bool alreadyAdded = false;
+					stallInventory = InfoManager.Character.Stall.Inventory;
+					if (stallInventory != null)
+					{
+						for (int i = 0; i < stallInventory.Capacity; i++)
+							if (stallInventory[i] != null && stallInventory[i].SlotInventory == candidate.InventorySlot)
+							{ alreadyAdded = true; break; }
+					}
+					if (alreadyAdded) continue;
+
+					int empty = Array.FindIndex(occupied, used => !used);
+					if (empty < 0) break;
+					while (InfoManager.MonitorStallUpdate.WaitOne(0)) { }
+					w.LogProcess($"DoStall: [{candidate.ItemName}] x{candidate.Quantity}, {candidate.Price:N0} gold ekleniyor...");
+					PacketBuilder.AddItemStall((byte)empty, candidate.InventorySlot, candidate.Quantity, candidate.Price);
+					if (!WaitForStallUpdate(SRTypes.StallUpdate.ItemAdded, 4000))
+					{
+						w.LogProcess("DoStall: item ekleme onaylanmadı; kalan itemler durduruldu.", Window.ProcessState.Warning);
+						break;
+					}
+					occupied[empty] = true;
+					if (!WaitInterruptible(250)) return;
+				}
+
+				int itemCount = 0;
+				stallInventory = InfoManager.Character.Stall.Inventory;
+				if (stallInventory != null)
+					for (int i = 0; i < Math.Min(10, stallInventory.Capacity); i++) if (stallInventory[i] != null) itemCount++;
+				if (itemCount < minimum)
+				{
+					w.LogProcess($"DoStall: yalnız {itemCount} item eklendi; minimum {minimum}, stall açılmadı.", Window.ProcessState.Warning);
+					return;
+				}
+				if (ConsignmentManager.AutoOpenPlayerStall && !InfoManager.IsOwnStallOpen)
+				{
+					while (InfoManager.MonitorStallUpdate.WaitOne(0)) { }
+					PacketBuilder.EditStallState(true);
+					if (!WaitForStallUpdate(SRTypes.StallUpdate.State, 4000))
+						w.LogProcess("DoStall: stall açılış cevabı alınamadı.", Window.ProcessState.Warning);
+					else
+						w.LogProcess($"DoStall: stall {itemCount} item ile açıldı.");
+				}
+			}
+			catch (Exception ex)
+			{
+				w.LogProcess("DoStall hatası: " + ex.Message, Window.ProcessState.Warning);
+			}
+		}
+
+		private bool WaitForStallUpdate(SRTypes.StallUpdate expectedType, int timeoutMs)
+		{
+			DateTime deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+			while (Running)
+			{
+				int remaining = (int)Math.Ceiling((deadline - DateTime.UtcNow).TotalMilliseconds);
+				if (remaining <= 0 || !InfoManager.MonitorStallUpdate.WaitOne(Math.Min(remaining, 250)))
+				{
+					if (DateTime.UtcNow >= deadline) return false;
+					continue;
+				}
+				if (!InfoManager.LastStallUpdateSuccess) return false;
+				if (InfoManager.LastStallUpdateType == expectedType) return true;
+			}
+			return false;
+		}
+
+		private void ExecuteTrainingScript(Window w, Bot b)
+		{
+			if (!m_isTownScript)
+			{
+				w.LogProcess("DoScript yalnızca town scripti içinden kullanılabilir.", Window.ProcessState.Warning);
+				return;
+			}
+			string path = w.TrainingArea_GetScript();
+			if (string.IsNullOrWhiteSpace(path))
+			{
+				w.LogProcess("DoScript: seçili training alanında yürüyüş scripti yok.", Window.ProcessState.Warning);
+				return;
+			}
+			if (!Path.IsPathRooted(path))
+				path = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, path));
+			if (!File.Exists(path))
+			{
+				w.LogProcess("DoScript: yürüyüş scripti bulunamadı: " + path, Window.ProcessState.Warning);
+				return;
+			}
+			try
+			{
+				w.LogProcess("DoScript: training yürüyüş scripti çalıştırılıyor [" + Path.GetFileName(path) + "]...");
+				Script walkScript = new Script(path);
+				walkScript.Run(0);
+				if (Running && b.isBotting)
+					w.LogProcess("DoScript: training yürüyüş scripti tamamlandı.");
+			}
+			catch (Exception ex)
+			{
+				w.LogProcess("DoScript hatası: " + ex.Message, Window.ProcessState.Warning);
 			}
 		}
 
@@ -1031,19 +1592,19 @@ namespace xBot.App
 		/// Seçim (0x7045) tek başına dükkânı açmaz. Sunucudan başarılı
 		/// 0xB046 cevabı gelmeden satış/alım paketi göndermek bazı sunucularda DC'ye yol açar.
 		/// </summary>
-		internal static bool OpenNpcDialog(SREntity npc, string action, Window w, Bot b)
+		internal static bool OpenNpcDialog(SREntity npc, string action, Window w, Bot b, byte talkID = 3)
 		{
 			if (npc == null || !IsConnectionAlive(b))
 				return false;
 
 			while (InfoManager.MonitorNpcTalk.WaitOne(0)) { }
 			w.LogProcess($"{action}: [{npc.Name}] dükkânı açılıyor...");
-			PacketBuilder.TalkNPC(npc.UniqueID, 3);
+			PacketBuilder.TalkNPC(npc.UniqueID, talkID);
 			for (int i = 0; i < 30 && IsConnectionAlive(b); i++)
 			{
 				if (InfoManager.MonitorNpcTalk.WaitOne(100)
 					&& InfoManager.LastNpcTalkEntityUniqueID == npc.UniqueID
-					&& InfoManager.LastNpcTalkID == 3)
+					&& InfoManager.LastNpcTalkID == talkID)
 					return true;
 			}
 
@@ -1109,6 +1670,10 @@ namespace xBot.App
 				return new string[] { "GROCERY" };
 			if (code.Contains("JUPITER"))
 				return new string[] { "JUPITER" };
+			if (code.Contains("OPEN_MARKET") || code.Contains("CONSIGNMENT"))
+				return new string[] { "OPEN_MARKET", "CONSIGNMENT", "FLEA MARKET" };
+			if (code.Contains("SPECIALTY") || code.Contains("SPECIALITY"))
+				return new string[] { "SPECIALTY", "SPECIALITY", "SPECIAL GOODS", "TRADE MERCHANT" };
 			return new string[0];
 		}
 

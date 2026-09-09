@@ -115,6 +115,28 @@ namespace xBot.App
         }
         private void ThreadBotting()
         {
+			if (TradeLoopManager.StartRequested)
+			{
+				if (!TradeLoopManager.SkipTownLoop)
+				{
+					try
+					{
+						SRCoord tradeStart = InfoManager.Character.GetRealtimePosition();
+						Script preparation = Script.GetTownScriptForRegion(tradeStart.Region)
+							?? Script.GetNearestTownScript(tradeStart, 150);
+						if (preparation != null)
+						{
+							Window.Get.Log("Trade Loop: normal town script çalıştırılıyor [" + preparation.FileName + "]...");
+							preparation.Run(0);
+						}
+						else Window.Get.Log("Trade Loop: normal town script bulunamadı; trade rotasına geçiliyor.", Theme.LogLevel.Warning);
+					}
+					catch (Exception ex) { Window.Get.Log("Trade Loop town hazırlığı: " + ex.Message, Theme.LogLevel.Warning); }
+				}
+				TradeLoopManager.Run(this);
+				Stop();
+				return;
+			}
             // 1.1 TOWN ?
             // 1.1.1 Do TOWN
             // 1.1.2 Wait at starting script
@@ -1360,6 +1382,95 @@ namespace xBot.App
             ReportUnhandledFilterItems(w);
             return completed && isBotting && InfoManager.inGame && Proxy != null && Proxy.isRunning;
         }
+
+		/// <summary>
+		/// Trade rotasındaki her waypoint sonrası taşıt mesafesini ve core'da
+		/// doğrulanan TypeID4=2 spawn thief NPC'lerini kontrol eder.
+		/// </summary>
+		internal void HandleTradeWaypoint()
+		{
+			if (!TradeLoopManager.IsRunning || !isBotting || InfoManager.Character == null)
+				return;
+			SRCoService transport = InfoManager.MyPets.Find(pet => pet != null && pet.isTransport());
+			if (transport == null) return;
+			try
+			{
+				double transportDistance = InfoManager.Character.GetRealtimePosition().DistanceTo(transport.GetRealtimePosition());
+				if (transportDistance > 25.0)
+				{
+					Window.Get.LogProcess($"Trade: taşıt geride kaldı ({transportDistance:F0}m), geri dönülüyor...");
+					WaitMovement(transport.GetRealtimePosition(), 8);
+				}
+			}
+			catch { }
+
+			if (!TradeLoopManager.AttackSpawnedThieves || TradeLoopManager.MountMode == TradeMountMode.StayMounted)
+				return;
+			SRMob firstThief = FindTradeThiefNearTransport(transport);
+			if (firstThief == null) return;
+			if (InfoManager.Character.isRiding)
+			{
+				while (InfoManager.MonitorPetMountResponse.WaitOne(0)) { }
+				PacketBuilder.SetPetMounted(transport.UniqueID, false);
+				for (int i = 0; i < 25 && isBotting && InfoManager.Character.isRiding; i++)
+					InfoManager.MonitorPetMountResponse.WaitOne(100);
+				if (InfoManager.Character.isRiding)
+				{
+					Window.Get.Log("Trade: thief saldırısı için taşıttan inilemedi.", Theme.LogLevel.Warning);
+					return;
+				}
+			}
+			int guard = 12;
+			while (guard-- > 0 && isBotting && TradeLoopManager.IsRunning)
+			{
+				SRMob thief = FindTradeThiefNearTransport(transport);
+				if (thief == null) break;
+				double best = transport.GetRealtimePosition().DistanceTo(thief.GetRealtimePosition());
+				Window.Get.LogProcess($"Trade: spawn thief hedefleniyor [{thief.Name}] ({best:F0}m)...");
+				try
+				{
+					double playerDistance = InfoManager.Character.GetRealtimePosition().DistanceTo(thief.GetRealtimePosition());
+					if (playerDistance > GetWeaponAttackRange(GetMyWeaponType()))
+						WaitMovement(thief.GetRealtimePosition(), 5);
+				}
+				catch { }
+				PacketBuilder.SelectEntity(thief.UniqueID);
+				InfoManager.MonitorEntitySelected.WaitOne(100);
+				int attackGuard = 40;
+				while (attackGuard-- > 0 && isBotting && InfoManager.Mobs.ContainsKey(thief.UniqueID))
+				{
+					if (!TryFallbackAttack(thief, Window.Get)) Thread.Sleep(250);
+				}
+				if (InfoManager.Mobs.ContainsKey(thief.UniqueID))
+				{
+					Window.Get.Log("Trade: thief saldırı zaman aşımı; rota devam ediyor.", Theme.LogLevel.Warning);
+					break;
+				}
+			}
+			if (TradeLoopManager.MountMode == TradeMountMode.Remount && isBotting
+				&& !InfoManager.Character.isRiding && InfoManager.MyPets.ContainsKey(transport.UniqueID))
+			{
+				while (InfoManager.MonitorPetMountResponse.WaitOne(0)) { }
+				PacketBuilder.SetPetMounted(transport.UniqueID, true);
+				for (int i = 0; i < 25 && isBotting && !InfoManager.Character.isRiding; i++)
+					InfoManager.MonitorPetMountResponse.WaitOne(100);
+			}
+		}
+
+		private static SRMob FindTradeThiefNearTransport(SRCoService transport)
+		{
+			SRMob thief = null;
+			double best = TradeLoopManager.AttackRadius;
+			foreach (SRMob mob in InfoManager.Mobs.Snapshot())
+			{
+				if (mob == null || mob.ID4 != 2 || mob.HP == 0) continue;
+				double distance;
+				try { distance = transport.GetRealtimePosition().DistanceTo(mob.GetRealtimePosition()); }
+				catch { continue; }
+				if (distance <= best) { best = distance; thief = mob; }
+			}
+			return thief;
+		}
 
 		private bool WaitForInventoryMovementAck(int timeoutMilliseconds)
 		{

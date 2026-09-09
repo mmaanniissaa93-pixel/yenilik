@@ -2986,6 +2986,7 @@ namespace xBot.Game
 
 				PacketBuilder.Client.CreatePickUpSpecialtyGoodsPacket(inventory[slotInventory], slotInventory, uniqueID, InfoManager.CharName,unkUInt01);
 			}
+			InfoManager.OnInventoryMovementAck();
 		}
 		private static void InventoryItemMovement_TransportToShop(Packet p)
 		{
@@ -2995,6 +2996,7 @@ namespace xBot.Game
 			//uint npcUniqueID = p.ReadUInt();
 			//uint unkByte01 = p.ReadByte();
 
+			if (!InfoManager.MyPets.ContainsKey(uniqueID)) return;
 			SRCoService pet = InfoManager.MyPets[uniqueID];
 			xList<SRItem> inventory = pet?.Inventory;
 			if (inventory == null || inventory[slotInventory] == null)
@@ -3003,6 +3005,7 @@ namespace xBot.Game
 				inventory[slotInventory] = null;
 			else
 				inventory[slotInventory].Quantity -= quantitySold;
+			InfoManager.OnInventoryMovementAck();
 		}
 		private static void InventoryItemMovement_PetToPet(Packet p)
 		{
@@ -3317,9 +3320,16 @@ namespace xBot.Game
 		}
 		public static void ConsigmentRegisterResponse(Packet packet)
 		{
-			// success
-			if (packet.ReadBool())
+			bool success = false;
+			ushort error = 0;
+			try
 			{
+				success = packet.ReadBool();
+				if (!success)
+				{
+					try { error = packet.ReadUShort(); } catch { error = ushort.MaxValue; }
+					return;
+				}
 				xList<SRItem> inventory = InfoManager.Character.Inventory;
 
 				byte itemCount = packet.ReadByte();
@@ -3337,12 +3347,33 @@ namespace xBot.Game
 					inventory[slotInventory] = null;
 				}
 			}
+			catch (Exception ex)
+			{
+				success = false;
+				error = ushort.MaxValue;
+				Window.Get?.Log("CONSIGNMENT register cevabı ayrıştırılamadı: " + ex.Message, xBot.App.Theme.LogLevel.Warning);
+			}
+			finally
+			{
+				InfoManager.OnConsignmentRegister(success, error);
+				Window.Get?.Log(success ? "CONSIGNMENT: item kaydı kabul edildi."
+					: $"CONSIGNMENT: item kaydı reddedildi (0x{error:X4}).");
+			}
 		}
 		public static void ConsigmentUnregisterResponse(Packet packet)
 		{
-			// success
-			if (packet.ReadBool())
+			bool success = false;
+			try
 			{
+				byte result = packet.ReadByte();
+				success = result == 1;
+				if (!success)
+				{
+					ushort error = 0;
+					try { if (result == 2) error = packet.ReadUShort(); } catch { }
+					Window.Get?.Log($"CONSIGNMENT retrieve reddedildi (0x{error:X4}).", xBot.App.Theme.LogLevel.Warning);
+					return;
+				}
 				xList<SRItem> inventory = InfoManager.Character.Inventory;
 
 				byte itemCount = packet.ReadByte();
@@ -3354,6 +3385,57 @@ namespace xBot.Game
 					inventory[slotInventory] = ItemParsing(packet);
 				}
 			}
+			catch (Exception ex)
+			{
+				success = false;
+				Window.Get?.Log("CONSIGNMENT retrieve cevabı ayrıştırılamadı: " + ex.Message, xBot.App.Theme.LogLevel.Warning);
+			}
+			finally { InfoManager.OnConsignmentUnregister(success); }
+		}
+		public static void ConsignmentListResponse(Packet packet)
+		{
+			try
+			{
+				byte[] payload = packet.GetBytes() ?? new byte[0];
+				List<ConsignmentListing> listings;
+				string parseError;
+				bool parsed = ConsignmentPolicy.TryParseListingPayload(payload, out listings, out parseError);
+				InfoManager.OnConsignmentList(payload, parsed ? listings : null);
+				Window.Get?.UpdateConsignmentListUi(payload, parsed ? listings : null, parseError);
+				byte result = payload.Length > 0 ? payload[0] : (byte)0;
+				string hex = BitConverter.ToString(payload, 0, Math.Min(payload.Length, 160)).Replace("-", " ");
+				Window.Get?.Log($"CONSIGNMENT: ilan listesi cevabı alındı (result={result}, {payload.Length}B) [{hex}{(payload.Length > 160 ? " ..." : "")}].");
+			}
+			catch (Exception ex)
+			{
+				InfoManager.OnConsignmentList(new byte[0]);
+				Window.Get?.Log("CONSIGNMENT liste cevabı hatası: " + ex.Message, xBot.App.Theme.LogLevel.Warning);
+			}
+		}
+		public static void ConsignmentSettleResponse(Packet packet)
+		{
+			bool success = false;
+			try
+			{
+				byte result = packet.ReadByte();
+				success = result == 1;
+				if (success)
+				{
+					byte count = packet.ReadByte();
+					for (int i = 0; i < count; i++) packet.ReadUInt();
+					Window.Get?.Log($"CONSIGNMENT: {count} satış tahsil edildi.");
+				}
+				else
+				{
+					ushort error = result == 2 ? packet.ReadUShort() : (ushort)0;
+					Window.Get?.Log($"CONSIGNMENT settle reddedildi (0x{error:X4}).", xBot.App.Theme.LogLevel.Warning);
+				}
+			}
+			catch (Exception ex)
+			{
+				Window.Get?.Log("CONSIGNMENT settle cevabı ayrıştırılamadı: " + ex.Message, xBot.App.Theme.LogLevel.Warning);
+			}
+			finally { InfoManager.OnConsignmentSettle(success); }
 		}
 		public static void PetData(Packet packet)
 		{
@@ -3491,9 +3573,10 @@ namespace xBot.Game
 		}
 		public static void StallCreateResponse(Packet packet)
 		{
-			// success
-			if (packet.ReadBool())
+			bool success = packet.ReadBool();
+			if (success)
 				InfoManager.OnStallOpened();
+			InfoManager.OnStallCreateResponse(success);
 		}
 		public static void StallDestroyResponse(Packet packet)
 		{
@@ -3587,10 +3670,13 @@ namespace xBot.Game
 		}
 		public static void StallUpdateResponse(Packet packet)
 		{
-			// success
-			if (packet.ReadBool())
+			bool success = false;
+			SRTypes.StallUpdate type = 0;
+			try
 			{
-				SRTypes.StallUpdate type = (SRTypes.StallUpdate)packet.ReadByte();
+				success = packet.ReadBool();
+				if (!success) return;
+				type = (SRTypes.StallUpdate)packet.ReadByte();
 				switch (type)
 				{
 					case SRTypes.StallUpdate.ItemUpdate:
@@ -3632,6 +3718,7 @@ namespace xBot.Game
 						break;
 				}
 			}
+			finally { InfoManager.OnStallUpdateResponse(success, type); }
 		}
 		public static void EntityStallCreate(Packet packet)
 		{

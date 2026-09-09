@@ -441,6 +441,23 @@ namespace xBot.Game
 			return null;
 		}
 		/// <summary>
+		/// NPC mağazasındaki bütün paketleri slot sırasıyla döndürür. Eski vSRO
+		/// trade komutu buradan yalnız TID2=3/TID3=8 specialty goods seçer.
+		/// </summary>
+		public static List<NameValueCollection> GetShopItems(string npcServerName)
+		{
+			if (string.IsNullOrWhiteSpace(npcServerName))
+				return new List<NameValueCollection>();
+			try
+			{
+				return Query("SELECT tab, slot, item_servername FROM shops WHERE model_servername=@p0 ORDER BY tab, slot", npcServerName);
+			}
+			catch
+			{
+				return new List<NameValueCollection>();
+			}
+		}
+		/// <summary>
 		/// Gets the last skill ID from the skill updated, returns 0 if none is found.
 		/// </summary>
 		public static uint GetLastSkillID(SRSkill skill)

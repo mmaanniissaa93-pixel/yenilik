@@ -774,6 +774,57 @@ namespace xBot.Game
 			p.WriteUInt(uniqueID);
 			Bot.Get.Proxy.Agent.InjectToServer(p);
 		}
+		public static void BeginStall(string title)
+		{
+			Packet p = new Packet(Agent.Opcode.CLIENT_STALL_CREATE_REQUEST);
+			p.WriteAscii(title ?? "");
+			Bot.Get.Proxy.Agent.InjectToServer(p);
+		}
+		public static void RequestConsignmentList()
+		{
+			Bot.Get.Proxy.Agent.InjectToServer(new Packet(Agent.Opcode.CLIENT_CONSIGNMENT_LIST_REQUEST));
+		}
+		public static void CloseConsignment()
+		{
+			Bot.Get.Proxy.Agent.InjectToServer(new Packet(Agent.Opcode.CLIENT_CONSIGNMENT_CLOSE_REQUEST));
+		}
+		public static void RegisterConsignmentItem(byte inventorySlot, uint rentableId, uint itemId, ushort quantity, ulong price)
+		{
+			if (itemId == 0 || quantity == 0 || price == 0 || price > ConsignmentPolicy.MaximumPrice)
+				throw new ArgumentOutOfRangeException("quantity/price", "Consignment miktarı ve fiyatı geçerli olmalı.");
+			Packet p = new Packet(Agent.Opcode.CLIENT_CONSIGNMENT_REGISTER_REQUEST);
+			p.WriteByte(1); // item count
+			p.WriteByte(inventorySlot);
+			// Sevar sro_client 0x7508: slot + rentable + RefObjItem + uint quantity + ulong price.
+			p.WriteUInt(rentableId);
+			p.WriteUInt(itemId);
+			p.WriteUInt(quantity);
+			p.WriteULong(price);
+			Bot.Get.Proxy.Agent.InjectToServer(p);
+		}
+		public static void RetrieveAllExpiredConsignments()
+		{
+			Packet p = new Packet(Agent.Opcode.CLIENT_CONSIGNMENT_UNREGISTER_REQUEST);
+			p.WriteByte(0);
+			Bot.Get.Proxy.Agent.InjectToServer(p);
+		}
+		public static void RetrieveConsignment(uint consignmentId)
+		{
+			Packet p = new Packet(Agent.Opcode.CLIENT_CONSIGNMENT_UNREGISTER_REQUEST);
+			p.WriteByte(1);
+			p.WriteUInt(consignmentId);
+			Bot.Get.Proxy.Agent.InjectToServer(p);
+		}
+		public static void SettleConsignments(IList<uint> consignmentIds)
+		{
+			if (consignmentIds == null || consignmentIds.Count == 0 || consignmentIds.Count > byte.MaxValue)
+				throw new ArgumentOutOfRangeException("consignmentIds");
+			Packet p = new Packet(Agent.Opcode.CLIENT_CONSIGNMENT_SETTLE_REQUEST);
+			p.WriteByte((byte)consignmentIds.Count);
+			for (int i = 0; i < consignmentIds.Count; i++)
+				p.WriteUInt(consignmentIds[i]);
+			Bot.Get.Proxy.Agent.InjectToServer(p);
+		}
 		public static void SetPetMounted(uint uniqueID, bool mounted)
 		{
 			Packet p = new Packet(Agent.Opcode.CLIENT_PET_MOUNTED);
@@ -1184,6 +1235,29 @@ namespace xBot.Game
 			p.WriteByte((byte)SRTypes.InventoryItemMovement.ShopToInventory);
 			p.WriteByte(tabNumber);
 			p.WriteByte(tabSlot);
+			p.WriteUShort(quantity);
+			p.WriteUInt(npcUniqueID);
+			Bot.Get.Proxy.Agent.InjectToServer(p);
+		}
+		/// <summary>Eski vSRO specialty goods'i aktif trade taşıtına alır.</summary>
+		public static void BuyTradeGood(uint transportUniqueID, byte tabNumber, byte tabSlot, ushort quantity, uint npcUniqueID)
+		{
+			Packet p = new Packet(Agent.Opcode.CLIENT_INVENTORY_ITEM_MOVEMENT);
+			p.WriteByte((byte)SRTypes.InventoryItemMovement.ShopToTransport);
+			p.WriteUInt(transportUniqueID);
+			p.WriteByte(tabNumber);
+			p.WriteByte(tabSlot);
+			p.WriteUShort(quantity);
+			p.WriteUInt(npcUniqueID);
+			Bot.Get.Proxy.Agent.InjectToServer(p);
+		}
+		/// <summary>Eski vSRO specialty goods'i trade taşıtından NPC'ye satar.</summary>
+		public static void SellTradeGood(uint transportUniqueID, byte transportSlot, ushort quantity, uint npcUniqueID)
+		{
+			Packet p = new Packet(Agent.Opcode.CLIENT_INVENTORY_ITEM_MOVEMENT);
+			p.WriteByte((byte)SRTypes.InventoryItemMovement.TransportToShop);
+			p.WriteUInt(transportUniqueID);
+			p.WriteByte(transportSlot);
 			p.WriteUShort(quantity);
 			p.WriteUInt(npcUniqueID);
 			Bot.Get.Proxy.Agent.InjectToServer(p);

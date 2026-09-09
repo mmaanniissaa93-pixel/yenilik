@@ -191,18 +191,40 @@ opcode'u ile eklendi.
 Training > Script alanında ortak komut kataloğunu kullanan phBot-benzeri Script
 Creator, doğrulama ve load/save akışı bulunur.
 
+`DoConsignment` akışı eklendi: `NPC_OPEN_MARKET` doğrulaması, `talk=0x21`
+oturumu, `0x750E/0xB50E` ilan modeli ve liste görünümü, kalıcı item/fiyat/adet
+filtreleri, envanter adediyle sınırlandırılmış `0x7508/0xB508` register,
+süresi dolanları `0x7509/0xB509` ile geri alma ve satılanları
+`0x750B/0xB50B` ile settle etme sunucu cevap kapılarıyla çalışır. Paket yapıları
+projedeki etkin Sevar istemcisinin protokolüyle doğrulanmıştır.
+
+`DoStall` da aynı kalıcı item/adet/fiyat filtresini kullanarak oyuncu
+stall'ını oluşturur. Var olan stall itemlerini ve envanter slotlarını tekrar
+eklemez; boş slotlara yapılan her eklemeyi `0xB0BA` ile doğrular. Ayarlanan
+minimum item sayısına ulaşılmadan stall'ı açmaz ve otomatik açma tercihi
+Stall > Options ekranında kalıcıdır.
+
+`DoScript`, phBot'taki gibi yalnızca town scripti bağlamında çalışır ve
+seçili training alanına bağlı yürüyüş scriptini ilk adımdan başlatır.
+Dosya ayarlı değilse veya bulunamıyorsa town akışını güvenli biçimde
+sürdürür ve açık uyarı yazar.
+
+`terminate` parametresiz kullanımda aktif at ve transportların tamamını,
+`horse` veya `transport` parametresiyle yalnızca seçilen türü sonlandırır.
+Her pet için sunucudan petin kaldırıldığı görülmeden sonraki hedefe geçmez.
+
+`profile[,name]`, `Config` klasöründeki adlandırılmış JSON profilini
+yükler; parametresiz veya `Default` kullanımı `Default.json` dosyasına gider.
+Yol geçişi engellenir ve zaten etkin olan profil yeniden yüklenmez.
+
 Kalan eksik komutlar:
 
-- `DoConsignment`
-- `DoStall`
-- `DoScript`
-- `terminate`
 - `quest`
 - `begintargettrading`
 - `settletargettrading`
 - `styria`
-- `oldtrade`
-- `profile`
+- `oldtrade` (kısmi: `spawn`, `sell`, `buy,0` ve `buy,quantity>5` tamamlandı;
+  phBot 1-5 yıldız hesabı henüz doğrulanmadı)
 
 Temel hareket için hem `walk` hem `MOVE` kabul edilir. Geniş komut ailesi ve
 ileri kontrol akışı henüz bire bir uyumlu değildir.
@@ -388,22 +410,33 @@ mevcuttur.
 
 ## 16. Stall ve Consignment — ⚠️ Kısmi
 
-Temel stall oluşturma, düzenleme ve alım vardır. Eksikler:
+Temel stall oluşturma, düzenleme ve alıma ek olarak `DoStall` otomasyonu
+vardır. Kalan eksikler:
 
-- Item fiyatlarını kalıcı filtre kataloğunda saklama.
-- Generic item için stall filter.
 - Otomatik stack birleştirme/bölme.
-- Relog sonrası otomatik stall.
 - Town loop öncesi/sonrası stall tercihi.
-- Minimum stall item sayısına göre açma.
-- Consignment görünümü.
-- Consignment item ekleme.
-- Süresi dolanı geri alma.
-- Satış parasını settle etme.
-- `DoConsignment` script entegrasyonu.
 
-Düşük seviyeli consignment opcode tanımları vardır, fakat kullanıcı akışı
-yoktur.
+Oyuncu stall'ında tamamlanan kapsam:
+
+- Consignment ile ortak, kalıcı item/ServerName, adet ve fiyat filtresi.
+- `*` ve `?` destekli generic item/ServerName filtresi; tam eşleşme generic
+  kurala, daha özgül wildcard da daha genel wildcard'a önceliklidir.
+- `DoStall` ile idempotent stall oluşturma ve boş slotlara otomatik item ekleme.
+- Her create/add/open işleminde sunucu cevap kapısı.
+- Minimum item sayısı ve otomatik açma tercihi.
+- Oturum kopmasında stall durumunu sıfırlama.
+
+Tamamlanan Consignment kapsamı:
+
+- B50E ilan görünümü ve aktif/süresi dolmuş/satılmış durum modeli.
+- Kalıcı item adı/ServerName, adet ve gold fiyat filtresi.
+- Envanterdeki gerçek adedi aşmayan item register.
+- Süresi dolan ilanları otomatik geri alma.
+- Satılmış ilanların gold'unu otomatik settle etme.
+- Her mutasyonda ilgili sunucu cevabını bekleme ve hatada zinciri durdurma.
+
+Kalan maddeler temel oyuncu stall'ına aittir: otomatik stack
+birleştirme/bölme ve town-loop öncesi/sonrası yerleşim tercihi.
 
 ## 17. Alchemy — ⚠️ Yalnızca temel plus
 
@@ -433,24 +466,30 @@ destekler. Eksikler:
 
 Kaynak: `xBot/App/AlchemyManager.cs`.
 
-## 18. Trade — ❌ Yok
+## 18. Trade — ⚠️ Kısmi
 
-- Town-to-town trade loop editörü.
-- Başlangıç/bitiş town listesi.
-- Transport seçimi.
-- Star, quantity veya fill modunda mal alma.
-- Trade item seçimi.
-- Loop tekrar sayısı.
-- Spawn olan thief'lere saldırma.
-- Transport üstünde kalma.
-- Transporttan inme.
-- Saldırı yokken yeniden mount.
-- Loop sonunda return.
-- Town loop'u atlama.
+- phBot düzenine benzeyen `Trade > Loop / Items / Options` ekranı eklendi.
+- Yönlü başlangıç/bitiş town listesi ve her satıra bağlı yürüyüş scripti eklendi.
+- Transport ve trade item adı seçimi eklendi; boş bırakılırsa uygun ilk kayıt kullanılır.
+- Doğrulanmış `fill` ve kesin `quantity > 5` modları UI ve motor üzerinden çalışır.
+  `star` ekranda görünür ancak eşikler doğrulanana kadar başlatma sırasında güvenle reddedilir.
+- Loop tekrar sayısı, rota zinciri doğrulaması ve return scroll ile tekrar desteği eklendi.
+- Waypoint'lerde trade taşıtının çevresindeki TypeID4=2 spawn thief NPC'lerini
+  ayarlanabilir yarıçapta seçip öldürme desteği eklendi.
+- Transport üstünde kalma, inme ve her hareket adımında remount deneme modları eklendi.
+- Loop sonunda return scroll ve boş trade taşıtını sonlandırma seçenekleri eklendi.
+  Satılmamış specialty goods varsa eşya düşürmemek için terminate uygulanmaz.
+- Normal town loop'u çalıştırma/atlama seçeneği eklendi.
 - Yeni target trading.
-- Eski vSRO trade sistemi.
+- Eski vSRO trade sisteminde `oldtrade,spawn[,item]`, `oldtrade,sell`,
+  `oldtrade,buy,0[,item]` ve kesin miktarlı `oldtrade,buy,N[,item]` (`N>5`)
+  çalışır. Trade NPC seçeneği 12, taşıta özel `0x7034/0xB034` hareketleri ve
+  taşıt envanteri yankısı `core` projesindeki uygulamaya göre doğrulanmıştır.
+  1-5 değerlerinin phBot yıldız semantiği, eşik hesabı bilinmediği için yanlış
+  adet almamak üzere şimdilik güvenli biçimde reddedilir.
 
-Specialty goods paket modellerinin bulunması otomatik trade motoru sağlamaz.
+Kalan trade açıkları, doğrulanmış 1-5 yıldız eşikleri ve yeni target trading
+protokolüdür.
 
 ## 19. Mastery ve skill geliştirme — ❌ Yok
 
