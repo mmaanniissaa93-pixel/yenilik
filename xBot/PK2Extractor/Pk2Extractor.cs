@@ -283,8 +283,12 @@ namespace xBot.PK2Extractor
 				Log("Loading & Adding text references...");
 				LoadTextReferences();
 				AddTextReferences();
+				Log("Adding Quests...");
+				AddQuests();
 				Log("Adding Items...");
 				AddItems();
+				Log("Adding Quest reward items...");
+				AddQuestRewardItems();
 				Log("Adding Magic options...");
 				AddMagicOptions();
 				Log("Adding Characters & Mobs...");

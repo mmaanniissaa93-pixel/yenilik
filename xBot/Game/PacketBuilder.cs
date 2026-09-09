@@ -1268,12 +1268,28 @@ namespace xBot.Game
 			p.WriteByte(5);
 			Bot.Get.Proxy.Agent.InjectToServer(p);
 		}
+		public static void SelectQuestTalkOption(byte choice)
+		{
+			Packet p = new Packet(Agent.Opcode.CLIENT_QUEST_TALK_REQUEST);
+			p.WriteByte(choice);
+			QuestAutomationManager.ObserveTalkChoice(choice, new[] { choice });
+			Bot.Get.Proxy.Agent.InjectToServer(p);
+		}
 		public static void ReceiveEventQuestReward(uint questId, uint rewardId)
 		{
 			Packet p = new Packet(Agent.Opcode.CLIENT_EVENT_QUEST_REWARD_REQUEST);
 			p.WriteUInt(questId);
-			p.WriteByte(1);
-			p.WriteUInt(rewardId);
+			if (rewardId == 0)
+			{
+				// Fixed/basic reward: live client sends questId + selection(0).
+				p.WriteByte(0);
+			}
+			else
+			{
+				// User-selectable reward: questId + selection(1) + item ref ID.
+				p.WriteByte(1);
+				p.WriteUInt(rewardId);
+			}
 			Bot.Get.Proxy.Agent.InjectToServer(p);
 		}
 		public static void AbandonQuest(uint questId)

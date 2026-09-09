@@ -538,6 +538,9 @@ internal static class Program
             QuestAutomationPolicy.ShouldQueue(true, QuestCompletionAction.RunScript, 8, true), false);
         RunSroCheck("Do nothing seçimi aksiyon üretmez",
             QuestAutomationPolicy.ShouldQueue(true, QuestCompletionAction.None, 2, false), false);
+        RunSroCheck("Tamamlanan otomatik NPC teslimi kuyruğa alınır",
+            QuestAutomationPolicy.ShouldQueue(true, QuestCompletionAction.TurnInAtNpc, 2, false), true);
+        RunQuestTalkScenarios();
 
         RunDictionaryRenameScenarios();
         RunSecretStoreScenarios();
@@ -666,6 +669,90 @@ internal static class Program
                 && parsedListings.Count == 1 && parsedListings[0].ConsignmentId == 77
                 && parsedListings[0].IsSold && parsedListings[0].Quantity == 3
                 && parsedListings[0].Price == 999999, true);
+    }
+
+    private static void RunQuestTalkScenarios()
+    {
+        byte[] menu = QuestTalkPayload(4, "UIIT_STT_QUEST", new[] { "QUEST_A", "QUEST_B" }, null, 0);
+        QuestTalkSnapshot parsedMenu = QuestAutomationPolicy.ParseTalkPacket(menu);
+        RunSroCheck("Quest talk tip 4 menüsü ayrıştırılır",
+            parsedMenu.Type == 4 && parsedMenu.Header == "UIIT_STT_QUEST"
+                && parsedMenu.Choices.Count == 2 && parsedMenu.Choices[1] == "QUEST_B"
+                && string.IsNullOrEmpty(parsedMenu.Error), true);
+
+        byte[] reward = QuestTalkPayload(5, "QUEST_REWARD", new[] { "REWARD_A" }, "QUEST_END", 123456);
+        QuestTalkSnapshot parsedReward = QuestAutomationPolicy.ParseTalkPacket(reward);
+        RunSroCheck("Quest talk tip 5 footer ve referansı ayrıştırılır",
+            parsedReward.Type == 5 && parsedReward.Footer == "QUEST_END"
+                && parsedReward.ReferenceId == 123456 && string.IsNullOrEmpty(parsedReward.Error), true);
+
+        QuestTalkSnapshot malformed = QuestAutomationPolicy.ParseTalkPacket(new byte[] { 4, 10, 0, 65 });
+        RunSroCheck("Eksik quest talk paketi exception yerine tanı döndürür",
+            !string.IsNullOrWhiteSpace(malformed.Error), true);
+        RunSroCheck("Quest talk seçimi menüde 1 tabanlı bulunur",
+            QuestAutomationPolicy.FindTalkChoice(parsedMenu.Choices, "QUEST_B") == 2, true);
+        RunSroCheck("Quest talk eşleşmeyen görev için seçim üretmez",
+            QuestAutomationPolicy.FindTalkChoice(parsedMenu.Choices, "QUEST_X") == 0, true);
+        QuestTalkSnapshot liveMenu = QuestAutomationPolicy.ParseTalkPacket(
+            QuestTalkPayload(4, "SN_NPC_CH_POTION_QS",
+                new[] { "SN_QNO_CH_POTION_2", "SN_QEV_ALL_BASIC_1", "SN_QEV_ALL_BASIC_2" }, null, 0));
+        RunSroCheck("SN_ görev girdisi istemciyle aynı action 6 kodunu üretir",
+            QuestAutomationPolicy.ResolveTalkActionCode(liveMenu.Type, liveMenu.Choices, "SN_QEV_ALL_BASIC_2") == 6, true);
+        RunSroCheck("Menüde olmayan görev için action kodu gönderilmez",
+            QuestAutomationPolicy.ResolveTalkActionCode(liveMenu.Type, liveMenu.Choices, "SN_QEV_ALL_BASIC_0") == 0, true);
+
+        QuestRewardSelection parsedSelection = QuestAutomationPolicy.ParseRewardSelection(
+            new byte[] { 0x8D, 0x01, 0x00, 0x00, 0x01, 0x7C, 0x5E, 0x00, 0x00 });
+        RunSroCheck("Canlı 0x7515 kaydı quest/reward alanlarına ayrılır",
+            parsedSelection.QuestId == 397 && parsedSelection.Selection == 1
+                && parsedSelection.HasSelectableReward && parsedSelection.RewardId == 24188
+                && string.IsNullOrEmpty(parsedSelection.Error), true);
+        QuestRewardSelection parsedFixedReward = QuestAutomationPolicy.ParseRewardSelection(
+            new byte[] { 0x81, 0x01, 0x00, 0x00, 0x00 });
+        RunSroCheck("Canlı sabit 0x7515 ödülü 5 bayt olarak ayrıştırılır",
+            parsedFixedReward.QuestId == 385 && parsedFixedReward.Selection == 0
+                && !parsedFixedReward.HasSelectableReward && parsedFixedReward.RewardId == 0
+                && string.IsNullOrEmpty(parsedFixedReward.Error), true);
+        RunSroCheck("Aktif olmayan seçili görev kabul akışına girer",
+            QuestAutomationPolicy.ResolveNpcOperation(false, 0, true, true, false, true, false)
+                == QuestNpcOperation.Accept, true);
+        RunSroCheck("Tamamlanan aktif görev teslim akışına girer",
+            QuestAutomationPolicy.ResolveNpcOperation(true, 2, true, true, false, true, false)
+                == QuestNpcOperation.TurnIn, true);
+        RunSroCheck("Tekrarlama kapalıysa teslim edilmiş görev yeniden alınmaz",
+            QuestAutomationPolicy.ResolveNpcOperation(false, 0, true, true, true, false, false)
+                == null, true);
+        RunSroCheck("Tekrarlanabilir görev sunulduğunda yeniden kabul edilir",
+            QuestAutomationPolicy.ResolveNpcOperation(false, 0, true, true, true, true, false)
+                == QuestNpcOperation.Accept, true);
+    }
+
+    private static byte[] QuestTalkPayload(byte type, string header, string[] choices, string footer, uint referenceId)
+    {
+        List<byte> raw = new List<byte> { type };
+        AddQuestAscii(raw, header);
+        if (type == 4 || type == 5)
+        {
+            raw.Add((byte)choices.Length);
+            foreach (string choice in choices) AddQuestAscii(raw, choice);
+        }
+        if (type == 5)
+        {
+            AddQuestAscii(raw, footer ?? "");
+            raw.Add((byte)referenceId);
+            raw.Add((byte)(referenceId >> 8));
+            raw.Add((byte)(referenceId >> 16));
+            raw.Add((byte)(referenceId >> 24));
+        }
+        return raw.ToArray();
+    }
+
+    private static void AddQuestAscii(List<byte> raw, string value)
+    {
+        byte[] text = System.Text.Encoding.ASCII.GetBytes(value ?? "");
+        raw.Add((byte)text.Length);
+        raw.Add((byte)(text.Length >> 8));
+        raw.AddRange(text);
     }
 
     private static void RunScriptCheck(string name, bool actual, bool expected)

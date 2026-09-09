@@ -105,7 +105,8 @@ namespace xBot.Network
 			CLIENT_LOGOUT_CANCEL_REQUEST = 0x7006,
 			CLIENT_RENAME_REQUEST = 0x7450,
 				CLIENT_REPAIR_ALL_EQUIPMENTS = 0x703E,
-			CLIENT_EVENT_QUEST_ID_REQUEST = 0x30D4,
+			CLIENT_QUEST_TALK_REQUEST = 0x30D4,
+			CLIENT_EVENT_QUEST_ID_REQUEST = CLIENT_QUEST_TALK_REQUEST,
 			CLIENT_EVENT_QUEST_REWARD_REQUEST = 0x7515,
 			CLIENT_QUEST_ABANDON_REQUEST = 0x70D9,
 
@@ -226,6 +227,7 @@ namespace xBot.Network
 				SERVER_LOGOUT_SUCCESS = 0x300A,
 				SERVER_RENAME_RESPONSE = 0xB450,
 				SERVER_CHAT_RESTRICT = 0x302D,
+				SERVER_QUEST_TALK = 0x30D4,
 				SERVER_EVENT_QUEST_ID_RESPONSE = 0x3514,
 				SERVER_QUEST_UPDATE = 0x30D5,
 				SERVER_QUEST_ABANDON_RESPONSE = 0xB0D9,
@@ -397,6 +399,22 @@ namespace xBot.Network
 				{
 					byte[] rawSniff = packet.GetBytes();
 					Window.Get?.Log($"[Sniff][C->S] 0x{packet.Opcode:X4} ({Packet.ToStringHexadecimal(rawSniff)}) ({rawSniff.Length}B)");
+				}
+				catch { }
+				break;
+			case Opcode.CLIENT_QUEST_TALK_REQUEST:
+				try
+				{
+					byte[] rawQuestTalk = packet.GetBytes();
+					QuestAutomationManager.ObserveTalkChoice(rawQuestTalk.Length > 0 ? rawQuestTalk[0] : (byte)0, rawQuestTalk);
+				}
+				catch { }
+				break;
+			case Opcode.CLIENT_EVENT_QUEST_REWARD_REQUEST:
+				try
+				{
+					byte[] rawQuestReward = packet.GetBytes();
+					QuestAutomationManager.ObserveRewardSelection(rawQuestReward);
 				}
 				catch { }
 				break;
@@ -785,6 +803,9 @@ namespace xBot.Network
 					break;
 				case Opcode.SERVER_EVENT_QUEST_ID_RESPONSE:
 					PacketParser.EventQuestIdResponse(packet);
+					break;
+				case Opcode.SERVER_QUEST_TALK:
+					PacketParser.QuestTalk(packet);
 					break;
 				case Opcode.SERVER_QUEST_UPDATE:
 					PacketParser.QuestUpdate(packet);

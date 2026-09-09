@@ -9,6 +9,9 @@ namespace xBot.Game.Objects.Common
 	public class SRQuest
 	{
 		public uint ID { get; set; }
+		public string Name { get; internal set; }
+		public string ServerName { get; internal set; }
+		public byte Level { get; internal set; }
 		public byte Achievements { get; internal set; }
 		public bool isAutoShareRequired { get; internal set; }
 		public byte QuestType { get; internal set; }
@@ -20,6 +23,18 @@ namespace xBot.Game.Objects.Common
 		public SRQuest(uint ID)
 		{
 			this.ID = ID;
+			try
+			{
+				System.Collections.Specialized.NameValueCollection data = DataManager.GetQuestData(ID);
+				if (data != null)
+				{
+					Name = data["name"] ?? "";
+					ServerName = data["servername"] ?? "";
+					byte level;
+					if (byte.TryParse(data["level"], out level)) Level = level;
+				}
+			}
+			catch { }
 		}
 		public enum Type:byte
 		{

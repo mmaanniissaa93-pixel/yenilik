@@ -298,6 +298,99 @@ namespace xBot.PK2Extractor
 			}
 			db.End();
 		}
+		private void AddQuests()
+		{
+			string sql = "CREATE TABLE quests (";
+			sql += "id INTEGER PRIMARY KEY,";
+			sql += "servername VARCHAR(128),";
+			sql += "level INTEGER,";
+			sql += "name VARCHAR(256),";
+			sql += "namestring VARCHAR(128),";
+			sql += "description VARCHAR(256),";
+			sql += "notice_npc VARCHAR(128),";
+			sql += "notice_condition VARCHAR(256)";
+			sql += ");";
+			db.ExecuteQuery(sql);
+
+			const string basePath = "server_dep\\silkroad\\textdata\\";
+			string indexText = null;
+			try { indexText = pk2.GetFileText(basePath + "QuestData.txt"); } catch { }
+			if (string.IsNullOrWhiteSpace(indexText))
+			{
+				try { indexText = pk2.GetFileText(basePath + "questdata.txt"); } catch { }
+			}
+			if (string.IsNullOrWhiteSpace(indexText))
+			{
+				Log("QuestData.txt not found; quest catalog will be empty.");
+				return;
+			}
+
+			List<string> sourceTexts = new List<string>();
+			string first = "";
+			using (StringReader probe = new StringReader(indexText))
+			{
+				while ((first = probe.ReadLine()) != null)
+				{
+					first = first.Trim();
+					if (first.Length > 0 && !first.StartsWith("//")) break;
+				}
+			}
+			if (!string.IsNullOrEmpty(first) && first.IndexOf('\t') >= 0)
+				sourceTexts.Add(indexText);
+			else
+			{
+				using (StringReader listReader = new StringReader(indexText))
+				{
+					string file;
+					while ((file = listReader.ReadLine()) != null)
+					{
+						file = file.Trim();
+						if (file.Length == 0 || file.StartsWith("//")) continue;
+						try
+						{
+							string source = pk2.GetFileText(basePath + file);
+							if (!string.IsNullOrWhiteSpace(source)) sourceTexts.Add(source);
+							else Log("Quest data file skipped: " + file);
+						}
+						catch { Log("Quest data file skipped: " + file); }
+					}
+				}
+			}
+
+			db.Begin();
+			int added = 0;
+			foreach (string source in sourceTexts)
+			{
+				using (StringReader reader = new StringReader(source))
+				{
+					while ((line = reader.ReadLine()) != null)
+					{
+						if (!line.StartsWith(pk2_lineEnabled)) continue;
+						data = line.Split(pk2_split, StringSplitOptions.None);
+						if (data.Length < 6) continue;
+						uint questId;
+						byte questLevel;
+						if (!uint.TryParse(data[1], out questId) || !byte.TryParse(data[3], out questLevel)) continue;
+						string translated = GetNameReference(data[5]);
+						if (string.IsNullOrWhiteSpace(translated)) translated = GetTextReference(data[5]);
+						if (string.IsNullOrWhiteSpace(translated)) translated = data[2];
+						db.Prepare("INSERT OR REPLACE INTO quests (id,servername,level,name,namestring,description,notice_npc,notice_condition) VALUES (?,?,?,?,?,?,?,?);");
+						db.Bind("id", questId);
+						db.Bind("servername", data[2]);
+						db.Bind("level", questLevel);
+						db.Bind("name", translated);
+						db.Bind("namestring", data[5]);
+						db.Bind("description", data[4]);
+						db.Bind("notice_npc", data.Length > 9 ? data[9] : "");
+						db.Bind("notice_condition", data.Length > 10 ? data[10] : "");
+						db.ExecuteQuery();
+						added++;
+					}
+				}
+			}
+			db.End();
+			Log("Added " + added + " quest records.");
+		}
 		private void AddItems()
 		{
 			string sql = "CREATE TABLE items (";
@@ -372,6 +465,55 @@ namespace xBot.PK2Extractor
 					db.End();
 				}
 			}
+		}
+		private void AddQuestRewardItems()
+		{
+			db.ExecuteQuery("CREATE TABLE quest_reward_items (quest_id INTEGER, quest_servername VARCHAR(128), reward_type INTEGER, item_servername VARCHAR(128), amount INTEGER, PRIMARY KEY (quest_id,item_servername));");
+			string source = null;
+			try { source = pk2.GetFileText("server_dep\\silkroad\\textdata\\refquestrewarditems.txt"); } catch { }
+			if (string.IsNullOrWhiteSpace(source))
+			{
+				foreach (PK2ReaderAPI.Pk2File file in pk2.Files)
+				{
+					if (!string.Equals(file.Name, "refquestrewarditems.txt", StringComparison.OrdinalIgnoreCase) || file.Size <= 2) continue;
+					try { source = pk2.GetFileText(file); } catch { }
+					if (!string.IsNullOrWhiteSpace(source)) break;
+				}
+			}
+			if (string.IsNullOrWhiteSpace(source))
+			{
+				Log("refquestrewarditems.txt not found; automatic quest rewards will be unavailable.");
+				return;
+			}
+
+			db.Begin();
+			int added = 0;
+			using (StringReader reader = new StringReader(source))
+			{
+				string rewardLine;
+				while ((rewardLine = reader.ReadLine()) != null)
+				{
+					string[] reward = rewardLine.Split(pk2_split, StringSplitOptions.None);
+					uint questId;
+					byte rewardType;
+					if (reward.Length < 4 || !uint.TryParse(reward[0], out questId) || questId == 0
+						|| string.IsNullOrWhiteSpace(reward[3]) || reward[3] == "xxx") continue;
+					if (!byte.TryParse(reward[2], out rewardType)) rewardType = 0;
+					int amount = 1;
+					// This media variant stores the visible reward quantity at column 7.
+					if (reward.Length <= 7 || !int.TryParse(reward[7], out amount) || amount <= 0) amount = 1;
+					db.Prepare("INSERT OR REPLACE INTO quest_reward_items (quest_id,quest_servername,reward_type,item_servername,amount) VALUES (?,?,?,?,?);");
+					db.Bind("quest_id", questId);
+					db.Bind("quest_servername", reward[1]);
+					db.Bind("reward_type", rewardType);
+					db.Bind("item_servername", reward[3]);
+					db.Bind("amount", amount);
+					db.ExecuteQuery();
+					added++;
+				}
+			}
+			db.End();
+			Log("Added " + added + " quest reward item records.");
 		}
 		public void AddMagicOptions()
 		{

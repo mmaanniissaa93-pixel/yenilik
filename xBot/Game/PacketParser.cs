@@ -1400,6 +1400,11 @@ namespace xBot.Game
 			}
 			catch { }
 		}
+		public static void QuestTalk(Packet packet)
+		{
+			try { QuestAutomationManager.ObserveTalkPacket(packet.GetBytes()); }
+			catch (Exception ex) { Window.Get?.Log("Quest konuşması okunamadı: " + ex.Message, LogLevel.Warning); }
+		}
 		public static void EventQuestIdResponse(Packet packet)
 		{
 			try
@@ -1407,6 +1412,7 @@ namespace xBot.Game
 				if (packet.RemainingRead() < 4) return;
 				uint questId = packet.ReadUInt();
 				InfoManager.OnEventQuestId(questId);
+				QuestAutomationManager.ObserveQuestIdResponse(questId);
 				Window.Get?.Log("Quest: event quest ID alındı: " + questId);
 			}
 			catch (Exception ex) { Window.Get?.Log("Quest ID cevabı okunamadı: " + ex.Message, LogLevel.Warning); }

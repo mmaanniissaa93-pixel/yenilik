@@ -244,9 +244,16 @@ namespace xBot.App
         private NumericUpDown Quest_nudEventQuestId;
         private NumericUpDown Quest_nudRewardId;
         private CheckBox Quest_cbxEnabled;
+        private CheckBox Quest_cbxAutoAccept;
+        private CheckBox Quest_cbxAutoTurnIn;
+        private CheckBox Quest_cbxRepeat;
         private TextBox Quest_tbxDisplayName;
         private ComboBox Quest_cmbxCompletionAction;
         private TextBox Quest_tbxCompletionScript;
+        private ListView Quest_lstvCatalog;
+        private TextBox Quest_tbxCatalogSearch;
+        private NumericUpDown Quest_nudCatalogMaxLevel;
+        private uint _selectedQuestAutomationId;
         private Timer _questUiTimer;
         private DateTime _lastQuestUiRefresh = DateTime.MinValue;
 
@@ -2900,8 +2907,8 @@ namespace xBot.App
             };
             Label note = new Label
             {
-                Location = new Point(18, 48), Size = new Size(780, 38), ForeColor = Color.Silver,
-                Text = "Aktif görevler sunucudan okunur. Normal görev kabulü henüz doğrulanmadı; aşağıdaki event işlemleri So-Ok/event NPC protokolünü kullanır."
+                Location = new Point(18, 48), Size = new Size(1180, 38), ForeColor = Color.Silver,
+                Text = "Görev yaşam döngüsü: aktif değilse kabul et, tamamlandıysa teslim et, sunucu tekrar sunuyorsa yeniden al."
             };
             Quest_lstvActive = new ListView
             {
@@ -2912,7 +2919,7 @@ namespace xBot.App
             Quest_lstvActive.Columns.Add("Name / Alias", 180);
             Quest_lstvActive.Columns.Add("State", 55);
             Quest_lstvActive.Columns.Add("Type", 55);
-            Quest_lstvActive.Columns.Add("Action", 115);
+            Quest_lstvActive.Columns.Add("Automation", 115);
             Quest_lstvActive.Columns.Add("Objectives", 235);
 
             Button refresh = new Button { Location = new Point(18, 337), Size = new Size(135, 30), Text = "Refresh quests", FlatStyle = FlatStyle.Flat };
@@ -2923,15 +2930,20 @@ namespace xBot.App
             Quest_cbxEnabled = new CheckBox { Location = new Point(18, 27), Size = new Size(85, 24), Text = "Enabled" };
             Quest_tbxDisplayName = new TextBox { Location = new Point(105, 27), Size = new Size(210, 24) };
             Quest_cmbxCompletionAction = new ComboBox { Location = new Point(325, 27), Size = new Size(145, 24), DropDownStyle = ComboBoxStyle.DropDownList };
-            Quest_cmbxCompletionAction.Items.AddRange(new object[] { "Do nothing", "Return town", "Run script" });
+            Quest_cmbxCompletionAction.Items.AddRange(new object[] { "Stay / NPC", "Return town", "Run script" });
             Quest_cmbxCompletionAction.SelectedIndex = 0;
-            Quest_tbxCompletionScript = new TextBox { Location = new Point(105, 70), Size = new Size(365, 24), ReadOnly = true };
-            Button browseCompletion = new Button { Location = new Point(480, 68), Size = new Size(42, 27), Text = "...", FlatStyle = FlatStyle.Flat };
-            Button saveAutomation = new Button { Location = new Point(535, 26), Size = new Size(220, 69), Text = "Save selected quest", FlatStyle = FlatStyle.Flat };
+            Quest_cbxAutoAccept = new CheckBox { Location = new Point(18, 57), Size = new Size(125, 24), Text = "Accept if inactive", Checked = true };
+            Quest_cbxAutoTurnIn = new CheckBox { Location = new Point(150, 57), Size = new Size(125, 24), Text = "Turn in if done", Checked = true };
+            Quest_cbxRepeat = new CheckBox { Location = new Point(282, 57), Size = new Size(125, 24), Text = "Repeat if offered", Checked = true };
+            Quest_tbxCompletionScript = new TextBox { Location = new Point(105, 89), Size = new Size(365, 24), ReadOnly = true };
+            Button browseCompletion = new Button { Location = new Point(480, 87), Size = new Size(42, 27), Text = "...", FlatStyle = FlatStyle.Flat };
+            Button saveAutomation = new Button { Location = new Point(535, 26), Size = new Size(105, 87), Text = "Save quest", FlatStyle = FlatStyle.Flat };
+            Button selectQuestAtNpc = new Button { Location = new Point(650, 26), Size = new Size(105, 87), Text = "Select at NPC", FlatStyle = FlatStyle.Flat };
             automationBox.Controls.AddRange(new Control[] {
                 Quest_cbxEnabled, Quest_tbxDisplayName, Quest_cmbxCompletionAction,
-                new Label { Location=new Point(18,72), Size=new Size(80,22), Text="Script" }, Quest_tbxCompletionScript,
-                browseCompletion, saveAutomation
+                Quest_cbxAutoAccept, Quest_cbxAutoTurnIn, Quest_cbxRepeat,
+                new Label { Location=new Point(18,91), Size=new Size(80,22), Text="Script" }, Quest_tbxCompletionScript,
+                browseCompletion, saveAutomation, selectQuestAtNpc
             });
 
             GroupBox eventBox = new GroupBox { Location = new Point(18, 513), Size = new Size(780, 130), Text = "Event / So-Ok quest reward" };
@@ -2947,12 +2959,49 @@ namespace xBot.App
                     Text="Önce oyun içinde event NPC'sini seçin. Reward ID sunucu veritabanındaki ödül seçeneğidir." }
             });
 
-            TabPageV_Control01_Quest_Panel.Controls.AddRange(new Control[] { title, note, Quest_lstvActive, refresh, abandon, Quest_lblStatus, automationBox, eventBox });
+            Label catalogTitle = new Label
+            {
+                Location = new Point(815, 16), Size = new Size(380, 28),
+                Text = "Quest Catalog", Font = new Font("Segoe UI", 14F, FontStyle.Bold)
+            };
+            Quest_tbxCatalogSearch = new TextBox { Location = new Point(815, 55), Size = new Size(205, 24) };
+            Quest_nudCatalogMaxLevel = new NumericUpDown { Location = new Point(1028, 55), Size = new Size(72, 24), Minimum = 0, Maximum = 255 };
+            Button searchCatalog = new Button { Location = new Point(1108, 53), Size = new Size(87, 28), Text = "Search", FlatStyle = FlatStyle.Flat };
+            Quest_lstvCatalog = new ListView
+            {
+                Location = new Point(815, 92), Size = new Size(380, 511), View = View.Details,
+                FullRowSelect = true, GridLines = true, HideSelection = false
+            };
+            Quest_lstvCatalog.Columns.Add("Lv", 38);
+            Quest_lstvCatalog.Columns.Add("ID", 65);
+            Quest_lstvCatalog.Columns.Add("Quest name", 170);
+            Quest_lstvCatalog.Columns.Add("NPC", 95);
+            Button configureCatalog = new Button { Location = new Point(815, 613), Size = new Size(175, 30), Text = "Configure selected", FlatStyle = FlatStyle.Flat };
+            Button clearCatalog = new Button { Location = new Point(996, 613), Size = new Size(61, 30), Text = "Clear", FlatStyle = FlatStyle.Flat };
+            Button updateCatalog = new Button { Location = new Point(1063, 613), Size = new Size(61, 30), Text = "Update", FlatStyle = FlatStyle.Flat };
+            Button resetQuests = new Button { Location = new Point(1130, 613), Size = new Size(65, 30), Text = "Reset", FlatStyle = FlatStyle.Flat };
+
+            TabPageV_Control01_Quest_Panel.Controls.AddRange(new Control[] { title, note, Quest_lstvActive, refresh, abandon, Quest_lblStatus, automationBox, eventBox,
+                catalogTitle, Quest_tbxCatalogSearch, Quest_nudCatalogMaxLevel, searchCatalog, Quest_lstvCatalog,
+                configureCatalog, clearCatalog, updateCatalog, resetQuests });
             refresh.Click += (s, e) => RefreshQuestList();
             abandon.Click += (s, e) => AbandonSelectedQuest();
             Quest_lstvActive.SelectedIndexChanged += (s, e) => LoadSelectedQuestAutomation();
             browseCompletion.Click += (s, e) => BrowseQuestCompletionScript();
             saveAutomation.Click += (s, e) => SaveSelectedQuestAutomation();
+            selectQuestAtNpc.Click += (s, e) => SelectConfiguredQuestAtNpc();
+            searchCatalog.Click += (s, e) => RefreshQuestCatalog();
+            Quest_tbxCatalogSearch.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) { RefreshQuestCatalog(); e.SuppressKeyPress = true; } };
+            Quest_lstvCatalog.SelectedIndexChanged += (s, e) => SelectCatalogQuestForAutomation();
+            configureCatalog.Click += (s, e) => SelectCatalogQuestForAutomation();
+            clearCatalog.Click += (s, e) =>
+            {
+                Quest_tbxCatalogSearch.Text = "";
+                Quest_nudCatalogMaxLevel.Value = 0;
+                RefreshQuestCatalog();
+            };
+            updateCatalog.Click += (s, e) => RefreshQuestCatalog();
+            resetQuests.Click += (s, e) => ResetQuestAutomationFromUi();
             getId.Click += (s, e) => BeginEventQuestOperation(false);
             receive.Click += (s, e) => BeginEventQuestOperation(true);
 
@@ -2969,6 +3018,7 @@ namespace xBot.App
             };
             _questUiTimer.Start();
             RefreshQuestList();
+            RefreshQuestCatalog();
         }
 
         private void RefreshQuestList()
@@ -2993,7 +3043,9 @@ namespace xBot.App
                         }
                         if (names.Count > 0) objectives = string.Join(", ", names.ToArray());
                     }
-                    string suggestedName = objectives == "-" ? "Quest " + quest.ID : objectives;
+                    string catalogName = quest.Name;
+                    string suggestedName = !string.IsNullOrWhiteSpace(catalogName) ? catalogName
+                        : objectives == "-" ? "Quest " + quest.ID : objectives;
                     QuestAutomationRule rule = QuestAutomationManager.EnsureRule(quest.ID, suggestedName);
                     ListViewItem row = new ListViewItem(quest.ID.ToString());
                     row.Tag = quest.ID;
@@ -3001,7 +3053,7 @@ namespace xBot.App
                     row.SubItems.Add(string.IsNullOrWhiteSpace(rule.DisplayName) ? suggestedName : rule.DisplayName);
                     row.SubItems.Add(quest.State.ToString());
                     row.SubItems.Add(quest.QuestType.ToString());
-                    row.SubItems.Add(QuestActionText(rule.CompletionAction));
+                    row.SubItems.Add(QuestActionText(rule));
                     row.SubItems.Add(objectives);
                     Quest_lstvActive.Items.Add(row);
                     if (quest.ID == selectedId) row.Selected = true;
@@ -3023,13 +3075,85 @@ namespace xBot.App
         {
             if (Quest_lstvActive == null || Quest_lstvActive.SelectedItems.Count == 0) return;
             uint questId = (uint)Quest_lstvActive.SelectedItems[0].Tag;
+            _selectedQuestAutomationId = questId;
+            if (Quest_lstvCatalog != null) Quest_lstvCatalog.SelectedItems.Clear();
+            LoadQuestAutomationEditor(questId);
+        }
+
+        private void LoadQuestAutomationEditor(uint questId)
+        {
             QuestAutomationRule rule = QuestAutomationManager.GetRule(questId);
-            if (rule == null) return;
+            if (rule == null)
+            {
+                System.Collections.Specialized.NameValueCollection data = DataManager.GetQuestData(questId);
+                rule = QuestAutomationManager.EnsureRule(questId, data == null ? "" : data["name"]);
+            }
             Quest_cbxEnabled.Checked = rule.Enabled;
+            Quest_cbxAutoAccept.Checked = rule.AutoAccept;
+            Quest_cbxAutoTurnIn.Checked = rule.AutoTurnIn;
+            Quest_cbxRepeat.Checked = rule.RepeatIfAvailable;
             Quest_tbxDisplayName.Text = rule.DisplayName ?? "";
             Quest_cmbxCompletionAction.SelectedIndex = rule.CompletionAction == QuestCompletionAction.ReturnTown ? 1
                 : rule.CompletionAction == QuestCompletionAction.RunScript ? 2 : 0;
             Quest_tbxCompletionScript.Text = rule.ScriptPath ?? "";
+        }
+
+        private void RefreshQuestCatalog()
+        {
+            if (Quest_lstvCatalog == null) return;
+            int maxLevel = (int)Quest_nudCatalogMaxLevel.Value;
+            System.Collections.Generic.List<System.Collections.Specialized.NameValueCollection> rows =
+                DataManager.QueryQuests(Quest_tbxCatalogSearch.Text, maxLevel);
+            Quest_lstvCatalog.BeginUpdate();
+            Quest_lstvCatalog.Items.Clear();
+            foreach (System.Collections.Specialized.NameValueCollection data in rows)
+            {
+                uint questId;
+                if (!uint.TryParse(data["id"], out questId)) continue;
+                ListViewItem row = new ListViewItem(data["level"] ?? "0");
+                row.Tag = questId;
+                row.SubItems.Add(questId.ToString());
+                row.SubItems.Add(string.IsNullOrWhiteSpace(data["name"]) ? data["servername"] : data["name"]);
+                row.SubItems.Add(data["notice_npc"] ?? "");
+                Quest_lstvCatalog.Items.Add(row);
+            }
+            Quest_lstvCatalog.EndUpdate();
+            if (rows.Count == 0 && Quest_lblStatus != null)
+                Quest_lblStatus.Text = DataManager.IsQuestCatalogAvailable()
+                    ? "Durum: aramayla eşleşen görev bulunamadı"
+                    : "Durum: Quest kataloğu yok; PK2 Database'i yeniden oluşturun";
+        }
+
+        private void SelectCatalogQuestForAutomation()
+        {
+            if (Quest_lstvCatalog == null || Quest_lstvCatalog.SelectedItems.Count == 0) return;
+            ListViewItem selected = Quest_lstvCatalog.SelectedItems[0];
+            uint questId = (uint)selected.Tag;
+            string catalogName = selected.SubItems.Count > 2 ? selected.SubItems[2].Text : "";
+            _selectedQuestAutomationId = questId;
+            if (Quest_lstvActive != null) Quest_lstvActive.SelectedItems.Clear();
+            QuestAutomationManager.EnsureRule(questId, catalogName);
+            LoadQuestAutomationEditor(questId);
+            Quest_lblStatus.Text = "Durum: katalog görevi seçildi — " + catalogName;
+        }
+
+        private void ResetQuestAutomationFromUi()
+        {
+            DialogResult answer = MessageBox.Show("Tüm quest enable/return/script ayarları sıfırlansın mı?",
+                "Quest Reset", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            if (answer != DialogResult.Yes) return;
+            QuestAutomationManager.ResetRules();
+            _selectedQuestAutomationId = 0;
+            Settings.SaveCharacterSettings();
+            RefreshQuestList();
+            Quest_cbxEnabled.Checked = false;
+            Quest_cbxAutoAccept.Checked = true;
+            Quest_cbxAutoTurnIn.Checked = true;
+            Quest_cbxRepeat.Checked = true;
+            Quest_tbxDisplayName.Text = "";
+            Quest_cmbxCompletionAction.SelectedIndex = 0;
+            Quest_tbxCompletionScript.Text = "";
+            Quest_lblStatus.Text = "Durum: quest ayarları sıfırlandı";
         }
 
         private void BrowseQuestCompletionScript()
@@ -3043,8 +3167,8 @@ namespace xBot.App
 
         private void SaveSelectedQuestAutomation()
         {
-            if (Quest_lstvActive.SelectedItems.Count == 0) { Log("Quest: önce aktif görev listesinden bir görev seçin."); return; }
-            uint questId = (uint)Quest_lstvActive.SelectedItems[0].Tag;
+            uint questId = _selectedQuestAutomationId;
+            if (questId == 0) { Log("Quest: önce aktif listeden veya katalogdan bir görev seçin."); return; }
             QuestCompletionAction action = Quest_cmbxCompletionAction.SelectedIndex == 1 ? QuestCompletionAction.ReturnTown
                 : Quest_cmbxCompletionAction.SelectedIndex == 2 ? QuestCompletionAction.RunScript : QuestCompletionAction.None;
             if (Quest_cbxEnabled.Checked && action == QuestCompletionAction.RunScript
@@ -3058,6 +3182,9 @@ namespace xBot.App
                 QuestId = questId,
                 DisplayName = Quest_tbxDisplayName.Text.Trim(),
                 Enabled = Quest_cbxEnabled.Checked,
+                AutoAccept = Quest_cbxAutoAccept.Checked,
+                AutoTurnIn = Quest_cbxAutoTurnIn.Checked,
+                RepeatIfAvailable = Quest_cbxRepeat.Checked,
                 CompletionAction = action,
                 ScriptPath = Quest_tbxCompletionScript.Text.Trim()
             });
@@ -3067,11 +3194,13 @@ namespace xBot.App
             Quest_lblStatus.Text = "Durum: görev otomasyonu kaydedildi";
         }
 
-        private static string QuestActionText(QuestCompletionAction action)
+        private static string QuestActionText(QuestAutomationRule rule)
         {
-            if (action == QuestCompletionAction.ReturnTown) return "Return town";
-            if (action == QuestCompletionAction.RunScript) return "Run script";
-            return "Do nothing";
+            if (rule == null || !rule.Enabled) return "Disabled";
+            string value = rule.AutoAccept ? "Accept" : "";
+            if (rule.AutoTurnIn) value += (value.Length == 0 ? "" : "/") + "Turn in";
+            if (rule.RepeatIfAvailable) value += (value.Length == 0 ? "" : "/") + "Repeat";
+            return value.Length == 0 ? "Observe" : value;
         }
 
         private void AbandonSelectedQuest()
@@ -3084,6 +3213,38 @@ namespace xBot.App
             Log("Quest: " + questId + " bırakma isteği gönderildi.");
         }
 
+        private void SelectConfiguredQuestAtNpc()
+        {
+            if (!InfoManager.inGame) { Log("Quest: önce oyuna bağlanın."); return; }
+            if (_selectedQuestAutomationId == 0) { Log("Quest: önce aktif listeden veya katalogdan görev seçin."); return; }
+            uint npcUid = InfoManager.SelectedEntityUniqueID;
+            if (npcUid == 0 || InfoManager.Npcs[npcUid] == null)
+            {
+                Log("Quest: önce oyun içinde görevin NPC'sini seçin.");
+                return;
+            }
+            string error;
+            Game.Objects.Common.SRQuest activeQuest = InfoManager.Character == null
+                || InfoManager.Character.Quests == null ? null
+                : InfoManager.Character.Quests[_selectedQuestAutomationId];
+            System.Collections.Specialized.NameValueCollection questData = DataManager.GetQuestData(_selectedQuestAutomationId);
+            string serverName = questData == null ? "" : questData["servername"];
+            bool eventClaim = !string.IsNullOrWhiteSpace(serverName)
+                && serverName.StartsWith("QEV_ALL_BASIC_", StringComparison.OrdinalIgnoreCase);
+            QuestNpcOperation operation = eventClaim || (activeQuest != null
+                && QuestAutomationPolicy.IsReadyToTurnIn(activeQuest.State))
+                ? QuestNpcOperation.TurnIn : QuestNpcOperation.Accept;
+            if (!QuestAutomationManager.ArmQuestTalkSelection(_selectedQuestAutomationId, npcUid, operation, out error))
+            {
+                Log("Quest: " + error);
+                Quest_lblStatus.Text = "Durum: " + error;
+                return;
+            }
+            Settings.SaveCharacterSettings();
+            Quest_lblStatus.Text = "Durum: NPC quest menüsü açılıyor...";
+            PacketBuilder.TalkNPC(npcUid, 2);
+        }
+
         private void BeginEventQuestOperation(bool receiveReward)
         {
             if (!InfoManager.inGame) { Log("Quest: önce oyuna bağlanın."); return; }
@@ -3094,7 +3255,7 @@ namespace xBot.App
                 return;
             }
             uint rewardId = (uint)Quest_nudRewardId.Value;
-            if (receiveReward && rewardId == 0) { Log("Quest: reward ID 0 olamaz."); return; }
+            // Reward ID 0 is valid for fixed/basic rewards (5-byte 0x7515).
             Quest_lblStatus.Text = "Durum: NPC quest menüsü açılıyor...";
             System.Threading.Tasks.Task.Run(() =>
             {

@@ -346,7 +346,7 @@ Kaynaklar: `xBot/App/ItemFilterManager.cs`,
 
 ## 13. Quest — ⚠️ Kısmi
 
-Tamamlanan Quest Automation v1 kapsamı:
+Tamamlanan Quest Automation v1 ve v2 katalog kapsamı:
 
 - Modern sol menüye bağlı aktif quest listesi.
 - `0x30D5` add/update/remove/abandon canlı quest güncellemeleri.
@@ -356,11 +356,22 @@ Tamamlanan Quest Automation v1 kapsamı:
 - Tamamlanınca return scroll veya kullanıcı tarafından seçilen scripti çalıştırma.
 - Network thread'in yalnız kuyruk oluşturduğu, aksiyonu bot thread'inin çalıştırdığı tek-sahipli motor.
 - Seçili event/So-Ok NPC için `0x30D4/0x3514/0x7515` quest ID ve ödül akışı.
+- PK2 `QuestData.txt` tabanlı tüm görev kataloğu ve metin referansından çevrilmiş gerçek görev adları.
+- Tüm görevlerde ad, server kodu veya ID araması ve maksimum seviye filtresi.
+- Aktif olmayan katalog görevini seçip enable/disable, alias ve tamamlanma aksiyonu yapılandırma.
+- phBot benzeri temizle, güncelle ve tüm otomasyon kurallarını sıfırla işlemleri.
+- PK2 `NoticeNPC/NoticeCondition` verisinin kataloğa aktarılması ve NPC sütununda gösterilmesi.
+- Gerçek istemcinin C→S `0x30D4` seçimleri ile `0x7515` ödül isteklerinin otomatik kaydı.
+- Server `0x30D4 QUEST_TALK` tip 4/5 menü, seçenek, footer ve referans ID ayrıştırması.
+- Canlı kayıt ve istemci koduyla doğrulanmış dinamik görev action üretimi (`5 + SN_ kontrolü`, standart girdide `6`); sabit ödülde 5 baytlık `0x7515 = questId + selection(0)`, seçilebilir ödülde 9 baytlık `questId + selection(1) + rewardId` ayrıştırması.
+- `Select at NPC`: seçili katalog/aktif görevin `NameString` değerini açık NPC menüsünde kesin eşleştirerek istemciyle aynı action kodunu gönderme; eşleşme yoksa güvenli duruş.
+- `Turn in at NPC`: bot thread'inde NPC konumuna navmesh yürüyüşü, seçim, konuşma ve ödülü otomatik alma.
+- `refquestrewarditems.txt` ödül kataloğu; tek ödülü doğrudan, çoklu silah ödülünü takılı silah `TID4` eşleşmesiyle seçme.
+- Şehirde etkin `QEV_ALL_BASIC_*` görevlerini kullanıcı düğmesine gerek olmadan mevcut town potion NPC'sinde çalıştırma ve tekrar deneme koruması.
 
 Kalan phBot kapsamı:
 
-- PK2/RefQuest tabanlı tüm quest kataloğu, gerçek quest adları ve arama.
-- Normal quest kabul ve NPC'ye teslim protokolü.
+- Görev başına ayrı `aktif değilse kabul`, `bitince teslim` ve `sunulursa tekrarla` yaşam döngüsü; gerektiğinde return scroll ve PK2 `NoticeNPC` ile ortak town NPC'sine otomatik yürüyüş.
 - Seviyenin üstündeki quest'i alma.
 - EXP ratio kontrolü.
 - Training area'dan town'a yürüyerek teslim.
@@ -373,9 +384,11 @@ Kalan phBot kapsamı:
 - Job Cave quest döngüsü.
 - Quest return scripti.
 
-Aktif listede RefQuest kataloğu henüz bulunmadığından görev adı yerine kullanıcı
-alias'ı veya objective özeti kullanılır; otomasyon kararı quest ID üzerinden
-verilir.
+Aktif listede katalog eşleşmesi varsa çevrilmiş gerçek görev adı gösterilir;
+eşleşme yoksa kullanıcı alias'ı veya objective özeti kullanılır. Otomasyon kararı
+quest ID üzerinden verilir. Daha önce oluşturulmuş SQLite veritabanına yeni görev/NPC
+alanlarını eklemek için PK2 veritabanı bir kez yeniden oluşturulmalıdır. Gözlemci paket
+göndermez; canlı kayıtlardan seçim anlamı doğrulanınca normal kabul/teslim motoruna bağlanacaktır.
 
 ## 14. Guild ve Academy — ⚠️/❌
 
@@ -637,7 +650,7 @@ görünmektedir:
 
 İşlevleri phBot'a yaklaştırmak için önerilen geliştirme sırası:
 
-1. Quest Automation v2: RefQuest kataloğu, normal kabul/teslim ve gelişmiş döngüler.
+1. Quest Automation v2: doğrulanmış normal kabul/teslim protokolü ve gelişmiş döngüler.
 2. Guild storage, dismantle ve consignment gibi yarım kalmış mevcut UI
    akışlarının tamamlanması.
 3. Party buff/resurrect/heal yapılandırmasının tamamlanması.

@@ -40,6 +40,7 @@ namespace xBot.Game
 		/// </summary>
 		private static SQLDatabase Database { get; set; }
 		private static readonly object DatabaseSync = new object();
+		private static bool QuestCatalogAvailable { get; set; }
 		#endregion
 
 		/// <summary>
@@ -61,9 +62,10 @@ namespace xBot.Game
 					candidate.Dispose();
 					return false;
 				}
+				List<NameValueCollection> tables;
 				try
 				{
-					var tables = candidate.GetResultFromQuery("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('items','skills','models')");
+					tables = candidate.GetResultFromQuery("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('items','skills','models','quests')");
 					if (tables == null || tables.Count < 3)
 					{
 						candidate.Dispose();
@@ -81,6 +83,9 @@ namespace xBot.Game
 					Database?.Dispose();
 					Database = candidate;
 					DataManager.SilkroadName = SilkroadName;
+					QuestCatalogAvailable = false;
+					foreach (NameValueCollection table in tables)
+						if (string.Equals(table["name"], "quests", StringComparison.OrdinalIgnoreCase)) QuestCatalogAvailable = true;
 					s_cacheById.Clear();
 				}
 				return true;
@@ -94,6 +99,7 @@ namespace xBot.Game
 				Database?.Dispose();
 				Database = null;
 				SilkroadName = null;
+				QuestCatalogAvailable = false;
 				s_cacheById.Clear();
 			}
 		}
@@ -439,6 +445,60 @@ namespace xBot.Game
 				return item;
 			}
 			return null;
+		}
+		public static NameValueCollection GetQuestData(uint id)
+		{
+			if (!IsQuestCatalogAvailable()) return null;
+			return GetCached("quest:" + id, () => {
+				try
+				{
+					List<NameValueCollection> result = Query("SELECT * FROM quests WHERE id=@p0", id);
+					return result.Count > 0 ? result[0] : null;
+				}
+				catch { return null; }
+			});
+		}
+
+		public static List<NameValueCollection> QueryQuests(string search, int maximumLevel = 0)
+		{
+			if (!IsQuestCatalogAvailable()) return new List<NameValueCollection>();
+			try
+			{
+				List<string> conditions = new List<string>();
+				List<object> args = new List<object>();
+				if (!string.IsNullOrWhiteSpace(search))
+				{
+					conditions.Add("(name LIKE @p0 OR servername LIKE @p0 OR CAST(id AS TEXT) LIKE @p0)");
+					args.Add("%" + search.Trim() + "%");
+				}
+				if (maximumLevel > 0)
+				{
+					conditions.Add("level<=@p" + args.Count);
+					args.Add(maximumLevel);
+				}
+				// SELECT * keeps catalogs created by older xBot versions usable; the
+				// new notice_npc fields appear after the PK2 database is rebuilt.
+				string sql = "SELECT * FROM quests";
+				if (conditions.Count > 0) sql += " WHERE " + string.Join(" AND ", conditions);
+				sql += " ORDER BY level,name LIMIT 3000";
+				return Query(sql, args.ToArray());
+			}
+			catch { return new List<NameValueCollection>(); }
+		}
+
+		public static bool IsQuestCatalogAvailable()
+		{
+			lock (DatabaseSync) return Database != null && QuestCatalogAvailable;
+		}
+		public static List<NameValueCollection> GetQuestRewardItems(uint questId)
+		{
+			if (!IsDbReady() || questId == 0) return new List<NameValueCollection>();
+			try
+			{
+				return Query("SELECT q.quest_id,q.reward_type,q.item_servername,q.amount,i.id AS reward_id,i.name,i.tid2,i.tid3,i.tid4 "
+					+ "FROM quest_reward_items q LEFT JOIN items i ON i.servername=q.item_servername WHERE q.quest_id=@p0 ORDER BY q.item_servername", questId);
+			}
+			catch { return new List<NameValueCollection>(); }
 		}
 		/// <summary>
 		/// NPC mağazasındaki bütün paketleri slot sırasıyla döndürür. Eski vSRO
