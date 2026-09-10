@@ -325,7 +325,7 @@ namespace xBot.App
             var btnClear = new Button { Text = "Clear", Location = new Point(372, fy + 28), Size = new Size(85, 26), UseVisualStyleBackColor = true };
             var btnUpdate = new Button { Text = "Update", Location = new Point(462, fy + 28), Size = new Size(85, 26), UseVisualStyleBackColor = true };
             var btnReset = new Button { Text = "Reset", Location = new Point(552, fy + 28), Size = new Size(85, 26), UseVisualStyleBackColor = true };
-            btnClear.Click += (s, e) => { try { lstPickItems.Items.Clear(); lblPickCount.Text = "Kategori seçin veya isim arayın..."; } catch { } };
+            btnClear.Click += (s, e) => { try { ClearPickList(); } catch { } };
             btnUpdate.Click += (s, e) => SavePickFilter();
             btnReset.Click += (s, e) => ResetPickFilter();
 
@@ -434,11 +434,35 @@ namespace xBot.App
                     if (cmbPickRace != null && cmbPickRace.SelectedItem != null) race = cmbPickRace.SelectedItem.ToString();
                     if (cmbPickGender != null && cmbPickGender.SelectedItem != null) gender = cmbPickGender.SelectedItem.ToString();
                     if (cmbPickDegree != null && cmbPickDegree.SelectedIndex > 0) degree = cmbPickDegree.SelectedIndex;
-                    if (txtPickSearch != null) search = txtPickSearch.Text ?? "";
+                    if (txtPickSearch != null) search = (txtPickSearch.Text ?? "").Trim();
                 }
                 catch { }
 
+                bool narrowed = !string.Equals(group, "All", StringComparison.Ordinal)
+                    || !string.Equals(race, "All", StringComparison.Ordinal)
+                    || !string.Equals(gender, "Any", StringComparison.Ordinal)
+                    || degree > 0
+                    || search.Length >= 2;
+                // Daraltma yoksa DB'ye gitme: 2000 satırlık liste RAM'de kalırdı.
+                // Temizle sonrası da liste boş kalır.
+                if (!narrowed)
+                {
+                    lstPickItems.BeginUpdate();
+                    lstPickItems.Items.Clear();
+                    lstPickItems.EndUpdate();
+                    try
+                    {
+                        if (search.Length == 1)
+                            lblPickCount.Text = "En az 2 karakter yazın...";
+                        else
+                            lblPickCount.Text = "Kategori seçin veya arayın...";
+                    }
+                    catch { }
+                    return;
+                }
+
                 List<NameValueCollection> rows = DataManager.QueryItems(group, race, gender, degree, search);
+                bool truncated = rows.Count >= 500;
                 lstPickItems.BeginUpdate();
                 lstPickItems.Items.Clear();
                 foreach (var row in rows)
@@ -468,12 +492,39 @@ namespace xBot.App
                     catch { }
                 }
                 lstPickItems.EndUpdate();
-                lblPickCount.Text = lstPickItems.Items.Count + " items";
+                try
+                {
+                    lblPickCount.Text = lstPickItems.Items.Count + " items"
+                        + (truncated ? " (ilk 500 — daraltın)" : "");
+                }
+                catch { }
+                // Geçici DB satırlarını bırak (ListView kendi kopyasını tutar).
+                try { rows.Clear(); } catch { }
             }
             catch (Exception ex)
             {
                 try { lblPickCount.Text = "DB yok: " + ex.Message; } catch { }
             }
+        }
+
+        /// <summary>
+        /// Listeyi boşaltır, arama kutusunu temizler ve referansları bırakır.
+        /// Temizle'ye basınca liste kaybolur, RAM şişmez.
+        /// </summary>
+        public void ClearPickList()
+        {
+            try
+            {
+                if (txtPickSearch != null) txtPickSearch.Clear();
+                if (lstPickItems != null)
+                {
+                    lstPickItems.BeginUpdate();
+                    lstPickItems.Items.Clear();
+                    lstPickItems.EndUpdate();
+                }
+                if (lblPickCount != null) lblPickCount.Text = "Kategori seçin veya isim arayın...";
+            }
+            catch { }
         }
 
         private void SavePickFilter()
@@ -531,7 +582,7 @@ namespace xBot.App
             try
             {
                 ItemFilterManager.Reset();
-                try { lstPickItems.Items.Clear(); lblPickCount.Text = "Kategori seçin veya isim arayın..."; } catch { }
+                try { ClearPickList(); } catch { }
                 LoadPickFilterSettingsToUi();
                 try { Settings.SaveCharacterSettings(); } catch { }
                 Log("[Pick Filter] Yapılandırma sıfırlandı.");

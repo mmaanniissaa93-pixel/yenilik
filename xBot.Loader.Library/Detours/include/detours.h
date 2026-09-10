@@ -83,11 +83,15 @@
 #undef DETOURS_32BIT
 #undef DETOURS_64BIT
 
+#ifndef DECLSPEC_HYBRID_PATCHABLE
+#define DECLSPEC_HYBRID_PATCHABLE DECLSPEC_CHPE_PATCHABLE
+#endif
+
 #if defined(_X86_)
 #define DETOURS_X86
 #define DETOURS_OPTION_BITS 64
 
-#elif defined(_AMD64_)
+#elif defined(_AMD64_) || defined(_ARM64EC_)
 #define DETOURS_X64
 #define DETOURS_OPTION_BITS 32
 
@@ -102,7 +106,7 @@
 #define DETOURS_ARM64
 
 #else
-#error Unknown architecture (x86, amd64, ia64, arm, arm64)
+#error Unknown architecture (x86, amd64, ia64, arm, arm64, arm64ec)
 #endif
 
 #ifdef _WIN64
@@ -383,6 +387,10 @@ extern const GUID DETOUR_EXE_HELPER_GUID;
 #define DETOUR_TRAMPOLINE_SIGNATURE             0x21727444  // Dtr!
 typedef struct _DETOUR_TRAMPOLINE DETOUR_TRAMPOLINE, *PDETOUR_TRAMPOLINE;
 
+#ifndef DETOUR_MAX_SUPPORTED_IMAGE_SECTION_HEADERS
+#define DETOUR_MAX_SUPPORTED_IMAGE_SECTION_HEADERS      32
+#endif // !DETOUR_MAX_SUPPORTED_IMAGE_SECTION_HEADERS
+
 /////////////////////////////////////////////////////////// Binary Structures.
 //
 #pragma pack(push, 8)
@@ -454,9 +462,9 @@ typedef struct _DETOUR_EXE_RESTORE
 #endif
 #ifdef IMAGE_NT_OPTIONAL_HDR64_MAGIC    // some environments do not have this
         BYTE                raw[sizeof(IMAGE_NT_HEADERS64) +
-                                sizeof(IMAGE_SECTION_HEADER) * 32];
+                                sizeof(IMAGE_SECTION_HEADER) * DETOUR_MAX_SUPPORTED_IMAGE_SECTION_HEADERS];
 #else
-        BYTE                raw[0x108 + sizeof(IMAGE_SECTION_HEADER) * 32];
+        BYTE                raw[0x108 + sizeof(IMAGE_SECTION_HEADER) * DETOUR_MAX_SUPPORTED_IMAGE_SECTION_HEADERS];
 #endif
     };
     DETOUR_CLR_HEADER   clr;
@@ -591,6 +599,8 @@ BOOL WINAPI DetourSetCodeModule(_In_ HMODULE hModule,
                                 _In_ BOOL fLimitReferencesToModule);
 PVOID WINAPI DetourAllocateRegionWithinJumpBounds(_In_ LPCVOID pbTarget,
                                                   _Out_ PDWORD pcbAllocatedSize);
+BOOL WINAPI DetourIsFunctionImported(_In_ PBYTE pbCode,
+                                     _In_ PBYTE pbAddress);
 
 ///////////////////////////////////////////////////// Loaded Binary Functions.
 //
@@ -952,10 +962,10 @@ typedef DWORD (NTAPI *PF_SymSetOptions)(_In_ DWORD SymOptions);
 typedef DWORD (NTAPI *PF_SymGetOptions)(VOID);
 typedef DWORD64 (NTAPI *PF_SymLoadModule64)(_In_ HANDLE hProcess,
                                             _In_opt_ HANDLE hFile,
-                                            _In_ LPSTR ImageName,
+                                            _In_opt_ LPSTR ImageName,
                                             _In_opt_ LPSTR ModuleName,
                                             _In_ DWORD64 BaseOfDll,
-                                            _In_opt_ DWORD SizeOfDll);
+                                            _In_ DWORD SizeOfDll);
 typedef BOOL (NTAPI *PF_SymGetModuleInfo64)(_In_ HANDLE hProcess,
                                             _In_ DWORD64 qwAddr,
                                             _Out_ PIMAGEHLP_MODULE64 ModuleInfo);

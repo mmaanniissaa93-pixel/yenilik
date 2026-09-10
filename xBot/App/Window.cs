@@ -13,7 +13,6 @@ using xBot.Game.Objects;
 using SecurityAPI;
 using xBot.Network;
 using xGraphics;
-using AutoUpdaterDotNET;
 using System.Reflection;
 using xBot.Game.Objects.Party;
 using xBot.Game.Objects.Common;
@@ -38,7 +37,6 @@ namespace xBot.App
 		/// </summary>
 		private Ads adsWindow;
 		private Thread tAdsWindow;
-		private bool isUpdateAvailable;
 		private Window()
 		{
 			// Publish the instance before runtime controls raise change events. Some of
@@ -403,6 +401,58 @@ namespace xBot.App
 				Character_pnlBuffs.Controls.Clear();
 			});
 		}
+		public void AddSkillsBulk(System.Collections.Generic.IEnumerable<SRSkill> skills)
+		{
+			if (skills == null) return;
+			var usable = new System.Collections.Generic.List<SRSkill>();
+			foreach (var s in skills)
+			{
+				try { if (s != null && s.isUsableSkill()) usable.Add(s); } catch { }
+			}
+			if (usable.Count == 0)
+			{
+				Skills_lstvSkills.InvokeIfRequired(() => {
+					try { Skills_lstvSkills.BeginUpdate(); Skills_lstvSkills.Items.Clear(); Skills_lstvSkills.EndUpdate(); } catch { }
+				});
+				return;
+			}
+			usable.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
+			// İkonları UI thread'i dışında diskten klonla (dosya kilidi tutmaz),
+			// tek Invoke ile listeyi doldur (login sıçramasını keser).
+			var icons = new System.Collections.Generic.Dictionary<string, string>(usable.Count);
+			foreach (var s in usable)
+			{
+				try
+				{
+					if (!icons.ContainsKey(s.Icon))
+						icons[s.Icon] = LoadIconKey(s.Icon);
+				}
+				catch { }
+			}
+			Skills_lstvSkills.InvokeIfRequired(() => {
+				try
+				{
+					Skills_lstvSkills.BeginUpdate();
+					Skills_lstvSkills.Items.Clear();
+					foreach (var s in usable)
+					{
+						try
+						{
+							var item = new ListViewItem(s.Name);
+							item.Name = s.ID.ToString();
+							item.Tag = s;
+							string key;
+							if (icons.TryGetValue(s.Icon, out key)) item.ImageKey = key;
+							else item.ImageKey = "None";
+							Skills_lstvSkills.Items.Add(item);
+						}
+						catch { }
+					}
+				}
+				catch { }
+				finally { try { Skills_lstvSkills.EndUpdate(); } catch { } }
+			});
+		}
 		/// <summary>
 		/// Add an skill (learned) to the skill list. Pasif (kullanilamayan) skill'ler
 		/// listeye alinmaz; liste isme gore sirali tutulur.
@@ -413,11 +463,12 @@ namespace xBot.App
 				return;
 			if (!Skill.isUsableSkill())
 				return;
+			string iconKey = LoadIconKey(Skill.Icon);
 			ListViewItem item = new ListViewItem(Skill.Name);
 			item.Name = Skill.ID.ToString();
 			// Keep a whole reference, easier skill checks
 			item.Tag = Skill;
-			item.ImageKey = GetImageKeyIcon(Skill.Icon);
+			item.ImageKey = iconKey;
 			Skills_lstvSkills.InvokeIfRequired(() => {
 				if (Skills_lstvSkills.Items.ContainsKey(item.Name))
 					return;
@@ -532,35 +583,48 @@ namespace xBot.App
 		}
 		public string GetImageKeyIcon(string Pk2Path)
 		{
-			// Check if image is not loaded
-			if (!lstimgIcons.Images.ContainsKey(Pk2Path))
+			return LoadIconKey(Pk2Path);
+		}
+
+		/// <summary>
+		/// İkonu ImageList'e ekler. Dosya kilidi tutmaz (FromFile klonu) ve kayıp
+		/// ikonlarda aynı default bitmap'i çoğaltmaz ("None" döner). Login sonrası
+		/// 40MB+ sıçramanın bir kaynağı her kayıp ikonda ayrı default kopyasıydı.
+		/// </summary>
+		private string LoadIconKey(string Pk2Path)
+		{
+			if (string.IsNullOrEmpty(Pk2Path))
+				return "None";
+			try
 			{
-				// Check if the file exists
-				string FullPath = Pk2Extractor.GetDirectory(DataManager.SilkroadName) + "icon\\" + Pk2Path;
-				FullPath = Path.ChangeExtension(FullPath, "png");
-				if (File.Exists(FullPath))
+				if (lstimgIcons != null && lstimgIcons.Images.ContainsKey(Pk2Path))
+					return Pk2Path;
+			}
+			catch { return "None"; }
+			string FullPath = "";
+			try { FullPath = Pk2Extractor.GetDirectory(DataManager.SilkroadName) + "icon\\" + Pk2Path; FullPath = Path.ChangeExtension(FullPath, "png"); } catch { return "None"; }
+			if (!File.Exists(FullPath))
+				return "None";
+			try
+			{
+				using (Image src = Image.FromFile(FullPath))
+				using (Image copy = new Bitmap(src))
 				{
-					// The image list it's being used by multiples controls
-					this.InvokeIfRequired(()=> {
-						lstimgIcons.Images.Add(Pk2Path, Image.FromFile(FullPath));
+					string key = Pk2Path;
+					this.InvokeIfRequired(() => {
+						try
+						{
+							if (lstimgIcons != null && !lstimgIcons.Images.ContainsKey(key))
+							{
+								using (Image owned = new Bitmap(copy))
+									lstimgIcons.Images.Add(key, owned);
+							}
+						}
+						catch { }
 					});
 				}
-				else
-				{
-					// Try to load the default image
-					FullPath = Pk2Extractor.GetDirectory(DataManager.SilkroadName) + "icon\\icon_default.png";
-					if (File.Exists(FullPath))
-					{
-						this.InvokeIfRequired(() => {
-							lstimgIcons.Images.Add(Pk2Path, Image.FromFile(FullPath));
-						});
-					}
-					else
-					{
-						return "";
-					}
-				}
 			}
+			catch { return "None"; }
 			return Pk2Path;
 		}
 
@@ -2029,11 +2093,6 @@ namespace xBot.App
 			// Force visible
 			Activate();
 			BringToFront();
-			// Check for updates
-			AutoUpdater.ReportErrors = false;
-			AutoUpdater.OpenDownloadPage = false;
-			// AutoUpdater.CheckForUpdateEvent += new AutoUpdater.CheckForUpdateEventHandler(this.CheckUpdates_Completed);
-			// AutoUpdater.Start("http://bit.ly/xBot-update-check");
 		}
 		/// <summary>
 		/// Close all necessary to not leaving any background process.
@@ -2052,17 +2111,6 @@ namespace xBot.App
 				Bot.Get.Proxy.Stop();
 			if(tAdsWindow != null && tAdsWindow.ThreadState == System.Threading.ThreadState.Running)
 				try { tAdsWindow.Interrupt(); } catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[Window.Window_Closing] " + ex.Message); }
-		}
-		/// <summary>
-		/// Updates checked.
-		/// </summary>
-		private void CheckUpdates_Completed(UpdateInfoEventArgs e)
-		{
-			// Try to load adverstising after checking updates
-			if(e != null){
-				this.isUpdateAvailable = e.IsUpdateAvailable;
-				ShowAdvertising();
-			}
 		}
 		/// <summary>
 		/// Control OnClick event.
@@ -3311,9 +3359,7 @@ namespace xBot.App
 						about.ShowDialog(this);
 					break;
 				case "Menu_NotifyIcon_Update":
-					if (isUpdateAvailable)
-						AutoUpdater.ShowUpdateForm();
-					else if(adsWindow.isLoaded())
+					if(adsWindow.isLoaded())
 						MessageBox.Show(this,"Hey, You have the most recent version!", "xBot - Updates", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
 					break;
 				case "Menu_NotifyIcon_HideShow":

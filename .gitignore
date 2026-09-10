@@ -17,6 +17,8 @@ x86/
 *.ilk
 *.exp
 *.lib
+# C++ loader bu statik kitaplık olmadan bağlanamaz (Detours 4.0.1, kaynaktan üretildi)
+!xBot.Loader.Library/Detours/detours.lib
 *.iobj
 *.ipdb
 *.tlog

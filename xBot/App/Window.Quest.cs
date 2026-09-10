@@ -26,8 +26,8 @@ namespace xBot.App
                 Location = TabPageV_Control01_Town_Panel.Location, Size = TabPageV_Control01_Town_Panel.Size, Visible = false };
             questPanel = new QuestPanel { Dock = DockStyle.Fill };
             TabPageV_Control01_Quest_Panel.Controls.Add(questPanel); pnlWindow.Controls.Add(TabPageV_Control01_Quest_Panel);
-            questPanel.RefreshRequested += RefreshQuestAutomationUi;
-            questPanel.SearchRequested += query => { questSearch = query; RefreshQuestCatalog(); };
+            questPanel.RefreshRequested += () => RefreshQuestAutomationUi(true);
+            questPanel.SearchRequested += query => { questSearch = (query ?? "").Trim(); RefreshQuestCatalog(); };
             questPanel.DetailsRequested += ShowQuestDetails;
             questPanel.MenuRequested += BuildQuestMenu;
             questPanel.ResetRequested += () => {
@@ -41,10 +41,15 @@ namespace xBot.App
             _questUiTimer = new Timer { Interval = 1000 };
             _questUiTimer.Tick += (s, e) => {
                 QuestAutomationManager.PollTimeout();
-                if (!questPanel.Visible) return;
+                if (questPanel == null || !questPanel.Visible) return;
                 if (_lastQuestUiRefresh != InfoManager.LastQuestUpdateTime) RefreshQuestList();
-                foreach (var grid in new[] { questPanel.ActiveGrid, questPanel.CatalogGrid })
-                    foreach (DataGridViewRow row in grid.Rows) row.Cells["State"].Value = QuestStateLabel((uint)row.Tag);
+                // Katalog binlerce satır tutabilir; her saniye tüm satırları güncellemek
+                // CPU + GDI churn yaratır. Durum sütunu yalnız Aktif listededir (küçük).
+                // Katalog satırları RefreshQuestCatalog anında yazılır, yeterlidir.
+                foreach (DataGridViewRow row in questPanel.ActiveGrid.Rows)
+                {
+                    try { row.Cells["State"].Value = QuestStateLabel((uint)row.Tag); } catch { }
+                }
                 if (lastQuestStatus != QuestAutomationManager.Status)
                 {
                     lastQuestStatus = QuestAutomationManager.Status;
@@ -55,14 +60,21 @@ namespace xBot.App
                 }
             };
             questPanel.Disposed += (s, e) => { _questUiTimer.Stop(); _questUiTimer.Dispose(); };
-            _questUiTimer.Start(); RefreshQuestAutomationUi();
+            _questUiTimer.Start(); RefreshQuestAutomationUi(false);
         }
 
-        public void RefreshQuestAutomationUi()
+        public void RefreshQuestAutomationUi(bool refreshCatalog = false)
         {
             if (questPanel == null) return;
             questPanel.SetOptions(QuestAutomationManager.MaximumLevelAbovePlayer, QuestAutomationManager.WaitForAllEnabledQuests, QuestAutomationManager.EventQuestsInTownOnly);
-            RefreshQuestList(); RefreshQuestCatalog();
+            RefreshQuestList();
+            // Katalog tembeldir: açılışta / karakter ayarları yüklenirken / login sonrası
+            // otomatik 3000 satır çekmek 40MB+ sıçrama yapardı. Yalnız kullanıcı aradıysa
+            // ya da Yenile'ye bastıysa tazele.
+            if (refreshCatalog || !string.IsNullOrWhiteSpace(questSearch))
+                RefreshQuestCatalog();
+            else
+                ClearQuestCatalog(false);
         }
 
         private void RefreshQuestList()
@@ -79,13 +91,52 @@ namespace xBot.App
         }
         private void RefreshQuestCatalog()
         {
-            var entries = new List<QuestListEntry>();
-            foreach (var data in DataManager.QueryQuests(questSearch))
+            if (questPanel == null) return;
+            string q = (questSearch ?? "").Trim();
+            // Arama yoksa liste boş kalır: Temizle'ye basınca kaybolur, RAM tutmaz.
+            if (q.Length == 0)
+            {
+                ClearQuestCatalog(false);
+                return;
+            }
+            // Tek karakterlik arama binlerce satır döndürür; en az 2 karakter ya da sayısal ID iste.
+            uint numericId;
+            bool isNumeric = uint.TryParse(q, out numericId);
+            if (!isNumeric && q.Length < 2)
+            {
+                ClearQuestCatalog(false);
+                questPanel.SetStatus("Aramak için en az 2 karakter yazın (ID ile arama her zaman çalışır).");
+                return;
+            }
+            var rows = DataManager.QueryQuests(q);
+            bool truncated = rows.Count >= 500;
+            var entries = new List<QuestListEntry>(Math.Min(rows.Count, 500));
+            foreach (var data in rows)
             {
                 uint id; if (uint.TryParse(data["id"], out id)) entries.Add(QuestEntry(id, data));
+                if (entries.Count >= 500) break;
             }
             questPanel.SetCatalog(entries, DataManager.IsQuestCatalogAvailable());
-            questPanel.SetStatus(entries.Count + " görev  ·  Sağ tıkla otomasyonu etkinleştirin; kabul ve teslim otomatik yürütülür.");
+            questPanel.SetStatus(entries.Count + " görev"
+                + (truncated ? " (ilk 500 gösteriliyor — aramayı daraltın)" : "")
+                + "  ·  Sağ tıkla otomasyonu etkinleştirin; kabul ve teslim otomatik yürütülür.");
+            // Geçici DB satırlarını hemen bırak (DataGridView kendi kopyasını tutar).
+            rows.Clear();
+        }
+
+        /// <summary>
+        /// Katalog gridini boşaltır ve referansları bırakır (Temizle + logout/teleport).
+        /// </summary>
+        public void ClearQuestCatalog(bool clearSearch = true)
+        {
+            try
+            {
+                if (clearSearch) questSearch = "";
+                if (questPanel == null) return;
+                questPanel.SetCatalog(new List<QuestListEntry>(), DataManager.IsQuestCatalogAvailable());
+                questPanel.SetStatus("Görev aramak için Tümü sekmesine en az 2 karakter yazıp Ara'ya basın.");
+            }
+            catch { }
         }
         private QuestListEntry QuestEntry(uint id, NameValueCollection data)
         {

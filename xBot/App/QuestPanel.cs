@@ -124,7 +124,7 @@ namespace xBot.App
         public void SetCatalog(IList<QuestListEntry> entries, bool available)
         {
             Fill(CatalogGrid, entries, false); catalogEmpty.Visible = entries.Count == 0;
-            catalogEmpty.Text = available ? "Aramayla eşleşen görev yok\n\nAramayı temizleyerek tüm görevleri görebilirsiniz."
+            catalogEmpty.Text = available ? "Aramak için en az 2 karakter yazıp Ara'ya basın\n\nTemizle listeyi boşaltır ve belleği bırakır."
                 : "Görev kataloğu henüz yüklenmedi\n\nOyun veritabanını seçin veya PK2 veritabanını güncelleyin.";
         }
         public void UpdateState(uint id, string state)

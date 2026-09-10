@@ -280,10 +280,11 @@ namespace xBot.Game
 			return null;
 		}
 		/// <summary>
-		/// Pick Filter kataloğu: kategori + arama ile eşya listesi (en fazla 2000 satır).
+		/// Pick Filter kataloğu: kategori + arama ile eşya listesi (en fazla 500 satır).
 		/// group: All/Weapon/Armor/Shield/Accessory/Avatar/Potion/Pill/Scroll/Ammo/Gold/
 		/// TradeGoods/Quest/Elixir/AlchemyMaterial/CosTransport/Other.
 		/// race: All/Chinese/European. gender: Any/Male/Female. degree: 0=Any, 1-16.
+		/// Liste tembeldir: çağrıcı filtre daraltmadan çağırmamalıdır (RAM şişmesini önler).
 		/// </summary>
 		public static List<NameValueCollection> QueryItems(string group, string race, string gender, int degree, string search)
 		{
@@ -335,10 +336,10 @@ namespace xBot.Game
 				}
 				// İsimsiz kayıtlar listeyi ID yığınına çevirir, her zaman dışlanır.
 				conds.Add("(name IS NOT NULL AND TRIM(name) <> '')");
-				string sql = "SELECT id, servername, name, tid2, tid3, tid4, level FROM items";
-				if (conds.Count > 0)
-					sql += " WHERE " + string.Join(" AND ", conds);
-				sql += " ORDER BY name LIMIT 2000";
+			string sql = "SELECT id, servername, name, tid2, tid3, tid4, level FROM items";
+			if (conds.Count > 0)
+				sql += " WHERE " + string.Join(" AND ", conds);
+			sql += " ORDER BY name LIMIT 500";
 				return Query(sql, args.ToArray());
 			}
 			catch { return new List<NameValueCollection>(); }
@@ -476,12 +477,23 @@ namespace xBot.Game
 					conditions.Add("level<=@p" + args.Count);
 					args.Add(maximumLevel);
 				}
-				// SELECT * keeps catalogs created by older xBot versions usable; the
-				// new notice_npc fields appear after the PK2 database is rebuilt.
-				string sql = "SELECT * FROM quests";
+				// Liste görünümü yalnız id/servername/name/level/notice_npc_text kullanır.
+				// SELECT * büyük mission/reward metinleriyle 3000 satırda onlarca MB tutardı;
+				// dar sütun + 500 satır sınırı katalog RAM'ini ~10x düşürür. Detaylar
+				// GetQuestData(id) ile tek satır olarak okunur. Eski kataloglarla uyum
+				// için notice sütunları yoksa dar sorgu başarısız olur, o zaman
+				// geriye dönük daraltılmamış sorguya düş.
+				string sql = "SELECT id, servername, name, level, notice_npc_text, notice_npc FROM quests";
 				if (conditions.Count > 0) sql += " WHERE " + string.Join(" AND ", conditions);
-				sql += " ORDER BY level,name LIMIT 3000";
-				return Query(sql, args.ToArray());
+				sql += " ORDER BY level,name LIMIT 500";
+				try { return Query(sql, args.ToArray()); }
+				catch
+				{
+					string fallback = "SELECT * FROM quests";
+					if (conditions.Count > 0) fallback += " WHERE " + string.Join(" AND ", conditions);
+					fallback += " ORDER BY level,name LIMIT 500";
+					return Query(fallback, args.ToArray());
+				}
 			}
 			catch { return new List<NameValueCollection>(); }
 		}

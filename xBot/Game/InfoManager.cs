@@ -477,6 +477,10 @@ namespace xBot.Game
 				w.Stall_Clear();
 			}
 			w.Minimap_Objects_Clear();
+			// Büyük katalog gridlerini bırak (logout sonrası RAM'de 500 satır kalmasın).
+			// Arama metni korunur, liste kullanıcı arayana kadar boş kalır.
+			try { w.ClearQuestCatalog(false); } catch { }
+			try { w.ClearPickList(); } catch { }
 			
 			b.OnDisconnected();
 		}
@@ -539,6 +543,9 @@ namespace xBot.Game
 			}
 			w.TrainingAreas_Clear();
 			w.Minimap_Objects_Clear();
+			// Teleport yüklemesi sırasında katalog gridlerini bırak.
+			try { w.ClearQuestCatalog(false); } catch { }
+			try { w.ClearPickList(); } catch { }
 
 			if (inGame)
 				w.LogProcess("Teleporting...");
@@ -611,15 +618,29 @@ namespace xBot.Game
 			commonAttack.Icon = "action\\icon_cha_auto_attack.ddj";
 			Character.Skills[commonAttack.ID] = commonAttack;
 
-			w.Skills_lstvSkills.InvokeIfRequired(() => {
-				w.Skills_lstvSkills.BeginUpdate();
-				w.Skills_lstvSkills.Items.Clear();
-			});
-			for (int j = 0; j < Character.Skills.Count; j++)
-				w.AddSkill(Character.Skills.GetAt(j));
-			w.Skills_lstvSkills.InvokeIfRequired(() => {
-				w.Skills_lstvSkills.EndUpdate();
-			});
+			// Toplu doldur: skill başına Invoke + O(n^2) sıralı insert yerine
+			// tek Invoke + önceden sıralı liste (login RAM/CPU sıçramasını keser).
+			try
+			{
+				var all = new System.Collections.Generic.List<SRSkill>(Character.Skills.Count);
+				for (int j = 0; j < Character.Skills.Count; j++)
+				{
+					try { var sk = Character.Skills.GetAt(j); if (sk != null) all.Add(sk); } catch { }
+				}
+				w.AddSkillsBulk(all);
+			}
+			catch
+			{
+				w.Skills_lstvSkills.InvokeIfRequired(() => {
+					w.Skills_lstvSkills.BeginUpdate();
+					w.Skills_lstvSkills.Items.Clear();
+				});
+				for (int j = 0; j < Character.Skills.Count; j++)
+					try { w.AddSkill(Character.Skills.GetAt(j)); } catch { }
+				w.Skills_lstvSkills.InvokeIfRequired(() => {
+					w.Skills_lstvSkills.EndUpdate();
+				});
+			}
 			{
 				string dbName = string.IsNullOrEmpty(DataManager.SilkroadName) ? "(DB bağlı değil)" : DataManager.SilkroadName;
 				w.Log($"[Skills] {Character.Skills.Count} skill yüklendi (DB: {dbName}). Liste boşsa: 1) PK2'den Database oluşturulmamış, 2) server özel 0x3013 dizilimi.");

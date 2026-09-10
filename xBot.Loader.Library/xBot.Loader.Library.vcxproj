@@ -119,6 +119,12 @@
   <ItemGroup>
     <ClCompile Include="Library.cpp" />
   </ItemGroup>
+  <!-- detours.lib Microsoft Detours SDK ile üretilir ve repoda yoktur.
+       Bu hedef, C++ projesi doğrudan derlenirse LNK1181 yerine anlaşılır hata verir.
+       Normal çözüm derlemesi bu projeyi atlar; botun çalışması için gerekli değildir. -->
+  <Target Name="CheckDetoursLib" BeforeTargets="Link">
+    <Error Condition="!Exists('$(ProjectDir)Detours\detours.lib')" Text="detours.lib bulunamadi: xBot.Loader.Library, Microsoft Detours SDK gerektirir. Cozum derlemesi bu projeyi atlar; yalniz xBot C# projesini derleyin." />
+  </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
