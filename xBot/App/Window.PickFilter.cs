@@ -21,7 +21,6 @@ namespace xBot.App
         private ComboBox cmbPickDegree;
         private TextBox txtPickSearch;
         private Label lblPickCount;
-        private NumericUpDown nudTakeKeepEmptySlots;
         private int pickCtxColumn = -1;
         private bool loadingPickFilterUi;
 
@@ -801,8 +800,6 @@ namespace xBot.App
                 optNoSellPlus.Checked = o.NoSellPlusEnabled;
                 try { nudNoSellPlus.Value = Math.Max(0, Math.Min(15, o.NoSellPlus)); } catch { }
                 optPickEvenWhenFull.Checked = o.PickEvenWhenFull;
-                if (nudTakeKeepEmptySlots != null)
-                    nudTakeKeepEmptySlots.Value = Math.Max(0, Math.Min(50, o.StorageTakeKeepEmptySlots));
             }
             catch { }
         }
@@ -835,8 +832,6 @@ namespace xBot.App
                 o.NoSellPlusEnabled = optNoSellPlus.Checked;
                 try { o.NoSellPlus = (int)nudNoSellPlus.Value; } catch { }
                 o.PickEvenWhenFull = optPickEvenWhenFull.Checked;
-                if (nudTakeKeepEmptySlots != null)
-                    o.StorageTakeKeepEmptySlots = (int)nudTakeKeepEmptySlots.Value;
             }
             catch { }
         }

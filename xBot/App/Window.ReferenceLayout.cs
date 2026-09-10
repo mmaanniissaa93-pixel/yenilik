@@ -14,7 +14,6 @@ namespace xBot.App
         private readonly List<Panel> _referenceViews = new List<Panel>();
         private FlowLayoutPanel _referenceTools;
         private bool _referenceLayingOut;
-        private Panel _logBorderPanel;
         private readonly Font _referenceFont = new Font("Segoe UI", 9F);
         private int _sidebarScrollOffset = 0;
         private int _sidebarTotalHeight = 0;

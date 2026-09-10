@@ -434,7 +434,7 @@ namespace xBot.App
 
                 const int tx = 12, tw = 32, th = 26;
                 const int lx = 50, lw = 175;
-                const int ux = 232, uw = 32, uh = 26;
+                const int ux = 232, uw = 32;
                 const int ox = 275;
 
                 try
