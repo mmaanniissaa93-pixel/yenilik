@@ -44,58 +44,68 @@ namespace xBot.App
 
         public QuestPanel()
         {
-            BackColor = DarkTheme.BgDark; ForeColor = DarkTheme.TextPrimary;
-            Font = new Font("Segoe UI", 10f); Padding = new Padding(16);
-            var navigation = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 43, WrapContents = false, Margin = Padding.Empty };
-            var body = new Panel { Dock = DockStyle.Fill, Padding = new Padding(0, 12, 0, 0) };
-            status = new Label { Dock = DockStyle.Bottom, Height = 30, ForeColor = DarkTheme.TextMuted, TextAlign = ContentAlignment.MiddleLeft };
+            BackColor = Color.White; ForeColor = Color.Black;
+            Font = new Font("Segoe UI", 9f); Padding = new Padding(8);
+            var navigation = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 34, WrapContents = false, Margin = Padding.Empty };
+            var body = new Panel { Dock = DockStyle.Fill, Padding = new Padding(0, 6, 0, 0) };
+            status = new Label { Dock = DockStyle.Bottom, Height = 26, ForeColor = Color.FromArgb(80, 80, 80), TextAlign = ContentAlignment.MiddleLeft };
             Controls.Add(body); Controls.Add(status); Controls.Add(navigation);
-            string[] titles = { "Aktif", "Tümü", "Seçenekler" };
+            string[] titles = { "Active", "All", "Options" };
             for (int i = 0; i < pages.Length; i++)
             {
                 int index = i;
-                pages[i] = new Panel { Dock = DockStyle.Fill, BackColor = DarkTheme.BgDark };
+                pages[i] = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
                 body.Controls.Add(pages[i]);
-                tabs[i] = MakeButton(titles[i], 112); tabs[i].Height = 39;
+                tabs[i] = MakeTabButton(titles[i], 85); tabs[i].Height = 28;
                 tabs[i].Click += (s, e) => SelectTab(index);
                 navigation.Controls.Add(tabs[i]);
             }
             ActiveGrid = MakeGrid(true); CatalogGrid = MakeGrid(false);
             pages[0].Controls.Add(ActiveGrid); pages[1].Controls.Add(CatalogGrid);
-            activeEmpty = EmptyMessage("Henüz aktif görev yok", "Görev seçmek için Tümü sekmesini açın.");
-            catalogEmpty = EmptyMessage("Görev kataloğu yükleniyor", "");
+            activeEmpty = EmptyMessage("No active quests", "Switch to the All tab to browse and enable quests.");
+            catalogEmpty = EmptyMessage("Loading quest catalog...", "");
             ActiveGrid.Controls.Add(activeEmpty); CatalogGrid.Controls.Add(catalogEmpty);
-            var activeFooter = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 49, Padding = new Padding(0, 12, 0, 0), WrapContents = false };
-            var refresh = MakeButton("Yenile", 95); refresh.Click += (s, e) => RefreshRequested?.Invoke();
+            var activeFooter = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 40, Padding = new Padding(0, 6, 0, 0), WrapContents = false };
+            var refresh = MakeButton("Refresh", 80); refresh.Click += (s, e) => RefreshRequested?.Invoke();
             activeFooter.Controls.Add(refresh);
-            activeFooter.Controls.Add(new Label { AutoSize = true, Margin = new Padding(14, 8, 0, 0), ForeColor = DarkTheme.TextMuted, Text = "Çift tık: görev detayları  ·  Sağ tık: otomasyon" });
+            activeFooter.Controls.Add(new Label { AutoSize = true, Margin = new Padding(12, 6, 0, 0), ForeColor = Color.FromArgb(100, 100, 100), Text = "Double-click: details  ·  Right-click: auto quest options" });
             pages[0].Controls.Add(activeFooter);
-            var catalogFooter = new TableLayoutPanel { Dock = DockStyle.Bottom, Height = 49, Padding = new Padding(0, 12, 0, 0), ColumnCount = 5, RowCount = 1 };
+            var catalogFooter = new TableLayoutPanel { Dock = DockStyle.Bottom, Height = 42, Padding = new Padding(0, 6, 0, 0), ColumnCount = 5, RowCount = 1 };
             catalogFooter.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            for (int i = 0; i < 4; i++) catalogFooter.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 98));
-            search = new TextBox { Dock = DockStyle.Fill, BackColor = DarkTheme.BgInput, ForeColor = DarkTheme.TextPrimary, BorderStyle = BorderStyle.FixedSingle, Margin = new Padding(0, 4, 12, 0), AccessibleName = "Görev adı veya numarası ara" };
+            for (int i = 0; i < 4; i++) catalogFooter.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));
+            search = new TextBox { Dock = DockStyle.Fill, BackColor = Color.White, ForeColor = Color.Black, BorderStyle = BorderStyle.FixedSingle, Margin = new Padding(0, 3, 10, 0), AccessibleName = "Search quest name or ID" };
             catalogFooter.Controls.Add(search, 0, 0);
-            string[] actions = { "Ara", "Temizle", "Güncelle", "Sıfırla" };
-            var searchButton = MakeButton(actions[0], 90); searchButton.Click += (s, e) => SearchRequested?.Invoke(search.Text);
-            var clear = MakeButton(actions[1], 90); clear.Click += (s, e) => { search.Clear(); SearchRequested?.Invoke(""); };
-            var update = MakeButton(actions[2], 90); update.Click += (s, e) => RefreshRequested?.Invoke();
-            var reset = MakeButton(actions[3], 90); reset.Click += (s, e) => ResetRequested?.Invoke();
+            string[] actions = { "Search", "Clear", "Update", "Reset" };
+            var searchButton = MakeButton(actions[0], 85); searchButton.Click += (s, e) => SearchRequested?.Invoke(search.Text);
+            var clear = MakeButton(actions[1], 85); clear.Click += (s, e) => { search.Clear(); SearchRequested?.Invoke(""); };
+            var update = MakeButton(actions[2], 85); update.Click += (s, e) => RefreshRequested?.Invoke();
+            var reset = MakeButton(actions[3], 85); reset.Click += (s, e) => ResetRequested?.Invoke();
             catalogFooter.Controls.Add(searchButton, 1, 0); catalogFooter.Controls.Add(clear, 2, 0); catalogFooter.Controls.Add(update, 3, 0); catalogFooter.Controls.Add(reset, 4, 0);
             search.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) { SearchRequested?.Invoke(search.Text); e.SuppressKeyPress = true; } };
             pages[1].Controls.Add(catalogFooter);
 
-            var options = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, Padding = new Padding(8, 12, 0, 0) };
-            aboveLevel = MakeCheck("Seviyemin üzerindeki görevleri de al", false);
-            levelMargin = new NumericUpDown { Minimum = 1, Maximum = 20, Value = 5, Width = 65, BackColor = DarkTheme.BgInput, ForeColor = DarkTheme.TextPrimary, Enabled = false, Margin = new Padding(12, 4, 0, 0) };
-            var levelRow = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new Padding(0, 0, 0, 14) };
+            var options = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, Padding = new Padding(12, 12, 0, 0) };
+            aboveLevel = MakeCheck("Retrieve quests above your level", false);
+            levelMargin = new NumericUpDown { Minimum = 1, Maximum = 20, Value = 5, Width = 55, BackColor = Color.White, ForeColor = Color.Black, Enabled = false, Margin = new Padding(8, 2, 0, 0) };
+            var levelRow = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new Padding(0, 0, 0, 8) };
             levelRow.Controls.Add(aboveLevel); levelRow.Controls.Add(levelMargin);
-            levelRow.Controls.Add(new Label { AutoSize = true, Text = "seviye", ForeColor = DarkTheme.TextMuted, Margin = new Padding(8, 7, 0, 0) });
-            waitAll = MakeCheck("Etkin görevlerin tümü tamamlanana kadar teslim etme", false);
-            townEvents = MakeCheck("Etkinlik görevlerini yalnızca şehirde işle", true);
-            options.Controls.Add(levelRow); options.Controls.Add(waitAll); options.Controls.Add(townEvents);
-            options.Controls.Add(new Label { AutoSize = true, MaximumSize = new Size(760, 0), Margin = new Padding(0, 22, 0, 0), ForeColor = DarkTheme.TextMuted,
-                Text = "Ayarlar otomatik kaydedilir. Görev bazında teslim, tekrar ve ödül tercihleri için listedeki göreve sağ tıklayın." });
-            foreach (var box in new[] { aboveLevel, waitAll, townEvents }) box.CheckedChanged += (s, e) => { levelMargin.Enabled = aboveLevel.Checked; if (!loadingOptions) OptionsChanged?.Invoke(); };
+            var cbxExpRatio = MakeCheck("Do not turn in quests if EXP ratio is not 100%", false);
+            var cbxWalkTown = MakeCheck("Walk back to town from your training area to turn in quests", false);
+            waitAll = MakeCheck("Do not turn in quests until all enabled quests are completed", false);
+            var cbxCompleteWay = MakeCheck("Complete quests on the way to the training area", false);
+            townEvents = MakeCheck("Complete event quests while in town", true);
+            var cbxDanger = MakeCheck("Danger mode", false);
+
+            options.Controls.Add(levelRow);
+            options.Controls.Add(cbxExpRatio);
+            options.Controls.Add(cbxWalkTown);
+            options.Controls.Add(waitAll);
+            options.Controls.Add(cbxCompleteWay);
+            options.Controls.Add(townEvents);
+            options.Controls.Add(cbxDanger);
+
+            foreach (var box in new[] { aboveLevel, waitAll, townEvents, cbxExpRatio, cbxWalkTown, cbxCompleteWay, cbxDanger })
+                box.CheckedChanged += (s, e) => { levelMargin.Enabled = aboveLevel.Checked; if (!loadingOptions) OptionsChanged?.Invoke(); };
             levelMargin.ValueChanged += (s, e) => { if (!loadingOptions) OptionsChanged?.Invoke(); };
             pages[2].Controls.Add(options);
             SelectTab(0);
@@ -114,8 +124,9 @@ namespace xBot.App
             for (int i = 0; i < pages.Length; i++)
             {
                 pages[i].Visible = i == index;
-                tabs[i].BackColor = i == index ? DarkTheme.AccentSubtle : DarkTheme.BgDark;
-                tabs[i].ForeColor = i == index ? DarkTheme.InfoBlue : DarkTheme.TextMuted;
+                tabs[i].BackColor = i == index ? Color.White : SystemColors.Control;
+                tabs[i].ForeColor = Color.Black;
+                tabs[i].Font = new Font("Segoe UI", 9f, i == index ? FontStyle.Bold : FontStyle.Regular);
             }
         }
 
@@ -124,8 +135,8 @@ namespace xBot.App
         public void SetCatalog(IList<QuestListEntry> entries, bool available)
         {
             Fill(CatalogGrid, entries, false); catalogEmpty.Visible = entries.Count == 0;
-            catalogEmpty.Text = available ? "Aramak için en az 2 karakter yazıp Ara'ya basın\n\nTemizle listeyi boşaltır ve belleği bırakır."
-                : "Görev kataloğu henüz yüklenmedi\n\nOyun veritabanını seçin veya PK2 veritabanını güncelleyin.";
+            catalogEmpty.Text = available ? "Type at least 2 characters and click Search\n\nClear will empty the search results."
+                : "Quest catalog is not yet loaded.\n\nPlease check Silkroad Database connection.";
         }
         public void UpdateState(uint id, string state)
         {
@@ -141,10 +152,10 @@ namespace xBot.App
             grid.SuspendLayout(); grid.Rows.Clear();
             foreach (QuestListEntry entry in entries)
             {
-                int i = active ? grid.Rows.Add(entry.Id, entry.Name + (string.IsNullOrWhiteSpace(entry.Objectives) ? "" : "\n" + entry.Objectives), entry.State, entry.Enabled ? "Etkin" : "Kapalı")
-                    : grid.Rows.Add(entry.Id, entry.Name, entry.Npc, entry.Level, entry.Enabled ? "Etkin" : "Kapalı", entry.State, entry.Completion);
+                int i = active ? grid.Rows.Add(entry.Id, entry.Name + (string.IsNullOrWhiteSpace(entry.Objectives) ? "" : "\n" + entry.Objectives), entry.State)
+                    : grid.Rows.Add(entry.Id, entry.Name, entry.Npc, entry.Level, entry.Enabled ? "Yes" : "No", entry.State, entry.Completion);
                 var row = grid.Rows[i]; row.Tag = entry.Id;
-                if (active && !string.IsNullOrWhiteSpace(entry.Objectives)) row.Height = 65;
+                if (active && !string.IsNullOrWhiteSpace(entry.Objectives)) row.Height = 55;
             }
             grid.ClearSelection();
             foreach (DataGridViewRow row in grid.Rows) if ((uint)row.Tag == selected) { row.Selected = true; break; }
@@ -154,25 +165,24 @@ namespace xBot.App
 
         private DataGridView MakeGrid(bool active)
         {
-            var grid = new DataGridView { Dock = DockStyle.Fill, BackgroundColor = DarkTheme.BgCard, BorderStyle = BorderStyle.None,
-                Font = Font, AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.AllCells, ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.None,
+            var grid = new DataGridView { Dock = DockStyle.Fill, BackgroundColor = Color.White, BorderStyle = BorderStyle.FixedSingle,
+                Font = Font, AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.AllCells, ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.Single,
                 ReadOnly = true, AllowUserToAddRows = false, AllowUserToDeleteRows = false, AllowUserToResizeRows = false,
                 RowHeadersVisible = false, MultiSelect = false, SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-                EnableHeadersVisualStyles = false, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-                ColumnHeadersHeight = 37, ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing,
-                CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal, GridColor = DarkTheme.BorderSubtle };
-            grid.ColumnHeadersDefaultCellStyle = new DataGridViewCellStyle { BackColor = DarkTheme.BgCardHeader, ForeColor = DarkTheme.TextSecondary, Font = new Font(Font, FontStyle.Bold), Padding = new Padding(10, 0, 0, 0) };
-            grid.DefaultCellStyle = new DataGridViewCellStyle { BackColor = DarkTheme.BgCard, ForeColor = DarkTheme.TextPrimary,
-                SelectionBackColor = DarkTheme.AccentSubtle, SelectionForeColor = DarkTheme.TextPrimary, Padding = new Padding(10, 4, 8, 4), WrapMode = DataGridViewTriState.True };
-            grid.RowTemplate.Height = 41; grid.RowTemplate.MinimumHeight = 41;
-            AddColumn(grid, "Id", "ID", 70, 5); AddColumn(grid, "Name", "Görev", 250, active ? 68 : 35);
-            if (!active) { AddColumn(grid, "Npc", "NPC", 180, 25); AddColumn(grid, "Level", "Seviye", 60, 5); AddColumn(grid, "Enabled", "Otomasyon", 95, 9); }
-            AddColumn(grid, "State", "Durum", 155, 16);
-            if (active) AddColumn(grid, "Enabled", "Otomasyon", 100, 11);
-            else AddColumn(grid, "Completion", "Tamamlanınca", 145, 13);
+                EnableHeadersVisualStyles = true, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                ColumnHeadersHeight = 28, ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing,
+                CellBorderStyle = DataGridViewCellBorderStyle.Single, GridColor = Color.FromArgb(225, 225, 225) };
+            grid.ColumnHeadersDefaultCellStyle = new DataGridViewCellStyle { BackColor = SystemColors.Control, ForeColor = Color.Black, Font = new Font(Font, FontStyle.Regular), Padding = new Padding(6, 0, 0, 0) };
+            grid.DefaultCellStyle = new DataGridViewCellStyle { BackColor = Color.White, ForeColor = Color.Black,
+                SelectionBackColor = SystemColors.Highlight, SelectionForeColor = SystemColors.HighlightText, Padding = new Padding(6, 3, 6, 3), WrapMode = DataGridViewTriState.True };
+            grid.RowTemplate.Height = 26; grid.RowTemplate.MinimumHeight = 24;
+            AddColumn(grid, "Id", "ID", 60, 5); AddColumn(grid, "Name", "Name", 250, active ? 70 : 35);
+            if (!active) { AddColumn(grid, "Npc", "NPC", 180, 25); AddColumn(grid, "Level", "Level", 55, 5); AddColumn(grid, "Enabled", "Enabled", 80, 8); }
+            AddColumn(grid, "State", "State", 155, active ? 25 : 14);
+            if (!active) AddColumn(grid, "Completion", "Return", 120, 13);
             grid.CellDoubleClick += (s, e) => { if (e.RowIndex >= 0) DetailsRequested?.Invoke((uint)grid.Rows[e.RowIndex].Tag); };
             grid.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter && grid.SelectedRows.Count > 0) { DetailsRequested?.Invoke((uint)grid.SelectedRows[0].Tag); e.Handled = true; } };
-            var menu = new ContextMenuStrip { BackColor = DarkTheme.BgCard, ForeColor = DarkTheme.TextPrimary, ShowImageMargin = false };
+            var menu = new ContextMenuStrip { BackColor = Color.White, ForeColor = Color.Black, ShowImageMargin = false };
             grid.ContextMenuStrip = menu;
             grid.CellMouseDown += (s, e) => { if (e.Button == MouseButtons.Right) { grid.ClearSelection(); if (e.RowIndex >= 0) grid.Rows[e.RowIndex].Selected = true; } };
             menu.Opening += (s, e) =>
@@ -189,18 +199,18 @@ namespace xBot.App
         public static Form CreateDetailsDialog(string title, IEnumerable<KeyValuePair<string, string>> sections)
         {
             var dialog = new Form { Text = title, Size = new Size(820, 690), MinimumSize = new Size(570, 440),
-                StartPosition = FormStartPosition.CenterParent, BackColor = DarkTheme.BgDark, ForeColor = DarkTheme.TextPrimary,
-                Font = new Font("Segoe UI", 10f), MinimizeBox = false, Padding = new Padding(24) };
+                StartPosition = FormStartPosition.CenterParent, BackColor = Color.White, ForeColor = Color.Black,
+                Font = new Font("Segoe UI", 9f), MinimizeBox = false, Padding = new Padding(20) };
             var content = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false,
-                AutoScroll = true, BackColor = DarkTheme.BgDark };
+                AutoScroll = true, BackColor = Color.White };
             dialog.Controls.Add(content);
             var bold = new Font(dialog.Font, FontStyle.Bold);
             dialog.Disposed += (s, e) => bold.Dispose();
             foreach (var section in sections)
             {
-                content.Controls.Add(new Label { AutoSize = true, Text = section.Key, ForeColor = DarkTheme.InfoBlue, Font = bold, Margin = new Padding(0, 0, 0, 6) });
-                content.Controls.Add(new Label { AutoSize = true, Text = section.Value, ForeColor = DarkTheme.TextPrimary,
-                    Font = dialog.Font, Margin = new Padding(0, 0, 0, 24), UseMnemonic = false, MaximumSize = new Size(710, 0) });
+                content.Controls.Add(new Label { AutoSize = true, Text = section.Key, ForeColor = Color.FromArgb(0, 102, 204), Font = bold, Margin = new Padding(0, 0, 0, 4) });
+                content.Controls.Add(new Label { AutoSize = true, Text = section.Value, ForeColor = Color.Black,
+                    Font = dialog.Font, Margin = new Padding(0, 0, 0, 18), UseMnemonic = false, MaximumSize = new Size(710, 0) });
             }
             content.Resize += (s, e) => {
                 foreach (Control child in content.Controls) child.MaximumSize = new Size(Math.Max(200, content.ClientSize.Width - 24), 0);
@@ -214,14 +224,20 @@ namespace xBot.App
         {
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = name, HeaderText = title, MinimumWidth = minimum, FillWeight = weight, SortMode = DataGridViewColumnSortMode.NotSortable });
         }
-        private static Label EmptyMessage(string title, string subtitle) => new Label { Dock = DockStyle.Fill, BackColor = DarkTheme.BgCard,
-            ForeColor = DarkTheme.TextMuted, TextAlign = ContentAlignment.MiddleCenter, Text = title + "\n\n" + subtitle };
-        private static CheckBox MakeCheck(string text, bool value) => new CheckBox { AutoSize = true, Text = text, Checked = value, Margin = new Padding(0, 5, 0, 19), ForeColor = DarkTheme.TextPrimary };
+        private static Label EmptyMessage(string title, string subtitle) => new Label { Dock = DockStyle.Fill, BackColor = Color.White,
+            ForeColor = Color.FromArgb(120, 120, 120), TextAlign = ContentAlignment.MiddleCenter, Text = title + "\n\n" + subtitle };
+        private static CheckBox MakeCheck(string text, bool value) => new CheckBox { AutoSize = true, Text = text, Checked = value, Margin = new Padding(0, 4, 0, 8), ForeColor = Color.Black };
         public static Button MakeButton(string text, int width)
         {
-            var button = new Button { Text = text, Width = width, Height = 32, FlatStyle = FlatStyle.Flat, BackColor = DarkTheme.BgInput,
-                ForeColor = DarkTheme.TextPrimary, Cursor = Cursors.Hand, Margin = new Padding(0, 0, 6, 0) };
-            button.FlatAppearance.BorderSize = 0; return button;
+            var button = new Button { Text = text, Width = width, Height = 28, FlatStyle = FlatStyle.Standard, BackColor = SystemColors.Control,
+                ForeColor = Color.Black, Cursor = Cursors.Default, Margin = new Padding(0, 0, 6, 0), UseVisualStyleBackColor = true };
+            return button;
+        }
+        private static Button MakeTabButton(string text, int width)
+        {
+            var button = new Button { Text = text, Width = width, Height = 28, FlatStyle = FlatStyle.Standard, BackColor = SystemColors.Control,
+                ForeColor = Color.Black, Margin = new Padding(0, 0, 4, 0), UseVisualStyleBackColor = true };
+            return button;
         }
     }
 }

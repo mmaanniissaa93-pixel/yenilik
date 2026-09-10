@@ -267,15 +267,15 @@ namespace xBot.App
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
             lstPickItems.Columns.Add("ID", 50);
-            lstPickItems.Columns.Add("Name", 155);
+            lstPickItems.Columns.Add("Name", 185);
             lstPickItems.Columns.Add("Level", 45);
             lstPickItems.Columns.Add("Pick", 42);
             lstPickItems.Columns.Add("Pet", 42);
             lstPickItems.Columns.Add("Sell", 42);
             lstPickItems.Columns.Add("Store", 50);
-            lstPickItems.Columns.Add("StoreGuild", 65);
+            lstPickItems.Columns.Add("Store Guild", 80);
             lstPickItems.Columns.Add("Take", 48);
-            lstPickItems.Columns.Add("TakeGuild", 68);
+            lstPickItems.Columns.Add("Take Guild", 72);
 
             var ctx = new ContextMenuStrip();
             var miYes = new ToolStripMenuItem("Yes");
@@ -301,62 +301,46 @@ namespace xBot.App
             cmbPickGroup.SelectedIndex = 0;
             cmbPickGroup.SelectedIndexChanged += (s, e) => RefreshPickList();
 
-            cmbPickRace = new ComboBox { Location = new Point(129, fy), Size = new Size(80, 22), DropDownStyle = ComboBoxStyle.DropDownList };
+            cmbPickRace = new ComboBox { Location = new Point(127, fy), Size = new Size(75, 22), DropDownStyle = ComboBoxStyle.DropDownList };
             cmbPickRace.Items.AddRange(new string[] { "All", "Chinese", "European" });
             cmbPickRace.SelectedIndex = 0;
             cmbPickRace.SelectedIndexChanged += (s, e) => RefreshPickList();
 
-            cmbPickGender = new ComboBox { Location = new Point(215, fy), Size = new Size(70, 22), DropDownStyle = ComboBoxStyle.DropDownList };
+            cmbPickGender = new ComboBox { Location = new Point(206, fy), Size = new Size(65, 22), DropDownStyle = ComboBoxStyle.DropDownList };
             cmbPickGender.Items.AddRange(new string[] { "Any", "Male", "Female" });
             cmbPickGender.SelectedIndex = 0;
             cmbPickGender.SelectedIndexChanged += (s, e) => RefreshPickList();
 
-            cmbPickDegree = new ComboBox { Location = new Point(291, fy), Size = new Size(60, 22), DropDownStyle = ComboBoxStyle.DropDownList };
+            cmbPickDegree = new ComboBox { Location = new Point(275, fy), Size = new Size(55, 22), DropDownStyle = ComboBoxStyle.DropDownList };
             cmbPickDegree.Items.Add("Any");
             for (int d = 1; d <= 12; d++) cmbPickDegree.Items.Add(d.ToString());
             cmbPickDegree.SelectedIndex = 0;
             cmbPickDegree.SelectedIndexChanged += (s, e) => RefreshPickList();
 
-            txtPickSearch = new TextBox { Location = new Point(357, fy), Size = new Size(150, 22) };
+            txtPickSearch = new TextBox { Location = new Point(334, fy), Size = new Size(307, 22), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
             txtPickSearch.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) { RefreshPickList(); e.Handled = true; e.SuppressKeyPress = true; } };
 
-            lblPickCount = new Label { Location = new Point(513, fy + 3), Size = new Size(128, 18), ForeColor = SystemColors.GrayText, Text = "Kategori seçin veya arayın..." };
+            lblPickCount = new Label { Location = new Point(513, fy + 3), Size = new Size(128, 18), ForeColor = SystemColors.GrayText, Text = "", Visible = false };
 
-            var btnClear = new Button { Text = "Clear", Location = new Point(372, fy + 28), Size = new Size(85, 26), UseVisualStyleBackColor = true };
-            var btnUpdate = new Button { Text = "Update", Location = new Point(462, fy + 28), Size = new Size(85, 26), UseVisualStyleBackColor = true };
-            var btnReset = new Button { Text = "Reset", Location = new Point(552, fy + 28), Size = new Size(85, 26), UseVisualStyleBackColor = true };
+            var btnClear = new Button { Text = "Clear", Location = new Point(415, fy + 28), Size = new Size(70, 26), UseVisualStyleBackColor = true, Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            var btnUpdate = new Button { Text = "Update", Location = new Point(491, fy + 28), Size = new Size(70, 26), UseVisualStyleBackColor = true, Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            var btnReset = new Button { Text = "Reset", Location = new Point(567, fy + 28), Size = new Size(70, 26), UseVisualStyleBackColor = true, Anchor = AnchorStyles.Top | AnchorStyles.Right };
             btnClear.Click += (s, e) => { try { ClearPickList(); } catch { } };
             btnUpdate.Click += (s, e) => SavePickFilter();
             btnReset.Click += (s, e) => ResetPickFilter();
 
             var lblNote = new Label
             {
-                Location = new Point(8, fy + 30),
-                Size = new Size(355, 30),
+                Location = new Point(8, fy + 32),
+                Size = new Size(400, 24),
                 ForeColor = SystemColors.GrayText,
-                Text = "* SOX items will not be sold, and your primary/secondary weapon will not be sold/stored"
+                Text = "* SOX items will not be sold, and your primary/secondary weapon will not be sold/stored",
+                Anchor = AnchorStyles.Top | AnchorStyles.Left
             };
-
-            var lblKeepEmpty = new Label
-            {
-                Location = new Point(8, fy + 66),
-                Size = new Size(245, 22),
-                Text = "Storage take: keep inventory slots empty"
-            };
-            nudTakeKeepEmptySlots = new NumericUpDown
-            {
-                Location = new Point(258, fy + 63),
-                Size = new Size(62, 22),
-                Minimum = 0,
-                Maximum = 50,
-                Value = 3
-            };
-            nudTakeKeepEmptySlots.ValueChanged += (s, e) => SaveAllPickFilterLive();
 
             tab.Controls.AddRange(new Control[] {
                 lstPickItems, cmbPickGroup, cmbPickRace, cmbPickGender, cmbPickDegree,
-                txtPickSearch, lblPickCount, btnClear, btnUpdate, btnReset, lblNote,
-                lblKeepEmpty, nudTakeKeepEmptySlots });
+                txtPickSearch, lblPickCount, btnClear, btnUpdate, btnReset, lblNote });
         }
 
         /// <summary>

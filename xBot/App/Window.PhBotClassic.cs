@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Windows.Forms;
+using xBot.Game;
 
 namespace xBot.App
 {
@@ -53,12 +56,12 @@ namespace xBot.App
         private Button _phBotBtnReturn;
         private Label _phBotCopyright;
 
-        private static readonly Color PhBotBg = Color.FromArgb(240, 240, 240);
+        private static readonly Color PhBotBg = Color.FromArgb(243, 243, 243);
         private static readonly Color PhBotPanelWhite = Color.White;
-        private static readonly Color PhBotSelect = Color.FromArgb(204, 232, 255);
-        private static readonly Color PhBotHover = Color.FromArgb(229, 243, 255);
+        private static readonly Color PhBotSelect = Color.FromArgb(245, 245, 245);
+        private static readonly Color PhBotHover = Color.FromArgb(249, 249, 249);
         private static readonly Color PhBotTabInactive = Color.FromArgb(232, 232, 232);
-        private static readonly Color PhBotBorder = Color.FromArgb(160, 160, 160);
+        private static readonly Color PhBotBorder = Color.FromArgb(215, 218, 222);
 
         private static Font PhBotFont()
         {
@@ -653,20 +656,33 @@ namespace xBot.App
             try { LayoutTrainingAreaClassic(); } catch { }
         }
 
-        private void UpdatePhBotTitle()
+        private void UpdatePhBotTitle(string customStatus = null)
         {
             try
             {
-                string ver = ProductVersion;
-                string extra = "";
-                try
-                {
-                    if (Bot.Get != null)
-                        extra = Bot.Get.isBotting ? "Connected" : "Disconnected";
-                }
-                catch { extra = "Disconnected"; }
-                if (string.IsNullOrEmpty(extra)) extra = "Disconnected";
-                Text = string.Format("{0} v{1} - {2}", ProductName, ver, extra);
+                this.InvokeIfRequired(() => {
+                    bool isTR = LocalizationManager.CurrentLanguage == "TR";
+                    string charName = "N/A";
+                    try
+                    {
+                        if (InfoManager.Character != null && !string.IsNullOrEmpty(InfoManager.Character.Name))
+                            charName = InfoManager.Character.Name;
+                    }
+                    catch { }
+
+                    string status;
+                    if (!string.IsNullOrEmpty(customStatus))
+                    {
+                        status = customStatus;
+                    }
+                    else
+                    {
+                        bool isConnected = false;
+                        try { isConnected = InfoManager.inGame || (Bot.Get != null && Bot.Get.isBotting); } catch { }
+                        status = isConnected ? (isTR ? "Bağlandı" : "Connected") : (isTR ? "Bağlantı kesildi" : "Disconnected");
+                    }
+                    this.Text = string.Format("xBot - {0} - {1}", charName, status);
+                });
             }
             catch { }
         }
@@ -809,8 +825,8 @@ namespace xBot.App
                 btn.FlatStyle = FlatStyle.Flat;
                 try { btn.FlatAppearance.BorderSize = 0; } catch { }
                 btn.TextAlign = ContentAlignment.MiddleLeft;
-                btn.Location = new Point(30, y);
-                btn.Size = new Size(154, itemH);
+                btn.Location = new Point(28, y);
+                btn.Size = new Size(134, itemH);
                 btn.Cursor = Cursors.Hand;
                 btn.UseVisualStyleBackColor = false;
                 btn.Tag = panel;
@@ -1622,15 +1638,106 @@ namespace xBot.App
 
         private Panel BuildPhBotProjectHaxPanel(Panel panel)
         {
-            var lbl = new Label();
-            lbl.Font = new Font(PhBotFont(), FontStyle.Bold);
-            lbl.AutoSize = true; lbl.Location = new Point(10, 10);
-            lbl.Text = ProductName + "  •  phBot klasik arayüz";
-            panel.Controls.Add(lbl);
-            var info = new Label();
-            info.Font = PhBotFont(); info.AutoSize = true; info.Location = new Point(10, 34);
-            info.Text = "Sürüm: v" + ProductVersion + "\nSoldaki menü phBot ile birebir sıradadır.\nAlttaki log ve sağdaki 6 buton phBot düzenindedir.";
-            panel.Controls.Add(info);
+            panel.Controls.Clear();
+            panel.BackColor = PhBotBg;
+
+            bool isTR = LocalizationManager.CurrentLanguage == "TR";
+
+            // 1. Üç açılır kutu (sağ üst): Dil, Tema, Yazı Boyutu
+            var cmbxLang = new ComboBox
+            {
+                Name = "ProjectHax_cmbxLang",
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Font = PhBotFont(),
+                FlatStyle = FlatStyle.Popup,
+                BackColor = Color.White,
+                Size = new Size(80, 22)
+            };
+            cmbxLang.Items.AddRange(new object[] { "Türkçe", "English" });
+            cmbxLang.SelectedIndex = isTR ? 0 : 1;
+
+            var cmbxTheme = new ComboBox
+            {
+                Name = "ProjectHax_cmbxTheme",
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Font = PhBotFont(),
+                FlatStyle = FlatStyle.Popup,
+                BackColor = Color.White,
+                Size = new Size(70, 22)
+            };
+            cmbxTheme.Items.AddRange(isTR ? new object[] { "Beyaz", "Koyu" } : new object[] { "White", "Dark" });
+            cmbxTheme.SelectedIndex = 0;
+
+            var cmbxFontSize = new ComboBox
+            {
+                Name = "ProjectHax_cmbxFontSize",
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Font = PhBotFont(),
+                FlatStyle = FlatStyle.Popup,
+                BackColor = Color.White,
+                Size = new Size(46, 22)
+            };
+            cmbxFontSize.Items.AddRange(new object[] { "8", "9", "10", "11", "12" });
+            cmbxFontSize.SelectedIndex = 0;
+
+            panel.Controls.Add(cmbxLang);
+            panel.Controls.Add(cmbxTheme);
+            panel.Controls.Add(cmbxFontSize);
+
+            // 2. xBot Giriş Grubu (birebir ölçüler: 244 x 140)
+            var gbxLogin = new GroupBox
+            {
+                Name = "ProjectHax_gbxLogin",
+                Text = isTR ? "xBot Giriş" : "xBot Login",
+                Font = PhBotFont(),
+                BackColor = Color.Transparent,
+                Size = new Size(244, 140)
+            };
+
+            var lblUser = new Label { Name = "ProjectHax_lblUser", Text = isTR ? "Kullanıcı" : "Username", Font = PhBotFont(), AutoSize = true, Location = new Point(12, 24) };
+            var tbxUser = new TextBox { Name = "ProjectHax_tbxUser", Text = "", Font = PhBotFont(), Location = new Point(78, 22), Size = new Size(152, 22), BorderStyle = BorderStyle.FixedSingle };
+            var lblPass = new Label { Name = "ProjectHax_lblPass", Text = isTR ? "Şifre" : "Password", Font = PhBotFont(), AutoSize = true, Location = new Point(12, 54) };
+            var tbxPass = new TextBox { Name = "ProjectHax_tbxPass", Font = PhBotFont(), Location = new Point(78, 52), Size = new Size(152, 22), BorderStyle = BorderStyle.FixedSingle, UseSystemPasswordChar = true };
+            var btnLogin = new Button { Name = "ProjectHax_btnLogin", Text = isTR ? "Bağlan" : "Login", Font = PhBotFont(), Location = new Point(12, 86), Size = new Size(218, 26), BackColor = Color.White, FlatStyle = FlatStyle.Flat };
+            btnLogin.FlatAppearance.BorderColor = Color.FromArgb(220, 220, 220);
+
+            gbxLogin.Controls.Add(lblUser);
+            gbxLogin.Controls.Add(tbxUser);
+            gbxLogin.Controls.Add(lblPass);
+            gbxLogin.Controls.Add(tbxPass);
+            gbxLogin.Controls.Add(btnLogin);
+            panel.Controls.Add(gbxLogin);
+
+            // Dil Değiştirme
+            cmbxLang.SelectedIndexChanged += (s, e) =>
+            {
+                string lang = cmbxLang.SelectedIndex == 0 ? "TR" : "EN";
+                if (LocalizationManager.CurrentLanguage != lang)
+                {
+                    LocalizationManager.SetLanguage(lang);
+                    bool tr = (lang == "TR");
+                    gbxLogin.Text = tr ? "xBot Giriş" : "xBot Login";
+                    lblUser.Text = tr ? "Kullanıcı" : "Username";
+                    lblPass.Text = tr ? "Şifre" : "Password";
+                    btnLogin.Text = tr ? "Bağlan" : "Login";
+                    cmbxTheme.Items.Clear();
+                    cmbxTheme.Items.AddRange(tr ? new object[] { "Beyaz", "Koyu" } : new object[] { "White", "Dark" });
+                    cmbxTheme.SelectedIndex = 0;
+                }
+            };
+
+            Action reposition = () =>
+            {
+                int w = panel.ClientSize.Width, h = panel.ClientSize.Height;
+                cmbxLang.Location = new Point(Math.Max(10, w - 210), 10);
+                cmbxTheme.Location = new Point(Math.Max(10, w - 124), 10);
+                cmbxFontSize.Location = new Point(Math.Max(10, w - 48), 10);
+
+                gbxLogin.Location = new Point(Math.Max(20, (w - gbxLogin.Width) / 2), Math.Max(30, (h - gbxLogin.Height) / 2 - 10));
+            };
+            panel.SizeChanged += (s, e) => reposition();
+            reposition();
+
             return panel;
         }
 
@@ -1791,12 +1898,13 @@ namespace xBot.App
                 _phBotActionsPanel.BackColor = PhBotBg;
                 pnlWindow.Controls.Add(_phBotActionsPanel);
 
-                _phBotBtnLaunch = NewPhBotActionButton("PhBotLaunch", "Launch");
-                _phBotBtnStart = NewPhBotActionButton("PhBotStart", "Start Bot");
-                _phBotBtnClientless = NewPhBotActionButton("PhBotClientless", "Go Clientless");
-                _phBotBtnStop = NewPhBotActionButton("PhBotStop", "Stop Bot");
-                _phBotBtnHide = NewPhBotActionButton("PhBotHide", "Hide Client");
-                _phBotBtnReturn = NewPhBotActionButton("PhBotReturn", "Return Scroll");
+                bool isTR = LocalizationManager.CurrentLanguage == "TR";
+                _phBotBtnLaunch = NewPhBotActionButton("PhBotLaunch", isTR ? "Clienti Başlat" : "Launch");
+                _phBotBtnStart = NewPhBotActionButton("PhBotStart", isTR ? "Botu Başlat" : "Start Bot");
+                _phBotBtnClientless = NewPhBotActionButton("PhBotClientless", isTR ? "Clienti Kapat" : "Kill Client");
+                _phBotBtnStop = NewPhBotActionButton("PhBotStop", isTR ? "Botu Durdur" : "Stop Bot");
+                _phBotBtnHide = NewPhBotActionButton("PhBotHide", isTR ? "Clienti Gizle" : "Hide Client");
+                _phBotBtnReturn = NewPhBotActionButton("PhBotReturn", isTR ? "Şehre Dön" : "Return Scroll");
 
                 _phBotBtnLaunch.Click += (s, e) => { try { Control_Click(Login_btnLauncher, e); } catch { try { Control_Click(Login_btnStart, e); } catch { } } };
                 _phBotBtnStart.Click += (s, e) => { try { if (!Bot.Get.isBotting) Bot.Get.Start(); } catch { } try { UpdatePhBotTitle(); } catch { } };
@@ -1823,8 +1931,8 @@ namespace xBot.App
                 _phBotCopyright = new Label();
                 _phBotCopyright.Font = PhBotFont();
                 _phBotCopyright.ForeColor = Color.FromArgb(60, 60, 60);
-                _phBotCopyright.TextAlign = ContentAlignment.TopRight;
-                _phBotCopyright.Text = "© xBot";
+                _phBotCopyright.TextAlign = ContentAlignment.MiddleCenter;
+                _phBotCopyright.Text = "©2026 xBot";
                 _phBotActionsPanel.Controls.Add(_phBotCopyright);
             }
         }

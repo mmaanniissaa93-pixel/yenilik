@@ -13,8 +13,32 @@ $outputPath = [IO.Path]::GetFullPath($OutputDirectory)
 Set-Location -LiteralPath $outputPath
 [Environment]::CurrentDirectory = $outputPath
 [Windows.Forms.Application]::EnableVisualStyles()
+$binDir = Split-Path -Parent $assemblyFile
+# powershell.exe AppDomain xBot.exe.config redirect'lerini uygulamaz;
+# preserialized resx'in istediği SRE 4.0.0.0'ı bin klasöründeki 8.0.0.0 ile karşıla.
+$resolveHandler = {
+  param($s, $e)
+  $simple = ($e.Name -split ',')[0].Trim()
+  $map = @{
+    'System.Resources.Extensions' = 'System.Resources.Extensions.dll'
+    'System.Memory' = 'System.Memory.dll'
+    'System.Buffers' = 'System.Buffers.dll'
+    'System.Numerics.Vectors' = 'System.Numerics.Vectors.dll'
+    'System.Runtime.CompilerServices.Unsafe' = 'System.Runtime.CompilerServices.Unsafe.dll'
+  }
+  if ($map.ContainsKey($simple)) {
+    $candidate = Join-Path $binDir $map[$simple]
+    if ([IO.File]::Exists($candidate)) { return [Reflection.Assembly]::LoadFrom($candidate) }
+  }
+  return $null
+}
+[AppDomain]::CurrentDomain.add_AssemblyResolve($resolveHandler) | Out-Null
 [Reflection.Assembly]::LoadFrom($assemblyFile) | Out-Null
-$window = [xBot.App.Window]::Get
+$windowType = [xBot.App.Window]
+$getProp = $windowType.GetProperty('Get', [Reflection.BindingFlags]'Public,Static')
+if ($getProp -eq $null) { throw 'xBot.App.Window::Get property not found' }
+$window = $getProp.GetValue($null, $null)
+if ($window -eq $null) { throw 'xBot.App.Window::Get returned null' }
 $flags = [Reflection.BindingFlags]'Instance,NonPublic'
 $loadMethod = $window.GetType().GetMethod('Window_Load', $flags)
 $window.remove_Load([Delegate]::CreateDelegate([EventHandler], $window, $loadMethod))

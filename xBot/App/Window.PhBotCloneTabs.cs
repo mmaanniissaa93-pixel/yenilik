@@ -62,7 +62,7 @@ namespace xBot.App
             {
                 p = new Panel();
                 p.Name = panelName;
-                p.BackColor = PhBotBg;
+                p.BackColor = Color.White;
                 p.Visible = false;
                 p.AutoScroll = true;
                 try
@@ -332,17 +332,17 @@ namespace xBot.App
                 string[] names = new string[]
                 {
                     "Sockets", "Pet Return", "Berserk", "Monster Preferences",
-                    "Devil's Spirit", "Scrolls", "Stats"
+                    "Devil's Spirit", "Scrolls", "Stat Points"
                 };
                 foreach (string n in names)
                     EnsureExtraHTab(host, TabPageH_Character_Option04, pre, n);
 
                 LayoutHStrip(TabPageH_Character_Option04.Parent, new string[]
                 {
-                    "TabPageH_Character_Option01", "TabPageH_Character_Option02",
-                    "TabPageH_Character_Option03", pre + "Sockets", pre + "PetReturn",
+                    "TabPageH_Character_Option02", "TabPageH_Character_Option03",
+                    pre + "Sockets", pre + "PetReturn",
                     pre + "Berserk", pre + "MonsterPreferences", pre + "DevilsSpirit",
-                    pre + "Scrolls", pre + "Stats", "TabPageH_Character_Option04"
+                    pre + "Scrolls", pre + "StatPoints", "TabPageH_Character_Option04"
                 });
 
                 BuildProtectionSockets(GetExtraHTabPanel(host, pre, "Sockets"));
@@ -351,7 +351,7 @@ namespace xBot.App
                 BuildProtectionMonsterPrefs(GetExtraHTabPanel(host, pre, "Monster Preferences"));
                 BuildProtectionDevilSpirit(GetExtraHTabPanel(host, pre, "Devil's Spirit"));
                 BuildProtectionScrolls(GetExtraHTabPanel(host, pre, "Scrolls"));
-                BuildProtectionStats(GetExtraHTabPanel(host, pre, "Stats"));
+                BuildProtectionStats(GetExtraHTabPanel(host, pre, "Stat Points"));
             }
             catch (Exception ex) { PhBotDebug("protection tabs: " + ex.Message); }
         }
@@ -438,25 +438,34 @@ namespace xBot.App
             if (p == null) return;
             try
             {
-                // Otomatik stat kutusu zaten Return sekmesindeydi; phBot'taki
-                // yerine (Stats) taşınır. Tekrar çağrıda ikinci kez taşıma.
-                if (gbxProtectionAutoStat != null && gbxProtectionAutoStat.Parent != p)
+                p.Controls.Clear();
+                p.BackColor = Color.White;
+                GroupBox gbx = Character_gbxStatPoints;
+                if (gbx != null)
                 {
-                    try
-                    {
-                        if (gbxProtectionAutoStat.Parent != null)
-                            gbxProtectionAutoStat.Parent.Controls.Remove(gbxProtectionAutoStat);
-                    }
-                    catch { }
-                    gbxProtectionAutoStat.Location = new Point(6, 6);
-                    p.Controls.Add(gbxProtectionAutoStat);
+                    if (gbx.Parent != null && gbx.Parent != p)
+                        gbx.Parent.Controls.Remove(gbx);
+                    gbx.Font = PhBotFont();
+                    gbx.ForeColor = Color.Black;
+                    gbx.BackColor = Color.White;
+                    gbx.Location = new Point(14, 14);
+                    gbx.Size = new Size(380, 240);
+                    gbx.Text = "Stat Points";
+                    p.Controls.Add(gbx);
+
+                    if (Character_lblSTR != null) { Character_lblSTR.Text = "Str"; Character_lblSTR.Location = new Point(16, 28); }
+                    if (Character_btnAddSTR != null) { Character_btnAddSTR.Text = "+"; Character_btnAddSTR.SetBounds(55, 24, 28, 24); }
+                    if (Character_lblAddSTR != null) { Character_lblAddSTR.SetBounds(95, 24, 50, 24); }
+                    if (Character_lblINT != null) { Character_lblINT.Text = "Int"; Character_lblINT.Location = new Point(16, 60); }
+                    if (Character_btnAddINT != null) { Character_btnAddINT.Text = "+"; Character_btnAddINT.SetBounds(55, 56, 28, 24); }
+                    if (Character_lblAddINT != null) { Character_lblAddINT.SetBounds(95, 56, 50, 24); }
+                    if (Character_lblStatPoints != null) { Character_lblStatPoints.Location = new Point(16, 96); Character_lblStatPoints.AutoSize = true; }
+                    if (Character_cbxAutoStat != null) { Character_cbxAutoStat.Text = "Automatically add stat points"; Character_cbxAutoStat.Location = new Point(16, 130); Character_cbxAutoStat.AutoSize = true; }
+                    if (Character_rbnAutoSTR != null) { Character_rbnAutoSTR.Text = "Pure STR"; Character_rbnAutoSTR.Location = new Point(20, 160); Character_rbnAutoSTR.AutoSize = true; }
+                    if (Character_rbnAutoINT != null) { Character_rbnAutoINT.Text = "Pure INT"; Character_rbnAutoINT.Location = new Point(120, 160); Character_rbnAutoINT.AutoSize = true; }
                 }
             }
             catch (Exception ex) { PhBotDebug("stats move: " + ex.Message); }
-            if (p.Controls.Count == 0)
-            {
-                NewPhBotNote(p, "Otomatik stat dağıtımı (StatPointManager) buraya taşınacak.", 10, 10);
-            }
         }
 
         // ---------------------------------------------------------------

@@ -59,20 +59,42 @@ namespace xBot.App
                     {
                         switch (key)
                         {
+                            case "xBot":
+                            case "ProjectHax":
+                                using (Font pf = new Font("Tahoma", 8.5f, FontStyle.Bold, GraphicsUnit.Point))
+                                using (SolidBrush pb = new SolidBrush(Color.FromArgb(200, 30, 30)))
+                                using (SolidBrush xb = new SolidBrush(Color.FromArgb(30, 30, 30)))
+                                {
+                                    g.DrawString("x", pf, pb, -1, 1);
+                                    g.DrawString("B", pf, xb, 7, 1);
+                                }
+                                break;
+                            case "İstatistikler":
                             case "Statistics": // 3 bar
                                 g.FillRectangle(b, 3, 12, 3, 5);
                                 g.FillRectangle(b, 8, 8, 3, 9);
                                 g.FillRectangle(b, 13, 4, 3, 13);
                                 break;
+                            case "Silkroad Bağlantısı":
                             case "Silkroad Login": // kapı
                                 g.DrawRectangle(p, 5, 2, 10, 16);
                                 g.FillEllipse(b, 12, 9, 2, 2);
                                 break;
+                            case "Otomatik Yapılandırma":
                             case "Auto Configure": // sihirli değnek yıldızı
                                 g.DrawLine(p, 4, 16, 12, 8);
                                 DrawStar(g, b, 14, 5, 5);
                                 g.FillEllipse(b, 4, 3, 1.6f, 1.6f);
                                 break;
+                            case "Yardımcı":
+                            case "Assistant":
+                            case "TargetAssist": // konuşma balonu + 3 nokta
+                                g.DrawRectangle(p, 3, 5, 14, 10);
+                                g.FillEllipse(b, 5.5f, 9, 1.8f, 1.8f);
+                                g.FillEllipse(b, 9f, 9, 1.8f, 1.8f);
+                                g.FillEllipse(b, 12.5f, 9, 1.8f, 1.8f);
+                                break;
+                            case "Bildirimler":
                             case "Notifications": // çan
                                 g.DrawArc(p, 5, 4, 10, 9, 180, 180);
                                 g.DrawLine(p, 5, 9, 5, 14);
@@ -81,12 +103,14 @@ namespace xBot.App
                                 g.FillEllipse(b, 8.5f, 15, 3, 3);
                                 g.FillEllipse(b, 9, 1.5f, 2, 2);
                                 break;
+                            case "Koruma":
                             case "Protection": // kalkan
                                 {
                                     Point[] pts = { new Point(10, 2), new Point(16, 5), new Point(16, 10), new Point(10, 18), new Point(4, 10), new Point(4, 5) };
                                     g.DrawPolygon(p, pts);
                                     break;
                                 }
+                            case "Şehir":
                             case "Town": // banka
                                 g.DrawLine(p, 3, 7, 10, 2);
                                 g.DrawLine(p, 10, 2, 17, 7);
@@ -95,6 +119,7 @@ namespace xBot.App
                                 g.DrawLine(p, 16, 8, 16, 15);
                                 g.DrawLine(p, 2, 17, 18, 17);
                                 break;
+                            case "Kasılma Alanı":
                             case "Training Area": // hedef
                                 g.DrawEllipse(p, 4, 4, 12, 12);
                                 g.DrawEllipse(p, 7, 7, 6, 6);
@@ -104,6 +129,7 @@ namespace xBot.App
                                 g.DrawLine(p, 1, 10, 4, 10);
                                 g.DrawLine(p, 16, 10, 19, 10);
                                 break;
+                            case "Saldırı":
                             case "Attack": // kılıç (çapraz)
                                 g.DrawLine(new Pen(ink, 2.6f), 5, 15, 14, 6);
                                 g.DrawLine(p, 4, 13, 8, 17);
@@ -116,24 +142,28 @@ namespace xBot.App
                                 g.FillEllipse(b, 8.3f, 4.5f, 3.4f, 4);
                                 g.FillEllipse(b, 13.2f, 6, 3.4f, 4);
                                 break;
+                            case "Parti":
                             case "Party": // iki kişi
                                 g.DrawEllipse(p, 3, 5, 5, 5);
                                 g.DrawArc(p, 1, 11, 9, 8, 180, 180);
                                 g.DrawEllipse(p, 12, 5, 5, 5);
                                 g.DrawArc(p, 10, 11, 9, 8, 180, 180);
                                 break;
+                            case "Birlik Partisi":
                             case "Union Party": // üç halka
                                 g.DrawEllipse(p, 2, 7, 5, 5);
                                 g.DrawEllipse(p, 7.5f, 7, 5, 5);
                                 g.DrawEllipse(p, 13, 7, 5, 5);
                                 g.DrawLine(p, 7, 9.5f, 7.5f, 9.5f);
                                 break;
+                            case "Toplama Filtresi":
                             case "Pick Filter": // huni
                                 {
                                     Point[] pts = { new Point(3, 3), new Point(17, 3), new Point(11, 11), new Point(11, 17), new Point(9, 17), new Point(9, 11) };
                                     g.DrawPolygon(p, pts);
                                     break;
                                 }
+                            case "Görev":
                             case "Quest": // ampul
                                 g.DrawEllipse(p, 5, 2, 10, 9);
                                 g.DrawLine(p, 8, 12, 8, 16);
@@ -141,12 +171,14 @@ namespace xBot.App
                                 g.DrawLine(p, 7, 14, 13, 14);
                                 g.DrawLine(p, 8, 17, 12, 17);
                                 break;
+                            case "Oyuncular":
                             case "Players": // tek kişi + liste çizgisi
                                 g.DrawEllipse(p, 4, 3, 6, 6);
                                 g.DrawArc(p, 2, 10, 10, 9, 180, 180);
                                 g.DrawLine(p, 15, 5, 15, 16);
                                 g.DrawLine(p, 13, 7, 17, 7);
                                 break;
+                            case "Lonca":
                             case "Guild": // bayrak
                                 g.DrawLine(p, 5, 2, 5, 18);
                                 {
@@ -154,6 +186,7 @@ namespace xBot.App
                                     g.DrawPolygon(p, pts);
                                 }
                                 break;
+                            case "Akademi":
                             case "Academy": // kep
                                 {
                                     Point[] pts = { new Point(10, 3), new Point(18, 7), new Point(10, 11), new Point(2, 7) };
@@ -162,6 +195,7 @@ namespace xBot.App
                                     g.DrawLine(p, 6, 14, 12, 14);
                                 }
                                 break;
+                            case "Envanter":
                             case "Inventory": // sandık
                                 g.DrawRectangle(p, 3, 7, 14, 10);
                                 g.DrawLine(p, 3, 7, 3, 5);
@@ -169,6 +203,7 @@ namespace xBot.App
                                 g.DrawLine(p, 3, 5, 17, 5);
                                 g.FillRectangle(b, 9, 10, 2.4f, 4);
                                 break;
+                            case "Tezgah":
                             case "Stall": // tente + tezgah
                                 g.DrawArc(p, 3, 3, 5, 5, 180, 180);
                                 g.DrawArc(p, 8, 3, 5, 5, 180, 180);
@@ -176,6 +211,7 @@ namespace xBot.App
                                 g.DrawLine(p, 3, 8, 18, 8);
                                 g.DrawRectangle(p, 5, 10, 11, 7);
                                 break;
+                            case "Kervan":
                             case "Trade": // çift yön oku
                                 g.DrawLine(p, 3, 7, 15, 7);
                                 g.DrawLine(p, 12, 4, 15, 7);
@@ -184,6 +220,7 @@ namespace xBot.App
                                 g.DrawLine(p, 8, 10, 5, 13);
                                 g.DrawLine(p, 8, 16, 5, 13);
                                 break;
+                            case "Simya":
                             case "Alchemy": // şişe
                                 g.DrawLine(p, 8, 2, 8, 7);
                                 g.DrawLine(p, 12, 2, 12, 7);
@@ -193,6 +230,7 @@ namespace xBot.App
                                 }
                                 g.DrawLine(p, 7, 13, 13, 13);
                                 break;
+                            case "Ustalıklar":
                             case "Masteries": // katmanlar
                                 {
                                     Point[] p1 = { new Point(10, 3), new Point(17, 7), new Point(10, 11), new Point(3, 7) };
@@ -201,6 +239,7 @@ namespace xBot.App
                                     g.DrawPolygon(p, p2);
                                 }
                                 break;
+                            case "Sohbet":
                             case "Chat": // balon
                                 g.DrawRectangle(p, 2, 4, 13, 9);
                                 {
@@ -210,6 +249,7 @@ namespace xBot.App
                                 g.DrawLine(p, 5, 7, 12, 7);
                                 g.DrawLine(p, 5, 10, 10, 10);
                                 break;
+                            case "Harita":
                             case "Map": // iğne
                                 g.DrawEllipse(p, 5, 2, 10, 10);
                                 {
@@ -218,6 +258,7 @@ namespace xBot.App
                                 }
                                 g.FillEllipse(b, 8.5f, 5.5f, 3, 3);
                                 break;
+                            case "Ses":
                             case "Sound": // hoparlör
                                 {
                                     Point[] pts = { new Point(3, 8), new Point(7, 8), new Point(11, 4), new Point(11, 16), new Point(7, 12), new Point(3, 12) };
@@ -226,6 +267,7 @@ namespace xBot.App
                                 g.DrawArc(p, 12, 7, 4, 6, 270, 180);
                                 g.DrawArc(p, 12, 4, 9, 12, 270, 180);
                                 break;
+                            case "Kısayollar":
                             case "Key Bindings": // klavye
                                 g.DrawRectangle(p, 2, 6, 16, 9);
                                 g.FillRectangle(b, 4, 8, 2, 2);
@@ -234,12 +276,14 @@ namespace xBot.App
                                 g.FillRectangle(b, 14.5f, 8, 2, 2);
                                 g.FillRectangle(b, 5, 11.5f, 10, 1.8f);
                                 break;
+                            case "Koşullar":
                             case "Conditions": // </> 
                                 g.DrawLine(p, 8, 5, 4, 10);
                                 g.DrawLine(p, 4, 10, 8, 15);
                                 g.DrawLine(p, 12, 5, 16, 10);
                                 g.DrawLine(p, 16, 10, 12, 15);
                                 break;
+                            case "Eklentiler":
                             case "Plugins": // dişli
                                 g.DrawEllipse(p, 6, 6, 8, 8);
                                 g.FillEllipse(b, 8.7f, 8.7f, 2.6f, 2.6f);

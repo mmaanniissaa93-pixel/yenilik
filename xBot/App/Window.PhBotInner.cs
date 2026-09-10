@@ -121,7 +121,7 @@ namespace xBot.App
         }
 
         /// <summary>phBot görsel klon kutusu (backend yok).</summary>
-        private static CheckBox PhBotTodoCheck(Panel p, string name, string text, int x, int y, bool check)
+        private static CheckBox PhBotTodoCheck(Control p, string name, string text, int x, int y, bool check)
         {
             if (p == null) return null;
             CheckBox c = null;
@@ -153,7 +153,7 @@ namespace xBot.App
             return c;
         }
 
-        private static TextBox PhBotTodoNumber(Panel p, string name, int x, int y, int w, string text)
+        private static TextBox PhBotTodoNumber(Control p, string name, int x, int y, int w, string text)
         {
             if (p == null) return null;
             TextBox t = null;
@@ -185,7 +185,7 @@ namespace xBot.App
             return t;
         }
 
-        private static Label PhBotLabel(Panel p, string name, string text, int x, int y)
+        private static Label PhBotLabel(Control p, string name, string text, int x, int y)
         {
             if (p == null) return null;
             Label l = null;
@@ -223,7 +223,7 @@ namespace xBot.App
                 Panel hostV = TabPageV_Control01_Skills_Panel;
                 if (p == null || hostV == null) return;
                 int W = p.Width, H = p.Height;
-                if (W < 700 || H < 300) return;
+                if (W < 200 || H < 100) return;
 
                 // Sekme şeridi skill listesinin sağında başlar.
                 try
@@ -235,44 +235,38 @@ namespace xBot.App
                     }
                     if (tc != null)
                     {
-                        tc.Location = new Point(312, tc.Location.Y);
-                        tc.Width = Math.Max(200, hostV.Width - 312 - 4);
+                        tc.Location = new Point(190, 0);
+                        tc.Size = new Size(Math.Max(200, hostV.Width - 190), hostV.Height);
                     }
                 }
                 catch { }
 
-                // Sol: skill listesi (V panel seviyesinde, sekme hizasında).
+                // Sol: skill listesi (V panel seviyesinde, tam yükseklik).
                 try
                 {
                     if (Skills_lstvSkills != null)
                     {
-                        int stripTop = 4;
-                        try
-                        {
-                            if (TabPageH_Skills != null) stripTop = TabPageH_Skills.Top;
-                        }
-                        catch { }
-                        Skills_lstvSkills.Location = new Point(6, stripTop);
-                        Skills_lstvSkills.Size = new Size(300, Math.Max(200, hostV.Height - stripTop - 6));
+                        Skills_lstvSkills.Location = new Point(0, 0);
+                        Skills_lstvSkills.Size = new Size(185, hostV.Height);
                         Skills_lstvSkills.Visible = true;
                         Classicize(Skills_lstvSkills);
                     }
                 }
                 catch { }
 
-                const int tx = 8, tw = 56;          // transfer
-                const int lx = 72, lw = 290;        // liste + combo
-                const int ux = 370, uw = 56;        // yukarı/aşağı
-                const int ox = 440;                 // sağ seçenekler
+                const int tx = 12, tw = 32, th = 26; // transfer butonları
+                const int lx = 50, lw = 175;         // liste + combo
+                const int ux = 232, uw = 32, uh = 26; // yukarı/aşağı
+                const int ox = 275;                  // sağ seçenekler
 
                 // Type kombo (gri) + 9 mob-tipi listesi üst üste.
                 try
                 {
                     GrayCombo(Skills_cmbxAttackMobType);
-                    Place(Skills_cmbxAttackMobType, lx, 8, lw, 28);
+                    Place(Skills_cmbxAttackMobType, lx, 8, lw, 24);
                 }
                 catch { }
-                int listTop = 44, listH = Math.Max(150, H - 44 - 70);
+                int listTop = 36, listH = 195;
                 ListView[] atkLists = new ListView[]
                 {
                     Skills_lstvAttackMobType_General, Skills_lstvAttackMobType_Unique,
@@ -293,25 +287,25 @@ namespace xBot.App
                     catch { }
                 }
 
-                // Transfer ▶◀ (mevcut ekle/çıkar butonları).
+                // Transfer ><
                 try
                 {
                     if (Skills_btnAddAttack != null)
                     {
-                        Skills_btnAddAttack.Text = "▶";
+                        Skills_btnAddAttack.Text = ">";
                         Classicize(Skills_btnAddAttack);
-                        Place(Skills_btnAddAttack, tx, 150, tw, 46);
+                        Place(Skills_btnAddAttack, tx, 90, tw, th);
                     }
                     if (Skills_btnRemAttack != null)
                     {
-                        Skills_btnRemAttack.Text = "◀";
+                        Skills_btnRemAttack.Text = "<";
                         Classicize(Skills_btnRemAttack);
-                        Place(Skills_btnRemAttack, tx, 202, tw, 46);
+                        Place(Skills_btnRemAttack, tx, 125, tw, th);
                     }
                 }
                 catch { }
 
-                // Yukarı/aşağı (mavi runtime butonları gri klasik olur).
+                // Yukarı/aşağı
                 try
                 {
                     foreach (Control c in p.Controls)
@@ -321,11 +315,13 @@ namespace xBot.App
                         if (b.Text != "▲" && b.Text != "▼") continue;
                         if (b.Name.StartsWith("PhBot_")) continue;
                         Classicize(b);
-                        if (b.Text == "▲") Place(b, ux, 150, uw, 46);
-                        else Place(b, ux, 202, uw, 46);
+                        if (b.Text == "▲") Place(b, ux, 90, uw, uh);
+                        else Place(b, ux, 125, uw, uh);
                     }
                 }
                 catch { }
+
+                try { p.AutoScroll = false; } catch { }
 
                 // Sağ seçenek sütunu (phBot attack.png 7..18 sırası).
                 int y = 8;
@@ -341,8 +337,8 @@ namespace xBot.App
                     }
                 }
                 catch { }
-                y += 30;
-                PhBotTodoCheck(p, "PhBot_KillSteal", "Kill steal monsters", ox, y, true); y += 30;
+                y += 21;
+                PhBotTodoCheck(p, "PhBot_KillSteal", "Kill steal monsters", ox, y, true); y += 21;
                 try
                 {
                     if (cbxSkillNoAttack != null)
@@ -355,18 +351,28 @@ namespace xBot.App
                     }
                 }
                 catch { }
-                y += 30;
+                y += 21;
                 PhBotTodoCheck(p, "PhBot_ProtectParty", "Protect party members", ox, y, false);
-                PhBotTodoNumber(p, "PhBot_ProtectName", ox + 190, y - 2, 140, ""); y += 30;
-                PhBotTodoCheck(p, "PhBot_AttackLower", "Attack lower monsters first", ox, y, true); y += 30;
-                PhBotTodoCheck(p, "PhBot_SwitchDot", "Switch monster after", ox, y, false);
-                PhBotTodoNumber(p, "PhBot_SwitchDotN", ox + 190, y - 2, 60, "0");
-                PhBotLabel(p, "PhBot_DotLbl", "DOT", ox + 256, y + 3); y += 30;
-                PhBotTodoCheck(p, "PhBot_LowerSkills", "Use lower skills if skills for a specific monster type do not exist", ox, y, true); y += 30;
-                PhBotTodoCheck(p, "PhBot_SlowerAttack", "Slower attack mode", ox, y, false); y += 30;
-                PhBotTodoCheck(p, "PhBot_Lagtastic", "Lagtastic", ox, y, false); y += 30;
-                PhBotTodoCheck(p, "PhBot_AutoUnique", "Auto select nearby uniques (must not be botting)", ox, y, false); y += 30;
-                PhBotTodoCheck(p, "PhBot_AutoTitan", "Auto select nearby titans (must not be botting)", ox, y, false); y += 30;
+                PhBotTodoNumber(p, "PhBot_ProtectName", ox + 150, y - 2, 85, ""); y += 21;
+                PhBotTodoCheck(p, "PhBot_AttackLower", "Attack lower monsters first", ox, y, true); y += 21;
+                PhBotTodoCheck(p, "PhBot_SwitchDot", "Switch monster after DOT", ox, y, false);
+                PhBotTodoNumber(p, "PhBot_SwitchDotN", ox + 175, y - 2, 35, "0"); y += 21;
+
+                CheckBox cbLower = PhBotTodoCheck(p, "PhBot_LowerSkills", "Use lower skills if skills for a specific monster type do not exist", ox, y, true);
+                if (cbLower != null) { cbLower.AutoSize = false; cbLower.Size = new Size(240, 28); }
+                y += 30;
+
+                PhBotTodoCheck(p, "PhBot_SlowerAttack", "Slower attack mode", ox, y, false); y += 21;
+                PhBotTodoCheck(p, "PhBot_Lagtastic", "Lagtastic", ox, y, false); y += 21;
+
+                CheckBox cbUniq = PhBotTodoCheck(p, "PhBot_AutoUnique", "Auto select nearby uniques (must not be botting)", ox, y, false);
+                if (cbUniq != null) { cbUniq.AutoSize = false; cbUniq.Size = new Size(240, 28); }
+                y += 30;
+
+                CheckBox cbTitan = PhBotTodoCheck(p, "PhBot_AutoTitan", "Auto select nearby titans (must not be botting)", ox, y, false);
+                if (cbTitan != null) { cbTitan.AutoSize = false; cbTitan.Size = new Size(240, 28); }
+                y += 30;
+
                 PhBotTodoCheck(p, "PhBot_TeleportSkill", "Use teleport skills", ox, y, false);
 
                 // Alt: Imbue.
@@ -377,13 +383,13 @@ namespace xBot.App
                         lblSkillImbue.Text = "Imbue";
                         Classicize(lblSkillImbue);
                         lblSkillImbue.AutoSize = true;
-                        lblSkillImbue.Location = new Point(lx, H - 56);
+                        lblSkillImbue.Location = new Point(lx, 236);
                         lblSkillImbue.Visible = true;
                     }
                     if (cmbxImbue != null)
                     {
                         GrayCombo(cmbxImbue);
-                        Place(cmbxImbue, lx + 60, H - 60, lw, 28);
+                        Place(cmbxImbue, lx, 256, lw, 24);
                     }
                 }
                 catch { }
@@ -391,10 +397,7 @@ namespace xBot.App
                 {
                     if (lblSkillRuntimeStatus != null)
                     {
-                        Classicize(lblSkillRuntimeStatus);
-                        lblSkillRuntimeStatus.Location = new Point(8, H - 26);
-                        lblSkillRuntimeStatus.Size = new Size(Math.Max(200, W - 16), 20);
-                        lblSkillRuntimeStatus.Visible = true;
+                        lblSkillRuntimeStatus.Visible = false;
                     }
                 }
                 catch { }
@@ -408,7 +411,7 @@ namespace xBot.App
                     }
                 }
                 catch { }
-                try { if (Training_cbxWalkToCenter != null) Training_cbxWalkToCenter.Visible = false; }
+                try { if (Training_cbxWalkToCenter != null && Training_cbxWalkToCenter.Parent == p) Training_cbxWalkToCenter.Visible = false; }
                 catch { }
             }
             catch (Exception ex) { PhBotDebug("attack inner: " + ex.Message); }
@@ -427,20 +430,20 @@ namespace xBot.App
                 Panel p = TabPageH_Skills_Option02_Panel;
                 if (p == null) return;
                 int W = p.Width, H = p.Height;
-                if (W < 700 || H < 300) return;
+                if (W < 200 || H < 100) return;
 
-                const int tx = 8, tw = 56;
-                const int lx = 72, lw = 290;
-                const int ux = 370, uw = 56;
-                const int ox = 440;
+                const int tx = 12, tw = 32, th = 26;
+                const int lx = 50, lw = 175;
+                const int ux = 232, uw = 32, uh = 26;
+                const int ox = 275;
 
                 try
                 {
                     GrayCombo(Skills_cmbxBuffMobType);
-                    Place(Skills_cmbxBuffMobType, lx, 8, lw, 28);
+                    Place(Skills_cmbxBuffMobType, lx, 8, lw, 24);
                 }
                 catch { }
-                int listTop = 44, listH = Math.Max(150, H - 44 - 16);
+                int listTop = 36, listH = 195;
                 ListView[] buffLists = new ListView[]
                 {
                     Skills_lstvBuffMobType_General, Skills_lstvBuffMobType_Champion,
@@ -464,15 +467,15 @@ namespace xBot.App
                 {
                     if (Skills_btnAddBuff != null)
                     {
-                        Skills_btnAddBuff.Text = "▶";
+                        Skills_btnAddBuff.Text = ">";
                         Classicize(Skills_btnAddBuff);
-                        Place(Skills_btnAddBuff, tx, 150, tw, 46);
+                        Place(Skills_btnAddBuff, tx, 90, tw, th);
                     }
                     if (Skills_btnRemBuff != null)
                     {
-                        Skills_btnRemBuff.Text = "◀";
+                        Skills_btnRemBuff.Text = "<";
                         Classicize(Skills_btnRemBuff);
-                        Place(Skills_btnRemBuff, tx, 202, tw, 46);
+                        Place(Skills_btnRemBuff, tx, 125, tw, th);
                     }
                 }
                 catch { }
@@ -480,7 +483,7 @@ namespace xBot.App
                 EnsureBuffUpDown(p, ux, uw);
 
                 int y = 8;
-                PhBotTodoCheck(p, "PhBot_BuffWhile", "Buff while attacking monsters", ox, y, true); y += 30;
+                PhBotTodoCheck(p, "PhBot_BuffWhile", "Buff while attacking monsters", ox, y, true); y += 24;
                 try
                 {
                     if (cbxSkillDevil != null)
@@ -498,19 +501,19 @@ namespace xBot.App
                     }
                 }
                 catch { }
-                y += 30;
-                PhBotTodoCheck(p, "PhBot_Mirror", "Cast Mirror Reflect", ox, y, true); y += 30;
-                PhBotTodoCheck(p, "PhBot_NoSwitchWpn", "Do not switch weapons for buffing", ox, y, false); y += 30;
+                y += 24;
+                PhBotTodoCheck(p, "PhBot_Mirror", "Cast Mirror Reflect", ox, y, true); y += 24;
+                PhBotTodoCheck(p, "PhBot_NoSwitchWpn", "Do not switch weapons for buffing", ox, y, false); y += 24;
                 PhBotTodoCheck(p, "PhBot_EmergHP", "Emergency buff HP <", ox, y, false);
-                PhBotTodoNumber(p, "PhBot_EmergHPN", ox + 190, y - 2, 60, "50");
-                PhBotLabel(p, "PhBot_EmergHPL", "%", ox + 256, y + 3); y += 30;
+                PhBotTodoNumber(p, "PhBot_EmergHPN", ox + 160, y - 2, 50, "50");
+                PhBotLabel(p, "PhBot_EmergHPL", "%", ox + 216, y + 3); y += 24;
                 PhBotTodoCheck(p, "PhBot_EmergMP", "Emergency buff MP <", ox, y, false);
-                PhBotTodoNumber(p, "PhBot_EmergMPN", ox + 190, y - 2, 60, "50");
-                PhBotLabel(p, "PhBot_EmergMPL", "%", ox + 256, y + 3); y += 30;
+                PhBotTodoNumber(p, "PhBot_EmergMPN", ox + 160, y - 2, 50, "50");
+                PhBotLabel(p, "PhBot_EmergMPL", "%", ox + 216, y + 3); y += 24;
                 PhBotTodoCheck(p, "PhBot_MobAttacking", "Monsters attacking", ox, y, false);
-                PhBotTodoNumber(p, "PhBot_MobAttackingN", ox + 190, y - 2, 60, "0"); y += 30;
-                PhBotLabel(p, "PhBot_BadStatusL", "Bad status", ox, y + 3); y += 24;
-                ComboBox bad = EnsureBadStatusCombo(p, ox, y, 420); y += 34;
+                PhBotTodoNumber(p, "PhBot_MobAttackingN", ox + 160, y - 2, 50, "0"); y += 24;
+                PhBotLabel(p, "PhBot_BadStatusL", "Bad status", ox, y + 3); y += 20;
+                ComboBox bad = EnsureBadStatusCombo(p, ox, y, 260); y += 28;
                 PhBotTodoCheck(p, "PhBot_RecastAll", "Recast all buffs when one buff ends if it requires a weapon switch", ox, y, false);
                 try
                 {
@@ -575,8 +578,8 @@ namespace xBot.App
                 }
                 Classicize(up);
                 Classicize(down);
-                Place(up, ux, 150, uw, 46);
-                Place(down, ux, 202, uw, 46);
+                Place(up, ux, 90, uw, 26);
+                Place(down, ux, 125, uw, 26);
             }
             catch (Exception ex) { PhBotDebug("buff updown: " + ex.Message); }
         }
@@ -616,7 +619,7 @@ namespace xBot.App
                 Panel p = TabPageH_Character_Option02_Panel;
                 if (p == null) return;
                 int W = p.Width;
-                if (W < 500) return;
+                if (W < 200) return;
                 try { p.AutoScroll = true; } catch { }
 
                 // Grup kutularını çöz (kontroller aynı nesne kalır).
@@ -638,34 +641,69 @@ namespace xBot.App
                     catch { }
                 }
 
-                int y = 10;
-                const int step = 30;
+                try { p.AutoScroll = false; } catch { }
+                int y = 6;
+                const int step = 20;
                 const int cx = 8, cw = 215;     // checkbox
                 const int px = 232, pw = 52;    // yüzde kutusu
                 const int pctX = 290;           // % etiketi
                 const int dx = 322, dw = 72;    // gecikme kutusu
 
+                // 1: Auto use HP
                 y = PotionRow(p, Character_cbxUseHP, "Auto use HP", Character_tbxUseHP, 1000, y, step, cx, cw, px, pw, pctX, dx, dw);
-                y = PotionRow(p, Character_cbxUseHPGrain, "Use HP grains", null, -1, y, step, cx, cw, px, pw, pctX, dx, dw);
-                PhBotTodoCheck(p, "PhBot_PreferHPGrain", "Prefer HP grains", cx, y, false); y += step;
+                
+                // 2: Use HP grains + Prefer HP grains (yan yana)
+                PotionRow(p, Character_cbxUseHPGrain, "Use HP grains", null, -1, y, step, cx, 150, px, pw, pctX, dx, dw);
+                PhBotTodoCheck(p, "PhBot_PreferHPGrain", "Prefer HP grains", dx, y, false);
+                y += step;
+
+                // 3: Auto use MP
                 y = PotionRow(p, Character_cbxUseMP, "Auto use MP", Character_tbxUseMP, 1000, y, step, cx, cw, px, pw, pctX, dx, dw);
-                y = PotionRow(p, Character_cbxUseMPGrain, "Use MP grains", null, -1, y, step, cx, cw, px, pw, pctX, dx, dw);
-                PhBotTodoCheck(p, "PhBot_PreferMPGrain", "Prefer MP grains", cx, y, false); y += step;
+
+                // 4: Use MP grains + Prefer MP grains (yan yana)
+                PotionRow(p, Character_cbxUseMPGrain, "Use MP grains", null, -1, y, step, cx, 150, px, pw, pctX, dx, dw);
+                PhBotTodoCheck(p, "PhBot_PreferMPGrain", "Prefer MP grains", dx, y, false);
+                y += step;
+
+                // 5: Auto sit HP
                 PhBotTodoCheck(p, "PhBot_SitHP", "Auto sit HP", cx, y, false);
                 PhBotTodoNumber(p, "PhBot_SitHPN", px, y - 2, pw, "0");
-                PhBotLabel(p, "PhBot_SitHPL", "%", pctX, y + 3); y += step;
+                PhBotLabel(p, "PhBot_SitHPL", "%", pctX, y + 2);
+                y += step;
+
+                // 6: Auto sit MP
                 PhBotTodoCheck(p, "PhBot_SitMP", "Auto sit MP", cx, y, false);
                 PhBotTodoNumber(p, "PhBot_SitMPN", px, y - 2, pw, "0");
-                PhBotLabel(p, "PhBot_SitMPL", "%", pctX, y + 3); y += step;
+                PhBotLabel(p, "PhBot_SitMPL", "%", pctX, y + 2);
+                y += step;
+
+                // 7: Auto vigor HP
                 y = PotionRow(p, Character_cbxUseHPVigor, "Auto vigor HP", Character_tbxUseHPVigor, 1000, y, step, cx, cw, px, pw, pctX, dx, dw);
+
+                // 8: Auto vigor MP
                 y = PotionRow(p, Character_cbxUseMPVigor, "Auto vigor MP", Character_tbxUseMPVigor, 1000, y, step, cx, cw, px, pw, pctX, dx, dw);
-                y = PotionRow(p, Character_cbxUseTransportHP, "Auto heal transport", Character_tbxUseTransportHP, -1, y, step, cx, cw, px, pw, pctX, dx, dw);
-                y = PotionRow(p, Character_cbxUsePetHP, "Auto heal attack pet", Character_tbxUsePetHP, -1, y, step, cx, cw, px, pw, pctX, dx, dw);
-                y = PotionRow(p, Character_cbxUsePillUniversal, "Auto use universal pills", null, 1000, y, step, cx, cw, px, pw, pctX, dx, dw);
-                y = PotionRow(p, Character_cbxUsePillPurification, "Auto use purification pills", null, 1000, y, step, cx, cw, px, pw, pctX, dx, dw);
-                y = PotionRow(p, Character_cbxUsePetsPill, "Auto use cure potions on pet/transport", null, -1, y, step, cx, cw, px, pw, pctX, dx, dw);
-                y = PotionRow(p, Character_cbxUsePetHGP, "Auto use HGP potions", Character_tbxUsePetHGP, 80, y, step, cx, cw, px, pw, pctX, dx, dw);
-                PhBotTodoCheck(p, "PhBot_InvisDetect", "Auto use Invisibility Detection", cx, y, false); y += step;
+
+                // 9: Auto heal transport
+                y = PotionRow(p, Character_cbxUseTransportHP, "Auto heal transport", Character_tbxUseTransportHP, -1, y, step, cx, 250, 270, pw, 328, dx, dw);
+
+                // 10: Auto heal attack pet
+                y = PotionRow(p, Character_cbxUsePetHP, "Auto heal attack pet", Character_tbxUsePetHP, -1, y, step, cx, 250, 270, pw, 328, dx, dw);
+
+                // 11: Auto use universal pills
+                y = PotionRow(p, Character_cbxUsePillUniversal, "Auto use universal pills", null, 1000, y, step, cx, 290, px, pw, pctX, dx, dw);
+
+                // 12: Auto use purification pills
+                y = PotionRow(p, Character_cbxUsePillPurification, "Auto use purification pills", null, 1000, y, step, cx, 290, px, pw, pctX, dx, dw);
+
+                // 13: Auto use cure potions on pet/transport
+                y = PotionRow(p, Character_cbxUsePetsPill, "Auto use cure potions on pet/transport", null, -1, y, step, cx, 360, px, pw, pctX, dx, dw);
+
+                // 14: Auto use HGP potions
+                y = PotionRow(p, Character_cbxUsePetHGP, "Auto use HGP potions", Character_tbxUsePetHGP, -1, y, step, cx, 250, 270, pw, 328, dx, dw);
+
+                // 15: Auto use Invisibility Detection
+                PhBotTodoCheck(p, "PhBot_InvisDetect", "Auto use Invisibility Detection", cx, y, false);
+                y += step;
             }
             catch (Exception ex) { PhBotDebug("potions inner: " + ex.Message); }
             finally { _innerLayout = false; }
@@ -682,21 +720,29 @@ namespace xBot.App
                     Classicize(cbx);
                     cbx.AutoSize = false;
                     cbx.Location = new Point(cx, y);
-                    cbx.Size = new Size(cw, 24);
+                    // Yüzde kutusu olmayan satırlar (cure vb.) tek satıra sığar.
+                    cbx.Size = new Size((percent == null && delay < 0) ? 400 : (percent == null ? 300 : cw), 20);
                     cbx.Visible = true;
                 }
+                string pn = "PhBot_Pct_" + (cbx != null ? cbx.Name : y.ToString());
+                Control pl = p.Controls[pn];
                 if (percent != null)
                 {
                     Classicize(percent);
                     percent.TextAlign = HorizontalAlignment.Center;
                     try { percent.MaxLength = 3; } catch { }
-                    Place(percent, px, y, pw, 24);
-                    PhBotLabel(p, "PhBot_Pct_" + (cbx != null ? cbx.Name : y.ToString()), "%", pctX, y + 3);
+                    Place(percent, px, y, pw, 20);
+                    PhBotLabel(p, pn, "%", pctX, y + 2);
                 }
+                else if (pl != null)
+                {
+                    pl.Visible = false;
+                }
+
+                string dn = "PhBot_Delay_" + (cbx != null ? cbx.Name : y.ToString());
+                TextBox d = p.Controls[dn] as TextBox;
                 if (delay >= 0)
                 {
-                    string dn = "PhBot_Delay_" + (cbx != null ? cbx.Name : y.ToString());
-                    TextBox d = p.Controls[dn] as TextBox;
                     if (d == null)
                     {
                         d = new TextBox();
@@ -708,10 +754,14 @@ namespace xBot.App
                         try { p.Controls.Add(d); } catch { }
                     }
                     d.Location = new Point(dx, y);
-                    d.Size = new Size(dw, 24);
+                    d.Size = new Size(dw, 20);
                     d.Visible = true;
                     // TODO backend: gecikme değeri PotionPolicy'e bağlanacak.
                     if (string.IsNullOrEmpty(d.Text)) d.Text = delay.ToString();
+                }
+                else if (d != null)
+                {
+                    d.Visible = false;
                 }
             }
             catch { }

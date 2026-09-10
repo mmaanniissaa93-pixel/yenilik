@@ -231,8 +231,16 @@ namespace xBot.App
 		}
 		public void LogProcess(string text = "Ready", ProcessState state = ProcessState.Default)
 		{
-			lblBotState.InvokeIfRequired(() => {
-				lblBotState.Text = "● " + text;
+			if (lblBotState != null)
+			{
+				lblBotState.InvokeIfRequired(() => {
+					lblBotState.Visible = false;
+					lblBotState.Text = text;
+				});
+			}
+			try { UpdatePhBotTitle(text); } catch { }
+			if (!_phBotClassicApplied)
+			{
 				switch (state)
 				{
 					case ProcessState.Warning:
@@ -248,14 +256,21 @@ namespace xBot.App
 						SetProcessColor(Color.FromArgb(0, 122, 204));
 						break;
 				}
-			});
+			}
 		}
 		private void SetProcessColor(Color newColor)
 		{
 			this.InvokeIfRequired(() => {
-				lblBotState.BackColor = Theme.DarkTheme.BgDark;
-				lblBotState.ForeColor = (newColor == Color.FromArgb(0, 122, 204)) ? Theme.DarkTheme.Accent : newColor;
-				BackColor = Theme.DarkTheme.BorderSubtle;
+				if (lblBotState != null) lblBotState.Visible = false;
+				if (!_phBotClassicApplied)
+				{
+					if (lblBotState != null)
+					{
+						lblBotState.BackColor = Theme.DarkTheme.BgDark;
+						lblBotState.ForeColor = (newColor == Color.FromArgb(0, 122, 204)) ? Theme.DarkTheme.Accent : newColor;
+					}
+					BackColor = Theme.DarkTheme.BorderSubtle;
+				}
 			});
 		}
 		public void Log(string text)

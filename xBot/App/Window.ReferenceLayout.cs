@@ -14,7 +14,40 @@ namespace xBot.App
         private readonly List<Panel> _referenceViews = new List<Panel>();
         private FlowLayoutPanel _referenceTools;
         private bool _referenceLayingOut;
+        private Panel _logBorderPanel;
         private readonly Font _referenceFont = new Font("Segoe UI", 9F);
+        private int _sidebarScrollOffset = 0;
+        private int _sidebarTotalHeight = 0;
+
+        private void Sidebar_MouseWheel(object sender, MouseEventArgs e)
+        {
+            if (TabPageV_Control01 == null) return;
+            int viewH = TabPageV_Control01.ClientSize.Height;
+            int maxScroll = Math.Max(0, _sidebarTotalHeight - viewH);
+            if (maxScroll <= 0) return;
+            int delta = (e.Delta / 120) * 28;
+            int newOffset = Math.Max(0, Math.Min(maxScroll, _sidebarScrollOffset - delta));
+            if (newOffset != _sidebarScrollOffset)
+            {
+                _sidebarScrollOffset = newOffset;
+                UpdateSidebarItemPositions();
+                TabPageV_Control01.Invalidate();
+            }
+        }
+
+        private void UpdateSidebarItemPositions()
+        {
+            if (TabPageV_Control01 == null) return;
+            TabPageV_Control01.SuspendLayout();
+            foreach (Control c in TabPageV_Control01.Controls)
+            {
+                if (c.Tag is int origY)
+                {
+                    c.Top = origY - _sidebarScrollOffset;
+                }
+            }
+            TabPageV_Control01.ResumeLayout(false);
+        }
 
         private void ApplyXBotReferenceLayout()
         {
@@ -22,11 +55,14 @@ namespace xBot.App
             SuspendLayout();
             try
             {
-                FormBorderStyle = FormBorderStyle.Sizable;
-                MaximizeBox = MinimizeBox = ControlBox = true;
-                MinimumSize = new Size(1100, 700);
-                var work = Screen.FromControl(this).WorkingArea;
-                ClientSize = new Size(Math.Min(1440, work.Width - 40), Math.Min(880, work.Height - 80));
+                FormBorderStyle = FormBorderStyle.FixedSingle;
+                MaximizeBox = false;
+                MinimizeBox = ControlBox = true;
+                Size = new Size(975, 526);
+                MinimumSize = MaximumSize = new Size(975, 526);
+                StartPosition = FormStartPosition.CenterScreen;
+                WindowState = FormWindowState.Normal;
+                ShowInTaskbar = true;
                 BackColor = PhBotBg;
                 ForeColor = Color.Black;
                 pnlWindow.Dock = DockStyle.Fill;
@@ -34,10 +70,33 @@ namespace xBot.App
                 pnlWindow.BorderStyle = BorderStyle.None;
                 pnlHeader.Visible = false;
                 btnBotStart.Visible = btnClientOptions.Visible = btnAnalyzer.Visible = false;
+                // Modern temanın yüzen alt şeridi klasik görünümde içeriğin üstüne biner.
+                try
+                {
+                    foreach (Control c in pnlWindow.Controls)
+                    {
+                        if (c is Theme.ModernStatusStrip) c.Visible = false;
+                    }
+                }
+                catch { }
+                if (lblBotState != null)
+                {
+                    lblBotState.Visible = false;
+                    try { this.Controls.Remove(lblBotState); } catch { }
+                }
                 BuildAlchemyTab();
                 BuildTargetAssistTab();
                 pnlWindow.Controls.Add(TabPageV_Control01_Alchemy_Panel);
                 pnlWindow.Controls.Add(TabPageV_Control01_TargetAssist_Panel);
+                // phBot birebir: H-etiketleri düzelt, eksik alt-sekmeleri aç,
+                // phBot'a özel sidebar panellerini kur (sarma işleminden önce).
+                try { RenamePhBotSubTabs(); } catch { }
+                try { EnsurePhBotAttackExtraTabs(); } catch { }
+                try { EnsurePhBotProtectionExtraTabs(); } catch { }
+                try { EnsurePhBotTrainingExtraTabs(); } catch { }
+                try { EnsurePhBotInventoryExtraTabs(); } catch { }
+                try { EnsurePhBotStallExtraTabs(); } catch { }
+                try { EnsureMissingSidebarPanels(); } catch { }
                 BuildXBotReferenceSidebar();
                 foreach (Panel view in _referenceViews)
                 {
@@ -48,9 +107,14 @@ namespace xBot.App
                     }
                 }
                 EnsurePhBotBottomArea();
-                BuildXBotReferenceTools();
                 StyleXBotReference(pnlWindow);
                 PrepareXBotReferenceContent();
+                // phBot birebir iç düzenler (aynı-nesne-taşıma; bağlı kontroller korunur).
+                try { LayoutPhBotInners(); } catch { }
+                try { LayoutPhBotInners2(); } catch { }
+                try { LayoutPhBotInners3(); } catch { }
+                try { LayoutPhBotInners34(); } catch { }
+                try { LayoutPhBotInners5(); } catch { }
                 _phBotClassicApplied = true;
                 LayoutXBotReference();
                 SizeChanged += (s, e) => LayoutXBotReference();
@@ -59,18 +123,77 @@ namespace xBot.App
                     LocalizationManager.OnLanguageChanged -= RefreshReferenceLanguage;
                     _referenceFont.Dispose();
                 };
-                Text = ProductName + " v" + ProductVersion;
-                TabPageV_Option_Click(TabPageV_Control01.Controls["TabPageV_Control01_Login"], EventArgs.Empty);
+                try
+                {
+                    using (var bmp = new Bitmap(16, 16))
+                    {
+                        using (var g = Graphics.FromImage(bmp))
+                        {
+                            g.Clear(Color.Transparent);
+                            using (Font pf = new Font("Tahoma", 8f, FontStyle.Bold, GraphicsUnit.Point))
+                            using (SolidBrush pb = new SolidBrush(Color.FromArgb(200, 30, 30)))
+                            using (SolidBrush xb = new SolidBrush(Color.FromArgb(30, 30, 30)))
+                            {
+                                g.DrawString("x", pf, pb, -2, 0);
+                                g.DrawString("B", pf, xb, 6, 2);
+                            }
+                        }
+                        IntPtr hIcon = bmp.GetHicon();
+                        this.Icon = Icon.FromHandle(hIcon);
+                    }
+                }
+                catch { }
+                UpdatePhBotTitle();
+                try
+                {
+                    string time = DateTime.Now.ToString("HH:mm:ss");
+                    rtbxLogs.Clear();
+                    rtbxLogs.AppendText(string.Format("[{0}] Welcome to xBot\r\n", time));
+                }
+                catch { }
+                Control initNav = TabPageV_Control01.Controls["TabPageV_Control01_ProjectHax"] ?? TabPageV_Control01.Controls["TabPageV_Control01_Login"];
+                if (initNav != null) TabPageV_Option_Click(initNav, EventArgs.Empty);
             }
             finally { ResumeLayout(true); LayoutXBotReference(); }
         }
 
         private void BuildXBotReferenceSidebar()
         {
-            var titles = new Dictionary<string, string> {
+            bool isTR = LocalizationManager.CurrentLanguage == "TR";
+            var titles = isTR ? new Dictionary<string, string> {
+                { "ProjectHax", "xBot" },
+                { "GameInfo", "İstatistikler" }, { "Login", "Silkroad Bağlantısı" },
+                { "AutoConfigure", "Otomatik Yapılandırma" }, { "TargetAssist", "Yardımcı" },
+                { "Notifications", "Bildirimler" },
+                { "Character", "Koruma" }, { "Town", "Şehir" },
+                { "Training", "Kasılma Alanı" }, { "Skills", "Saldırı" },
+                { "Pet", "Pet" }, { "Party", "Parti" },
+                { "UnionParty", "Birlik Partisi" }, { "PickFilter", "Toplama Filtresi" },
+                { "Quest", "Görev" }, { "Players", "Oyuncular" },
+                { "Guild", "Lonca" }, { "Academy", "Akademi" },
+                { "Inventory", "Envanter" }, { "Stall", "Tezgah" },
+                { "Trade", "Kervan" }, { "Alchemy", "Simya" },
+                { "Masteries", "Ustalıklar" }, { "Chat", "Sohbet" },
+                { "Minimap", "Harita" }, { "Sound", "Ses" },
+                { "KeyBindings", "Kısayollar" }, { "Conditions", "Koşullar" },
+                { "Settings", "Eklentiler" }
+            } : new Dictionary<string, string> {
+                { "ProjectHax", "xBot" },
                 { "GameInfo", "Statistics" }, { "Login", "Silkroad Login" },
-                { "Character", "Protection" }, { "Skills", "Attack" },
-                { "Training", "Training Area" }, { "Minimap", "Map" }, { "Town", "Town" }
+                { "AutoConfigure", "Auto Configure" }, { "TargetAssist", "Assistant" },
+                { "Notifications", "Notifications" },
+                { "Character", "Protection" }, { "Town", "Town" },
+                { "Training", "Training Area" }, { "Skills", "Attack" },
+                { "Pet", "Pet" }, { "Party", "Party" },
+                { "UnionParty", "Union Party" }, { "PickFilter", "Pick Filter" },
+                { "Quest", "Quest" }, { "Players", "Players" },
+                { "Guild", "Guild" }, { "Academy", "Academy" },
+                { "Inventory", "Inventory" }, { "Stall", "Stall" },
+                { "Trade", "Trade" }, { "Alchemy", "Alchemy" },
+                { "Masteries", "Masteries" }, { "Chat", "Chat" },
+                { "Minimap", "Map" }, { "Sound", "Sound" },
+                { "KeyBindings", "Key Bindings" }, { "Conditions", "Conditions" },
+                { "Settings", "Plugins" }
             };
             var oldButtons = TabPageV_Control01.Controls.OfType<Button>().ToDictionary(b => b.Name);
             var oldIcons = TabPageV_Control01.Controls.OfType<Label>().ToDictionary(b => b.Name);
@@ -81,9 +204,14 @@ namespace xBot.App
                 tabPickFilterRoot.Dock = DockStyle.Fill;
                 pnlWindow.Controls.Add(pick);
             }
-            string[] order = { "GameInfo", "Login", "Character", "Town", "Training", "Skills", "Party",
-                "PickFilter", "Quest", "Players", "Guild", "Academy", "Inventory", "Stall", "Trade",
-                "Alchemy", "TargetAssist", "Chat", "Minimap", "Settings" };
+            string[] order = {
+                "ProjectHax", "GameInfo", "Login", "AutoConfigure", "TargetAssist", "Notifications",
+                "Character", "Town", "Training", "Skills", "Pet", "Party",
+                "UnionParty", "PickFilter", "Quest", "Players", "Guild", "Academy",
+                "Inventory", "Stall", "Trade", "Alchemy", "Masteries",
+                "Chat", "Minimap", "Sound", "KeyBindings",
+                "Conditions", "Settings"
+            };
             var views = pnlWindow.Controls.OfType<Panel>()
                 .Where(p => p.Name.StartsWith("TabPageV_Control01_") && p.Name.EndsWith("_Panel")).ToList();
             views.Sort((a, b) => {
@@ -93,27 +221,59 @@ namespace xBot.App
             });
             TabPageV_Control01.Controls.Clear();
             TabPageV_Control01.Tag = null;
-            TabPageV_Control01.AutoScroll = true;
-            TabPageV_Control01.BorderStyle = BorderStyle.FixedSingle;
+            TabPageV_Control01.AutoScroll = false;
+            TabPageV_Control01.BorderStyle = BorderStyle.None;
             TabPageV_Control01.BackColor = Color.White;
+            TabPageV_Control01.MouseWheel -= Sidebar_MouseWheel;
+            TabPageV_Control01.MouseWheel += Sidebar_MouseWheel;
+            TabPageV_Control01.Paint += (s, e) =>
+            {
+                // 1px sağ ayrım çizgisi
+                using (var p = new Pen(Color.FromArgb(220, 220, 220)))
+                {
+                    e.Graphics.DrawLine(p, TabPageV_Control01.Width - 1, 0, TabPageV_Control01.Width - 1, TabPageV_Control01.Height);
+                }
+                // Seçili öğe mavi dikey göstergesi (X=3, Y=ortalanmış, W=3, H=16)
+                var selected = TabPageV_Control01.Tag as List<Control>;
+                if (selected != null && selected.Count > 0)
+                {
+                    Control sel = selected[0];
+                    int barY = sel.Top + (sel.Height - 16) / 2;
+                    using (var b = new SolidBrush(Color.FromArgb(0, 103, 192)))
+                    using (var path = Theme.DarkTheme.CreateRoundedRectangle(new Rectangle(3, barY, 3, 16), 1))
+                    {
+                        e.Graphics.FillPath(b, path);
+                    }
+                }
+                // phBot zarif 2px overlay kaydırma çubuğu (X=Width-2, W=2)
+                int viewH = TabPageV_Control01.ClientSize.Height;
+                if (_sidebarTotalHeight > viewH && viewH > 0)
+                {
+                    int maxScroll = _sidebarTotalHeight - viewH;
+                    int thumbH = Math.Max(28, (viewH * viewH) / _sidebarTotalHeight);
+                    int thumbY = (_sidebarScrollOffset * (viewH - thumbH)) / maxScroll;
+                    using (var b = new SolidBrush(Color.FromArgb(141, 141, 141)))
+                    {
+                        e.Graphics.FillRectangle(b, TabPageV_Control01.Width - 2, thumbY, 2, thumbH);
+                    }
+                }
+            };
             TabPageV_ColorSelected = PhBotSelect;
             TabPageV_ColorHover = PhBotHover;
-            var brand = new Label { Name = "XBotBrand", Text = ProductName, AutoSize = false,
-                Location = new Point(10, 6), Size = new Size(180, 30), TextAlign = ContentAlignment.MiddleLeft };
-            TabPageV_Control01.Controls.Add(brand);
-            int y = 42;
+            int y = 6;
             foreach (Panel view in views)
             {
                 string key = view.Name.Replace("TabPageV_Control01_", "").Replace("_Panel", "");
+                if (Array.IndexOf(order, key) < 0) continue;
                 string name = view.Name.Substring(0, view.Name.Length - 6);
                 string title;
                 if (!titles.TryGetValue(key, out title))
-                    title = key == "PickFilter" ? "Pick Filter" : key == "TargetAssist" ? "Target Assist" : key;
+                    title = key == "PickFilter" ? "Pick Filter" : key;
                 Button button;
                 bool existingButton = oldButtons.TryGetValue(name, out button);
                 if (!existingButton) button = new Button();
                 button.Name = name; button.Text = title;
-                button.SetBounds(30, y, 165, 27);
+                button.SetBounds(28, y, 148, 26);
                 button.TextAlign = ContentAlignment.MiddleLeft;
                 button.FlatStyle = FlatStyle.Flat; button.BackColor = Color.White;
                 button.TabIndex = _referenceViews.Count;
@@ -121,13 +281,19 @@ namespace xBot.App
                 button.FlatAppearance.BorderSize = 0;
                 button.FlatAppearance.MouseOverBackColor = PhBotHover;
                 button.FlatAppearance.MouseDownBackColor = PhBotSelect;
+                button.Tag = y;
+                button.MouseWheel -= Sidebar_MouseWheel;
+                button.MouseWheel += Sidebar_MouseWheel;
                 Label icon;
                 bool existingIcon = oldIcons.TryGetValue(name + "_Icon", out icon);
                 if (!existingIcon) icon = new Label();
                 icon.Name = name + "_Icon"; icon.Text = "";
                 icon.Image = PhBotIcons.Get(title);
-                icon.SetBounds(4, y, 26, 27);
+                icon.SetBounds(8, y, 18, 26);
                 icon.BackColor = Color.White; icon.Visible = true;
+                icon.Tag = y;
+                icon.MouseWheel -= Sidebar_MouseWheel;
+                icon.MouseWheel += Sidebar_MouseWheel;
                 foreach (Control item in new Control[] { button, icon })
                 {
                     if ((item == button && !existingButton) || (item == icon && !existingIcon))
@@ -143,15 +309,50 @@ namespace xBot.App
                 _referenceViews.Add(view);
                 y += 27;
             }
+            _sidebarTotalHeight = y + 6;
         }
 
         private void WrapXBotReferenceTabs(Panel view, Control strip)
         {
             if (strip == null || strip.Tag is TabControl) return;
+            // Players ve Guild phBot'ta tek paneldir (üstte sub-tab barındırmaz).
+            if (view == TabPageV_Control01_Players_Panel || view == TabPageV_Control01_Guild_Panel)
+            {
+                strip.Visible = false;
+                Panel mainP = (view == TabPageV_Control01_Players_Panel) ? TabPageH_Players_Option01_Panel : TabPageH_Guild_Option01_Panel;
+                if (mainP != null)
+                {
+                    mainP.Dock = DockStyle.Fill;
+                    mainP.Visible = true;
+                    mainP.BringToFront();
+                }
+                return;
+            }
+
             var buttons = strip.Controls.OfType<Button>().Where(b => b.Name.StartsWith("TabPageH_"))
                 .OrderBy(b => b.Left).ToList();
-            var tabs = new TabControl { Name = strip.Name + "_Tabs", Font = _referenceFont,
-                Padding = new Point(12, 5), Multiline = false };
+
+            if (view == TabPageV_Control01_Character_Panel)
+            {
+                string[] protOrder = { "Potions", "Sockets", "Return", "Pet Return", "Berserk", "Monster Preferences", "Devil's Spirit", "Scrolls", "Stat Points", "Misc." };
+                buttons.Sort((a, b) => {
+                    int ai = Array.IndexOf(protOrder, a.Text);
+                    int bi = Array.IndexOf(protOrder, b.Text);
+                    return (ai < 0 ? 100 : ai).CompareTo(bi < 0 ? 100 : bi);
+                });
+            }
+            else if (view == TabPageV_Control01_Skills_Panel)
+            {
+                string[] skillOrder = { "Attack", "Buffs", "Party", "Party Options", "Resurrect", "Healing", "Lure", "Attack Log" };
+                buttons.Sort((a, b) => {
+                    int ai = Array.IndexOf(skillOrder, a.Text);
+                    int bi = Array.IndexOf(skillOrder, b.Text);
+                    return (ai < 0 ? 100 : ai).CompareTo(bi < 0 ? 100 : bi);
+                });
+            }
+
+            var tabs = new TabControl { Name = strip.Name + "_Tabs", Font = PhBotFont(),
+                Padding = new Point(8, 3), Multiline = false };
             var selected = strip.Tag as Control;
             foreach (Button button in buttons)
             {
@@ -159,6 +360,9 @@ namespace xBot.App
                 if (panel == null) continue;
                 // Pick Filter now has its own navigation entry.
                 if (button == TabPageH_Town_Option03) { panel.Visible = false; continue; }
+                // Protection Info sekmesi phBot'ta yoktur (genel statlar Map sekmesindedir).
+                if (button == TabPageH_Character_Option01) { panel.Visible = false; continue; }
+
                 var page = new TabPage(button.Text) { Tag = button, BackColor = Color.White, Padding = new Padding(8) };
                 tabs.TabPages.Add(page);
                 _referencePages.Add(button, page);
@@ -170,10 +374,20 @@ namespace xBot.App
                 if (button == selected) tabs.SelectedTab = page;
             }
             if (tabs.TabCount == 0) { tabs.Dispose(); return; }
+            if (tabs.SelectedTab == null && tabs.TabPages.Count > 0) tabs.SelectedIndex = 0;
             strip.Tag = tabs;
             strip.Visible = false;
             view.Controls.Add(tabs);
             tabs.BringToFront();
+
+            if (view == TabPageV_Control01_Skills_Panel && Skills_lstvSkills != null)
+            {
+                Skills_lstvSkills.Parent = view;
+                Skills_lstvSkills.SetBounds(0, 0, 220, view.Height);
+                Skills_lstvSkills.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left;
+                Skills_lstvSkills.BringToFront();
+            }
+
             // Real TabPages own their contents, so both mouse and keyboard tab
             // changes show exactly one page, even while the old strip is hidden.
             tabs.SelectedIndexChanged += (s, e) => {
@@ -205,15 +419,112 @@ namespace xBot.App
             foreach (var entry in _referencePages) entry.Value.Text = entry.Key.Text;
             StyleXBotReference(pnlWindow);
             PreparePotionCaptions();
+            RefreshSidebarTitles();
             // Reapply the active row after recoloring the navigation list.
             var selected = TabPageV_Control01.Tag as List<Control>;
             if (selected != null) foreach (Control c in selected) c.BackColor = PhBotSelect;
+            bool isTR = LocalizationManager.CurrentLanguage == "TR";
+            if (_phBotBtnLaunch != null) _phBotBtnLaunch.Text = isTR ? "Clienti Başlat" : "Launch";
+            if (_phBotBtnStart != null) _phBotBtnStart.Text = isTR ? "Botu Başlat" : "Start Bot";
+            if (_phBotBtnClientless != null) _phBotBtnClientless.Text = isTR ? "Clienti Kapat" : "Kill Client";
+            if (_phBotBtnStop != null) _phBotBtnStop.Text = isTR ? "Botu Durdur" : "Stop Bot";
+            if (_phBotBtnHide != null) _phBotBtnHide.Text = isTR ? "Clienti Gizle" : "Hide Client";
+            if (_phBotBtnReturn != null) _phBotBtnReturn.Text = isTR ? "Şehre Dön" : "Return Scroll";
+            if (_phBotCopyright != null) _phBotCopyright.Text = "©2026 xBot";
+            UpdatePhBotTitle();
             LayoutXBotReference();
+        }
+
+        // ApplyLanguageToWindow eski dikey buton metinlerini ezdiği için
+        // sidebar başlıkları burada phBot kanonik isimlerine sabitlenir.
+        private void RefreshSidebarTitles()
+        {
+            try
+            {
+                bool isTR = LocalizationManager.CurrentLanguage == "TR";
+                var titles = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
+                    { "TabPageV_Control01_ProjectHax", "xBot" },
+                    { "TabPageV_Control01_GameInfo", isTR ? "İstatistikler" : "Statistics" },
+                    { "TabPageV_Control01_Login", isTR ? "Silkroad Bağlantısı" : "Silkroad Login" },
+                    { "TabPageV_Control01_AutoConfigure", isTR ? "Otomatik Yapılandırma" : "Auto Configure" },
+                    { "TabPageV_Control01_TargetAssist", isTR ? "Yardımcı" : "Assistant" },
+                    { "TabPageV_Control01_Notifications", isTR ? "Bildirimler" : "Notifications" },
+                    { "TabPageV_Control01_Character", isTR ? "Koruma" : "Protection" },
+                    { "TabPageV_Control01_Town", isTR ? "Şehir" : "Town" },
+                    { "TabPageV_Control01_Training", isTR ? "Kasılma Alanı" : "Training Area" },
+                    { "TabPageV_Control01_Skills", isTR ? "Saldırı" : "Attack" },
+                    { "TabPageV_Control01_Pet", "Pet" },
+                    { "TabPageV_Control01_Party", isTR ? "Parti" : "Party" },
+                    { "TabPageV_Control01_UnionParty", isTR ? "Birlik Partisi" : "Union Party" },
+                    { "TabPageV_Control01_PickFilter", isTR ? "Toplama Filtresi" : "Pick Filter" },
+                    { "TabPageV_Control01_Quest", isTR ? "Görev" : "Quest" },
+                    { "TabPageV_Control01_Players", isTR ? "Oyuncular" : "Players" },
+                    { "TabPageV_Control01_Guild", isTR ? "Lonca" : "Guild" },
+                    { "TabPageV_Control01_Academy", isTR ? "Akademi" : "Academy" },
+                    { "TabPageV_Control01_Inventory", isTR ? "Envanter" : "Inventory" },
+                    { "TabPageV_Control01_Stall", isTR ? "Tezgah" : "Stall" },
+                    { "TabPageV_Control01_Trade", isTR ? "Kervan" : "Trade" },
+                    { "TabPageV_Control01_Alchemy", isTR ? "Simya" : "Alchemy" },
+                    { "TabPageV_Control01_Masteries", isTR ? "Ustalıklar" : "Masteries" },
+                    { "TabPageV_Control01_Chat", isTR ? "Sohbet" : "Chat" },
+                    { "TabPageV_Control01_Minimap", isTR ? "Harita" : "Map" },
+                    { "TabPageV_Control01_Sound", isTR ? "Ses" : "Sound" },
+                    { "TabPageV_Control01_KeyBindings", isTR ? "Kısayollar" : "Key Bindings" },
+                    { "TabPageV_Control01_Conditions", isTR ? "Koşullar" : "Conditions" },
+                    { "TabPageV_Control01_Settings", isTR ? "Eklentiler" : "Plugins" }
+                };
+                if (TabPageV_Control01 != null)
+                {
+                    foreach (Control c in TabPageV_Control01.Controls)
+                    {
+                        Button b = c as Button;
+                        if (b == null) continue;
+                        string t;
+                        if (titles.TryGetValue(b.Name, out t))
+                        {
+                            try { if (b.Text != t) b.Text = t; } catch { }
+                            try
+                            {
+                                Label icon = TabPageV_Control01.Controls[b.Name + "_Icon"] as Label;
+                                if (icon != null) icon.Image = PhBotIcons.Get(t);
+                            }
+                            catch { }
+                        }
+                    }
+                }
+                // Protection > Return sekmesi dil değişiminde "Protection"a dönmesin.
+                try
+                {
+                    if (TabPageH_Character_Option03 != null && TabPageH_Character_Option03.Text != "Return")
+                        TabPageH_Character_Option03.Text = "Return";
+                }
+                catch { }
+                // Hesap kombo ilk öğesi + gecikme birimi dile uysun.
+                try
+                {
+                    if (Login_cmbxSavedAccounts != null && Login_cmbxSavedAccounts.Items.Count > 0)
+                    {
+                        Login_cmbxSavedAccounts.Items[0] = isTR ? "[Yeni / Özel Hesap]" : "[New / Custom Account]";
+                    }
+                }
+                catch { }
+                try
+                {
+                    if (lblLoginDelaySec != null)
+                        lblLoginDelaySec.Text = isTR ? "sn" : "sec";
+                }
+                catch { }
+            }
+            catch (Exception ex) { PhBotDebug("sidebar titles: " + ex.Message); }
         }
 
         private void StyleXBotReference(Control control)
         {
             if (control is QuestPanel) return; // Quest already supplies its light table theme.
+            if (control.Name != null && (control.Name.StartsWith("ProjectHax_pnlCloud") || control.Name.StartsWith("ProjectHax_pnlSocial") || control.Name.StartsWith("ProjectHax_btnSocial_") || control.Name == "ProjectHax_btnCloud" || control.Name == "ProjectHax_lblCloudTitle" || control.Name == "ProjectHax_lblCloudSubtitle"))
+                return;
+            if (control.Parent != null && (control.Parent.Name == "ProjectHax_pnlCloud" || control.Parent.Name == "ProjectHax_pnlSocial"))
+                return;
             control.Font = _referenceFont;
             control.ForeColor = Color.Black;
             control.BackColor = control == pnlWindow || control == _phBotActionsPanel || control == _referenceTools
@@ -222,9 +533,26 @@ namespace xBot.App
             if (button != null)
             {
                 bool sidebar = button.Parent == TabPageV_Control01;
-                button.FlatStyle = sidebar ? FlatStyle.Flat : FlatStyle.Standard;
-                button.UseVisualStyleBackColor = !sidebar;
-                button.BackColor = sidebar ? Color.White : PhBotBg;
+                if (sidebar)
+                {
+                    button.FlatStyle = FlatStyle.Flat;
+                    button.FlatAppearance.BorderSize = 0;
+                    button.BackColor = Color.White;
+                }
+                else if (button.Parent == _phBotActionsPanel || (button.Name != null && button.Name.StartsWith("ProjectHax_")))
+                {
+                    button.FlatStyle = FlatStyle.Flat;
+                    button.FlatAppearance.BorderSize = 1;
+                    button.FlatAppearance.BorderColor = Color.FromArgb(210, 212, 216);
+                    button.BackColor = Color.FromArgb(246, 247, 248);
+                    button.ForeColor = Color.FromArgb(30, 30, 30);
+                }
+                else
+                {
+                    button.FlatStyle = FlatStyle.Standard;
+                    button.UseVisualStyleBackColor = true;
+                    button.BackColor = PhBotBg;
+                }
                 button.Padding = Padding.Empty;
             }
             var check = control as CheckBox;
@@ -253,32 +581,77 @@ namespace xBot.App
             try
             {
                 int w = pnlWindow.ClientSize.Width, h = pnlWindow.ClientSize.Height;
-                int sidebar = Math.Max(196, Math.Min(256, w / 5));
-                const int margin = 12, gap = 12, bottom = 158;
-                int x = margin + sidebar + gap;
-                int contentW = Math.Max(600, w - x - margin);
-                int contentH = Math.Max(380, h - bottom - margin * 3);
-                TabPageV_Control01.SetBounds(margin, margin, sidebar, h - 2 * margin);
+                int sidebar = 195;
+                const int margin = 8;
+                int x = 205;
+                int contentW = Math.Max(500, w - x - margin);
+                const int bottom = 85; // exact 3-row button grid height
+                int logY = h - bottom - margin - 20;
+                int contentH = logY - margin - 4;
+
+                TabPageV_Control01.SetBounds(0, 0, sidebar, h);
+                TabPageV_Control01.BorderStyle = BorderStyle.None;
+                TabPageV_Control01.BackColor = Color.White;
+
                 foreach (Control c in TabPageV_Control01.Controls)
-                    if (c is Button) c.Width = sidebar - 54; // reserve the vertical scrollbar; never scroll horizontally
+                {
+                    if (c is Button)
+                    {
+                        c.Left = 28;
+                        c.Width = 148;
+                    }
+                    else if (c is Label)
+                    {
+                        c.Left = 8;
+                        c.Width = 18;
+                    }
+                }
+                UpdateSidebarItemPositions();
+
                 foreach (Panel view in _referenceViews)
                 {
                     view.SetBounds(x, margin, contentW, contentH);
                     foreach (TabControl tabs in view.Controls.OfType<TabControl>())
                     {
-                        int left = view == TabPageV_Control01_Skills_Panel ? Math.Min(250, contentW / 4) + gap : 0;
+                        int left = (view == TabPageV_Control01_Skills_Panel) ? 185 : 0;
                         tabs.SetBounds(left, 0, contentW - left, contentH);
                     }
+                    if (view == TabPageV_Control01_Skills_Panel && Skills_lstvSkills != null)
+                    {
+                        Skills_lstvSkills.SetBounds(0, 0, 180, contentH);
+                    }
                 }
-                int logY = margin + contentH + gap;
-                const int actionsW = 250;
-                rtbxLogs.SetBounds(x, logY, contentW - actionsW - gap, 120);
+
+                const int actionsW = 212;
+
+                rtbxLogs.SetBounds(x, logY, contentW - actionsW - 10, bottom);
                 rtbxLogs.BorderStyle = BorderStyle.FixedSingle;
-                _referenceTools.SetBounds(x, logY + 128, contentW - actionsW - gap, 28);
-                _phBotActionsPanel.SetBounds(w - margin - actionsW, logY, actionsW, bottom);
+                rtbxLogs.DetectUrls = false;
+                rtbxLogs.BackColor = Color.White;
+                rtbxLogs.ForeColor = Color.Black;
+                rtbxLogs.Visible = true;
+                rtbxLogs.BringToFront();
+
+                if (_referenceTools != null) _referenceTools.Visible = false;
+                _phBotActionsPanel.SetBounds(w - margin - actionsW, logY, actionsW, bottom + 24);
                 Button[] actions = { _phBotBtnLaunch, _phBotBtnStart, _phBotBtnClientless, _phBotBtnStop, _phBotBtnHide, _phBotBtnReturn };
-                for (int i = 0; i < actions.Length; i++) actions[i].SetBounds((i % 2) * 130, 4 + (i / 2) * 39, 120, 28);
-                _phBotCopyright.SetBounds(0, 132, actionsW, 22);
+                for (int i = 0; i < actions.Length; i++)
+                {
+                    actions[i].SetBounds((i % 2) * 107, (i / 2) * 29, 103, 27);
+                    actions[i].Font = new Font("Tahoma", 7.5f, FontStyle.Regular);
+                    actions[i].FlatStyle = FlatStyle.Flat;
+                    actions[i].FlatAppearance.BorderSize = 1;
+                    actions[i].FlatAppearance.BorderColor = Color.FromArgb(210, 212, 216);
+                    actions[i].BackColor = Color.FromArgb(246, 247, 248);
+                    actions[i].ForeColor = Color.FromArgb(30, 30, 30);
+                    actions[i].Padding = Padding.Empty;
+                    actions[i].Margin = Padding.Empty;
+                }
+                _phBotCopyright.Text = "©2026 xBot";
+                _phBotCopyright.SetBounds(0, 88, actionsW, 16);
+                _phBotCopyright.TextAlign = ContentAlignment.MiddleCenter;
+                _phBotCopyright.Font = new Font("Tahoma", 7.5f, FontStyle.Regular);
+                _phBotCopyright.ForeColor = Color.FromArgb(60, 60, 60);
                 LayoutXBotSkillPages();
             }
             finally { _referenceLayingOut = false; }
@@ -288,10 +661,8 @@ namespace xBot.App
         {
             // Existing settings groups keep their data bindings. A wrapping flow
             // provides natural reading order and scrolling on smaller windows.
-            PrepareXBotLogin();
-            FlowReferenceGroups(TabPageV_Control01_Login_Panel);
-            FlowReferenceGroups(TabPageH_Town_Option01_Panel);
-            FlowReferenceGroups(TabPageV_Control01_Alchemy_Panel);
+            // Login ve Alchemy sekmeleri phBot koordinat düzenindedir (LayoutLoginInner, LayoutAlchemyInner);
+            // akış yerleşimi tablo ve grup düzenini bozduğu için akışa alınmaz.
             FlowReferenceGroups(TabPageH_Character_Option01_Panel);
             FlowReferenceGroups(TabPageH_Character_Option04_Panel);
             PrepareXBotPotions();
@@ -347,18 +718,44 @@ namespace xBot.App
         {
             if (lstPickItems == null) return;
             var page = tabPickFilterRoot.TabPages[0];
-            var footer = new Panel { Name = "XBotPickSearch", Dock = DockStyle.Bottom, Height = 105, BackColor = Color.White };
+            var footer = new Panel { Name = "XBotPickSearch", Dock = DockStyle.Bottom, Height = 72, BackColor = Color.White };
             foreach (Control c in page.Controls.Cast<Control>().Where(c => c != lstPickItems).ToArray())
             {
-                int y = c.Top - 205;
+                int y = c.Top - 204;
                 c.Anchor = AnchorStyles.Top | AnchorStyles.Left;
                 footer.Controls.Add(c);
                 c.Top = Math.Max(0, y);
+                if (c is Label && c.Text.Contains("SOX"))
+                {
+                    c.Size = new Size(Math.Max(200, footer.Width - 235), 36);
+                    c.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+                }
+            }
+            if (txtPickSearch != null)
+            {
+                txtPickSearch.Location = new Point(330, 4);
+                txtPickSearch.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             }
             page.Controls.Add(footer);
-            page.Padding = new Padding(8);
+            page.Padding = new Padding(6);
             lstPickItems.Dock = DockStyle.Fill;
             lstPickItems.BringToFront();
+            footer.Resize += (s, e) =>
+            {
+                if (txtPickSearch != null) txtPickSearch.Width = Math.Max(120, footer.Width - 336);
+                var btnReset = footer.Controls.OfType<Button>().FirstOrDefault(b => b.Text == "Reset");
+                var btnUpdate = footer.Controls.OfType<Button>().FirstOrDefault(b => b.Text == "Update");
+                var btnClear = footer.Controls.OfType<Button>().FirstOrDefault(b => b.Text == "Clear");
+                if (btnReset != null) { btnReset.Location = new Point(footer.Width - 76, 32); btnReset.BringToFront(); }
+                if (btnUpdate != null) { btnUpdate.Location = new Point(footer.Width - 152, 32); btnUpdate.BringToFront(); }
+                if (btnClear != null) { btnClear.Location = new Point(footer.Width - 228, 32); btnClear.BringToFront(); }
+                var lblNote = footer.Controls.OfType<Label>().FirstOrDefault(l => l.Text.Contains("SOX"));
+                if (lblNote != null)
+                {
+                    lblNote.Width = Math.Max(200, footer.Width - 235);
+                    lblNote.SendToBack();
+                }
+            };
         }
 
         private void FlowReferenceGroups(Panel host)
@@ -381,138 +778,31 @@ namespace xBot.App
 
         private void PrepareXBotPotions()
         {
-            var panel = TabPageH_Character_Option02_Panel;
-            var rows = new[] { Character_cbxUseHP, Character_cbxUseHPGrain, Character_cbxUseMP, Character_cbxUseMPGrain,
-                Character_cbxUseHPVigor, Character_cbxUseMPVigor, Character_cbxUseTransportHP, Character_cbxUsePetHP,
-                Character_cbxUsePillUniversal, Character_cbxUsePillPurification, Character_cbxUsePetsPill, Character_cbxUsePetHGP };
-            var values = new[] { Character_tbxUseHP, null, Character_tbxUseMP, null, Character_tbxUseHPVigor,
-                Character_tbxUseMPVigor, Character_tbxUseTransportHP, Character_tbxUsePetHP, null, null, null, Character_tbxUsePetHGP };
-            for (int i = 0; i < rows.Length; i++)
-            {
-                panel.Controls.Add(rows[i]);
-                rows[i].AutoSize = false;
-                rows[i].SetBounds(12, 10 + i * 32, 310, 26);
-                if (values[i] == null) continue;
-                panel.Controls.Add(values[i]);
-                values[i].SetBounds(334, 12 + i * 32, 58, 24);
-                panel.Controls.Add(new Label { Text = "%", Location = new Point(400, 15 + i * 32), AutoSize = true, Font = _referenceFont });
-            }
-            Character_gbxPotionsPlayer.Visible = Character_gbxPotionPet.Visible = false;
-            panel.AutoScrollMinSize = new Size(440, 410);
-            PreparePotionCaptions();
+            // phBot birebir iç düzen Window.PhBotInner.LayoutPotionsInner'a taşındı
+            // (17 satır + yüzde/gecikme kutuları). Çift yerleşimi engellemek için
+            // burası bilerek boştur.
+            return;
         }
 
         private void PreparePotionCaptions()
         {
-            foreach (CheckBox check in TabPageH_Character_Option02_Panel.Controls.OfType<CheckBox>())
-                check.Text = check.Text.Replace("%", "").TrimEnd();
+            // Bkz. PrepareXBotPotions.
+            return;
         }
 
         private void PrepareXBotTraining()
         {
-            var panel = TabPageH_Training_Option01_Panel;
-            var details = new GroupBox { Name = "XBotAreaDetails", Text = "Training Area", Size = new Size(470, 190), BackColor = Color.White, Font = _referenceFont };
-            // Move the original editor as a whole, translating its coordinates;
-            // named controls continue to be read by the route and settings code.
-            var editor = panel.Controls.Cast<Control>().Where(c => c != Training_lstvAreas && c != gbxReturnToArea).ToArray();
-            foreach (Control c in editor) details.Controls.Add(c);
-            var right = new FlowLayoutPanel { Name = "XBotAreaEditor", Dock = DockStyle.Fill,
-                FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, BackColor = Color.White };
-            details.Size = new Size(490, 250);
-            Control[] labels = { Training_lblRegion, Training_lblX, Training_lblY, Training_lblZ };
-            Control[] inputs = { Training_tbxRegion, Training_tbxX, Training_tbxY, Training_tbxZ };
-            for (int i = 0; i < labels.Length; i++)
-            {
-                labels[i].SetBounds(12 + i * 115, 30, 100, 22);
-                inputs[i].SetBounds(12 + i * 115, 58, 96, 26);
-            }
-            Training_btnGetCoordinates.SetBounds(12, 99, 146, 28);
-            Training_lblRadius.SetBounds(185, 100, 65, 26);
-            Training_tbxRadius.SetBounds(260, 100, 70, 26);
-            Training_lblScriptPath.SetBounds(12, 145, 125, 24);
-            Training_tbxScriptPath.SetBounds(12, 175, 420, 26);
-            Training_btnLoadScriptPath.SetBounds(440, 174, 32, 28);
-            Training_btnLoadScriptPath.Text = "...";
-            details.Controls.Add(Training_cbxWalkToCenter);
-            Training_cbxWalkToCenter.SetBounds(12, 213, 360, 26);
-            right.Controls.Add(details);
-            if (gbxReturnToArea != null)
-            {
-                gbxReturnToArea.Size = new Size(490, 285);
-                gbxReturnToArea.Margin = new Padding(3, 10, 3, 3);
-                gbxReturnToArea.Controls["lblReturnDesc"].SetBounds(12, 24, 460, 40);
-                gbxReturnToArea.Controls["lblReturnScript"].SetBounds(12, 69, 460, 24);
-                tbxReturnScriptPath.SetBounds(12, 98, 420, 26);
-                btnReturnBrowseScript.SetBounds(440, 97, 32, 28);
-                int y = 136;
-                foreach (CheckBox c in gbxReturnToArea.Controls.OfType<CheckBox>())
-                { c.SetBounds(12, y, 460, 24); y += 27; }
-                right.Controls.Add(gbxReturnToArea);
-            }
-            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, BackColor = Color.White };
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 28));
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 72));
-            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            layout.Controls.Add(Training_lstvAreas, 0, 0);
-            Training_lstvAreas.Dock = DockStyle.Fill;
-            layout.Controls.Add(right, 1, 0);
-            panel.Controls.Add(layout);
-            layout.BringToFront();
+            // phBot birebir iç düzen Window.PhBotInner2.LayoutTrainingAreaInner'a taşındı.
+            // Çift yerleşimi ve koordinat ezilmesini engellemek için burası bilerek boştur.
+            return;
         }
 
-        private bool _referenceSkillsLayout;
         private void LayoutXBotSkillPages()
         {
-            if (_referenceSkillsLayout || !_phBotClassicApplied) return;
-            _referenceSkillsLayout = true;
-            try
-            {
-                var host = TabPageV_Control01_Skills_Panel;
-                int sourceW = Math.Min(250, host.Width / 4);
-                Skills_lstvSkills.SetBounds(0, 0, sourceW, host.Height);
-                Skills_lstvSkills.HeaderStyle = ColumnHeaderStyle.None;
-                if (Skills_lstvSkills.Columns.Count > 0) Skills_lstvSkills.Columns[0].Width = sourceW - 24;
-                var pages = new[] { TabPageH_Skills_Option01_Panel, TabPageH_Skills_Option02_Panel };
-                for (int i = 0; i < pages.Length; i++)
-                {
-                    var p = pages[i];
-                    const int listX = 48;
-                    int listW = Math.Max(190, Math.Min(290, p.ClientSize.Width / 2 - 75));
-                    int listH = Math.Max(240, p.ClientSize.Height - 115);
-                    var combo = i == 0 ? Skills_cmbxAttackMobType : Skills_cmbxBuffMobType;
-                    combo.SetBounds(listX, 12, listW, 26);
-                    foreach (ListView list in p.Controls.OfType<ListView>())
-                    {
-                        list.SetBounds(listX, 50, listW, listH);
-                        list.HeaderStyle = ColumnHeaderStyle.None;
-                        if (list.Columns.Count > 0) list.Columns[0].Width = listW - 24;
-                    }
-                    var add = i == 0 ? Skills_btnAddAttack : Skills_btnAddBuff;
-                    var remove = i == 0 ? Skills_btnRemAttack : Skills_btnRemBuff;
-                    add.Text = "▶"; remove.Text = "◀";
-                    add.SetBounds(0, 138, 38, 32); remove.SetBounds(0, 180, 38, 32);
-                    ToolTips.SetToolTip(add, "Add selected skill"); ToolTips.SetToolTip(remove, "Remove selected skill");
-                    int optionsX = listX + listW + 58;
-                    if (i == 0)
-                    {
-                        int row = 18;
-                        foreach (Control c in new Control[] { Skills_cbxCastInOrder, cbxSkillNoAttack, cbxSkillDevil })
-                        {
-                            if (c == null) continue;
-                            c.SetBounds(optionsX, row, Math.Max(200, p.Width - optionsX - 12), 40);
-                            row += 48;
-                        }
-                        int n = 0;
-                        foreach (Button b in p.Controls.OfType<Button>().Where(b => b.Text == "▲" || b.Text == "▼"))
-                        { b.SetBounds(listX + listW + 8, 138 + n++ * 42, 38, 32); }
-                        lblSkillImbue.Text = "Imbue";
-                        lblSkillImbue.SetBounds(listX, listH + 54, listW, 20);
-                        cmbxImbue.SetBounds(listX, listH + 76, listW, 26);
-                        lblSkillRuntimeStatus.SetBounds(optionsX, 176, Math.Max(200, p.Width - optionsX - 16), 50);
-                    }
-                }
-            }
-            finally { _referenceSkillsLayout = false; }
+            // phBot birebir iç düzen Window.PhBotInner.LayoutAttackInner /
+            // LayoutBuffsInner'a taşındı (tam sağ sütun + Imbue). Çift
+            // yerleşimi engellemek için burası bilerek boştur.
+            return;
         }
     }
 }

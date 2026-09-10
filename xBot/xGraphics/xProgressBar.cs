@@ -20,6 +20,10 @@ namespace xGraphics
 		public Color DisplayShadow { get; set; }
 		[Category("Appearance")]
 		public int BackColorDegradationLevel { get; set; }
+		[Category("Appearance")]
+		public Color TrackColor { get; set; } = Color.FromArgb(235, 235, 235);
+		[Category("Appearance")]
+		public Color BorderColor { get; set; } = Color.FromArgb(180, 180, 180);
 
 		[Category("Behavior")]
 		public ulong Value
@@ -85,11 +89,11 @@ namespace xGraphics
 			// Rounded track background
 			using (System.Drawing.Drawing2D.GraphicsPath trackPath = CreateRoundedRect(outerRect, radius))
 			{
-				using (SolidBrush trackBrush = new SolidBrush(Color.FromArgb(24, 28, 38)))
+				using (SolidBrush trackBrush = new SolidBrush(TrackColor))
 				{
 					g.FillPath(trackBrush, trackPath);
 				}
-				using (Pen borderPen = new Pen(Color.FromArgb(45, 51, 69), 1f))
+				using (Pen borderPen = new Pen(BorderColor, 1f))
 				{
 					g.DrawPath(borderPen, trackPath);
 				}
@@ -116,16 +120,21 @@ namespace xGraphics
 				}
 			}
 
-			// Centered text with shadow
+			// Centered text
 			string text = GetDisplayText();
 			SizeF len = g.MeasureString(text, Font);
 			int px = Convert.ToInt32((base.Width / 2) - len.Width / 2f);
 			int py = Convert.ToInt32((base.Height / 2) - len.Height / 2f);
-			using (SolidBrush shadowBrush = new SolidBrush(Color.FromArgb(160, 0, 0, 0)))
+			Color txtColor = ForeColor;
+			if (txtColor.IsEmpty) txtColor = Color.Black;
+			if (txtColor.R > 180 && txtColor.G > 180 && txtColor.B > 180)
 			{
-				g.DrawString(text, Font, shadowBrush, px + 1, py + 1);
+				using (SolidBrush shadowBrush = new SolidBrush(Color.FromArgb(140, 0, 0, 0)))
+				{
+					g.DrawString(text, Font, shadowBrush, px + 1, py + 1);
+				}
 			}
-			using (SolidBrush textBrush = new SolidBrush(Color.White))
+			using (SolidBrush textBrush = new SolidBrush(txtColor))
 			{
 				g.DrawString(text, Font, textBrush, px, py);
 			}

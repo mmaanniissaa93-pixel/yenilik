@@ -529,7 +529,7 @@ namespace xBot.App
             lblGeneralLoginDelay = new Label { Text = LocalizationManager.Get("UI_LoginDelay", "Giriş Gecikmesi:"), Location = new Point(280, 84), AutoSize = true, ForeColor = Theme.DarkTheme.TextMuted };
             nudGeneralLoginDelay = new NumericUpDown { Location = new Point(400, 80), Size = new Size(55, 24), Minimum = 0, Maximum = 60, Value = LoginStrategyManager.LoginDelaySeconds, BackColor = Theme.DarkTheme.BgInput, ForeColor = Theme.DarkTheme.TextPrimary };
             nudGeneralLoginDelay.ValueChanged += (s, e) => { LoginStrategyManager.LoginDelaySeconds = (int)nudGeneralLoginDelay.Value; Settings.SaveBotSettings(); };
-            lblLoginDelaySec = new Label { Text = "sn", Location = new Point(460, 84), AutoSize = true, ForeColor = Theme.DarkTheme.TextMuted };
+            lblLoginDelaySec = new Label { Text = LocalizationManager.CurrentLanguage == "TR" ? "sn" : "sec", Location = new Point(460, 84), AutoSize = true, ForeColor = Theme.DarkTheme.TextMuted };
 
             lblGeneralWaitDC = new Label { Text = LocalizationManager.Get("UI_WaitAfterDC", "DC Sonrası Bekleme:"), Location = new Point(16, 130), AutoSize = true, ForeColor = Theme.DarkTheme.TextMuted };
             nudGeneralWaitAfterDC = new NumericUpDown { Location = new Point(190, 126), Size = new Size(65, 24), Minimum = 0, Maximum = 60, Value = LoginStrategyManager.WaitAfterDCMinutes, BackColor = Theme.DarkTheme.BgInput, ForeColor = Theme.DarkTheme.TextPrimary };
@@ -664,7 +664,7 @@ namespace xBot.App
 
         public void RepositionStrategyCardControls()
         {
-            if (gbxStrategy == null) return;
+            if (_phBotClassicApplied || gbxStrategy == null) return;
             int cardW = gbxStrategy.Width;
 
             // Row 1: Checkboxes
@@ -718,7 +718,7 @@ namespace xBot.App
             try
             {
                 Login_cmbxSavedAccounts.Items.Clear();
-                Login_cmbxSavedAccounts.Items.Add("[Yeni / Özel Hesap]");
+                Login_cmbxSavedAccounts.Items.Add(LocalizationManager.CurrentLanguage == "TR" ? "[Yeni / Özel Hesap]" : "[New / Custom Account]");
 
                 int selectIdx = 0;
                 string targetUser = selectUsername ?? AccountManager.SelectedAccountUsername;
@@ -3352,7 +3352,7 @@ namespace xBot.App
                 Location = new Point(6, -1000),
                 Size = new Size(600, 20),
                 ForeColor = Color.LightSkyBlue,
-                Text = "Skill durumu: Hazır"
+                Text = "Skill status: Ready"
             };
             if (ToolTips != null)
                 ToolTips.SetToolTip(lblSkillRuntimeStatus, "Son skill denemesinin sonucu ve fallback durumu");
@@ -3436,7 +3436,7 @@ namespace xBot.App
                 }
                 else
                 {
-                    cmbxImbue.Text = "Çin imbue bulunamadı";
+                    cmbxImbue.Text = "No Chinese imbue found";
                 }
             }
             finally

@@ -1,5 +1,13 @@
 # Changelog
 
+- Login sekmesi phBot dizilimine çevrildi (Gateway/SOCKS/Switch/JCP/Client/Queue/Hide/Captcha/XTrap/Reduce Memory/Server Capacity/Characters); StartBot kutusu standart taşıma yoluna alındı, çakışma bekçisi eklendi.
+
+- Login ekranı kusurları: modern alt şerit klasikte gizlendi (içeriğin üstündeki siyah bar gitti), hesap kombo/kısaltma metinleri dile bağlandı, dil değişiminde sidebar başlıkları phBot isimlerine sabitlendi.
+
+- Başlangıç çökmesi düzeltildi: preserialized resource'lar için `System.Resources.Extensions` kapanışı repoya eklendi ve `App.config`'e elle binding redirect'ler sabitlendi; pencere artık ekran ortasında açılıyor.
+
+- phBot birebir tüm-menü turu (ekran görüntüleriyle doğrulandı): 28 sidebar girişi phBot sırasında; Attack/Buffs/Potions/Town Buy/Party/Players/Guild/Academy/Pet/Union/Stall/Inventory/Sound/Key/Conditions/Notifications/AutoConfigure/Masteries iç düzenleri md birebir kuruldu, bağlı kontroller aynı nesne olarak taşındı. Eksik 8 sidebar sekmesi eklendi, davet/trace/unsummon gibi hazır API'lı butonlar gerçekten bağlandı. `ReferenceLayoutPreview.ps1` 71 sekme geçişiyle PASS veriyor. Derleme altyapısı düzeltildi (`System.Resources.Extensions` + kapanışı, preserialized resources).
+
 - phBot birebir iç düzenler (Attack/Buffs/Potions): aynı bağlı kontroller phBot geometrisine taşındı — skill listesi solda, ▶◀ transfer, gri Type kombo, dokuz mob-tipi listesi üst üste, ▲▼, sağ seçenek sütunu (phBot sırası ve varsayılan işaretleriyle), altta Imbue; Buffs'ta ▲▼ buff listesine gerçekten bağlı, Devil Spirit kutusu Attack'tan Buffs'a taşındı; Potions'ta grup kutuları çözülüp 17 satır phBot sırasına dizildi (yüzde + gecikme kutularıyla). Bot döngüsü aynı nesneleri okuduğu için davranış korunur; eksik kutular TODO backend ile görsel klondur.
 
 - phBot görsel sadakat turu: sidebar'daki noktalar yerine kodla çizilen 27 siyah glif (izgara render ile doğrulandı), 9 içerik şeridi gerçek WinForms TabControl sekmelerine sarıldı (tıklama + programatik seçim çift yönlü senkron, dil değişiminde başlık tazeleme), sidebar tam boya alındı, alt aksiyon butonları büyütüldü (132x30), pencere 1420x880 oldu, varsayılan dil phBot'taki gibi İngilizce yapıldı. Sekme sarma sırasında `TabPageH_Option_Click` çökmesi engellendi.
