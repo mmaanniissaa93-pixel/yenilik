@@ -280,9 +280,16 @@ namespace xBot.App
 				System.Diagnostics.Debug.WriteLine("[Window.Log] " + ex.Message);
 			}
 		}
-		public void SetTitle()
+		public 		void SetTitle()
 		{
 			this.InvokeIfRequired(() => {
+				if (UsePhBotClassic && _phBotClassicApplied)
+				{
+					UpdatePhBotTitle();
+					this.lblHeaderText02.Text = "v" + this.ProductVersion;
+					this.NotifyIcon.Text = this.ProductName + " v" + this.ProductVersion + "\nMade by JellyBitz";
+					return;
+				}
 				this.Text = this.ProductName;
 				this.lblHeaderText02.Text = "v" + this.ProductVersion;
 				this.NotifyIcon.Text = this.ProductName + " v" + this.ProductVersion + "\nMade by JellyBitz";
@@ -291,6 +298,16 @@ namespace xBot.App
 		public void SetTitle(string server, string charname,Process client = null)
 		{
 			string wTitle = this.ProductName + " - [" + server + "] " + charname;
+			if (UsePhBotClassic && _phBotClassicApplied)
+			{
+				try
+				{
+					string st = "Disconnected";
+					try { st = Bot.Get.isBotting ? "Connected" : "Disconnected"; } catch { }
+					wTitle = string.Format("{0} v{1} - {2} - {3}", this.ProductName, this.ProductVersion, charname, st);
+				}
+				catch { }
+			}
 			this.InvokeIfRequired(() => {
 				this.Text = wTitle;
 				this.lblHeaderText02.Text = charname;
@@ -1906,6 +1923,7 @@ namespace xBot.App
 		/// </summary>
 		private void Control_Focus_Enter(object sender, EventArgs e)
 		{
+			if (UsePhBotClassic) return;
 			Control c = (Control)sender;
 			string[] controlTypes = new string[] { "cbx", "cmbx", "rtbx", "tbx", "lstv", "btn" };
 			foreach (string t in controlTypes)
@@ -1933,6 +1951,7 @@ namespace xBot.App
 		/// </summary>
 		private void Control_Focus_Leave(object sender, EventArgs e)
 		{
+			if (UsePhBotClassic) return;
 			Control c = (Control)sender;
 			string[] controlTypes = new string[] { "cbx", "cmbx", "rtbx", "tbx", "lstv", "btn" };
 			foreach (string t in controlTypes)
@@ -2031,6 +2050,54 @@ namespace xBot.App
 		private void TabPageH_Option_Click(object sender, EventArgs e)
 		{
 			Control c = (Control)sender;
+			TabPage referencePage;
+			if (_referencePages.TryGetValue(c, out referencePage))
+			{
+				((TabControl)referencePage.Parent).SelectedTab = referencePage;
+				return;
+			}
+			// Sarılmış şeritlerde strip.Tag bir TabControl'dür; eski Tag
+			// muhasebesi (Button bekler) burada geçersizdir.
+			TabControl wrappedTc = null;
+			try { wrappedTc = c.Parent.Tag as TabControl; } catch { }
+			if (wrappedTc != null)
+			{
+				try
+				{
+					Control pp = c.Parent.Parent.Controls[c.Name + "_Panel"];
+					if (pp != null && !pp.Visible) pp.Visible = true;
+				}
+				catch { }
+				if (_tabSync) return;
+				_tabSync = true;
+				try
+				{
+					foreach (Control s in c.Parent.Controls)
+					{
+						Button sb = s as Button;
+						if (sb == null || sb == c) continue;
+						if (!sb.Name.StartsWith("TabPageH_") || sb.Name.EndsWith("_Panel")) continue;
+						try
+						{
+							Control op = c.Parent.Parent.Controls[sb.Name + "_Panel"];
+							if (op != null) op.Visible = false;
+						}
+						catch { }
+					}
+					c.BackColor = c.Parent.BackColor;
+					foreach (TabPage tp in wrappedTc.TabPages)
+					{
+						if ((tp.Tag as Control) == c)
+						{
+							try { if (tp.Text != c.Text) tp.Text = c.Text; } catch { }
+							try { if (wrappedTc.SelectedTab != tp) wrappedTc.SelectedTab = tp; } catch { }
+							break;
+						}
+					}
+				}
+				finally { _tabSync = false; }
+				return;
+			}
 			if (c.Parent.Tag != null)
 			{
 				Control currentOption = (Control)c.Parent.Tag;
@@ -2085,7 +2152,14 @@ namespace xBot.App
 			rtbxLogs.AppendText(string.Format("{0} Welcome to {1} v{2} | Made by Engels \"JellyBitz\" Quintero{3}{0} Discord : JellyBitz#7643 | FaceBook : @ImJellyBitz", WinAPI.GetDate(), base.ProductName, base.ProductVersion, Environment.NewLine));
 			LogProcess();
 			Settings.LoadBotSettings();
-			ApplyModernTheme();
+			if (UsePhBotClassic)
+			{
+				try { ApplyPhBotClassicTheme(); } catch { try { ApplyModernTheme(); } catch { } }
+			}
+			else
+			{
+				ApplyModernTheme();
+			}
 			try { ApplyPickFilterLightTheme(); } catch { }
 			PopulateSavedAccounts();
 			// Load basic

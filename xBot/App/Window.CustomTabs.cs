@@ -282,7 +282,7 @@ namespace xBot.App
                 StartGameInfoLiveTimer();
                 StartCombatUiSyncTimer();
                 ApplyLanguageToWindow();
-                ApplyModernTheme();
+                if (!UsePhBotClassic) ApplyModernTheme();
                   ApplyPickFilterLightTheme();
             }
             catch (Exception ex)
@@ -3372,6 +3372,7 @@ namespace xBot.App
 
         private void RepositionSkillPanelControls()
         {
+            if (UsePhBotClassic) return;
             if (TabPageH_Skills_Option01_Panel == null) return;
             int panelW = TabPageH_Skills_Option01_Panel.Width;
             int panelH = TabPageH_Skills_Option01_Panel.Height;

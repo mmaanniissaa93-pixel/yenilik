@@ -1,0 +1,883 @@
+05:17:29 start classic
+05:17:29 before gbx=41 cards=6 toggles=5 mbtns=0 mtxt=0 lv=46/43 darkPanels=89 modernSidebar=visible=False
+05:17:29 paint stripped: 214
+05:17:29 after-neutralize gbx=47 cards=0 toggles=0 mbtns=0 mtxt=0 lv=46/43 darkPanels=89 modernSidebar=visible=False
+05:17:29 town child: Panel TabPageH_Town vis=False bg=FF161922 loc={X=0,Y=0} size={Width=1210, Height=32}
+05:17:29 town child: Panel TabPageH_Town_Option01_Panel vis=False bg=FF0F1117 loc={X=0,Y=34} size={Width=1210, Height=656}
+05:17:29 town child: Panel TabPageH_Town_Option02_Panel vis=False bg=FF0F1117 loc={X=0,Y=34} size={Width=1210, Height=656}
+05:17:29 town child: Panel TabPageH_Town_Option03_Panel vis=False bg=FF0F1117 loc={X=0,Y=34} size={Width=1210, Height=656}
+05:17:29 sidebar rebuilt: 56
+05:17:29 skills strip laid out: 8 tabs, width=519
+05:17:29 after-style gbx=47 cards=0 toggles=0 mbtns=0 mtxt=0 lv=54/0 darkPanels=9 modernSidebar=visible=False
+05:17:29 view SilkroadLogin: panel=vis=True loc={X=220,Y=50} size={Width=1210, Height=690} hash=52380055 kids=6
+05:17:29   kid: GroupBox Login_gbxConnection vis=True bg=FFF0F0F0 text=[Connection]
+05:17:29   kid: GroupBox Login_gbxLogin vis=True bg=FFF0F0F0 text=[Giriş Bilgileri (Login)]
+05:17:29   kid: GroupBox Login_gbxServers vis=True bg=FFF0F0F0 text=[Server list]
+05:17:29   kid: GroupBox Login_gbxAdvertising vis=False bg=FFF0F0F0 text=[]
+05:17:29   kid: GroupBox Login_gbxCharacters vis=False bg=FFF0F0F0 text=[Character list]
+05:17:29   kid: GroupBox  vis=True bg=FFF0F0F0 text=[GİRİŞ STRATEJİSİ VE OTOMASYON]
+05:17:29   loginctl: GroupBox Login_gbxConnection bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:17:29   loginctl: CheckBox Login_cbxUseReturnScroll bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:17:29   loginctl: CheckBox Login_cbxRelogin bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:17:29   loginctl: CheckBox Login_cbxGoClientless bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:17:29   loginctl: RadioButton Login_rbnClientless bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:17:29   loginctl: RadioButton Login_rbnClient bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:17:29   loginctl: GroupBox Login_gbxLogin bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:17:29   loginctl: GroupBox Login_gbxServers bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:17:29   loginctl: GroupBox Login_gbxAdvertising bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:17:29   loginctl: GroupBox Login_gbxCharacters bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:17:29   loginctl: GroupBox  bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:17:29   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:17:29   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:17:29   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:17:29   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:17:29   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:17:29   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:17:29   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:17:29   loginctl: RadioButton  bg=FFF0F0F0 parent=/FFF0F0F0
+05:17:29   loginctl: RadioButton  bg=FFF0F0F0 parent=/FFF0F0F0
+05:17:29 paintkey=found
+05:17:29 loginbox: Login_gbxConnection isField=False hash=12138304 parent=TabPageV_Control01_SilkroadLogin_Panel
+05:17:29 loginbox: Login_gbxLogin isField=False hash=42135876 parent=TabPageV_Control01_SilkroadLogin_Panel
+05:17:29 loginbox: Login_gbxServers isField=False hash=43678569 parent=TabPageV_Control01_SilkroadLogin_Panel
+05:17:29 loginbox: Login_gbxAdvertising isField=True hash=40093194 parent=TabPageV_Control01_SilkroadLogin_Panel
+05:17:29 loginbox: Login_gbxCharacters isField=False hash=57562809 parent=TabPageV_Control01_SilkroadLogin_Panel
+05:17:29 panelname: TabPageV_Control01_Protection_Panel n=1 38376892(vis=False,kids=5) 
+05:17:29 panelname: TabPageV_Control01_TrainingArea_Panel n=1 44855704(vis=False,kids=5) 
+05:17:29 panelname: TabPageV_Control01_Attack_Panel n=1 37355470(vis=False,kids=10) 
+05:17:29 panelname: TabPageV_Control01_Guild_Panel n=1 48630964(vis=False,kids=3) 
+05:17:29 panelname: TabPageV_Control01_Inventory_Panel n=1 37564172(vis=False,kids=5) 
+05:17:29 panelname: TabPageV_Control01_Chat_Panel n=1 2601186(vis=False,kids=10) 
+05:17:29 panelname: TabPageV_Control01_Players_Panel n=1 31665688(vis=False,kids=3) 
+05:17:29 panelname: TabPageV_Control01_Stall_Panel n=1 49554687(vis=False,kids=4) 
+05:17:29 panelname: TabPageV_Control01_Plugins_Panel n=1 6756797(vis=False,kids=5) 
+05:17:29 panelname: TabPageV_Control01_Map_Panel n=1 41580444(vis=False,kids=3) 
+05:17:29 panelname: TabPageV_Control01_Statistics_Panel n=1 42353227(vis=False,kids=10) 
+05:17:29 panelname: TabPageV_Control01_Party_Panel n=1 63386473(vis=False,kids=5) 
+05:17:29 panelname: TabPageV_Control01_SilkroadLogin_Panel n=1 52380055(vis=True,kids=6) 
+05:17:29 panelname: TabPageV_Control01_Academy_Panel n=1 1166200(vis=False,kids=1) 
+05:17:29 panelname: TabPageV_Control01_Town_Panel n=1 10495806(vis=False,kids=4) 
+05:17:29 panelname: TabPageV_Control01_Alchemy_Panel n=1 13875810(vis=False,kids=2) 
+05:17:29 panelname: TabPageV_Control01_TargetAssist_Panel n=1 1301106(vis=False,kids=6) 
+05:17:29 panelname: TabPageV_Control01_ProjectHax_Panel n=1 48303235(vis=False,kids=2) 
+05:17:29 panelname: TabPageV_Control01_AutoConfigure_Panel n=1 32075938(vis=False,kids=2) 
+05:17:29 panelname: TabPageV_Control01_Notifications_Panel n=1 20247990(vis=False,kids=4) 
+05:17:29 panelname: TabPageV_Control01_Pet_Panel n=1 48014184(vis=False,kids=1) 
+05:17:29 panelname: TabPageV_Control01_UnionParty_Panel n=1 29474473(vis=False,kids=3) 
+05:17:29 panelname: TabPageV_Control01_PickFilter_Panel n=1 63943666(vis=False,kids=1) 
+05:17:29 panelname: TabPageV_Control01_Quest_Panel n=1 38622084(vis=False,kids=1) 
+05:17:29 panelname: TabPageV_Control01_Trade_Panel n=1 12054440(vis=False,kids=4) 
+05:17:29 panelname: TabPageV_Control01_Masteries_Panel n=1 41381104(vis=False,kids=6) 
+05:17:29 panelname: TabPageV_Control01_Sound_Panel n=1 36885620(vis=False,kids=4) 
+05:17:29 panelname: TabPageV_Control01_KeyBindings_Panel n=1 63535124(vis=False,kids=1) 
+05:17:29 panelname: TabPageV_Control01_Conditions_Panel n=1 34945211(vis=False,kids=2) 
+05:17:29 training details: vis=False loc={X=312,Y=6} size={Width=892, Height=644} kids=15
+05:17:29 classic applied
+05:17:31 view SilkroadLogin: panel=vis=True loc={X=196,Y=4} size={Width=1198, Height=628} hash=52380055 kids=6
+05:17:31   kid: GroupBox Login_gbxConnection vis=True bg=FFF0F0F0 text=[Connection]
+05:17:31   kid: GroupBox Login_gbxLogin vis=True bg=FFF0F0F0 text=[Giriş Bilgileri (Login)]
+05:17:31   kid: GroupBox Login_gbxServers vis=True bg=FFF0F0F0 text=[Server list]
+05:17:31   kid: GroupBox Login_gbxAdvertising vis=False bg=FFF0F0F0 text=[]
+05:17:31   kid: GroupBox Login_gbxCharacters vis=False bg=FFF0F0F0 text=[Character list]
+05:17:31   kid: GroupBox  vis=True bg=FFF0F0F0 text=[GİRİŞ STRATEJİSİ VE OTOMASYON]
+05:17:31   loginctl: GroupBox Login_gbxConnection bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:17:31   loginctl: CheckBox Login_cbxUseReturnScroll bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:17:31   loginctl: CheckBox Login_cbxRelogin bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:17:31   loginctl: CheckBox Login_cbxGoClientless bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:17:31   loginctl: RadioButton Login_rbnClientless bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:17:31   loginctl: RadioButton Login_rbnClient bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:17:31   loginctl: GroupBox Login_gbxLogin bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:17:31   loginctl: GroupBox Login_gbxServers bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:17:31   loginctl: GroupBox Login_gbxAdvertising bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:17:31   loginctl: GroupBox Login_gbxCharacters bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:17:31   loginctl: GroupBox  bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:17:31   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:17:31   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:17:31   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:17:31   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:17:31   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:17:31   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:17:31   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:17:31   loginctl: RadioButton  bg=FFF0F0F0 parent=/FFF0F0F0
+05:17:31   loginctl: RadioButton  bg=FFF0F0F0 parent=/FFF0F0F0
+05:17:33 view Attack: panel=vis=True loc={X=196,Y=4} size={Width=1198, Height=628} hash=37355470 kids=10
+05:17:33   kid: Panel TabPageH_Skills vis=True bg=FFF0F0F0 kids=8
+05:17:33   kid: xListView Skills_lstvSkills vis=True bg=FFFFFFFF
+05:17:33   kid: Panel TabPageH_Skills_Option01_Panel vis=True bg=FFF0F0F0 kids=21
+05:17:33   kid: Panel TabPageH_Skills_Option02_Panel vis=False bg=FFF0F0F0 kids=11
+05:17:33   kid: Panel TabPageH_Skills_Option03_Panel vis=False bg=FFF0F0F0 kids=0
+05:17:33   kid: Panel TabPageH_Skills_OptionPartyOptions_Panel vis=False bg=FFF0F0F0 kids=5
+05:17:33   kid: Panel TabPageH_Skills_OptionResurrect_Panel vis=False bg=FFF0F0F0 kids=11
+05:17:33   kid: Panel TabPageH_Skills_OptionHealing_Panel vis=False bg=FFF0F0F0 kids=7
+05:17:33   kid: Panel TabPageH_Skills_OptionLure_Panel vis=False bg=FFF0F0F0 kids=13
+05:17:33   kid: Panel TabPageH_Skills_OptionAttackLog_Panel vis=False bg=FFF0F0F0 kids=2
+05:17:33 Panel TabPageH_Skills vis=True count=8 disposed=False loc={X=326,Y=0} size={Width=880, Height=30} bg=FFF0F0F0
+05:17:33   Button TabPageH_Skills_Option03 vis=True count=0 disposed=False loc={X=118,Y=0} size={Width=56, Height=23} bg=FFE8E8E8 text=[Party]
+05:17:33   Button TabPageH_Skills_Option02 vis=True count=0 disposed=False loc={X=60,Y=0} size={Width=56, Height=23} bg=FFE8E8E8 text=[Buffs]
+05:17:33   Button TabPageH_Skills_Option01 vis=True count=0 disposed=False loc={X=2,Y=0} size={Width=56, Height=23} bg=FFFFFFFF text=[Attack]
+05:17:33   Button TabPageH_Skills_OptionPartyOptions vis=True count=0 disposed=False loc={X=176,Y=0} size={Width=85, Height=23} bg=FFE8E8E8 text=[Party Options]
+05:17:33   Button TabPageH_Skills_OptionResurrect vis=True count=0 disposed=False loc={X=263,Y=0} size={Width=66, Height=23} bg=FFE8E8E8 text=[Resurrect]
+05:17:33   Button TabPageH_Skills_OptionHealing vis=True count=0 disposed=False loc={X=331,Y=0} size={Width=56, Height=23} bg=FFE8E8E8 text=[Healing]
+05:17:33   Button TabPageH_Skills_OptionLure vis=True count=0 disposed=False loc={X=389,Y=0} size={Width=56, Height=23} bg=FFE8E8E8 text=[Lure]
+05:17:33   Button TabPageH_Skills_OptionAttackLog vis=True count=0 disposed=False loc={X=447,Y=0} size={Width=70, Height=23} bg=FFE8E8E8 text=[Attack Log]
+05:17:34 view AttackResurrect: panel=null
+05:17:36 view Protection: panel=vis=True loc={X=196,Y=4} size={Width=1198, Height=628} hash=38376892 kids=5
+05:17:36   kid: Panel TabPageH_Character vis=True bg=FFF0F0F0 kids=4
+05:17:36   kid: Panel TabPageH_Character_Option02_Panel vis=True bg=FFF0F0F0 kids=2
+05:17:36   kid: Panel TabPageH_Character_Option04_Panel vis=False bg=FFF0F0F0 kids=2
+05:17:36   kid: Panel TabPageH_Character_Option01_Panel vis=False bg=FFF0F0F0 kids=18
+05:17:36   kid: Panel TabPageH_Character_Option03_Panel vis=False bg=FFF0F0F0 kids=4
+05:17:37 view Town: panel=vis=True loc={X=196,Y=4} size={Width=1198, Height=628} hash=10495806 kids=4
+05:17:37   kid: Panel TabPageH_Town vis=True bg=FFF0F0F0 kids=3
+05:17:37   kid: Panel TabPageH_Town_Option01_Panel vis=True bg=FFF0F0F0 kids=2
+05:17:37   kid: Panel TabPageH_Town_Option02_Panel vis=False bg=FFF0F0F0 kids=2
+05:17:37   kid: Panel TabPageH_Town_Option03_Panel vis=False bg=FFF0F0F0 kids=4
+05:17:37 Panel TabPageH_Town vis=True count=3 disposed=False loc={X=0,Y=0} size={Width=1210, Height=32} bg=FFF0F0F0
+05:17:37   Button TabPageH_Town_Option03 vis=False count=0 disposed=False loc={X=329,Y=0} size={Width=328, Height=26} bg=FFF0F0F0 text=[Eşya Filtresi ve Kurallar]
+05:17:37   Button TabPageH_Town_Option02 vis=True count=0 disposed=False loc={X=181,Y=0} size={Width=180, Height=26} bg=FFE8E8E8 text=[Options]
+05:17:37   Button TabPageH_Town_Option01 vis=True count=0 disposed=False loc={X=0,Y=0} size={Width=328, Height=26} bg=FFF0F0F0 text=[Buy]
+05:17:37 Panel TabPageH_Town_Option01_Panel vis=True count=2 disposed=False loc={X=0,Y=34} size={Width=1210, Height=656} bg=FFF0F0F0
+05:17:37   GroupBox Town_gbxLogistics vis=True count=6 disposed=False loc={X=6,Y=6} size={Width=595, Height=644} bg=FFF0F0F0
+05:17:37   GroupBox Town_gbxAutoBuy vis=True count=10 disposed=False loc={X=605,Y=6} size={Width=597, Height=644} bg=FFF0F0F0
+05:17:38 view TrainingArea: panel=vis=True loc={X=196,Y=4} size={Width=1198, Height=628} hash=44855704 kids=5
+05:17:38   kid: Panel TabPageH_Training vis=True bg=FFF0F0F0 kids=4
+05:17:38   kid: Panel TabPageH_Training_Option02_Panel vis=False bg=FFF0F0F0 kids=3
+05:17:38   kid: Panel TabPageH_Training_Option01_Panel vis=True bg=FFF0F0F0 kids=3
+05:17:38   kid: Panel TabPageH_Training_Option03_Panel vis=False bg=FFF0F0F0 kids=1
+05:17:38   kid: Panel TabPageH_Training_Option04_Panel vis=False bg=FFF0F0F0 kids=3
+05:17:40 view Party: panel=vis=True loc={X=196,Y=4} size={Width=1198, Height=628} hash=63386473 kids=5
+05:17:40   kid: Panel TabPageH_Party vis=True bg=FFF0F0F0 kids=4
+05:17:40   kid: Panel TabPageH_Party_Option01_Panel vis=True bg=FFF0F0F0 kids=3
+05:17:40   kid: Panel TabPageH_Party_Option04_Panel vis=False bg=FFF0F0F0 kids=0
+05:17:40   kid: Panel TabPageH_Party_Option03_Panel vis=False bg=FFF0F0F0 kids=9
+05:17:40   kid: Panel TabPageH_Party_Option02_Panel vis=False bg=FFF0F0F0 kids=4
+05:17:41 view Inventory: panel=vis=True loc={X=196,Y=4} size={Width=1198, Height=628} hash=37564172 kids=5
+05:17:41   kid: Panel TabPageH_Inventory vis=True bg=FFF0F0F0 kids=4
+05:17:41   kid: Panel TabPageH_Inventory_Option03_Panel vis=False bg=FFF0F0F0 kids=5
+05:17:41   kid: Panel TabPageH_Inventory_Option04_Panel vis=False bg=FFF0F0F0 kids=3
+05:17:41   kid: Panel TabPageH_Inventory_Option01_Panel vis=True bg=FFF0F0F0 kids=4
+05:17:41   kid: Panel TabPageH_Inventory_Option02_Panel vis=False bg=FFF0F0F0 kids=2
+05:17:43 view PickFilter: panel=vis=True loc={X=196,Y=4} size={Width=1198, Height=628} hash=63943666 kids=1
+05:17:43   kid: TabControl PhBot_PickFilterTabs vis=True bg=FFF0F0F0
+05:17:43 TabControl PhBot_PickFilterTabs vis=True count=4 disposed=False loc={X=4,Y=4} size={Width=1796, Height=1006} bg=FFF0F0F0
+05:17:43   TabPage  vis=True count=8 disposed=False loc={X=4,Y=22} size={Width=1788, Height=980} bg=FFF0F0F0
+05:17:43     ListView PhBot_PickList vis=True count=0 disposed=False loc={X=6,Y=6} size={Width=2358, Height=330} bg=FFFFFFFF
+05:17:43     ComboBox  vis=True count=0 disposed=False loc={X=6,Y=344} size={Width=140, Height=21} bg=FFFFFFFF items=7 text=[Potion]
+05:17:43     ComboBox  vis=True count=0 disposed=False loc={X=152,Y=344} size={Width=120, Height=21} bg=FFFFFFFF items=5 text=[All]
+05:17:43     TextBox  vis=True count=0 disposed=False loc={X=278,Y=344} size={Width=280, Height=21} bg=FFFFFFFF text=[]
+05:17:43     Button  vis=True count=0 disposed=False loc={X=566,Y=372} size={Width=80, Height=24} bg=FFF0F0F0 text=[Clear]
+05:17:43     Button  vis=True count=0 disposed=False loc={X=652,Y=372} size={Width=80, Height=24} bg=FFF0F0F0 text=[Update]
+05:17:43     Button  vis=True count=0 disposed=False loc={X=738,Y=372} size={Width=80, Height=24} bg=FFF0F0F0 text=[Reset]
+05:17:43     Label  vis=True count=0 disposed=False loc={X=6,Y=376} size={Width=429, Height=13} bg=FFF0F0F0
+05:17:43   TabPage  vis=False count=11 disposed=False loc={X=4,Y=22} size={Width=1788, Height=980} bg=FFF0F0F0
+05:17:43     CheckBox  vis=False count=0 disposed=False loc={X=10,Y=10} size={Width=94, Height=17} bg=FFF0F0F0
+05:17:43     CheckBox  vis=False count=0 disposed=False loc={X=10,Y=34} size={Width=84, Height=17} bg=FFF0F0F0
+05:17:43     CheckBox  vis=False count=0 disposed=False loc={X=10,Y=58} size={Width=141, Height=17} bg=FFF0F0F0
+05:17:43     CheckBox  vis=False count=0 disposed=False loc={X=10,Y=82} size={Width=101, Height=17} bg=FFF0F0F0
+05:17:43     CheckBox  vis=False count=0 disposed=False loc={X=10,Y=106} size={Width=100, Height=17} bg=FFF0F0F0
+05:17:43     CheckBox  vis=False count=0 disposed=False loc={X=10,Y=130} size={Width=162, Height=17} bg=FFF0F0F0
+05:17:43     CheckBox  vis=False count=0 disposed=False loc={X=10,Y=154} size={Width=156, Height=17} bg=FFF0F0F0
+05:17:43     CheckBox  vis=False count=0 disposed=False loc={X=10,Y=178} size={Width=163, Height=17} bg=FFF0F0F0
+05:17:43     CheckBox  vis=False count=0 disposed=False loc={X=10,Y=202} size={Width=108, Height=17} bg=FFF0F0F0
+05:17:43     CheckBox  vis=False count=0 disposed=False loc={X=10,Y=226} size={Width=250, Height=17} bg=FFF0F0F0
+05:17:43     CheckBox  vis=False count=0 disposed=False loc={X=10,Y=250} size={Width=256, Height=17} bg=FFF0F0F0
+05:17:43   TabPage  vis=False count=8 disposed=False loc={X=4,Y=22} size={Width=1788, Height=980} bg=FFF0F0F0
+05:17:43     Label  vis=False count=0 disposed=False loc={X=10,Y=13} size={Width=93, Height=13} bg=FFF0F0F0
+05:17:43     NumericUpDown  vis=False count=2 disposed=False loc={X=190,Y=10} size={Width=70, Height=21} bg=FFFFFFFF
+05:17:43     CheckBox  vis=False count=0 disposed=False loc={X=10,Y=38} size={Width=137, Height=17} bg=FFF0F0F0
+05:17:43     CheckBox  vis=False count=0 disposed=False loc={X=10,Y=62} size={Width=162, Height=17} bg=FFF0F0F0
+05:17:43     Label  vis=False count=0 disposed=False loc={X=10,Y=91} size={Width=171, Height=13} bg=FFF0F0F0
+05:17:43     NumericUpDown  vis=False count=2 disposed=False loc={X=191,Y=88} size={Width=70, Height=21} bg=FFFFFFFF
+05:17:43     Label  vis=False count=0 disposed=False loc={X=10,Y=119} size={Width=196, Height=13} bg=FFF0F0F0
+05:17:43     NumericUpDown  vis=False count=2 disposed=False loc={X=216,Y=116} size={Width=70, Height=21} bg=FFFFFFFF
+05:17:43   TabPage  vis=False count=2 disposed=False loc={X=4,Y=22} size={Width=1788, Height=980} bg=FFF0F0F0
+05:17:43     Label  vis=False count=0 disposed=False loc={X=10,Y=10} size={Width=260, Height=13} bg=FFF0F0F0
+05:17:43     ListView  vis=False count=0 disposed=False loc={X=10,Y=36} size={Width=2088, Height=1130} bg=FFFFFFFF
+05:17:44 capture done
+05:20:07 start classic
+05:20:07 before gbx=41 cards=6 toggles=5 mbtns=0 mtxt=0 lv=46/43 darkPanels=89 modernSidebar=visible=False
+05:20:07 paint stripped: 214
+05:20:07 after-neutralize gbx=47 cards=0 toggles=0 mbtns=0 mtxt=0 lv=46/43 darkPanels=89 modernSidebar=visible=False
+05:20:07 town child: Panel TabPageH_Town vis=False bg=FF161922 loc={X=0,Y=0} size={Width=1210, Height=32}
+05:20:07 town child: Panel TabPageH_Town_Option01_Panel vis=False bg=FF0F1117 loc={X=0,Y=34} size={Width=1210, Height=656}
+05:20:07 town child: Panel TabPageH_Town_Option02_Panel vis=False bg=FF0F1117 loc={X=0,Y=34} size={Width=1210, Height=656}
+05:20:07 town child: Panel TabPageH_Town_Option03_Panel vis=False bg=FF0F1117 loc={X=0,Y=34} size={Width=1210, Height=656}
+05:20:07 sidebar rebuilt: 56
+05:20:07 skills strip laid out: 8 tabs, width=519
+05:20:07 after-style gbx=47 cards=0 toggles=0 mbtns=0 mtxt=0 lv=54/0 darkPanels=9 modernSidebar=visible=False
+05:20:07 view SilkroadLogin: panel=vis=True loc={X=220,Y=50} size={Width=1210, Height=690} hash=52380055 kids=6
+05:20:07   kid: GroupBox Login_gbxConnection vis=True bg=FFF0F0F0 text=[Connection]
+05:20:07   kid: GroupBox Login_gbxLogin vis=True bg=FFF0F0F0 text=[Giriş Bilgileri (Login)]
+05:20:07   kid: GroupBox Login_gbxServers vis=True bg=FFF0F0F0 text=[Server list]
+05:20:07   kid: GroupBox Login_gbxAdvertising vis=False bg=FFF0F0F0 text=[]
+05:20:07   kid: GroupBox Login_gbxCharacters vis=False bg=FFF0F0F0 text=[Character list]
+05:20:07   kid: GroupBox  vis=True bg=FFF0F0F0 text=[GİRİŞ STRATEJİSİ VE OTOMASYON]
+05:20:07   loginctl: GroupBox Login_gbxConnection bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:20:07   loginctl: CheckBox Login_cbxUseReturnScroll bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:20:07   loginctl: CheckBox Login_cbxRelogin bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:20:07   loginctl: CheckBox Login_cbxGoClientless bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:20:07   loginctl: RadioButton Login_rbnClientless bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:20:07   loginctl: RadioButton Login_rbnClient bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:20:07   loginctl: GroupBox Login_gbxLogin bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:20:07   loginctl: GroupBox Login_gbxServers bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:20:07   loginctl: GroupBox Login_gbxAdvertising bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:20:07   loginctl: GroupBox Login_gbxCharacters bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:20:07   loginctl: GroupBox  bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:20:07   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:20:07   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:20:07   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:20:07   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:20:07   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:20:07   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:20:07   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:20:07   loginctl: RadioButton  bg=FFF0F0F0 parent=/FFF0F0F0
+05:20:07   loginctl: RadioButton  bg=FFF0F0F0 parent=/FFF0F0F0
+05:20:07 paintkey=found
+05:20:07 loginbox: Login_gbxConnection isField=False hash=12138304 parent=TabPageV_Control01_SilkroadLogin_Panel
+05:20:07 loginbox: Login_gbxLogin isField=False hash=42135876 parent=TabPageV_Control01_SilkroadLogin_Panel
+05:20:07 loginbox: Login_gbxServers isField=False hash=43678569 parent=TabPageV_Control01_SilkroadLogin_Panel
+05:20:07 loginbox: Login_gbxAdvertising isField=True hash=40093194 parent=TabPageV_Control01_SilkroadLogin_Panel
+05:20:07 loginbox: Login_gbxCharacters isField=False hash=57562809 parent=TabPageV_Control01_SilkroadLogin_Panel
+05:20:07 panelname: TabPageV_Control01_Protection_Panel n=1 38376892(vis=False,kids=5) 
+05:20:07 panelname: TabPageV_Control01_TrainingArea_Panel n=1 44855704(vis=False,kids=5) 
+05:20:07 panelname: TabPageV_Control01_Attack_Panel n=1 37355470(vis=False,kids=10) 
+05:20:07 panelname: TabPageV_Control01_Guild_Panel n=1 48630964(vis=False,kids=3) 
+05:20:07 panelname: TabPageV_Control01_Inventory_Panel n=1 37564172(vis=False,kids=5) 
+05:20:07 panelname: TabPageV_Control01_Chat_Panel n=1 2601186(vis=False,kids=10) 
+05:20:07 panelname: TabPageV_Control01_Players_Panel n=1 31665688(vis=False,kids=3) 
+05:20:07 panelname: TabPageV_Control01_Stall_Panel n=1 49554687(vis=False,kids=4) 
+05:20:07 panelname: TabPageV_Control01_Plugins_Panel n=1 6756797(vis=False,kids=5) 
+05:20:07 panelname: TabPageV_Control01_Map_Panel n=1 41580444(vis=False,kids=3) 
+05:20:07 panelname: TabPageV_Control01_Statistics_Panel n=1 42353227(vis=False,kids=10) 
+05:20:07 panelname: TabPageV_Control01_Party_Panel n=1 63386473(vis=False,kids=5) 
+05:20:07 panelname: TabPageV_Control01_SilkroadLogin_Panel n=1 52380055(vis=True,kids=6) 
+05:20:07 panelname: TabPageV_Control01_Academy_Panel n=1 1166200(vis=False,kids=1) 
+05:20:07 panelname: TabPageV_Control01_Town_Panel n=1 10495806(vis=False,kids=4) 
+05:20:07 panelname: TabPageV_Control01_Alchemy_Panel n=1 13875810(vis=False,kids=2) 
+05:20:07 panelname: TabPageV_Control01_TargetAssist_Panel n=1 1301106(vis=False,kids=6) 
+05:20:07 panelname: TabPageV_Control01_ProjectHax_Panel n=1 48303235(vis=False,kids=2) 
+05:20:07 panelname: TabPageV_Control01_AutoConfigure_Panel n=1 32075938(vis=False,kids=2) 
+05:20:07 panelname: TabPageV_Control01_Notifications_Panel n=1 20247990(vis=False,kids=4) 
+05:20:07 panelname: TabPageV_Control01_Pet_Panel n=1 48014184(vis=False,kids=1) 
+05:20:07 panelname: TabPageV_Control01_UnionParty_Panel n=1 29474473(vis=False,kids=3) 
+05:20:07 panelname: TabPageV_Control01_PickFilter_Panel n=1 63943666(vis=False,kids=1) 
+05:20:07 panelname: TabPageV_Control01_Quest_Panel n=1 38622084(vis=False,kids=1) 
+05:20:07 panelname: TabPageV_Control01_Trade_Panel n=1 12054440(vis=False,kids=4) 
+05:20:07 panelname: TabPageV_Control01_Masteries_Panel n=1 41381104(vis=False,kids=6) 
+05:20:07 panelname: TabPageV_Control01_Sound_Panel n=1 36885620(vis=False,kids=4) 
+05:20:07 panelname: TabPageV_Control01_KeyBindings_Panel n=1 63535124(vis=False,kids=1) 
+05:20:07 panelname: TabPageV_Control01_Conditions_Panel n=1 34945211(vis=False,kids=2) 
+05:20:07 training details: vis=False loc={X=312,Y=6} size={Width=892, Height=644} kids=15
+05:20:07 classic applied
+05:20:09 view SilkroadLogin: panel=vis=True loc={X=196,Y=4} size={Width=1198, Height=628} hash=52380055 kids=6
+05:20:09   kid: GroupBox Login_gbxConnection vis=True bg=FFF0F0F0 text=[Connection]
+05:20:09   kid: GroupBox Login_gbxLogin vis=True bg=FFF0F0F0 text=[Giriş Bilgileri (Login)]
+05:20:09   kid: GroupBox Login_gbxServers vis=True bg=FFF0F0F0 text=[Server list]
+05:20:09   kid: GroupBox Login_gbxAdvertising vis=False bg=FFF0F0F0 text=[]
+05:20:09   kid: GroupBox Login_gbxCharacters vis=False bg=FFF0F0F0 text=[Character list]
+05:20:09   kid: GroupBox  vis=True bg=FFF0F0F0 text=[GİRİŞ STRATEJİSİ VE OTOMASYON]
+05:20:09   loginctl: GroupBox Login_gbxConnection bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:20:09   loginctl: CheckBox Login_cbxUseReturnScroll bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:20:09   loginctl: CheckBox Login_cbxRelogin bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:20:09   loginctl: CheckBox Login_cbxGoClientless bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:20:09   loginctl: RadioButton Login_rbnClientless bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:20:09   loginctl: RadioButton Login_rbnClient bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:20:09   loginctl: GroupBox Login_gbxLogin bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:20:09   loginctl: GroupBox Login_gbxServers bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:20:09   loginctl: GroupBox Login_gbxAdvertising bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:20:09   loginctl: GroupBox Login_gbxCharacters bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:20:09   loginctl: GroupBox  bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:20:09   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:20:09   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:20:09   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:20:09   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:20:09   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:20:09   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:20:09   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:20:09   loginctl: RadioButton  bg=FFF0F0F0 parent=/FFF0F0F0
+05:20:09   loginctl: RadioButton  bg=FFF0F0F0 parent=/FFF0F0F0
+05:20:10 view Attack: panel=vis=True loc={X=196,Y=4} size={Width=1198, Height=628} hash=37355470 kids=10
+05:20:10   kid: Panel TabPageH_Skills vis=True bg=FFF0F0F0 kids=8
+05:20:10   kid: xListView Skills_lstvSkills vis=True bg=FFFFFFFF
+05:20:10   kid: Panel TabPageH_Skills_Option01_Panel vis=True bg=FFF0F0F0 kids=21
+05:20:10   kid: Panel TabPageH_Skills_Option02_Panel vis=False bg=FFF0F0F0 kids=11
+05:20:10   kid: Panel TabPageH_Skills_Option03_Panel vis=False bg=FFF0F0F0 kids=0
+05:20:10   kid: Panel TabPageH_Skills_OptionPartyOptions_Panel vis=False bg=FFF0F0F0 kids=5
+05:20:10   kid: Panel TabPageH_Skills_OptionResurrect_Panel vis=False bg=FFF0F0F0 kids=11
+05:20:10   kid: Panel TabPageH_Skills_OptionHealing_Panel vis=False bg=FFF0F0F0 kids=7
+05:20:10   kid: Panel TabPageH_Skills_OptionLure_Panel vis=False bg=FFF0F0F0 kids=13
+05:20:10   kid: Panel TabPageH_Skills_OptionAttackLog_Panel vis=False bg=FFF0F0F0 kids=2
+05:20:10 Panel TabPageH_Skills vis=True count=8 disposed=False loc={X=326,Y=0} size={Width=880, Height=30} bg=FFF0F0F0
+05:20:10   Button TabPageH_Skills_Option03 vis=True count=0 disposed=False loc={X=118,Y=0} size={Width=56, Height=23} bg=FFE8E8E8 text=[Party]
+05:20:10   Button TabPageH_Skills_Option02 vis=True count=0 disposed=False loc={X=60,Y=0} size={Width=56, Height=23} bg=FFE8E8E8 text=[Buffs]
+05:20:10   Button TabPageH_Skills_Option01 vis=True count=0 disposed=False loc={X=2,Y=0} size={Width=56, Height=23} bg=FFFFFFFF text=[Attack]
+05:20:10   Button TabPageH_Skills_OptionPartyOptions vis=True count=0 disposed=False loc={X=176,Y=0} size={Width=85, Height=23} bg=FFE8E8E8 text=[Party Options]
+05:20:10   Button TabPageH_Skills_OptionResurrect vis=True count=0 disposed=False loc={X=263,Y=0} size={Width=66, Height=23} bg=FFE8E8E8 text=[Resurrect]
+05:20:10   Button TabPageH_Skills_OptionHealing vis=True count=0 disposed=False loc={X=331,Y=0} size={Width=56, Height=23} bg=FFE8E8E8 text=[Healing]
+05:20:10   Button TabPageH_Skills_OptionLure vis=True count=0 disposed=False loc={X=389,Y=0} size={Width=56, Height=23} bg=FFE8E8E8 text=[Lure]
+05:20:10   Button TabPageH_Skills_OptionAttackLog vis=True count=0 disposed=False loc={X=447,Y=0} size={Width=70, Height=23} bg=FFE8E8E8 text=[Attack Log]
+05:20:12 view AttackResurrect: panel=null
+05:20:13 view Protection: panel=vis=True loc={X=196,Y=4} size={Width=1198, Height=628} hash=38376892 kids=5
+05:20:13   kid: Panel TabPageH_Character vis=True bg=FFF0F0F0 kids=4
+05:20:13   kid: Panel TabPageH_Character_Option02_Panel vis=True bg=FFF0F0F0 kids=2
+05:20:13   kid: Panel TabPageH_Character_Option04_Panel vis=False bg=FFF0F0F0 kids=2
+05:20:13   kid: Panel TabPageH_Character_Option01_Panel vis=False bg=FFF0F0F0 kids=18
+05:20:13   kid: Panel TabPageH_Character_Option03_Panel vis=False bg=FFF0F0F0 kids=4
+05:20:15 view Town: panel=vis=True loc={X=196,Y=4} size={Width=1198, Height=628} hash=10495806 kids=4
+05:20:15   kid: Panel TabPageH_Town vis=True bg=FFF0F0F0 kids=3
+05:20:15   kid: Panel TabPageH_Town_Option01_Panel vis=True bg=FFF0F0F0 kids=2
+05:20:15   kid: Panel TabPageH_Town_Option02_Panel vis=False bg=FFF0F0F0 kids=2
+05:20:15   kid: Panel TabPageH_Town_Option03_Panel vis=False bg=FFF0F0F0 kids=4
+05:20:15 Panel TabPageH_Town vis=True count=3 disposed=False loc={X=0,Y=0} size={Width=1210, Height=32} bg=FFF0F0F0
+05:20:15   Button TabPageH_Town_Option03 vis=False count=0 disposed=False loc={X=329,Y=0} size={Width=328, Height=26} bg=FFF0F0F0 text=[Eşya Filtresi ve Kurallar]
+05:20:15   Button TabPageH_Town_Option02 vis=True count=0 disposed=False loc={X=181,Y=0} size={Width=180, Height=26} bg=FFE8E8E8 text=[Options]
+05:20:15   Button TabPageH_Town_Option01 vis=True count=0 disposed=False loc={X=0,Y=0} size={Width=328, Height=26} bg=FFF0F0F0 text=[Buy]
+05:20:15 Panel TabPageH_Town_Option01_Panel vis=True count=2 disposed=False loc={X=0,Y=34} size={Width=1210, Height=656} bg=FFF0F0F0
+05:20:15   GroupBox Town_gbxLogistics vis=True count=6 disposed=False loc={X=6,Y=6} size={Width=595, Height=644} bg=FFF0F0F0
+05:20:15   GroupBox Town_gbxAutoBuy vis=True count=10 disposed=False loc={X=605,Y=6} size={Width=597, Height=644} bg=FFF0F0F0
+05:20:16 view TrainingArea: panel=vis=True loc={X=196,Y=4} size={Width=1198, Height=628} hash=44855704 kids=5
+05:20:16   kid: Panel TabPageH_Training vis=True bg=FFF0F0F0 kids=4
+05:20:16   kid: Panel TabPageH_Training_Option02_Panel vis=False bg=FFF0F0F0 kids=3
+05:20:16   kid: Panel TabPageH_Training_Option01_Panel vis=True bg=FFF0F0F0 kids=3
+05:20:16   kid: Panel TabPageH_Training_Option03_Panel vis=False bg=FFF0F0F0 kids=1
+05:20:16   kid: Panel TabPageH_Training_Option04_Panel vis=False bg=FFF0F0F0 kids=3
+05:20:18 view Party: panel=vis=True loc={X=196,Y=4} size={Width=1198, Height=628} hash=63386473 kids=5
+05:20:18   kid: Panel TabPageH_Party vis=True bg=FFF0F0F0 kids=4
+05:20:18   kid: Panel TabPageH_Party_Option01_Panel vis=True bg=FFF0F0F0 kids=3
+05:20:18   kid: Panel TabPageH_Party_Option04_Panel vis=False bg=FFF0F0F0 kids=0
+05:20:18   kid: Panel TabPageH_Party_Option03_Panel vis=False bg=FFF0F0F0 kids=9
+05:20:18   kid: Panel TabPageH_Party_Option02_Panel vis=False bg=FFF0F0F0 kids=4
+05:20:19 view Inventory: panel=vis=True loc={X=196,Y=4} size={Width=1198, Height=628} hash=37564172 kids=5
+05:20:19   kid: Panel TabPageH_Inventory vis=True bg=FFF0F0F0 kids=4
+05:20:19   kid: Panel TabPageH_Inventory_Option03_Panel vis=False bg=FFF0F0F0 kids=5
+05:20:19   kid: Panel TabPageH_Inventory_Option04_Panel vis=False bg=FFF0F0F0 kids=3
+05:20:19   kid: Panel TabPageH_Inventory_Option01_Panel vis=True bg=FFF0F0F0 kids=4
+05:20:19   kid: Panel TabPageH_Inventory_Option02_Panel vis=False bg=FFF0F0F0 kids=2
+05:20:21 view PickFilter: panel=vis=True loc={X=196,Y=4} size={Width=1198, Height=628} hash=63943666 kids=1
+05:20:21   kid: TabControl PhBot_PickFilterTabs vis=True bg=FFF0F0F0
+05:20:21 TabControl PhBot_PickFilterTabs vis=True count=4 disposed=False loc={X=4,Y=4} size={Width=1796, Height=1006} bg=FFF0F0F0
+05:20:21   TabPage  vis=True count=8 disposed=False loc={X=4,Y=22} size={Width=1788, Height=980} bg=FFF0F0F0
+05:20:21     ListView PhBot_PickList vis=True count=0 disposed=False loc={X=6,Y=6} size={Width=2358, Height=330} bg=FFFFFFFF
+05:20:21     ComboBox  vis=True count=0 disposed=False loc={X=6,Y=344} size={Width=140, Height=21} bg=FFFFFFFF items=7 text=[Potion]
+05:20:21     ComboBox  vis=True count=0 disposed=False loc={X=152,Y=344} size={Width=120, Height=21} bg=FFFFFFFF items=5 text=[All]
+05:20:21     TextBox  vis=True count=0 disposed=False loc={X=278,Y=344} size={Width=280, Height=21} bg=FFFFFFFF text=[]
+05:20:21     Button  vis=True count=0 disposed=False loc={X=566,Y=372} size={Width=80, Height=24} bg=FFF0F0F0 text=[Clear]
+05:20:21     Button  vis=True count=0 disposed=False loc={X=652,Y=372} size={Width=80, Height=24} bg=FFF0F0F0 text=[Update]
+05:20:21     Button  vis=True count=0 disposed=False loc={X=738,Y=372} size={Width=80, Height=24} bg=FFF0F0F0 text=[Reset]
+05:20:21     Label  vis=True count=0 disposed=False loc={X=6,Y=376} size={Width=429, Height=13} bg=FFF0F0F0
+05:20:21   TabPage  vis=False count=11 disposed=False loc={X=4,Y=22} size={Width=1788, Height=980} bg=FFF0F0F0
+05:20:21     CheckBox  vis=False count=0 disposed=False loc={X=10,Y=10} size={Width=94, Height=17} bg=FFF0F0F0
+05:20:21     CheckBox  vis=False count=0 disposed=False loc={X=10,Y=34} size={Width=84, Height=17} bg=FFF0F0F0
+05:20:21     CheckBox  vis=False count=0 disposed=False loc={X=10,Y=58} size={Width=141, Height=17} bg=FFF0F0F0
+05:20:21     CheckBox  vis=False count=0 disposed=False loc={X=10,Y=82} size={Width=101, Height=17} bg=FFF0F0F0
+05:20:21     CheckBox  vis=False count=0 disposed=False loc={X=10,Y=106} size={Width=100, Height=17} bg=FFF0F0F0
+05:20:21     CheckBox  vis=False count=0 disposed=False loc={X=10,Y=130} size={Width=162, Height=17} bg=FFF0F0F0
+05:20:21     CheckBox  vis=False count=0 disposed=False loc={X=10,Y=154} size={Width=156, Height=17} bg=FFF0F0F0
+05:20:21     CheckBox  vis=False count=0 disposed=False loc={X=10,Y=178} size={Width=163, Height=17} bg=FFF0F0F0
+05:20:21     CheckBox  vis=False count=0 disposed=False loc={X=10,Y=202} size={Width=108, Height=17} bg=FFF0F0F0
+05:20:21     CheckBox  vis=False count=0 disposed=False loc={X=10,Y=226} size={Width=250, Height=17} bg=FFF0F0F0
+05:20:21     CheckBox  vis=False count=0 disposed=False loc={X=10,Y=250} size={Width=256, Height=17} bg=FFF0F0F0
+05:20:21   TabPage  vis=False count=8 disposed=False loc={X=4,Y=22} size={Width=1788, Height=980} bg=FFF0F0F0
+05:20:21     Label  vis=False count=0 disposed=False loc={X=10,Y=13} size={Width=93, Height=13} bg=FFF0F0F0
+05:20:21     NumericUpDown  vis=False count=2 disposed=False loc={X=190,Y=10} size={Width=70, Height=21} bg=FFFFFFFF
+05:20:21     CheckBox  vis=False count=0 disposed=False loc={X=10,Y=38} size={Width=137, Height=17} bg=FFF0F0F0
+05:20:21     CheckBox  vis=False count=0 disposed=False loc={X=10,Y=62} size={Width=162, Height=17} bg=FFF0F0F0
+05:20:21     Label  vis=False count=0 disposed=False loc={X=10,Y=91} size={Width=171, Height=13} bg=FFF0F0F0
+05:20:21     NumericUpDown  vis=False count=2 disposed=False loc={X=191,Y=88} size={Width=70, Height=21} bg=FFFFFFFF
+05:20:21     Label  vis=False count=0 disposed=False loc={X=10,Y=119} size={Width=196, Height=13} bg=FFF0F0F0
+05:20:21     NumericUpDown  vis=False count=2 disposed=False loc={X=216,Y=116} size={Width=70, Height=21} bg=FFFFFFFF
+05:20:21   TabPage  vis=False count=2 disposed=False loc={X=4,Y=22} size={Width=1788, Height=980} bg=FFF0F0F0
+05:20:21     Label  vis=False count=0 disposed=False loc={X=10,Y=10} size={Width=260, Height=13} bg=FFF0F0F0
+05:20:21     ListView  vis=False count=0 disposed=False loc={X=10,Y=36} size={Width=2088, Height=1130} bg=FFFFFFFF
+05:20:22 capture done
+05:23:10 start classic
+05:23:10 before gbx=41 cards=6 toggles=5 mbtns=0 mtxt=0 lv=46/43 darkPanels=89 modernSidebar=visible=False
+05:23:10 paint stripped: 214
+05:23:10 after-neutralize gbx=47 cards=0 toggles=0 mbtns=0 mtxt=0 lv=46/43 darkPanels=89 modernSidebar=visible=False
+05:23:10 town child: Panel TabPageH_Town vis=False bg=FF161922 loc={X=0,Y=0} size={Width=1210, Height=32}
+05:23:10 town child: Panel TabPageH_Town_Option01_Panel vis=False bg=FF0F1117 loc={X=0,Y=34} size={Width=1210, Height=656}
+05:23:10 town child: Panel TabPageH_Town_Option02_Panel vis=False bg=FF0F1117 loc={X=0,Y=34} size={Width=1210, Height=656}
+05:23:10 town child: Panel TabPageH_Town_Option03_Panel vis=False bg=FF0F1117 loc={X=0,Y=34} size={Width=1210, Height=656}
+05:23:10 sidebar rebuilt: 56
+05:23:10 skills strip laid out: 8 tabs, width=519
+05:23:10 after-style gbx=47 cards=0 toggles=0 mbtns=0 mtxt=0 lv=54/0 darkPanels=9 modernSidebar=visible=False
+05:23:10 view SilkroadLogin: panel=vis=True loc={X=220,Y=50} size={Width=1210, Height=690} hash=52380055 kids=6
+05:23:10   kid: GroupBox Login_gbxConnection vis=True bg=FFF0F0F0 text=[Connection]
+05:23:10   kid: GroupBox Login_gbxLogin vis=True bg=FFF0F0F0 text=[Giriş Bilgileri (Login)]
+05:23:10   kid: GroupBox Login_gbxServers vis=True bg=FFF0F0F0 text=[Server list]
+05:23:10   kid: GroupBox Login_gbxAdvertising vis=False bg=FFF0F0F0 text=[]
+05:23:10   kid: GroupBox Login_gbxCharacters vis=False bg=FFF0F0F0 text=[Character list]
+05:23:10   kid: GroupBox  vis=True bg=FFF0F0F0 text=[GİRİŞ STRATEJİSİ VE OTOMASYON]
+05:23:10   loginctl: GroupBox Login_gbxConnection bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:23:10   loginctl: CheckBox Login_cbxUseReturnScroll bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:23:10   loginctl: CheckBox Login_cbxRelogin bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:23:10   loginctl: CheckBox Login_cbxGoClientless bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:23:10   loginctl: RadioButton Login_rbnClientless bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:23:10   loginctl: RadioButton Login_rbnClient bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:23:10   loginctl: GroupBox Login_gbxLogin bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:23:10   loginctl: GroupBox Login_gbxServers bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:23:10   loginctl: GroupBox Login_gbxAdvertising bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:23:10   loginctl: GroupBox Login_gbxCharacters bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:23:10   loginctl: GroupBox  bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:23:10   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:23:10   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:23:10   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:23:10   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:23:10   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:23:10   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:23:10   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:23:10   loginctl: RadioButton  bg=FFF0F0F0 parent=/FFF0F0F0
+05:23:10   loginctl: RadioButton  bg=FFF0F0F0 parent=/FFF0F0F0
+05:23:10 paintkey=found
+05:23:10 loginbox: Login_gbxConnection isField=False hash=12138304 parent=TabPageV_Control01_SilkroadLogin_Panel
+05:23:10 loginbox: Login_gbxLogin isField=False hash=42135876 parent=TabPageV_Control01_SilkroadLogin_Panel
+05:23:10 loginbox: Login_gbxServers isField=False hash=43678569 parent=TabPageV_Control01_SilkroadLogin_Panel
+05:23:10 loginbox: Login_gbxAdvertising isField=True hash=40093194 parent=TabPageV_Control01_SilkroadLogin_Panel
+05:23:10 loginbox: Login_gbxCharacters isField=False hash=57562809 parent=TabPageV_Control01_SilkroadLogin_Panel
+05:23:10 panelname: TabPageV_Control01_Protection_Panel n=1 38376892(vis=False,kids=5) 
+05:23:10 panelname: TabPageV_Control01_TrainingArea_Panel n=1 44855704(vis=False,kids=5) 
+05:23:10 panelname: TabPageV_Control01_Attack_Panel n=1 37355470(vis=False,kids=10) 
+05:23:10 panelname: TabPageV_Control01_Guild_Panel n=1 48630964(vis=False,kids=3) 
+05:23:10 panelname: TabPageV_Control01_Inventory_Panel n=1 37564172(vis=False,kids=5) 
+05:23:10 panelname: TabPageV_Control01_Chat_Panel n=1 2601186(vis=False,kids=10) 
+05:23:10 panelname: TabPageV_Control01_Players_Panel n=1 31665688(vis=False,kids=3) 
+05:23:10 panelname: TabPageV_Control01_Stall_Panel n=1 49554687(vis=False,kids=4) 
+05:23:10 panelname: TabPageV_Control01_Plugins_Panel n=1 6756797(vis=False,kids=5) 
+05:23:10 panelname: TabPageV_Control01_Map_Panel n=1 41580444(vis=False,kids=3) 
+05:23:10 panelname: TabPageV_Control01_Statistics_Panel n=1 42353227(vis=False,kids=10) 
+05:23:10 panelname: TabPageV_Control01_Party_Panel n=1 63386473(vis=False,kids=5) 
+05:23:10 panelname: TabPageV_Control01_SilkroadLogin_Panel n=1 52380055(vis=True,kids=6) 
+05:23:10 panelname: TabPageV_Control01_Academy_Panel n=1 1166200(vis=False,kids=1) 
+05:23:10 panelname: TabPageV_Control01_Town_Panel n=1 10495806(vis=False,kids=4) 
+05:23:10 panelname: TabPageV_Control01_Alchemy_Panel n=1 13875810(vis=False,kids=2) 
+05:23:10 panelname: TabPageV_Control01_TargetAssist_Panel n=1 1301106(vis=False,kids=6) 
+05:23:10 panelname: TabPageV_Control01_ProjectHax_Panel n=1 48303235(vis=False,kids=2) 
+05:23:10 panelname: TabPageV_Control01_AutoConfigure_Panel n=1 32075938(vis=False,kids=2) 
+05:23:10 panelname: TabPageV_Control01_Notifications_Panel n=1 20247990(vis=False,kids=4) 
+05:23:10 panelname: TabPageV_Control01_Pet_Panel n=1 48014184(vis=False,kids=1) 
+05:23:10 panelname: TabPageV_Control01_UnionParty_Panel n=1 29474473(vis=False,kids=3) 
+05:23:10 panelname: TabPageV_Control01_PickFilter_Panel n=1 63943666(vis=False,kids=1) 
+05:23:10 panelname: TabPageV_Control01_Quest_Panel n=1 38622084(vis=False,kids=1) 
+05:23:10 panelname: TabPageV_Control01_Trade_Panel n=1 12054440(vis=False,kids=4) 
+05:23:10 panelname: TabPageV_Control01_Masteries_Panel n=1 41381104(vis=False,kids=6) 
+05:23:10 panelname: TabPageV_Control01_Sound_Panel n=1 36885620(vis=False,kids=4) 
+05:23:10 panelname: TabPageV_Control01_KeyBindings_Panel n=1 63535124(vis=False,kids=1) 
+05:23:10 panelname: TabPageV_Control01_Conditions_Panel n=1 34945211(vis=False,kids=2) 
+05:23:10 training details: vis=False loc={X=312,Y=6} size={Width=892, Height=644} kids=15
+05:23:10 classic applied
+05:23:26 training details: vis=False loc={X=312,Y=6} size={Width=892, Height=644} kids=15
+05:23:26 training details: vis=False loc={X=312,Y=6} size={Width=892, Height=644} kids=15
+05:23:26 training details: vis=False loc={X=312,Y=6} size={Width=892, Height=644} kids=15
+05:23:26 training details: vis=False loc={X=312,Y=6} size={Width=892, Height=644} kids=15
+05:23:26 training details: vis=False loc={X=312,Y=6} size={Width=892, Height=644} kids=15
+05:23:26 training details: vis=False loc={X=312,Y=6} size={Width=892, Height=644} kids=15
+05:23:26 training details: vis=False loc={X=312,Y=6} size={Width=892, Height=644} kids=15
+05:23:26 training details: vis=False loc={X=312,Y=6} size={Width=892, Height=644} kids=15
+05:23:26 training details: vis=False loc={X=312,Y=6} size={Width=892, Height=644} kids=15
+05:23:27 training details: vis=False loc={X=312,Y=6} size={Width=892, Height=644} kids=15
+05:23:27 training details: vis=False loc={X=312,Y=6} size={Width=892, Height=644} kids=15
+05:23:27 training details: vis=False loc={X=312,Y=6} size={Width=892, Height=644} kids=15
+05:23:27 training details: vis=False loc={X=312,Y=6} size={Width=892, Height=644} kids=15
+05:23:27 training details: vis=False loc={X=312,Y=6} size={Width=892, Height=644} kids=15
+05:23:27 training details: vis=False loc={X=312,Y=6} size={Width=892, Height=644} kids=15
+05:23:27 training details: vis=False loc={X=312,Y=6} size={Width=892, Height=644} kids=15
+05:23:27 training details: vis=False loc={X=312,Y=6} size={Width=892, Height=644} kids=15
+05:25:56 start classic
+05:25:56 before gbx=41 cards=6 toggles=5 mbtns=0 mtxt=0 lv=46/43 darkPanels=89 modernSidebar=visible=False
+05:25:56 paint stripped: 214
+05:25:56 after-neutralize gbx=47 cards=0 toggles=0 mbtns=0 mtxt=0 lv=46/43 darkPanels=89 modernSidebar=visible=False
+05:25:56 town child: Panel TabPageH_Town vis=False bg=FF161922 loc={X=0,Y=0} size={Width=1210, Height=32}
+05:25:56 town child: Panel TabPageH_Town_Option01_Panel vis=False bg=FF0F1117 loc={X=0,Y=34} size={Width=1210, Height=656}
+05:25:56 town child: Panel TabPageH_Town_Option02_Panel vis=False bg=FF0F1117 loc={X=0,Y=34} size={Width=1210, Height=656}
+05:25:56 town child: Panel TabPageH_Town_Option03_Panel vis=False bg=FF0F1117 loc={X=0,Y=34} size={Width=1210, Height=656}
+05:25:56 sidebar rebuilt: 56
+05:25:56 skills strip laid out: 8 tabs, width=519
+05:25:56 after-style gbx=47 cards=0 toggles=0 mbtns=0 mtxt=0 lv=54/0 darkPanels=9 modernSidebar=visible=False
+05:25:56 view SilkroadLogin: panel=vis=True loc={X=220,Y=50} size={Width=1210, Height=690} hash=52380055 kids=6
+05:25:56   kid: GroupBox Login_gbxConnection vis=True bg=FFF0F0F0 text=[Connection]
+05:25:56   kid: GroupBox Login_gbxLogin vis=True bg=FFF0F0F0 text=[Giriş Bilgileri (Login)]
+05:25:56   kid: GroupBox Login_gbxServers vis=True bg=FFF0F0F0 text=[Server list]
+05:25:56   kid: GroupBox Login_gbxAdvertising vis=False bg=FFF0F0F0 text=[]
+05:25:56   kid: GroupBox Login_gbxCharacters vis=False bg=FFF0F0F0 text=[Character list]
+05:25:56   kid: GroupBox  vis=True bg=FFF0F0F0 text=[GİRİŞ STRATEJİSİ VE OTOMASYON]
+05:25:56   loginctl: GroupBox Login_gbxConnection bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:25:56   loginctl: CheckBox Login_cbxUseReturnScroll bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:25:56   loginctl: CheckBox Login_cbxRelogin bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:25:56   loginctl: CheckBox Login_cbxGoClientless bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:25:56   loginctl: RadioButton Login_rbnClientless bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:25:56   loginctl: RadioButton Login_rbnClient bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:25:56   loginctl: GroupBox Login_gbxLogin bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:25:56   loginctl: GroupBox Login_gbxServers bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:25:56   loginctl: GroupBox Login_gbxAdvertising bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:25:56   loginctl: GroupBox Login_gbxCharacters bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:25:56   loginctl: GroupBox  bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:25:56   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:25:56   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:25:56   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:25:56   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:25:56   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:25:56   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:25:56   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:25:56   loginctl: RadioButton  bg=FFF0F0F0 parent=/FFF0F0F0
+05:25:56   loginctl: RadioButton  bg=FFF0F0F0 parent=/FFF0F0F0
+05:25:56 paintkey=found
+05:25:56 loginbox: Login_gbxConnection isField=False hash=12138304 parent=TabPageV_Control01_SilkroadLogin_Panel
+05:25:56 loginbox: Login_gbxLogin isField=False hash=42135876 parent=TabPageV_Control01_SilkroadLogin_Panel
+05:25:56 loginbox: Login_gbxServers isField=False hash=43678569 parent=TabPageV_Control01_SilkroadLogin_Panel
+05:25:56 loginbox: Login_gbxAdvertising isField=True hash=40093194 parent=TabPageV_Control01_SilkroadLogin_Panel
+05:25:56 loginbox: Login_gbxCharacters isField=False hash=57562809 parent=TabPageV_Control01_SilkroadLogin_Panel
+05:25:56 panelname: TabPageV_Control01_Protection_Panel n=1 38376892(vis=False,kids=5) 
+05:25:56 panelname: TabPageV_Control01_TrainingArea_Panel n=1 44855704(vis=False,kids=5) 
+05:25:56 panelname: TabPageV_Control01_Attack_Panel n=1 37355470(vis=False,kids=10) 
+05:25:56 panelname: TabPageV_Control01_Guild_Panel n=1 48630964(vis=False,kids=3) 
+05:25:56 panelname: TabPageV_Control01_Inventory_Panel n=1 37564172(vis=False,kids=5) 
+05:25:56 panelname: TabPageV_Control01_Chat_Panel n=1 2601186(vis=False,kids=10) 
+05:25:56 panelname: TabPageV_Control01_Players_Panel n=1 31665688(vis=False,kids=3) 
+05:25:56 panelname: TabPageV_Control01_Stall_Panel n=1 49554687(vis=False,kids=4) 
+05:25:56 panelname: TabPageV_Control01_Plugins_Panel n=1 6756797(vis=False,kids=5) 
+05:25:56 panelname: TabPageV_Control01_Map_Panel n=1 41580444(vis=False,kids=3) 
+05:25:56 panelname: TabPageV_Control01_Statistics_Panel n=1 42353227(vis=False,kids=10) 
+05:25:56 panelname: TabPageV_Control01_Party_Panel n=1 63386473(vis=False,kids=5) 
+05:25:56 panelname: TabPageV_Control01_SilkroadLogin_Panel n=1 52380055(vis=True,kids=6) 
+05:25:56 panelname: TabPageV_Control01_Academy_Panel n=1 1166200(vis=False,kids=1) 
+05:25:56 panelname: TabPageV_Control01_Town_Panel n=1 10495806(vis=False,kids=4) 
+05:25:56 panelname: TabPageV_Control01_Alchemy_Panel n=1 13875810(vis=False,kids=2) 
+05:25:56 panelname: TabPageV_Control01_TargetAssist_Panel n=1 1301106(vis=False,kids=6) 
+05:25:56 panelname: TabPageV_Control01_ProjectHax_Panel n=1 48303235(vis=False,kids=2) 
+05:25:56 panelname: TabPageV_Control01_AutoConfigure_Panel n=1 32075938(vis=False,kids=2) 
+05:25:56 panelname: TabPageV_Control01_Notifications_Panel n=1 20247990(vis=False,kids=4) 
+05:25:56 panelname: TabPageV_Control01_Pet_Panel n=1 48014184(vis=False,kids=1) 
+05:25:56 panelname: TabPageV_Control01_UnionParty_Panel n=1 29474473(vis=False,kids=3) 
+05:25:56 panelname: TabPageV_Control01_PickFilter_Panel n=1 63943666(vis=False,kids=1) 
+05:25:56 panelname: TabPageV_Control01_Quest_Panel n=1 38622084(vis=False,kids=1) 
+05:25:56 panelname: TabPageV_Control01_Trade_Panel n=1 12054440(vis=False,kids=4) 
+05:25:56 panelname: TabPageV_Control01_Masteries_Panel n=1 41381104(vis=False,kids=6) 
+05:25:56 panelname: TabPageV_Control01_Sound_Panel n=1 36885620(vis=False,kids=4) 
+05:25:56 panelname: TabPageV_Control01_KeyBindings_Panel n=1 63535124(vis=False,kids=1) 
+05:25:56 panelname: TabPageV_Control01_Conditions_Panel n=1 34945211(vis=False,kids=2) 
+05:25:56 training details: vis=False loc={X=312,Y=6} size={Width=892, Height=644} kids=15
+05:25:56 classic applied
+05:48:37 start classic
+05:48:37 before gbx=41 cards=6 toggles=5 mbtns=0 mtxt=0 lv=46/43 darkPanels=89 modernSidebar=visible=False
+05:48:38 paint stripped: 214
+05:48:38 after-neutralize gbx=47 cards=0 toggles=0 mbtns=0 mtxt=0 lv=46/43 darkPanels=89 modernSidebar=visible=False
+05:48:38 town child: Panel TabPageH_Town vis=False bg=FF161922 loc={X=0,Y=0} size={Width=1210, Height=32}
+05:48:38 town child: Panel TabPageH_Town_Option01_Panel vis=False bg=FF0F1117 loc={X=0,Y=34} size={Width=1210, Height=656}
+05:48:38 town child: Panel TabPageH_Town_Option02_Panel vis=False bg=FF0F1117 loc={X=0,Y=34} size={Width=1210, Height=656}
+05:48:38 town child: Panel TabPageH_Town_Option03_Panel vis=False bg=FF0F1117 loc={X=0,Y=34} size={Width=1210, Height=656}
+05:48:38 sidebar rebuilt: 56
+05:48:38 pickfilter wired
+05:48:38 skills strip laid out: 8 tabs, width=519
+05:48:38 after-style gbx=48 cards=0 toggles=0 mbtns=0 mtxt=0 lv=59/0 darkPanels=0 modernSidebar=visible=False
+05:48:38 view SilkroadLogin: panel=vis=True loc={X=220,Y=50} size={Width=1210, Height=690} hash=52380055 kids=6
+05:48:38   kid: GroupBox Login_gbxConnection vis=True bg=FFF0F0F0 text=[Connection]
+05:48:38   kid: GroupBox Login_gbxLogin vis=True bg=FFF0F0F0 text=[Giriş Bilgileri (Login)]
+05:48:38   kid: GroupBox Login_gbxServers vis=True bg=FFF0F0F0 text=[Server list]
+05:48:38   kid: GroupBox Login_gbxAdvertising vis=False bg=FFF0F0F0 text=[]
+05:48:38   kid: GroupBox Login_gbxCharacters vis=False bg=FFF0F0F0 text=[Character list]
+05:48:38   kid: GroupBox  vis=True bg=FFF0F0F0 text=[GİRİŞ STRATEJİSİ VE OTOMASYON]
+05:48:38   loginctl: GroupBox Login_gbxConnection bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:48:38   loginctl: CheckBox Login_cbxUseReturnScroll bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:48:38   loginctl: CheckBox Login_cbxRelogin bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:48:38   loginctl: CheckBox Login_cbxGoClientless bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:48:38   loginctl: RadioButton Login_rbnClientless bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:48:38   loginctl: RadioButton Login_rbnClient bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:48:38   loginctl: GroupBox Login_gbxLogin bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:48:38   loginctl: GroupBox Login_gbxServers bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:48:38   loginctl: GroupBox Login_gbxAdvertising bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:48:38   loginctl: GroupBox Login_gbxCharacters bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:48:38   loginctl: GroupBox  bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:48:38   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:48:38   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:48:38   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:48:38   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:48:38   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:48:38   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:48:38   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:48:38   loginctl: RadioButton  bg=FFF0F0F0 parent=/FFF0F0F0
+05:48:38   loginctl: RadioButton  bg=FFF0F0F0 parent=/FFF0F0F0
+05:48:38 paintkey=found
+05:48:38 HOOK: GroupBox  n=1 <>c__DisplayClass551_1.<SkinSingleControl>b__0;
+05:48:38 loginbox: Login_gbxConnection isField=False hash=12138304 parent=TabPageV_Control01_SilkroadLogin_Panel
+05:48:38 loginbox: Login_gbxLogin isField=False hash=42135876 parent=TabPageV_Control01_SilkroadLogin_Panel
+05:48:38 loginbox: Login_gbxServers isField=False hash=43678569 parent=TabPageV_Control01_SilkroadLogin_Panel
+05:48:38 loginbox: Login_gbxAdvertising isField=True hash=40093194 parent=TabPageV_Control01_SilkroadLogin_Panel
+05:48:38 loginbox: Login_gbxCharacters isField=False hash=57562809 parent=TabPageV_Control01_SilkroadLogin_Panel
+05:48:38 panelname: TabPageV_Control01_Protection_Panel n=1 38376892(vis=False,kids=12) 
+05:48:38 panelname: TabPageV_Control01_TrainingArea_Panel n=1 44855704(vis=False,kids=8) 
+05:48:38 panelname: TabPageV_Control01_Attack_Panel n=1 37355470(vis=False,kids=10) 
+05:48:38 panelname: TabPageV_Control01_Guild_Panel n=1 48630964(vis=False,kids=3) 
+05:48:38 panelname: TabPageV_Control01_Inventory_Panel n=1 37564172(vis=False,kids=9) 
+05:48:38 panelname: TabPageV_Control01_Chat_Panel n=1 2601186(vis=False,kids=10) 
+05:48:38 panelname: TabPageV_Control01_Players_Panel n=1 31665688(vis=False,kids=3) 
+05:48:38 panelname: TabPageV_Control01_Stall_Panel n=1 49554687(vis=False,kids=4) 
+05:48:38 panelname: TabPageV_Control01_Plugins_Panel n=1 6756797(vis=False,kids=5) 
+05:48:38 panelname: TabPageV_Control01_Map_Panel n=1 41580444(vis=False,kids=3) 
+05:48:38 panelname: TabPageV_Control01_Statistics_Panel n=1 42353227(vis=False,kids=10) 
+05:48:38 panelname: TabPageV_Control01_Party_Panel n=1 63386473(vis=False,kids=5) 
+05:48:38 panelname: TabPageV_Control01_SilkroadLogin_Panel n=1 52380055(vis=True,kids=6) 
+05:48:38 panelname: TabPageV_Control01_Academy_Panel n=1 1166200(vis=False,kids=1) 
+05:48:38 panelname: TabPageV_Control01_Town_Panel n=1 10495806(vis=False,kids=4) 
+05:48:38 panelname: TabPageV_Control01_Alchemy_Panel n=1 13875810(vis=False,kids=2) 
+05:48:38 panelname: TabPageV_Control01_TargetAssist_Panel n=1 1301106(vis=False,kids=6) 
+05:48:38 panelname: TabPageV_Control01_ProjectHax_Panel n=1 48303235(vis=False,kids=2) 
+05:48:38 panelname: TabPageV_Control01_AutoConfigure_Panel n=1 32075938(vis=False,kids=2) 
+05:48:38 panelname: TabPageV_Control01_Notifications_Panel n=1 20247990(vis=False,kids=4) 
+05:48:38 panelname: TabPageV_Control01_Pet_Panel n=1 48014184(vis=False,kids=1) 
+05:48:38 panelname: TabPageV_Control01_UnionParty_Panel n=1 29474473(vis=False,kids=3) 
+05:48:38 panelname: TabPageV_Control01_PickFilter_Panel n=1 63943666(vis=False,kids=1) 
+05:48:38 panelname: TabPageV_Control01_Quest_Panel n=1 38622084(vis=False,kids=0) 
+05:48:38 panelname: TabPageV_Control01_Trade_Panel n=1 12054440(vis=False,kids=4) 
+05:48:38 panelname: TabPageV_Control01_Masteries_Panel n=1 41381104(vis=False,kids=6) 
+05:48:38 panelname: TabPageV_Control01_Sound_Panel n=1 36885620(vis=False,kids=4) 
+05:48:38 panelname: TabPageV_Control01_KeyBindings_Panel n=1 63535124(vis=False,kids=1) 
+05:48:38 panelname: TabPageV_Control01_Conditions_Panel n=1 34945211(vis=False,kids=2) 
+05:48:38 training details: vis=False loc={X=312,Y=6} size={Width=892, Height=644} kids=15
+05:48:38 classic applied
+05:51:09 start classic
+05:51:09 before gbx=41 cards=6 toggles=5 mbtns=0 mtxt=0 lv=46/43 darkPanels=89 modernSidebar=visible=False
+05:51:09 paint stripped: 214
+05:51:09 after-neutralize gbx=47 cards=0 toggles=0 mbtns=0 mtxt=0 lv=46/43 darkPanels=89 modernSidebar=visible=False
+05:51:09 town child: Panel TabPageH_Town vis=False bg=FF161922 loc={X=0,Y=0} size={Width=1210, Height=32}
+05:51:09 town child: Panel TabPageH_Town_Option01_Panel vis=False bg=FF0F1117 loc={X=0,Y=34} size={Width=1210, Height=656}
+05:51:09 town child: Panel TabPageH_Town_Option02_Panel vis=False bg=FF0F1117 loc={X=0,Y=34} size={Width=1210, Height=656}
+05:51:09 town child: Panel TabPageH_Town_Option03_Panel vis=False bg=FF0F1117 loc={X=0,Y=34} size={Width=1210, Height=656}
+05:51:10 sidebar rebuilt: 56
+05:51:10 pickfilter wired
+05:51:10 skills strip laid out: 8 tabs, width=519
+05:51:10 after-style gbx=48 cards=0 toggles=0 mbtns=0 mtxt=0 lv=59/0 darkPanels=0 modernSidebar=visible=False
+05:51:10 view SilkroadLogin: panel=vis=True loc={X=220,Y=50} size={Width=1210, Height=690} hash=52380055 kids=6
+05:51:10   kid: GroupBox Login_gbxConnection vis=True bg=FFF0F0F0 text=[Connection]
+05:51:10   kid: GroupBox Login_gbxLogin vis=True bg=FFF0F0F0 text=[Giriş Bilgileri (Login)]
+05:51:10   kid: GroupBox Login_gbxServers vis=True bg=FFF0F0F0 text=[Server list]
+05:51:10   kid: GroupBox Login_gbxAdvertising vis=False bg=FFF0F0F0 text=[]
+05:51:10   kid: GroupBox Login_gbxCharacters vis=False bg=FFF0F0F0 text=[Character list]
+05:51:10   kid: GroupBox  vis=True bg=FFF0F0F0 text=[GİRİŞ STRATEJİSİ VE OTOMASYON]
+05:51:10   loginctl: GroupBox Login_gbxConnection bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:51:10   loginctl: CheckBox Login_cbxUseReturnScroll bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:51:10   loginctl: CheckBox Login_cbxRelogin bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:51:10   loginctl: CheckBox Login_cbxGoClientless bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:51:10   loginctl: RadioButton Login_rbnClientless bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:51:10   loginctl: RadioButton Login_rbnClient bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+05:51:10   loginctl: GroupBox Login_gbxLogin bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:51:10   loginctl: GroupBox Login_gbxServers bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:51:10   loginctl: GroupBox Login_gbxAdvertising bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:51:10   loginctl: GroupBox Login_gbxCharacters bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:51:10   loginctl: GroupBox  bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+05:51:10   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:51:10   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:51:10   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:51:10   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:51:10   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:51:10   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:51:10   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+05:51:10   loginctl: RadioButton  bg=FFF0F0F0 parent=/FFF0F0F0
+05:51:10   loginctl: RadioButton  bg=FFF0F0F0 parent=/FFF0F0F0
+05:51:10 paintkey=found
+05:51:10 HOOK: GroupBox  n=1 <>c__DisplayClass551_1.<SkinSingleControl>b__0;
+05:51:10 loginbox: Login_gbxConnection isField=False hash=12138304 parent=TabPageV_Control01_SilkroadLogin_Panel
+05:51:10 loginbox: Login_gbxLogin isField=False hash=42135876 parent=TabPageV_Control01_SilkroadLogin_Panel
+05:51:10 loginbox: Login_gbxServers isField=False hash=43678569 parent=TabPageV_Control01_SilkroadLogin_Panel
+05:51:10 loginbox: Login_gbxAdvertising isField=True hash=40093194 parent=TabPageV_Control01_SilkroadLogin_Panel
+05:51:10 loginbox: Login_gbxCharacters isField=False hash=57562809 parent=TabPageV_Control01_SilkroadLogin_Panel
+05:51:10 panelname: TabPageV_Control01_Protection_Panel n=1 38376892(vis=False,kids=12) 
+05:51:10 panelname: TabPageV_Control01_TrainingArea_Panel n=1 44855704(vis=False,kids=8) 
+05:51:10 panelname: TabPageV_Control01_Attack_Panel n=1 37355470(vis=False,kids=10) 
+05:51:10 panelname: TabPageV_Control01_Guild_Panel n=1 48630964(vis=False,kids=3) 
+05:51:10 panelname: TabPageV_Control01_Inventory_Panel n=1 37564172(vis=False,kids=9) 
+05:51:10 panelname: TabPageV_Control01_Chat_Panel n=1 2601186(vis=False,kids=10) 
+05:51:10 panelname: TabPageV_Control01_Players_Panel n=1 31665688(vis=False,kids=3) 
+05:51:10 panelname: TabPageV_Control01_Stall_Panel n=1 49554687(vis=False,kids=4) 
+05:51:10 panelname: TabPageV_Control01_Plugins_Panel n=1 6756797(vis=False,kids=5) 
+05:51:10 panelname: TabPageV_Control01_Map_Panel n=1 41580444(vis=False,kids=3) 
+05:51:10 panelname: TabPageV_Control01_Statistics_Panel n=1 42353227(vis=False,kids=10) 
+05:51:10 panelname: TabPageV_Control01_Party_Panel n=1 63386473(vis=False,kids=5) 
+05:51:10 panelname: TabPageV_Control01_SilkroadLogin_Panel n=1 52380055(vis=True,kids=6) 
+05:51:10 panelname: TabPageV_Control01_Academy_Panel n=1 1166200(vis=False,kids=1) 
+05:51:10 panelname: TabPageV_Control01_Town_Panel n=1 10495806(vis=False,kids=4) 
+05:51:10 panelname: TabPageV_Control01_Alchemy_Panel n=1 13875810(vis=False,kids=2) 
+05:51:10 panelname: TabPageV_Control01_TargetAssist_Panel n=1 1301106(vis=False,kids=6) 
+05:51:10 panelname: TabPageV_Control01_ProjectHax_Panel n=1 48303235(vis=False,kids=2) 
+05:51:10 panelname: TabPageV_Control01_AutoConfigure_Panel n=1 32075938(vis=False,kids=2) 
+05:51:10 panelname: TabPageV_Control01_Notifications_Panel n=1 20247990(vis=False,kids=4) 
+05:51:10 panelname: TabPageV_Control01_Pet_Panel n=1 48014184(vis=False,kids=1) 
+05:51:10 panelname: TabPageV_Control01_UnionParty_Panel n=1 29474473(vis=False,kids=3) 
+05:51:10 panelname: TabPageV_Control01_PickFilter_Panel n=1 63943666(vis=False,kids=1) 
+05:51:10 panelname: TabPageV_Control01_Quest_Panel n=1 38622084(vis=False,kids=0) 
+05:51:10 panelname: TabPageV_Control01_Trade_Panel n=1 12054440(vis=False,kids=4) 
+05:51:10 panelname: TabPageV_Control01_Masteries_Panel n=1 41381104(vis=False,kids=6) 
+05:51:10 panelname: TabPageV_Control01_Sound_Panel n=1 36885620(vis=False,kids=4) 
+05:51:10 panelname: TabPageV_Control01_KeyBindings_Panel n=1 63535124(vis=False,kids=1) 
+05:51:10 panelname: TabPageV_Control01_Conditions_Panel n=1 34945211(vis=False,kids=2) 
+05:51:10 training details: vis=False loc={X=312,Y=6} size={Width=892, Height=644} kids=15
+05:51:10 classic applied
+13:59:57 start classic
+13:59:57 before gbx=41 cards=6 toggles=5 mbtns=0 mtxt=0 lv=46/43 darkPanels=89 modernSidebar=visible=False
+13:59:57 paint stripped: 214
+13:59:57 after-neutralize gbx=47 cards=0 toggles=0 mbtns=0 mtxt=0 lv=46/43 darkPanels=89 modernSidebar=visible=False
+13:59:57 town child: Panel TabPageH_Town vis=False bg=FF161922 loc={X=0,Y=0} size={Width=1210, Height=32}
+13:59:57 town child: Panel TabPageH_Town_Option01_Panel vis=False bg=FF0F1117 loc={X=0,Y=34} size={Width=1210, Height=656}
+13:59:57 town child: Panel TabPageH_Town_Option02_Panel vis=False bg=FF0F1117 loc={X=0,Y=34} size={Width=1210, Height=656}
+13:59:57 town child: Panel TabPageH_Town_Option03_Panel vis=False bg=FF0F1117 loc={X=0,Y=34} size={Width=1210, Height=656}
+13:59:57 sidebar rebuilt: 56
+13:59:57 pickfilter wired
+13:59:57 tabs wrapped: TabPageH_Character n=11
+13:59:57 tabs wrapped: TabPageH_Skills n=8
+13:59:57 tabs wrapped: TabPageH_Town n=2
+13:59:57 tabs wrapped: TabPageH_Training n=7
+13:59:57 tabs wrapped: TabPageH_Party n=4
+13:59:57 tabs wrapped: TabPageH_Players n=2
+13:59:57 tabs wrapped: TabPageH_Guild n=2
+13:59:57 tabs wrapped: TabPageH_Inventory n=8
+13:59:57 tabs wrapped: TabPageH_Stall n=3
+13:59:58 after-style gbx=48 cards=0 toggles=0 mbtns=0 mtxt=0 lv=59/0 darkPanels=0 modernSidebar=visible=False
+13:59:58 view SilkroadLogin: panel=vis=True loc={X=220,Y=50} size={Width=1210, Height=690} hash=52380055 kids=6
+13:59:58   kid: GroupBox Login_gbxConnection vis=True bg=FFF0F0F0 text=[Connection]
+13:59:58   kid: GroupBox Login_gbxLogin vis=True bg=FFF0F0F0 text=[Giriş Bilgileri (Login)]
+13:59:58   kid: GroupBox Login_gbxServers vis=True bg=FFF0F0F0 text=[Server list]
+13:59:58   kid: GroupBox Login_gbxAdvertising vis=False bg=FFF0F0F0 text=[]
+13:59:58   kid: GroupBox Login_gbxCharacters vis=False bg=FFF0F0F0 text=[Character list]
+13:59:58   kid: GroupBox  vis=True bg=FFF0F0F0 text=[LOGIN STRATEGY & AUTOMATION]
+13:59:58   loginctl: GroupBox Login_gbxConnection bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+13:59:58   loginctl: CheckBox Login_cbxUseReturnScroll bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+13:59:58   loginctl: CheckBox Login_cbxRelogin bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+13:59:58   loginctl: CheckBox Login_cbxGoClientless bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+13:59:58   loginctl: RadioButton Login_rbnClientless bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+13:59:58   loginctl: RadioButton Login_rbnClient bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+13:59:58   loginctl: GroupBox Login_gbxLogin bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+13:59:58   loginctl: GroupBox Login_gbxServers bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+13:59:58   loginctl: GroupBox Login_gbxAdvertising bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+13:59:58   loginctl: GroupBox Login_gbxCharacters bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+13:59:58   loginctl: GroupBox  bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+13:59:58   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+13:59:58   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+13:59:58   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+13:59:58   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+13:59:58   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+13:59:58   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+13:59:58   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+13:59:58   loginctl: RadioButton  bg=FFF0F0F0 parent=/FFF0F0F0
+13:59:58   loginctl: RadioButton  bg=FFF0F0F0 parent=/FFF0F0F0
+13:59:58 paintkey=found
+13:59:58 HOOK: GroupBox  n=1 <>c__DisplayClass556_1.<SkinSingleControl>b__0;
+13:59:58 loginbox: Login_gbxConnection isField=False hash=12138304 parent=TabPageV_Control01_SilkroadLogin_Panel
+13:59:58 loginbox: Login_gbxLogin isField=False hash=42135876 parent=TabPageV_Control01_SilkroadLogin_Panel
+13:59:58 loginbox: Login_gbxServers isField=False hash=43678569 parent=TabPageV_Control01_SilkroadLogin_Panel
+13:59:58 loginbox: Login_gbxAdvertising isField=True hash=40093194 parent=TabPageV_Control01_SilkroadLogin_Panel
+13:59:58 loginbox: Login_gbxCharacters isField=False hash=57562809 parent=TabPageV_Control01_SilkroadLogin_Panel
+13:59:58 panelname: TabPageV_Control01_Protection_Panel n=1 38376892(vis=False,kids=13) 
+13:59:58 panelname: TabPageV_Control01_TrainingArea_Panel n=1 44855704(vis=False,kids=9) 
+13:59:58 panelname: TabPageV_Control01_Attack_Panel n=1 37355470(vis=False,kids=11) 
+13:59:58 panelname: TabPageV_Control01_Guild_Panel n=1 48630964(vis=False,kids=4) 
+13:59:58 panelname: TabPageV_Control01_Inventory_Panel n=1 37564172(vis=False,kids=10) 
+13:59:58 panelname: TabPageV_Control01_Chat_Panel n=1 2601186(vis=False,kids=10) 
+13:59:58 panelname: TabPageV_Control01_Players_Panel n=1 31665688(vis=False,kids=4) 
+13:59:58 panelname: TabPageV_Control01_Stall_Panel n=1 49554687(vis=False,kids=5) 
+13:59:58 panelname: TabPageV_Control01_Plugins_Panel n=1 6756797(vis=False,kids=5) 
+13:59:58 panelname: TabPageV_Control01_Map_Panel n=1 41580444(vis=False,kids=3) 
+13:59:58 panelname: TabPageV_Control01_Statistics_Panel n=1 42353227(vis=False,kids=10) 
+13:59:58 panelname: TabPageV_Control01_Party_Panel n=1 63386473(vis=False,kids=6) 
+13:59:58 panelname: TabPageV_Control01_SilkroadLogin_Panel n=1 52380055(vis=True,kids=6) 
+13:59:58 panelname: TabPageV_Control01_Academy_Panel n=1 1166200(vis=False,kids=1) 
+13:59:58 panelname: TabPageV_Control01_Town_Panel n=1 10495806(vis=False,kids=5) 
+13:59:58 panelname: TabPageV_Control01_Alchemy_Panel n=1 13875810(vis=False,kids=2) 
+13:59:58 panelname: TabPageV_Control01_TargetAssist_Panel n=1 1301106(vis=False,kids=6) 
+13:59:58 panelname: TabPageV_Control01_ProjectHax_Panel n=1 48303235(vis=False,kids=2) 
+13:59:58 panelname: TabPageV_Control01_AutoConfigure_Panel n=1 32075938(vis=False,kids=2) 
+13:59:58 panelname: TabPageV_Control01_Notifications_Panel n=1 20247990(vis=False,kids=4) 
+13:59:58 panelname: TabPageV_Control01_Pet_Panel n=1 48014184(vis=False,kids=1) 
+13:59:58 panelname: TabPageV_Control01_UnionParty_Panel n=1 29474473(vis=False,kids=3) 
+13:59:58 panelname: TabPageV_Control01_PickFilter_Panel n=1 63943666(vis=False,kids=1) 
+13:59:58 panelname: TabPageV_Control01_Quest_Panel n=1 38622084(vis=False,kids=0) 
+13:59:58 panelname: TabPageV_Control01_Trade_Panel n=1 12054440(vis=False,kids=4) 
+13:59:58 panelname: TabPageV_Control01_Masteries_Panel n=1 41381104(vis=False,kids=6) 
+13:59:58 panelname: TabPageV_Control01_Sound_Panel n=1 36885620(vis=False,kids=4) 
+13:59:58 panelname: TabPageV_Control01_KeyBindings_Panel n=1 63535124(vis=False,kids=1) 
+13:59:58 panelname: TabPageV_Control01_Conditions_Panel n=1 34945211(vis=False,kids=2) 
+13:59:58 training details: vis=False loc={X=312,Y=6} size={Width=892, Height=638} kids=15
+13:59:58 classic applied
+14:18:07 start classic
+14:18:07 before gbx=41 cards=6 toggles=5 mbtns=0 mtxt=0 lv=46/43 darkPanels=89 modernSidebar=visible=False
+14:18:07 paint stripped: 214
+14:18:07 after-neutralize gbx=47 cards=0 toggles=0 mbtns=0 mtxt=0 lv=46/43 darkPanels=89 modernSidebar=visible=False
+14:18:07 town child: Panel TabPageH_Town vis=False bg=FF161922 loc={X=0,Y=0} size={Width=1210, Height=32}
+14:18:07 town child: Panel TabPageH_Town_Option01_Panel vis=False bg=FF0F1117 loc={X=0,Y=34} size={Width=1210, Height=656}
+14:18:07 town child: Panel TabPageH_Town_Option02_Panel vis=False bg=FF0F1117 loc={X=0,Y=34} size={Width=1210, Height=656}
+14:18:07 town child: Panel TabPageH_Town_Option03_Panel vis=False bg=FF0F1117 loc={X=0,Y=34} size={Width=1210, Height=656}
+14:18:07 sidebar rebuilt: 56
+14:18:07 pickfilter wired
+14:18:07 tabs wrapped: TabPageH_Character n=11
+14:18:07 tabs wrapped: TabPageH_Skills n=8
+14:18:07 tabs wrapped: TabPageH_Town n=2
+14:18:07 tabs wrapped: TabPageH_Training n=7
+14:18:07 tabs wrapped: TabPageH_Party n=4
+14:18:07 tabs wrapped: TabPageH_Players n=2
+14:18:07 tabs wrapped: TabPageH_Guild n=2
+14:18:07 tabs wrapped: TabPageH_Inventory n=8
+14:18:07 tabs wrapped: TabPageH_Stall n=3
+14:18:07 after-style gbx=48 cards=0 toggles=0 mbtns=0 mtxt=0 lv=59/0 darkPanels=0 modernSidebar=visible=False
+14:18:07 view SilkroadLogin: panel=vis=True loc={X=220,Y=50} size={Width=1210, Height=690} hash=52380055 kids=6
+14:18:07   kid: GroupBox Login_gbxConnection vis=True bg=FFF0F0F0 text=[Connection]
+14:18:07   kid: GroupBox Login_gbxLogin vis=True bg=FFF0F0F0 text=[Giriş Bilgileri (Login)]
+14:18:07   kid: GroupBox Login_gbxServers vis=True bg=FFF0F0F0 text=[Server list]
+14:18:07   kid: GroupBox Login_gbxAdvertising vis=False bg=FFF0F0F0 text=[]
+14:18:07   kid: GroupBox Login_gbxCharacters vis=False bg=FFF0F0F0 text=[Character list]
+14:18:07   kid: GroupBox  vis=True bg=FFF0F0F0 text=[LOGIN STRATEGY & AUTOMATION]
+14:18:07   loginctl: GroupBox Login_gbxConnection bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+14:18:07   loginctl: CheckBox Login_cbxUseReturnScroll bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+14:18:07   loginctl: CheckBox Login_cbxRelogin bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+14:18:07   loginctl: CheckBox Login_cbxGoClientless bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+14:18:07   loginctl: RadioButton Login_rbnClientless bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+14:18:07   loginctl: RadioButton Login_rbnClient bg=FFF0F0F0 parent=Login_gbxConnection/FFF0F0F0
+14:18:07   loginctl: GroupBox Login_gbxLogin bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+14:18:07   loginctl: GroupBox Login_gbxServers bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+14:18:07   loginctl: GroupBox Login_gbxAdvertising bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+14:18:07   loginctl: GroupBox Login_gbxCharacters bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+14:18:07   loginctl: GroupBox  bg=FFF0F0F0 parent=TabPageV_Control01_SilkroadLogin_Panel/FFF0F0F0
+14:18:07   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+14:18:07   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+14:18:07   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+14:18:07   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+14:18:07   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+14:18:07   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+14:18:07   loginctl: CheckBox  bg=FFF0F0F0 parent=/FFF0F0F0
+14:18:07   loginctl: RadioButton  bg=FFF0F0F0 parent=/FFF0F0F0
+14:18:07   loginctl: RadioButton  bg=FFF0F0F0 parent=/FFF0F0F0
+14:18:07 paintkey=found
+14:18:07 HOOK: GroupBox  n=1 <>c__DisplayClass572_1.<SkinSingleControl>b__0;
+14:18:07 loginbox: Login_gbxConnection isField=False hash=12138304 parent=TabPageV_Control01_SilkroadLogin_Panel
+14:18:07 loginbox: Login_gbxLogin isField=False hash=42135876 parent=TabPageV_Control01_SilkroadLogin_Panel
+14:18:07 loginbox: Login_gbxServers isField=False hash=43678569 parent=TabPageV_Control01_SilkroadLogin_Panel
+14:18:07 loginbox: Login_gbxAdvertising isField=True hash=40093194 parent=TabPageV_Control01_SilkroadLogin_Panel
+14:18:07 loginbox: Login_gbxCharacters isField=False hash=57562809 parent=TabPageV_Control01_SilkroadLogin_Panel
+14:18:07 panelname: TabPageV_Control01_Protection_Panel n=1 38376892(vis=False,kids=13) 
+14:18:07 panelname: TabPageV_Control01_TrainingArea_Panel n=1 44855704(vis=False,kids=9) 
+14:18:07 panelname: TabPageV_Control01_Attack_Panel n=1 37355470(vis=False,kids=11) 
+14:18:07 panelname: TabPageV_Control01_Guild_Panel n=1 48630964(vis=False,kids=4) 
+14:18:07 panelname: TabPageV_Control01_Inventory_Panel n=1 37564172(vis=False,kids=10) 
+14:18:07 panelname: TabPageV_Control01_Chat_Panel n=1 2601186(vis=False,kids=10) 
+14:18:07 panelname: TabPageV_Control01_Players_Panel n=1 31665688(vis=False,kids=4) 
+14:18:07 panelname: TabPageV_Control01_Stall_Panel n=1 49554687(vis=False,kids=5) 
+14:18:07 panelname: TabPageV_Control01_Plugins_Panel n=1 6756797(vis=False,kids=5) 
+14:18:07 panelname: TabPageV_Control01_Map_Panel n=1 41580444(vis=False,kids=3) 
+14:18:07 panelname: TabPageV_Control01_Statistics_Panel n=1 42353227(vis=False,kids=10) 
+14:18:07 panelname: TabPageV_Control01_Party_Panel n=1 63386473(vis=False,kids=6) 
+14:18:07 panelname: TabPageV_Control01_SilkroadLogin_Panel n=1 52380055(vis=True,kids=6) 
+14:18:07 panelname: TabPageV_Control01_Academy_Panel n=1 1166200(vis=False,kids=1) 
+14:18:07 panelname: TabPageV_Control01_Town_Panel n=1 10495806(vis=False,kids=5) 
+14:18:07 panelname: TabPageV_Control01_Alchemy_Panel n=1 13875810(vis=False,kids=2) 
+14:18:07 panelname: TabPageV_Control01_TargetAssist_Panel n=1 1301106(vis=False,kids=6) 
+14:18:07 panelname: TabPageV_Control01_ProjectHax_Panel n=1 48303235(vis=False,kids=2) 
+14:18:07 panelname: TabPageV_Control01_AutoConfigure_Panel n=1 32075938(vis=False,kids=2) 
+14:18:07 panelname: TabPageV_Control01_Notifications_Panel n=1 20247990(vis=False,kids=4) 
+14:18:07 panelname: TabPageV_Control01_Pet_Panel n=1 48014184(vis=False,kids=1) 
+14:18:07 panelname: TabPageV_Control01_UnionParty_Panel n=1 29474473(vis=False,kids=3) 
+14:18:07 panelname: TabPageV_Control01_PickFilter_Panel n=1 63943666(vis=False,kids=1) 
+14:18:07 panelname: TabPageV_Control01_Quest_Panel n=1 38622084(vis=False,kids=0) 
+14:18:07 panelname: TabPageV_Control01_Trade_Panel n=1 12054440(vis=False,kids=4) 
+14:18:07 panelname: TabPageV_Control01_Masteries_Panel n=1 41381104(vis=False,kids=6) 
+14:18:07 panelname: TabPageV_Control01_Sound_Panel n=1 36885620(vis=False,kids=4) 
+14:18:07 panelname: TabPageV_Control01_KeyBindings_Panel n=1 63535124(vis=False,kids=1) 
+14:18:07 panelname: TabPageV_Control01_Conditions_Panel n=1 34945211(vis=False,kids=2) 
+14:18:07 training details: vis=False loc={X=312,Y=6} size={Width=892, Height=638} kids=15
+14:18:07 classic applied

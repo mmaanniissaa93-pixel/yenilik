@@ -78,6 +78,13 @@ namespace xBot.App.Theme
 
         protected override void OnPaint(PaintEventArgs e)
         {
+            if (Window.UsePhBotClassic)
+            {
+                e.Graphics.Clear(BackColor);
+                ControlPaint.DrawBorder(e.Graphics, ClientRectangle, SystemColors.ControlDark, ButtonBorderStyle.Solid);
+                TextRenderer.DrawText(e.Graphics, TitleText, Font, new Rectangle(10, 6, Width - 20, 22), ForeColor);
+                return;
+            }
             Graphics g = e.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.PixelOffsetMode = PixelOffsetMode.HighQuality;

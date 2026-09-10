@@ -69,6 +69,7 @@ namespace xBot.App
 
         private void SkinControlHierarchy(Control parent)
         {
+            if (UsePhBotClassic) return;
             if (parent == null || parent is QuestPanel) return;
             SkinSingleControl(parent);
 

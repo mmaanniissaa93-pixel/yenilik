@@ -5,7 +5,7 @@ namespace xBot.App
 {
     public static class LocalizationManager
     {
-        public static string CurrentLanguage { get; private set; } = "TR";
+        public static string CurrentLanguage { get; private set; } = "EN";
 
         public static event Action OnLanguageChanged;
 

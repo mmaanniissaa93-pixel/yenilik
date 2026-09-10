@@ -149,6 +149,16 @@ namespace xBot.App.Theme
 
         protected override void OnPaint(PaintEventArgs pevent)
         {
+            if (Window.UsePhBotClassic)
+            {
+                pevent.Graphics.Clear(BackColor.A == 0 ? Parent.BackColor : BackColor);
+                var state = !Enabled
+                    ? (_checked ? System.Windows.Forms.VisualStyles.CheckBoxState.CheckedDisabled : System.Windows.Forms.VisualStyles.CheckBoxState.UncheckedDisabled)
+                    : (_checked ? System.Windows.Forms.VisualStyles.CheckBoxState.CheckedNormal : System.Windows.Forms.VisualStyles.CheckBoxState.UncheckedNormal);
+                CheckBoxRenderer.DrawCheckBox(pevent.Graphics, new Point(0, Math.Max(0, (Height - 13) / 2)), state);
+                TextRenderer.DrawText(pevent.Graphics, Text, Font, new Rectangle(20, 0, Math.Max(0, Width - 20), Height), ForeColor, TextFormatFlags.VerticalCenter);
+                return;
+            }
             Graphics g = pevent.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.PixelOffsetMode = PixelOffsetMode.HighQuality;

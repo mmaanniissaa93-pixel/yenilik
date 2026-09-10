@@ -71,10 +71,27 @@ namespace xBot
 		/// Punto de entrada principal para la aplicación.
 		/// </summary>
 		[STAThread]
-		static void Main()
+		static void Main(string[] args)
 		{
+			bool testMode = false;
+			try
+			{
+				if (args != null)
+				{
+					foreach (string a in args)
+					{
+						if (a != null && a.Equals("--phbot-test", StringComparison.OrdinalIgnoreCase))
+						{
+							testMode = true;
+							break;
+						}
+					}
+				}
+			}
+			catch { }
+			string mutexName = testMode ? @"Local\xBot.WinForms.PhBotTest" : SingleInstanceMutexName;
 			bool createdNew;
-			using (Mutex singleInstanceMutex = new Mutex(true, SingleInstanceMutexName, out createdNew))
+			using (Mutex singleInstanceMutex = new Mutex(true, mutexName, out createdNew))
 			{
 				if (!createdNew)
 				{
