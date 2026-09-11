@@ -268,7 +268,7 @@ namespace xBot.App
                 LocalizationManager.OnLanguageChanged += ApplyLanguageToWindow;
                 BuildHeaderWidgets();
                 BuildGeneralTabWidgets();
-                BuildCombatTabWidgets();
+                RemoveCombatTabWidgets();
                   BuildReturnToAreaWidgets();
                   BuildScriptCreator();
                   BuildSkillsTabWidgets();
@@ -1985,35 +1985,32 @@ namespace xBot.App
 
         private void BuildCombatTabWidgets()
         {
-            if (this.TabPageH_Training == null || this.TabPageV_Control01_Training_Panel == null)
-                return;
+            RemoveCombatTabWidgets();
+        }
 
-            EnsureTrainingCombatTab();
-            if (btnTrainingCombat != null)
-                btnTrainingCombat.Text = "Savaş";
-            if (pnlTrainingCombat == null)
-                return;
-            pnlTrainingCombat.AutoScroll = true;
-
-            // Eski gereksiz kontroller gizlenir; motorun okuduğu değerler
-            // izin-veren tarafta sabitlenir (hedef filtresi Kaçınma tablosuna,
-            // zerk detayı Berserker kartına taşınır).
-            HideLegacyCombatControls();
-
-            if (TabPageH_Town_Option02 != null)
-                TabPageH_Town_Option02.Visible = false;
-            if (TabPageH_Town_Option02_Panel != null)
-                TabPageH_Town_Option02_Panel.Visible = false;
-            ResizeTrainingTab(TabPageH_Town_Option01, 0, 328);
-            ResizeTrainingTab(TabPageH_Town_Option03, 329, 328);
-
-            if (gbxCombatBerserk == null)
-                BuildCombatBerserkCard();
-            if (gbxCombatAdvanced == null)
-                BuildCombatAdvancedCard();
-            if (gbxCombatAvoid == null)
-                BuildCombatAvoidTable();
-            RefreshCombatControls();
+        private void RemoveCombatTabWidgets()
+        {
+            try
+            {
+                if (btnTrainingCombat != null)
+                {
+                    if (TabPageH_Training != null && TabPageH_Training.Controls.Contains(btnTrainingCombat))
+                        TabPageH_Training.Controls.Remove(btnTrainingCombat);
+                    btnTrainingCombat.Visible = false;
+                    btnTrainingCombat.Dispose();
+                    btnTrainingCombat = null;
+                }
+                if (pnlTrainingCombat != null)
+                {
+                    if (TabPageV_Control01_Training_Panel != null && TabPageV_Control01_Training_Panel.Controls.Contains(pnlTrainingCombat))
+                        TabPageV_Control01_Training_Panel.Controls.Remove(pnlTrainingCombat);
+                    pnlTrainingCombat.Visible = false;
+                    pnlTrainingCombat.Dispose();
+                    pnlTrainingCombat = null;
+                }
+                HideLegacyCombatControls();
+            }
+            catch { }
         }
 
         private void HideLegacyCombatControls()
@@ -2449,47 +2446,7 @@ namespace xBot.App
 
         private void EnsureTrainingCombatTab()
         {
-            if (btnTrainingCombat != null && pnlTrainingCombat != null)
-                return;
-
-            const int tabWidth = 164;
-            ResizeTrainingTab(TabPageH_Training_Option01, 0, tabWidth);
-            ResizeTrainingTab(TabPageH_Training_Option02, tabWidth, tabWidth);
-            ResizeTrainingTab(TabPageH_Training_Option03, tabWidth * 2, tabWidth);
-
-            btnTrainingCombat = new Button
-            {
-                AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                BackColor = Color.FromArgb(45, 45, 48),
-                FlatStyle = FlatStyle.Flat,
-                ForeColor = Color.FromArgb(241, 241, 241),
-                Font = new Font("Microsoft Sans Serif", 13F, FontStyle.Regular, GraphicsUnit.Pixel),
-                Location = new Point(tabWidth * 3, 0),
-                Margin = new Padding(0),
-                Name = "TabPageH_Training_Option04",
-                Size = new Size(tabWidth, 26),
-                TabIndex = 15,
-                Tag = "Source Sans Pro",
-                Text = "Savaş",
-                UseVisualStyleBackColor = false
-            };
-            btnTrainingCombat.FlatAppearance.BorderSize = 0;
-            btnTrainingCombat.FlatAppearance.MouseDownBackColor = Color.FromArgb(0, 122, 204);
-            btnTrainingCombat.FlatAppearance.MouseOverBackColor = Color.FromArgb(28, 151, 234);
-            btnTrainingCombat.Click += TabPageH_Option_Click;
-            TabPageH_Training.Controls.Add(btnTrainingCombat);
-
-            pnlTrainingCombat = new Panel
-            {
-                BackColor = Color.FromArgb(45, 45, 48),
-                BorderStyle = BorderStyle.FixedSingle,
-                Location = new Point(0, 27),
-                Name = "TabPageH_Training_Option04_Panel",
-                Size = new Size(657, 345),
-                TabIndex = 28,
-                Visible = false
-            };
-            TabPageV_Control01_Training_Panel.Controls.Add(pnlTrainingCombat);
+            RemoveCombatTabWidgets();
         }
 
         private void ResizeTrainingTab(Button tab, int x, int width)
@@ -4151,8 +4108,8 @@ namespace xBot.App
                         if (Login_btnAccountSetup != null) ToolTips.SetToolTip(Login_btnAccountSetup, LocalizationManager.Get("UI_AccountSetupTip", "Advanced Account & PIN Setup"));
                     }
 
-                    // Savaş sekmesi (Berserker / Gelişmiş / Kaçınma)
-                    if (btnTrainingCombat != null) btnTrainingCombat.Text = LocalizationManager.Get("UI_CombatAI_Tab", "Combat");
+                    // Savaş sekmesi kaldırıldı
+                    if (btnTrainingCombat != null) btnTrainingCombat.Visible = false;
                     if (gbxCombatAdvanced != null) gbxCombatAdvanced.Text = LocalizationManager.Get("UI_AdvTitle", "Gelişmiş");
                     if (gbxCombatAvoid != null) gbxCombatAvoid.Text = LocalizationManager.Get("UI_AvoidTitle", "Kaçınma");
                     if (lblBerserkDesc != null) lblBerserkDesc.Text = LocalizationManager.Get("UI_BerserkDesc", "Control when berserk should be used during combat.");

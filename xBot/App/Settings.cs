@@ -578,12 +578,26 @@ namespace xBot.App
 						foreach (ListViewItem item in w.Training_lstvAreas.Items)
 						{
 							JObject area = new JObject();
-							area["Region"] = item.SubItems.Count > 1 && item.SubItems[1].Tag != null ? (ushort)item.SubItems[1].Tag : (ushort)0;
-							area["X"] = item.SubItems.Count > 2 && item.SubItems[2].Tag != null ? (int)item.SubItems[2].Tag : 0;
-							area["Y"] = item.SubItems.Count > 3 && item.SubItems[3].Tag != null ? (int)item.SubItems[3].Tag : 0;
-							area["Z"] = item.SubItems.Count > 4 && item.SubItems[4].Tag != null ? (int)item.SubItems[4].Tag : 0;
-							area["Radius"] = item.SubItems.Count > 5 && item.SubItems[5].Tag is int r && r > 0 ? r : 50;
-							area["Path"] = item.SubItems.Count > 6 ? item.SubItems[6].Text ?? "" : "";
+							if (item.Tag is TrainingAreaInfo info)
+							{
+								area["Region"] = info.Region;
+								area["X"] = info.X;
+								area["Y"] = info.Y;
+								area["Z"] = info.Z;
+								area["Radius"] = info.Radius;
+								area["PickRadius"] = info.PickRadius;
+								area["Path"] = info.ScriptPath ?? "";
+								area["Type"] = info.Type ?? "Menzil";
+							}
+							else
+							{
+								area["Region"] = item.SubItems.Count > 1 && item.SubItems[1].Tag != null ? (ushort)item.SubItems[1].Tag : (ushort)0;
+								area["X"] = item.SubItems.Count > 2 && item.SubItems[2].Tag != null ? (int)item.SubItems[2].Tag : 0;
+								area["Y"] = item.SubItems.Count > 3 && item.SubItems[3].Tag != null ? (int)item.SubItems[3].Tag : 0;
+								area["Z"] = item.SubItems.Count > 4 && item.SubItems[4].Tag != null ? (int)item.SubItems[4].Tag : 0;
+								area["Radius"] = item.SubItems.Count > 5 && item.SubItems[5].Tag is int r && r > 0 ? r : 50;
+								area["Path"] = item.SubItems.Count > 6 ? item.SubItems[6].Text ?? "" : "";
+							}
 							Area[item.Name] = area;
 						}
 						Training["AreaActivated"] = (w.Training_lstvAreas.Tag is ListViewItem activatedItem) ? activatedItem.Name : "";
@@ -595,6 +609,8 @@ namespace xBot.App
 						Trace["TraceDistance"] = w.Training_tbxTraceDistance.Text;
 
 						Training["ReturnToArea"] = ReturnToAreaPolicy.ToJson();
+						Training["Collision"] = CollisionPolicy.ToJson();
+						Training["TrainingOptions"] = TrainingOptionsPolicy.ToJson();
 						try
 						{
 							Control[] prFound = w.Controls.Find("PhBot_PickRadius", true);
@@ -644,6 +660,8 @@ namespace xBot.App
 				root["ProtectionManager"] = ProtectionManager.ToJson();
 				root["CombatAIEngine"] = CombatAIEngine.ToJson();
 				root["ReturnToAreaPolicy"] = ReturnToAreaPolicy.ToJson();
+				root["CollisionPolicy"] = CollisionPolicy.ToJson();
+				root["TrainingOptionsPolicy"] = TrainingOptionsPolicy.ToJson();
 				root["StatPointManager"] = StatPointManager.ToJson();
 				root["ItemFilterManager"] = ItemFilterManager.ToJson();
 				root["EzFilterManager"] = EzFilterManager.ToJson();
@@ -1163,29 +1181,38 @@ Window w = Window.Get;
 					{
 						JObject area = (JObject)Area[key.Name];
 
-						ListViewItem item = new ListViewItem(key.Name);
-						item.Name = key.Name;
+						int rad = area.ContainsKey("Radius") ? (int)area["Radius"] : 50;
+						if (rad <= 0) rad = 50;
+						int pickRad = area.ContainsKey("PickRadius") ? (int)area["PickRadius"] : 50;
+						if (pickRad <= 0) pickRad = 50;
+						string scriptPath = area.ContainsKey("Path") ? (string)area["Path"] : "";
+						string areaType = area.ContainsKey("Type") ? (string)area["Type"] : "Menzil";
 
-						ListViewItem.ListViewSubItem subitem = new ListViewItem.ListViewSubItem();
-						subitem.Tag = area.ContainsKey("Region") ? (ushort)area["Region"] : (ushort)0;
-						item.SubItems.Add(subitem);
-						subitem = new ListViewItem.ListViewSubItem();
-						subitem.Tag = area.ContainsKey("X") ? (int)area["X"] : 0;
-						item.SubItems.Add(subitem);
-						subitem = new ListViewItem.ListViewSubItem();
-						subitem.Tag = area.ContainsKey("Y") ? (int)area["Y"] : 0;
-						item.SubItems.Add(subitem);
-						subitem = new ListViewItem.ListViewSubItem();
-						subitem.Tag = area.ContainsKey("Z") ? (int)area["Z"] : 0;
-						item.SubItems.Add(subitem);
-						subitem = new ListViewItem.ListViewSubItem();
-						subitem.Tag = area.ContainsKey("Radius") ? (int)area["Radius"] : 0;
-						item.SubItems.Add(subitem);
-						item.SubItems.Add(area.ContainsKey("Path") ? (string)area["Path"] : "");
+						var info = new TrainingAreaInfo(
+							key.Name,
+							area.ContainsKey("Region") ? (ushort)area["Region"] : (ushort)0,
+							area.ContainsKey("X") ? (int)area["X"] : 0,
+							area.ContainsKey("Y") ? (int)area["Y"] : 0,
+							area.ContainsKey("Z") ? (int)area["Z"] : 0,
+							rad,
+							pickRad,
+							scriptPath,
+							areaType
+						);
+
+						ListViewItem item = new ListViewItem(info.Name);
+						item.Name = key.Name;
+						item.Tag = info;
+
+						item.SubItems.Add(System.IO.Path.GetFileName(info.ScriptPath));
+						item.SubItems.Add(info.Radius.ToString());
+						item.SubItems.Add(info.PickRadius.ToString());
+						item.SubItems.Add(info.Type);
+
 						// Check if this area is activated
 						if (AreaActivated != "" && AreaActivated == item.Name)
 						{
-							item.ForeColor = System.Drawing.Color.FromArgb(0, 180, 255);
+							item.ForeColor = System.Drawing.Color.FromArgb(0, 150, 0); // Green
 							w.Training_lstvAreas.Tag = item;
 							AreaActivated = "";
 						}
@@ -1199,6 +1226,10 @@ Window w = Window.Get;
 
 					if (Training.ContainsKey("ReturnToArea"))
 						ReturnToAreaPolicy.FromJson((JObject)Training["ReturnToArea"]);
+					if (Training.ContainsKey("Collision"))
+						CollisionPolicy.FromJson((JObject)Training["Collision"]);
+					if (Training.ContainsKey("TrainingOptions"))
+						TrainingOptionsPolicy.FromJson((JObject)Training["TrainingOptions"]);
 
 					if (Training.ContainsKey("PickRadius"))
 					{
@@ -1260,6 +1291,12 @@ Window w = Window.Get;
 					CombatAIEngine.FromJson((Newtonsoft.Json.Linq.JObject)root["CombatAIEngine"]);
 				if (root.ContainsKey("ReturnToAreaPolicy"))
 					ReturnToAreaPolicy.FromJson((Newtonsoft.Json.Linq.JObject)root["ReturnToAreaPolicy"]);
+				if (root.ContainsKey("CollisionPolicy"))
+					CollisionPolicy.FromJson((Newtonsoft.Json.Linq.JObject)root["CollisionPolicy"]);
+				w.RefreshCollisionControls();
+				if (root.ContainsKey("TrainingOptionsPolicy"))
+					TrainingOptionsPolicy.FromJson((Newtonsoft.Json.Linq.JObject)root["TrainingOptionsPolicy"]);
+				w.RefreshTrainingOptionsControls();
 			if (root.ContainsKey("StatPointManager"))
 				StatPointManager.FromJson((Newtonsoft.Json.Linq.JObject)root["StatPointManager"]);
 			if (root.ContainsKey("AutoConfigureManager"))

@@ -21,10 +21,11 @@ namespace xBot.App
         // ebeveyn şeridinin ebeveyni (V paneli) altında
         // buton.Adı + "_Panel" ismiyle durmalıdır.
         // ---------------------------------------------------------------
-        private Button EnsureExtraHTab(Panel hostV, Button anchor, string hPrefix, string title)
+        private Button EnsureExtraHTab(Panel hostV, Button anchor, string hPrefix, string key, string displayText = null)
         {
             if (hostV == null || anchor == null || anchor.Parent == null) return null;
-            string btnName = hPrefix + SanitizeName(title);
+            string title = displayText ?? key;
+            string btnName = hPrefix + SanitizeName(key);
             Control strip = anchor.Parent;
 
             Button b = null;
@@ -49,6 +50,11 @@ namespace xBot.App
                 b.Click += TabPageH_Option_Click;
                 b.Click += PhBotHTabVisual_Click;
                 strip.Controls.Add(b);
+            }
+            else
+            {
+                b.Text = title;
+                b.Size = new Size(Math.Max(70, TextRenderer.MeasureText(title, b.Font).Width + 20), 23);
             }
 
             string panelName = btnName + "_Panel";
@@ -96,6 +102,18 @@ namespace xBot.App
         {
             if (strip == null || orderedNames == null) return;
             try { if (strip.Tag is TabControl) return; } catch { }
+            try
+            {
+                var orderedSet = new HashSet<string>(orderedNames, StringComparer.OrdinalIgnoreCase);
+                foreach (Control c in strip.Controls)
+                {
+                    if (c is Button b && !orderedSet.Contains(b.Name))
+                    {
+                        b.Visible = false;
+                    }
+                }
+            }
+            catch { }
             try
             {
                 int x = 2;
@@ -1057,19 +1075,39 @@ namespace xBot.App
                 Panel host = TabPageV_Control01_Training_Panel;
                 if (TabPageH_Training_Option03 == null) return;
                 const string pre = "TabPageH_Training_Option";
+                bool isTR = LocalizationManager.CurrentLanguage == "TR";
 
-                // Trace içeriği Option03'te durur; etiketi geri al (Conditions ayrı sekmedir).
-                try { RenamePhBotSubTabs(TabPageH_Training_Option03, "Trace"); } catch { }
+                Control strip = TabPageH_Training_Option03.Parent;
+                try { if (TabPageH_Training_Option03 != null) TabPageH_Training_Option03.Visible = false; } catch { }
                 try
                 {
                     if (btnTrainingCombat != null)
-                        RenamePhBotSubTabs(btnTrainingCombat, "Combat");
+                    {
+                        btnTrainingCombat.Visible = false;
+                        if (strip != null && strip.Controls.Contains(btnTrainingCombat))
+                            strip.Controls.Remove(btnTrainingCombat);
+                    }
+                    if (strip != null && strip.Controls.ContainsKey("TabPageH_Training_Option04"))
+                    {
+                        var bOld = strip.Controls["TabPageH_Training_Option04"];
+                        bOld.Visible = false;
+                        strip.Controls.Remove(bOld);
+                    }
+                    if (host != null && host.Controls.ContainsKey("TabPageH_Training_Option04_Panel"))
+                    {
+                        var pOld = host.Controls["TabPageH_Training_Option04_Panel"];
+                        pOld.Visible = false;
+                        host.Controls.Remove(pOld);
+                    }
                 }
                 catch { }
 
-                EnsureExtraHTab(host, TabPageH_Training_Option03, pre, "Conditions");
-                EnsureExtraHTab(host, TabPageH_Training_Option03, pre, "Collision");
-                EnsureExtraHTab(host, TabPageH_Training_Option03, pre, "Options");
+                RenamePhBotSubTabs(TabPageH_Training_Option01, isTR ? "Kasılma" : "Training");
+                RenamePhBotSubTabs(TabPageH_Training_Option02, isTR ? "Komut" : "Script");
+
+                EnsureExtraHTab(host, TabPageH_Training_Option03, pre, "Conditions", isTR ? "Koşullar" : "Conditions");
+                EnsureExtraHTab(host, TabPageH_Training_Option03, pre, "Collision", isTR ? "Çarpışma" : "Collision");
+                EnsureExtraHTab(host, TabPageH_Training_Option03, pre, "Options", isTR ? "Seçenekler" : "Options");
 
                 var order = new List<string>();
                 order.Add("TabPageH_Training_Option01");
@@ -1077,7 +1115,6 @@ namespace xBot.App
                 order.Add(pre + "Collision");
                 order.Add(pre + "Options");
                 order.Add("TabPageH_Training_Option02");
-                Control strip = TabPageH_Training_Option03.Parent;
                 LayoutHStrip(strip, order.ToArray());
 
                 BuildTrainingConditions(GetExtraHTabPanel(host, pre, "Conditions"));
@@ -1214,14 +1251,76 @@ namespace xBot.App
             p.AutoScroll = false;
             p.BackColor = Color.White;
 
-            // phbot/training-area.md -> Collision 1..7 (phbot_training-area_06.png)
-            AddPhBotCheck(p, "Enable collision detection in the training area", 15, 12, false);
-            AddPhBotCheck(p, "Navigate around obstacles", 15, 36, false);
-            AddPhBotCheck(p, "Navigate to item drops", 15, 60, false);
-            AddPhBotCheck(p, "Disable Samarkand", 35, 84, false);
-            AddPhBotCheck(p, "Disable Alexandria", 35, 108, false);
-            AddPhBotCheck(p, "Disable Guide/Advice NPCs", 35, 132, false);
-            AddPhBotCheck(p, "Ignore teleport level", 35, 156, false);
+            bool isTR = LocalizationManager.CurrentLanguage == "TR";
+            int y = 14;
+            int step = 28;
+
+            // media_1789163191778.png -> Çarpışma 8 checkbox
+            var c1 = AddPhBotCheck(p, isTR ? "Kasılma alanında engel tespit etmeyi aktifleştir" : "Enable collision detection in the training area", 18, y, CollisionPolicy.EnableCollisionInTrainingArea);
+            c1.Name = "PhBot_Collision_EnableInTraining";
+            c1.CheckedChanged += (s, e) => { CollisionPolicy.EnableCollisionInTrainingArea = c1.Checked; Settings.SaveCharacterSettings(); };
+            y += step;
+
+            var c2 = AddPhBotCheck(p, isTR ? "Engellerin etrafından dolaş" : "Navigate around obstacles", 18, y, CollisionPolicy.NavigateAroundObstacles);
+            c2.Name = "PhBot_Collision_NavigateAround";
+            c2.CheckedChanged += (s, e) => { CollisionPolicy.NavigateAroundObstacles = c2.Checked; Settings.SaveCharacterSettings(); };
+            y += step;
+
+            var c3 = AddPhBotCheck(p, isTR ? "Eşyaları toplarken engellerin etrafından dolaş" : "Navigate around obstacles while picking items", 18, y, CollisionPolicy.NavigateAroundObstaclesWhilePicking);
+            c3.Name = "PhBot_Collision_NavigateAroundPicking";
+            c3.CheckedChanged += (s, e) => { CollisionPolicy.NavigateAroundObstaclesWhilePicking = c3.Checked; Settings.SaveCharacterSettings(); };
+            y += step;
+
+            var c4 = AddPhBotCheck(p, isTR ? "Samarkand'a ışınlanmayı devre dışı bırak" : "Disable teleport to Samarkand", 18, y, CollisionPolicy.DisableTeleportSamarkand);
+            c4.Name = "PhBot_Collision_DisableSamarkand";
+            c4.CheckedChanged += (s, e) => { CollisionPolicy.DisableTeleportSamarkand = c4.Checked; Settings.SaveCharacterSettings(); };
+            y += step;
+
+            var c5 = AddPhBotCheck(p, isTR ? "Alexandria'ya ışınlanmayı devre dışı bırak" : "Disable teleport to Alexandria", 18, y, CollisionPolicy.DisableTeleportAlexandria);
+            c5.Name = "PhBot_Collision_DisableAlexandria";
+            c5.CheckedChanged += (s, e) => { CollisionPolicy.DisableTeleportAlexandria = c5.Checked; Settings.SaveCharacterSettings(); };
+            y += step;
+
+            var c6 = AddPhBotCheck(p, isTR ? "Guide/Advice NPCs Devre dışı bırak" : "Disable Guide/Advice NPCs", 18, y, CollisionPolicy.DisableGuideAdviceNPCs);
+            c6.Name = "PhBot_Collision_DisableGuideAdvice";
+            c6.CheckedChanged += (s, e) => { CollisionPolicy.DisableGuideAdviceNPCs = c6.Checked; Settings.SaveCharacterSettings(); };
+            y += step;
+
+            var c7 = AddPhBotCheck(p, isTR ? "Taklamakan'ı devre dışı bırak" : "Disable Taklamakan", 18, y, CollisionPolicy.DisableTaklamakan);
+            c7.Name = "PhBot_Collision_DisableTaklamakan";
+            c7.CheckedChanged += (s, e) => { CollisionPolicy.DisableTaklamakan = c7.Checked; Settings.SaveCharacterSettings(); };
+            y += step;
+
+            var c8 = AddPhBotCheck(p, isTR ? "Işınlanma seviyesini yoksay" : "Ignore teleport level", 18, y, CollisionPolicy.IgnoreTeleportLevel);
+            c8.Name = "PhBot_Collision_IgnoreLevel";
+            c8.CheckedChanged += (s, e) => { CollisionPolicy.IgnoreTeleportLevel = c8.Checked; Settings.SaveCharacterSettings(); };
+        }
+
+        public void RefreshCollisionControls()
+        {
+            try
+            {
+                Panel host = TabPageV_Control01_Training_Panel;
+                if (host == null) return;
+                Panel p = GetExtraHTabPanel(host, "TabPageH_Training_Option", "Collision");
+                if (p == null) return;
+
+                void SetCheck(string name, bool val)
+                {
+                    if (p.Controls.ContainsKey(name) && p.Controls[name] is CheckBox cb && cb.Checked != val)
+                        cb.Checked = val;
+                }
+
+                SetCheck("PhBot_Collision_EnableInTraining", CollisionPolicy.EnableCollisionInTrainingArea);
+                SetCheck("PhBot_Collision_NavigateAround", CollisionPolicy.NavigateAroundObstacles);
+                SetCheck("PhBot_Collision_NavigateAroundPicking", CollisionPolicy.NavigateAroundObstaclesWhilePicking);
+                SetCheck("PhBot_Collision_DisableSamarkand", CollisionPolicy.DisableTeleportSamarkand);
+                SetCheck("PhBot_Collision_DisableAlexandria", CollisionPolicy.DisableTeleportAlexandria);
+                SetCheck("PhBot_Collision_DisableGuideAdvice", CollisionPolicy.DisableGuideAdviceNPCs);
+                SetCheck("PhBot_Collision_DisableTaklamakan", CollisionPolicy.DisableTaklamakan);
+                SetCheck("PhBot_Collision_IgnoreLevel", CollisionPolicy.IgnoreTeleportLevel);
+            }
+            catch { }
         }
 
         private void BuildTrainingSettings(Panel p)
@@ -1230,64 +1329,168 @@ namespace xBot.App
             p.AutoScroll = false;
             p.BackColor = Color.White;
 
-            // phbot/training-area.md -> Options 1..15 (phbot_training-area_09.png)
-            int y = 10;
-            const int step = 19;
+            bool isTR = LocalizationManager.CurrentLanguage == "TR";
+            int y = 12;
+            const int step = 20;
 
-            var c1 = AddPhBotCheck(p, "Don't walk around", 15, y, ReturnToAreaPolicy.DontWalkAroundTrainingArea);
-            c1.CheckedChanged += (s, e) => ReturnToAreaPolicy.DontWalkAroundTrainingArea = c1.Checked;
+            // Sol kolon 1..15 (media_1789163198989.png / media_1789167056612.png)
+            var c1 = AddPhBotCheck(p, isTR ? "Kasılma alanında dolaşma" : "Don't walk around", 18, y, TrainingOptionsPolicy.DontWalkAroundTrainingArea);
+            c1.Name = "PhBot_Training_DontWalkAround";
+            c1.CheckedChanged += (s, e) => { TrainingOptionsPolicy.DontWalkAroundTrainingArea = c1.Checked; Settings.SaveCharacterSettings(); };
             y += step;
 
-            AddPhBotCheck(p, "Use Treasure Boxes", 15, y, false);
+            var c2 = AddPhBotCheck(p, isTR ? "Treasure Boxes kullan" : "Use Treasure Boxes", 18, y, TrainingOptionsPolicy.UseTreasureBoxes);
+            c2.Name = "PhBot_Training_UseTreasureBoxes";
+            c2.CheckedChanged += (s, e) => { TrainingOptionsPolicy.UseTreasureBoxes = c2.Checked; Settings.SaveCharacterSettings(); };
             y += step;
 
-            AddPhBotCheck(p, "Use Easter Egg event NPCs", 15, y, false);
+            var c3 = AddPhBotCheck(p, isTR ? "Paskalya Yumurtası Etkinlik NPClerini kullan" : "Use Easter Egg event NPCs", 18, y, TrainingOptionsPolicy.UseEasterEggEventNpcs);
+            c3.Name = "PhBot_Training_UseEasterEggEventNpcs";
+            c3.CheckedChanged += (s, e) => { TrainingOptionsPolicy.UseEasterEggEventNpcs = c3.Checked; Settings.SaveCharacterSettings(); };
             y += step;
 
-            AddPhBotCheck(p, "Equip better items", 15, y, false);
+            var c4 = AddPhBotCheck(p, isTR ? "Daha yüksek eşyaları otomatik kuşan" : "Equip better items", 18, y, TrainingOptionsPolicy.AutoEquipBetterItems);
+            c4.Name = "PhBot_Training_AutoEquipBetterItems";
+            c4.CheckedChanged += (s, e) => { TrainingOptionsPolicy.AutoEquipBetterItems = c4.Checked; Settings.SaveCharacterSettings(); };
             y += step;
 
-            AddPhBotCheck(p, "Summon flowers in the training area", 15, y, false);
+            var c5 = AddPhBotCheck(p, isTR ? "Kasılma alanında çiçek kullan" : "Summon flowers in the training area", 18, y, TrainingOptionsPolicy.SummonFlowersInTrainingArea);
+            c5.Name = "PhBot_Training_SummonFlowersInTrainingArea";
+            c5.CheckedChanged += (s, e) => { TrainingOptionsPolicy.SummonFlowersInTrainingArea = c5.Checked; Settings.SaveCharacterSettings(); };
             y += step;
 
-            var cHammer = AddPhBotCheck(p, "Use a repair hammer", 15, y, ProtectionManager.UseRepairHammer);
-            cHammer.CheckedChanged += (s, e) => ProtectionManager.UseRepairHammer = cHammer.Checked;
+            var cHammer = AddPhBotCheck(p, isTR ? "Repair Hammer kullan" : "Use a repair hammer", 18, y, TrainingOptionsPolicy.UseRepairHammer);
+            cHammer.Name = "PhBot_Training_UseRepairHammer";
+            cHammer.CheckedChanged += (s, e) => { TrainingOptionsPolicy.UseRepairHammer = cHammer.Checked; Settings.SaveCharacterSettings(); };
             y += step;
 
-            var cZerkPot = AddPhBotCheck(p, "Use berserker regeneration potions", 15, y, CombatAIEngine.UseZerkPotion);
-            cZerkPot.CheckedChanged += (s, e) => CombatAIEngine.UseZerkPotion = cZerkPot.Checked;
+            var cZerkPot = AddPhBotCheck(p, isTR ? "Berserker regeneration (zerk potu) kullan" : "Use berserker regeneration potions", 18, y, TrainingOptionsPolicy.UseZerkPotion);
+            cZerkPot.Name = "PhBot_Training_UseZerkPotion";
+            cZerkPot.CheckedChanged += (s, e) => { TrainingOptionsPolicy.UseZerkPotion = cZerkPot.Checked; Settings.SaveCharacterSettings(); };
             y += step;
 
-            var cEol = AddPhBotCheck(p, "Use Energy of Life potions", 15, y, CombatAIEngine.UseEnergyOfLife);
-            cEol.CheckedChanged += (s, e) => CombatAIEngine.UseEnergyOfLife = cEol.Checked;
+            var cEol = AddPhBotCheck(p, isTR ? "Energy of Life potu kullan" : "Use Energy of Life potions", 18, y, TrainingOptionsPolicy.UseEnergyOfLife);
+            cEol.Name = "PhBot_Training_UseEnergyOfLife";
+            cEol.CheckedChanged += (s, e) => { TrainingOptionsPolicy.UseEnergyOfLife = cEol.Checked; Settings.SaveCharacterSettings(); };
             y += step;
 
-            AddPhBotCheck(p, "Use Energy of Life berserk regeneration", 15, y, false);
+            var cEolZerk = AddPhBotCheck(p, isTR ? "Energy of Life zerki doldur" : "Use Energy of Life berserk regeneration", 18, y, TrainingOptionsPolicy.UseEnergyOfLifeForZerk);
+            cEolZerk.Name = "PhBot_Training_UseEnergyOfLifeForZerk";
+            cEolZerk.CheckedChanged += (s, e) => { TrainingOptionsPolicy.UseEnergyOfLifeForZerk = cEolZerk.Checked; Settings.SaveCharacterSettings(); };
             y += step;
 
-            var cRevDeath = AddPhBotCheck(p, "Use a reverse return scroll when you die", 15, y, ProtectionManager.UseReverseOnDeath);
-            cRevDeath.CheckedChanged += (s, e) => ProtectionManager.UseReverseOnDeath = cRevDeath.Checked;
+            var cRevDeath = AddPhBotCheck(p, isTR ? "Öldüğün zaman reverse kullan" : "Use a reverse return scroll when you die", 18, y, TrainingOptionsPolicy.UseReverseOnDeath);
+            cRevDeath.Name = "PhBot_Training_UseReverseOnDeath";
+            cRevDeath.CheckedChanged += (s, e) => { TrainingOptionsPolicy.UseReverseOnDeath = cRevDeath.Checked; Settings.SaveCharacterSettings(); };
             y += step;
 
-            var cRevTown = AddPhBotCheck(p, "Use a reverse return scroll after returning to town", 15, y, ProtectionManager.UseReverseAfterTown);
-            cRevTown.CheckedChanged += (s, e) => ProtectionManager.UseReverseAfterTown = cRevTown.Checked;
+            var cRevTown = AddPhBotCheck(p, isTR ? "Şehre döndükten sonra reverse kullan" : "Use a reverse return scroll after returning to town", 18, y, TrainingOptionsPolicy.UseReverseAfterTown);
+            cRevTown.Name = "PhBot_Training_UseReverseAfterTown";
+            cRevTown.CheckedChanged += (s, e) => { TrainingOptionsPolicy.UseReverseAfterTown = cRevTown.Checked; Settings.SaveCharacterSettings(); };
             y += step;
 
-            AddPhBotCheck(p, "Use monster summon scrolls & Pandora's Box in the training area", 15, y, false);
+            var cPandoraSummon = AddPhBotCheck(p, isTR ? "Kasılma alanında Pandora box veya monster scroll kullan" : "Use monster summon scrolls & Pandora's Box in the training area", 18, y, TrainingOptionsPolicy.UsePandoraBoxOrMonsterScroll);
+            cPandoraSummon.Name = "PhBot_Training_UsePandoraBoxOrMonsterScroll";
+            cPandoraSummon.CheckedChanged += (s, e) => { TrainingOptionsPolicy.UsePandoraBoxOrMonsterScroll = cPandoraSummon.Checked; Settings.SaveCharacterSettings(); };
             y += step;
 
-            AddPhBotCheck(p, "Wait for all strong monsters to be killed before summoning", 35, y, false);
+            var cWaitStrong = AddPhBotCheck(p, isTR ? "Tekrar kullanmadan önce tüm Strong mobların ölmesini bekle" : "Wait for all strong monsters to be killed before summoning", 18, y, TrainingOptionsPolicy.WaitForStrongMobsBeforeSummon);
+            cWaitStrong.Name = "PhBot_Training_WaitForStrongMobsBeforeSummon";
+            cWaitStrong.CheckedChanged += (s, e) => { TrainingOptionsPolicy.WaitForStrongMobsBeforeSummon = cWaitStrong.Checked; Settings.SaveCharacterSettings(); };
             y += step;
 
-            var cSpeed = AddPhBotCheck(p, "Use speed drugs", 15, y, ProtectionManager.UseSpeedDrugs || ReturnToAreaPolicy.UseSpeedDrug);
+            var cSpeed = AddPhBotCheck(p, isTR ? "Hızlı Koşma Kullan (Speed Drug)" : "Use speed drugs", 18, y, TrainingOptionsPolicy.UseSpeedDrugs);
+            cSpeed.Name = "PhBot_Training_UseSpeedDrugs";
             cSpeed.CheckedChanged += (s, e) => {
-                ProtectionManager.UseSpeedDrugs = cSpeed.Checked;
-                ReturnToAreaPolicy.UseSpeedDrug = cSpeed.Checked;
+                TrainingOptionsPolicy.UseSpeedDrugs = cSpeed.Checked;
+                Settings.SaveCharacterSettings();
             };
             y += step;
 
-            var cSpeedScript = AddPhBotCheck(p, "Only use speed drugs in the script", 35, y, ProtectionManager.SpeedDrugsOnlyInScript);
-            cSpeedScript.CheckedChanged += (s, e) => ProtectionManager.SpeedDrugsOnlyInScript = cSpeedScript.Checked;
+            var cSpeedScript = AddPhBotCheck(p, isTR ? "Sadece alana giderken hızlı koşma kullan" : "Only use speed drugs in the script", 18, y, TrainingOptionsPolicy.SpeedDrugsOnlyInScript);
+            cSpeedScript.Name = "PhBot_Training_SpeedDrugsOnlyInScript";
+            cSpeedScript.CheckedChanged += (s, e) => {
+                TrainingOptionsPolicy.SpeedDrugsOnlyInScript = cSpeedScript.Checked;
+                Settings.SaveCharacterSettings();
+            };
+
+            // Sağ kolon kontrolleri (media_1789163198989.png / media_1789167056612.png)
+            int rx = 420;
+            var cStay = AddPhBotCheck(p, isTR ? "Training alanında kal" : "Stay in the training area", rx, 56, TrainingOptionsPolicy.StayInTrainingArea);
+            cStay.Name = "PhBot_Training_StayInTrainingArea";
+            cStay.CheckedChanged += (s, e) => { TrainingOptionsPolicy.StayInTrainingArea = cStay.Checked; Settings.SaveCharacterSettings(); };
+
+            var cJustice = AddPhBotCheck(p, isTR ? "Statue of Justice mobuna saldır" : "Attack Statue of Justice", rx, 112, TrainingOptionsPolicy.AttackStatueOfJustice);
+            cJustice.Name = "PhBot_Training_AttackStatueOfJustice";
+            cJustice.CheckedChanged += (s, e) => { TrainingOptionsPolicy.AttackStatueOfJustice = cJustice.Checked; Settings.SaveCharacterSettings(); };
+
+            var cMount = AddPhBotCheck(p, isTR ? "At çıkarma" : "Don't spawn horse", rx, 168, TrainingOptionsPolicy.DoNotSpawnMount);
+            cMount.Name = "PhBot_Training_DoNotSpawnMount";
+            cMount.CheckedChanged += (s, e) => { TrainingOptionsPolicy.DoNotSpawnMount = cMount.Checked; Settings.SaveCharacterSettings(); };
+
+            var cLowMp = AddPhBotCheck(p, isTR ? "Düşük MP'de çekil" : "Withdraw on low MP", rx, 224, TrainingOptionsPolicy.WithdrawOnLowMp);
+            cLowMp.Name = "PhBot_Training_WithdrawOnLowMp";
+            cLowMp.CheckedChanged += (s, e) => { TrainingOptionsPolicy.WithdrawOnLowMp = cLowMp.Checked; Settings.SaveCharacterSettings(); };
+
+            var numLowMp = new NumericUpDown { Name = "PhBot_Training_LowMpPercent", Font = PhBotFont(), BackColor = Color.White, Location = new Point(rx + 155, 222), Size = new Size(45, 22), Value = Math.Max(0, Math.Min(100, TrainingOptionsPolicy.LowMpPercent)), Maximum = 100 };
+            numLowMp.ValueChanged += (s, e) => { TrainingOptionsPolicy.LowMpPercent = (int)numLowMp.Value; Settings.SaveCharacterSettings(); };
+            var lblLowMp = new Label { Text = "%", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(rx + 205, 225) };
+            p.Controls.AddRange(new Control[] { numLowMp, lblLowMp });
+
+            var cPandora = AddPhBotCheck(p, isTR ? "Pandora sayısını koru" : "Preserve Pandora's count", rx, 250, TrainingOptionsPolicy.PreservePandora);
+            cPandora.Name = "PhBot_Training_PreservePandora";
+            cPandora.CheckedChanged += (s, e) => { TrainingOptionsPolicy.PreservePandora = cPandora.Checked; Settings.SaveCharacterSettings(); };
+
+            var numPandora = new NumericUpDown { Name = "PhBot_Training_PreservePandoraCount", Font = PhBotFont(), BackColor = Color.White, Location = new Point(rx + 155, 248), Size = new Size(45, 22), Value = Math.Max(0, Math.Min(100, TrainingOptionsPolicy.PreservePandoraCount)), Maximum = 100 };
+            numPandora.ValueChanged += (s, e) => { TrainingOptionsPolicy.PreservePandoraCount = (int)numPandora.Value; Settings.SaveCharacterSettings(); };
+            p.Controls.Add(numPandora);
+        }
+
+        public void RefreshTrainingOptionsControls()
+        {
+            try
+            {
+                Panel host = TabPageV_Control01_Training_Panel;
+                if (host == null) return;
+                Panel p = GetExtraHTabPanel(host, "TabPageH_Training_Option", "Options");
+                if (p == null) return;
+
+                void SetCheck(string name, bool val)
+                {
+                    if (p.Controls.ContainsKey(name) && p.Controls[name] is CheckBox cb && cb.Checked != val)
+                        cb.Checked = val;
+                }
+                void SetNum(string name, int val)
+                {
+                    if (p.Controls.ContainsKey(name) && p.Controls[name] is NumericUpDown nud && (int)nud.Value != val)
+                        nud.Value = Math.Max(nud.Minimum, Math.Min(nud.Maximum, val));
+                }
+
+                SetCheck("PhBot_Training_DontWalkAround", TrainingOptionsPolicy.DontWalkAroundTrainingArea);
+                SetCheck("PhBot_Training_UseTreasureBoxes", TrainingOptionsPolicy.UseTreasureBoxes);
+                SetCheck("PhBot_Training_UseEasterEggEventNpcs", TrainingOptionsPolicy.UseEasterEggEventNpcs);
+                SetCheck("PhBot_Training_AutoEquipBetterItems", TrainingOptionsPolicy.AutoEquipBetterItems);
+                SetCheck("PhBot_Training_SummonFlowersInTrainingArea", TrainingOptionsPolicy.SummonFlowersInTrainingArea);
+                SetCheck("PhBot_Training_UseRepairHammer", TrainingOptionsPolicy.UseRepairHammer);
+                SetCheck("PhBot_Training_UseZerkPotion", TrainingOptionsPolicy.UseZerkPotion);
+                SetCheck("PhBot_Training_UseEnergyOfLife", TrainingOptionsPolicy.UseEnergyOfLife);
+                SetCheck("PhBot_Training_UseEnergyOfLifeForZerk", TrainingOptionsPolicy.UseEnergyOfLifeForZerk);
+                SetCheck("PhBot_Training_UseReverseOnDeath", TrainingOptionsPolicy.UseReverseOnDeath);
+                SetCheck("PhBot_Training_UseReverseAfterTown", TrainingOptionsPolicy.UseReverseAfterTown);
+                SetCheck("PhBot_Training_UsePandoraBoxOrMonsterScroll", TrainingOptionsPolicy.UsePandoraBoxOrMonsterScroll);
+                SetCheck("PhBot_Training_WaitForStrongMobsBeforeSummon", TrainingOptionsPolicy.WaitForStrongMobsBeforeSummon);
+                SetCheck("PhBot_Training_UseSpeedDrugs", TrainingOptionsPolicy.UseSpeedDrugs);
+                SetCheck("PhBot_Training_SpeedDrugsOnlyInScript", TrainingOptionsPolicy.SpeedDrugsOnlyInScript);
+
+                SetCheck("PhBot_Training_StayInTrainingArea", TrainingOptionsPolicy.StayInTrainingArea);
+                SetCheck("PhBot_Training_AttackStatueOfJustice", TrainingOptionsPolicy.AttackStatueOfJustice);
+                SetCheck("PhBot_Training_DoNotSpawnMount", TrainingOptionsPolicy.DoNotSpawnMount);
+                SetCheck("PhBot_Training_WithdrawOnLowMp", TrainingOptionsPolicy.WithdrawOnLowMp);
+                SetNum("PhBot_Training_LowMpPercent", TrainingOptionsPolicy.LowMpPercent);
+                SetCheck("PhBot_Training_PreservePandora", TrainingOptionsPolicy.PreservePandora);
+                SetNum("PhBot_Training_PreservePandoraCount", TrainingOptionsPolicy.PreservePandoraCount);
+            }
+            catch { }
         }
 
         // ---------------------------------------------------------------

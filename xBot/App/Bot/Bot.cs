@@ -846,6 +846,8 @@ namespace xBot.App
 		/// "MOVE,Region,X,Y,Z" satırı Training_rtbxRecordOutput'a eklenir.
 		/// STOP'ta kayıt Scripts\\record_*.txt dosyasına yazılır.
 		/// </summary>
+		public static event Action<string> OnRecordLineAppended;
+
 		public bool StartRecording()
 		{
 			if (isRecording || !InfoManager.inGame)
@@ -939,6 +941,7 @@ namespace xBot.App
 				string line = "MOVE," + pos.Region + "," + pos.X + "," + pos.Y + "," + pos.Z;
 				lock (m_recordedLines) { m_recordedLines.Add(line); }
 				try { if (w != null) w.Training_RecordAppend(line); } catch { }
+				try { OnRecordLineAppended?.Invoke(line); } catch { }
 			}
 			catch { }
 		}

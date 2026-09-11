@@ -512,6 +512,9 @@ namespace xBot.Game.Navigation
 					if (closedSet.Contains(conn.TargetRegionId))
 						continue;
 
+					if (CollisionPolicy.DisableTaklamakan && CollisionPolicy.IsTaklamakanRegion(conn.TargetRegionId))
+						continue;
+
 					double tentativeG = current.G + conn.Weight;
 					
 					if (!gScore.ContainsKey(conn.TargetRegionId) || tentativeG < gScore[conn.TargetRegionId])

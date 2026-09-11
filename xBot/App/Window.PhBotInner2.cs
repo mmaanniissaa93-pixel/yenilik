@@ -15,6 +15,9 @@ namespace xBot.App
     /// </summary>
     public partial class Window
     {
+        private static bool _isManualWalking = false;
+        private static volatile bool _walkCancelled = false;
+
         private void LayoutPhBotInners2()
         {
             try
@@ -312,33 +315,13 @@ namespace xBot.App
                 if (W < 200) return;
                 try { p.AutoScroll = true; } catch { }
 
-                // Savaş kutuları gerçek evine (Training > Combat).
+                // Eski savaş kutuları gizlenir (Koruma sekmesinde mevcuttur)
                 try
                 {
-                    Panel combat = pnlTrainingCombat;
-                    if (combat != null)
-                    {
-                        Control[] movers = new Control[] { Combat_gbxAI, Combat_gbxMobFilter };
-                        foreach (Control m in movers)
-                        {
-                            if (m == null || m.Parent != p) continue;
-                            int ny = 8;
-                            try
-                            {
-                                foreach (Control k in combat.Controls)
-                                {
-                                    try { ny = Math.Max(ny, k.Bottom + 8); } catch { }
-                                }
-                            }
-                            catch { }
-                            try { p.Controls.Remove(m); } catch { }
-                            try { combat.Controls.Add(m); } catch { }
-                            try { m.Location = new Point(8, ny); } catch { }
-                            try { m.Visible = true; } catch { }
-                        }
-                    }
+                    if (Combat_gbxAI != null) Combat_gbxAI.Visible = false;
+                    if (Combat_gbxMobFilter != null) Combat_gbxMobFilter.Visible = false;
                 }
-                catch (Exception ex) { PhBotDebug("town combat move: " + ex.Message); }
+                catch { }
 
                 // Eski Türkçe kutuları gizle
                 if (Town_gbxLogistics != null) Town_gbxLogistics.Visible = false;
@@ -413,8 +396,8 @@ namespace xBot.App
 
         // ---------------------------------------------------------------
         // TRAINING > TRAINING — phbot_training-area_07.png:
-        // Sol kolon: Create, Get Position, Walk, koordinat etiketi.
-        // Sağ kolon: Training_lstvAreas (Name, File, Radius, Pick Radius, Type).
+        // Sol kolon: Oluştur (Create), Pozisyonu Al (Get Position), Yürü/Dur (Walk/Stop), koordinat etiketi.
+        // Sağ kolon: Training_lstvAreas (Adı, Dosya, Menzil, Toplama Menzili, Tipi).
         // ---------------------------------------------------------------
         private void LayoutTrainingAreaInner()
         {
@@ -426,6 +409,8 @@ namespace xBot.App
                 if (p == null) return;
                 int W = p.Width, H = p.Height;
                 if (W < 200 || H < 100) return;
+
+                bool isTR = LocalizationManager.CurrentLanguage == "TR";
 
                 // Eski koordinat kutularını ana görünümden gizle
                 Control[] toHide = new Control[] {
@@ -440,62 +425,47 @@ namespace xBot.App
                     if (c != null) c.Visible = false;
                 }
 
-                // Sol butonlar: Create, Get Position, Walk
+                // Sol buton 1: Oluştur (Create) -> Komut Oluştur penceresini açar
                 Button btnCreate = p.Controls["PhBot_TrainCreate"] as Button;
                 if (btnCreate == null)
                 {
                     btnCreate = new Button();
                     btnCreate.Name = "PhBot_TrainCreate";
-                    btnCreate.Text = "Create";
                     btnCreate.Click += (s, e) => {
-                        try { Control_Click(this.Menu_lstvArea_Add, null); } catch { }
+                        try
+                        {
+                            string existingScript = "";
+                            if (Training_lstvAreas != null && Training_lstvAreas.SelectedItems.Count > 0)
+                            {
+                                if (Training_lstvAreas.SelectedItems[0].Tag is TrainingAreaInfo info)
+                                    existingScript = info.ScriptPath;
+                            }
+                            using (var form = new ScriptCreatorForm(existingScript))
+                            {
+                                form.ShowDialog(this);
+                                if (!string.IsNullOrWhiteSpace(form.SavedScriptPath) && Training_lstvAreas != null && Training_lstvAreas.SelectedItems.Count > 0)
+                                {
+                                    var sel = Training_lstvAreas.SelectedItems[0];
+                                    if (sel.Tag is TrainingAreaInfo info)
+                                    {
+                                        info.ScriptPath = form.SavedScriptPath;
+                                        while (sel.SubItems.Count < 2) sel.SubItems.Add("");
+                                        sel.SubItems[1].Text = System.IO.Path.GetFileName(form.SavedScriptPath);
+                                    }
+                                }
+                            }
+                        }
+                        catch (Exception ex) { PhBotDebug("script creator open error: " + ex.Message); }
                     };
                     try { p.Controls.Add(btnCreate); } catch { }
                 }
+                btnCreate.Text = isTR ? "Oluştur" : "Create";
                 Classicize(btnCreate);
                 btnCreate.Location = new Point(14, 14);
                 btnCreate.Size = new Size(96, 26);
                 btnCreate.Visible = true;
 
-                if (Training_btnGetCoordinates != null)
-                {
-                    Training_btnGetCoordinates.Text = "Get Position";
-                    Classicize(Training_btnGetCoordinates);
-                    Training_btnGetCoordinates.Location = new Point(14, 46);
-                    Training_btnGetCoordinates.Size = new Size(96, 26);
-                    Training_btnGetCoordinates.Visible = true;
-                }
-
-                Button btnWalk = p.Controls["PhBot_TrainWalk"] as Button;
-                if (btnWalk == null)
-                {
-                    btnWalk = new Button();
-                    btnWalk.Name = "PhBot_TrainWalk";
-                    btnWalk.Text = "Walk";
-                    btnWalk.Click += (s, e) => {
-                        try
-                        {
-                            if (Training_lstvAreas != null && Training_lstvAreas.SelectedItems.Count > 0)
-                            {
-                                var sel = Training_lstvAreas.SelectedItems[0];
-                                int x = Convert.ToInt32(sel.SubItems[2].Tag ?? 0);
-                                int y = Convert.ToInt32(sel.SubItems[3].Tag ?? 0);
-                                if (x != 0 || y != 0)
-                                {
-                                    Bot.Get.MoveTo(new SRCoord(x, y));
-                                }
-                            }
-                        }
-                        catch { }
-                    };
-                    try { p.Controls.Add(btnWalk); } catch { }
-                }
-                Classicize(btnWalk);
-                btnWalk.Location = new Point(14, 86);
-                btnWalk.Size = new Size(96, 26);
-                btnWalk.Visible = true;
-
-                // Sol alt koordinat etiketi: "999999, 999999" (X, Y)
+                // Sol alt koordinat etiketi: "X, Y"
                 Label lblPos = p.Controls["PhBot_TrainPosLbl"] as Label;
                 if (lblPos == null)
                 {
@@ -519,30 +489,295 @@ namespace xBot.App
                 }
                 catch { }
 
-                // Sağ liste: Name, File, Radius, Pick Radius, Type
+                // Sol buton 2: Pozisyonu Al (Get Position) -> Yeni kasılma alanı ekler ve bilgi mesajı gösterir
+                if (Training_btnGetCoordinates != null)
+                {
+                    Training_btnGetCoordinates.Text = isTR ? "Pozisyonu Al" : "Get Position";
+                    Classicize(Training_btnGetCoordinates);
+                    Training_btnGetCoordinates.Location = new Point(14, 46);
+                    Training_btnGetCoordinates.Size = new Size(96, 26);
+                    Training_btnGetCoordinates.Visible = true;
+
+                    if (Training_btnGetCoordinates.Tag == null)
+                    {
+                        Training_btnGetCoordinates.Tag = true;
+                        Training_btnGetCoordinates.Click += (s, e) => {
+                            try
+                            {
+                                SRCoord cur = null;
+                                try { cur = InfoManager.Character.GetRealtimePosition(); } catch { }
+                                if (cur == null) cur = new SRCoord(0, 0);
+
+                                string areaName = isTR ? "Yeni Kasılma Alanı" : "New Training Area";
+                                if (Training_lstvAreas.Items.ContainsKey(areaName))
+                                {
+                                    int count = 2;
+                                    while (Training_lstvAreas.Items.ContainsKey(areaName + " " + count))
+                                        count++;
+                                    areaName = areaName + " " + count;
+                                }
+
+                                var info = new TrainingAreaInfo(areaName, cur.Region, cur.X, cur.Y, cur.Z, 50, 50, "", isTR ? "Menzil" : "Radius");
+                                var item = new ListViewItem(info.Name);
+                                item.Name = info.Name;
+                                item.Tag = info;
+                                item.SubItems.Add("");
+                                item.SubItems.Add(info.Radius.ToString());
+                                item.SubItems.Add(info.PickRadius.ToString());
+                                item.SubItems.Add(info.Type);
+
+                                foreach (ListViewItem it in Training_lstvAreas.Items)
+                                    it.ForeColor = Training_lstvAreas.ForeColor;
+
+                                item.ForeColor = Color.FromArgb(0, 150, 0);
+                                Training_lstvAreas.Items.Add(item);
+                                Training_lstvAreas.Tag = item;
+                                Training_lstvAreas.SelectedItems.Clear();
+                                item.Selected = true;
+                                item.Focused = true;
+
+                                if (lblPos != null)
+                                    lblPos.Text = cur.X + ", " + cur.Y;
+
+                                MessageBox.Show(
+                                    isTR ? "Bir kasılma alanı bu konum için oluşturulmuştur. Daha fazla eklemek için, sadece sağ tıklayın ve Ekle deyin. Bu yol ile sonsuz kasılma alanları yaratabilirsiniz."
+                                         : "A training area has been created for this location. To add more, just right click and choose Add. You can create infinite training areas this way.",
+                                    isTR ? "Kasılma Alanı" : "Training Area",
+                                    MessageBoxButtons.OK,
+                                    MessageBoxIcon.Information);
+                            }
+                            catch (Exception ex) { PhBotDebug("get coords error: " + ex.Message); }
+                        };
+                    }
+                }
+
+                // Sol buton 3: Yürü / Dur
+                Button btnWalk = p.Controls["PhBot_TrainWalk"] as Button;
+                if (btnWalk == null)
+                {
+                    btnWalk = new Button();
+                    btnWalk.Name = "PhBot_TrainWalk";
+                    btnWalk.Click += (s, e) => {
+                        try
+                        {
+                            if (_isManualWalking)
+                            {
+                                _walkCancelled = true;
+                                _isManualWalking = false;
+                                btnWalk.Text = isTR ? "Yürü" : "Walk";
+                                try { Bot.Get.MoveTo(InfoManager.Character.GetRealtimePosition()); } catch { }
+                                LogProcess(isTR ? "Yürüme iptal edildi." : "Walk cancelled.");
+                                return;
+                            }
+
+                            int defX = 0, defY = 0;
+                            if (Training_lstvAreas != null && Training_lstvAreas.SelectedItems.Count > 0)
+                            {
+                                if (Training_lstvAreas.SelectedItems[0].Tag is TrainingAreaInfo info)
+                                {
+                                    defX = info.X;
+                                    defY = info.Y;
+                                }
+                            }
+                            else if (InfoManager.Character != null)
+                            {
+                                var cur = InfoManager.Character.GetRealtimePosition();
+                                if (cur != null) { defX = cur.X; defY = cur.Y; }
+                            }
+
+                            using (var dlg = new WalkCoordinateForm(defX, defY))
+                            {
+                                if (dlg.ShowDialog(this) == DialogResult.OK)
+                                {
+                                    int targetX = dlg.CoordX;
+                                    int targetY = dlg.CoordY;
+                                    _isManualWalking = true;
+                                    _walkCancelled = false;
+                                    btnWalk.Text = isTR ? "Dur" : "Stop";
+
+                                    System.Threading.Thread walkThread = new System.Threading.Thread(() => {
+                                        try
+                                        {
+                                            int maxSec = 600;
+                                            DateTime start = DateTime.Now;
+                                            while (!_walkCancelled && InfoManager.inGame && (DateTime.Now - start).TotalSeconds < maxSec)
+                                            {
+                                                SRCoord cur = null;
+                                                try { cur = InfoManager.Character.GetRealtimePosition(); } catch { }
+                                                if (cur != null)
+                                                {
+                                                    WinAPI.InvokeIfRequired(lblPos, () => {
+                                                        lblPos.Text = cur.X + ", " + cur.Y;
+                                                    });
+                                                    double dist = Math.Sqrt(Math.Pow(cur.X - targetX, 2) + Math.Pow(cur.Y - targetY, 2));
+                                                    if (dist <= 3.0)
+                                                    {
+                                                        LogProcess(isTR ? "Hedef koordinata ulaşıldı." : "Reached destination coordinates.");
+                                                        break;
+                                                    }
+                                                }
+
+                                                Bot.Get.MoveTo(new SRCoord(targetX, targetY));
+                                                System.Threading.Thread.Sleep(1000);
+                                            }
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            LogProcess("Manual walk error: " + ex.Message);
+                                        }
+                                        finally
+                                        {
+                                            _isManualWalking = false;
+                                            _walkCancelled = false;
+                                            WinAPI.InvokeIfRequired(btnWalk, () => {
+                                                btnWalk.Text = isTR ? "Yürü" : "Walk";
+                                            });
+                                        }
+                                    });
+                                    walkThread.IsBackground = true;
+                                    walkThread.Priority = System.Threading.ThreadPriority.BelowNormal;
+                                    walkThread.Start();
+                                }
+                            }
+                        }
+                        catch (Exception ex) { PhBotDebug("walk click error: " + ex.Message); }
+                    };
+                    try { p.Controls.Add(btnWalk); } catch { }
+                }
+                btnWalk.Text = _isManualWalking ? (isTR ? "Dur" : "Stop") : (isTR ? "Yürü" : "Walk");
+                Classicize(btnWalk);
+                btnWalk.Location = new Point(14, 78);
+                btnWalk.Size = new Size(96, 26);
+                btnWalk.Visible = true;
+
+                // Sağ liste: Adı, Dosya, Menzil, Toplama Menzili, Tipi
                 if (Training_lstvAreas != null)
                 {
                     Training_lstvAreas.Location = new Point(120, 14);
                     Training_lstvAreas.Size = new Size(Math.Max(300, W - 128), Math.Max(150, H - 28));
                     Training_lstvAreas.Columns.Clear();
-                    Training_lstvAreas.Columns.Add("Name", 120);
-                    Training_lstvAreas.Columns.Add("File", 120);
-                    Training_lstvAreas.Columns.Add("Radius", 65);
-                    Training_lstvAreas.Columns.Add("Pick Radius", 75);
-                    Training_lstvAreas.Columns.Add("Type", 65);
+                    Training_lstvAreas.Columns.Add(isTR ? "Adı" : "Name", 150);
+                    Training_lstvAreas.Columns.Add(isTR ? "Dosya" : "File", 140);
+                    Training_lstvAreas.Columns.Add(isTR ? "Menzil" : "Radius", 80);
+                    Training_lstvAreas.Columns.Add(isTR ? "Toplama Menzili" : "Pick Radius", 100);
+                    Training_lstvAreas.Columns.Add(isTR ? "Tipi" : "Type", 80);
                     Training_lstvAreas.Visible = true;
                     Classicize(Training_lstvAreas);
+
+                    if (Training_lstvAreas.Tag == null || !(Training_lstvAreas.Tag is ListViewItem))
+                    {
+                        // Ensure context menu & double click once
+                        Training_lstvAreas.DoubleClick -= TrainingAreaList_DoubleClick;
+                        Training_lstvAreas.DoubleClick += TrainingAreaList_DoubleClick;
+
+                        var cm = new ContextMenuStrip();
+                        var mEdit = new ToolStripMenuItem(isTR ? "Düzenle..." : "Edit...");
+                        mEdit.Click += (s, e) => TrainingAreaList_DoubleClick(s, e);
+
+                        var mActivate = new ToolStripMenuItem(isTR ? "Aktif Alan Olarak Ayarla" : "Set Active Area");
+                        mActivate.Click += (s, e) => {
+                            if (Training_lstvAreas.SelectedItems.Count > 0)
+                            {
+                                var sel = Training_lstvAreas.SelectedItems[0];
+                                foreach (ListViewItem it in Training_lstvAreas.Items) it.ForeColor = Training_lstvAreas.ForeColor;
+                                sel.ForeColor = Color.FromArgb(0, 150, 0);
+                                Training_lstvAreas.Tag = sel;
+                                if (sel.Tag is TrainingAreaInfo info && lblPos != null)
+                                    lblPos.Text = info.X + ", " + info.Y;
+                            }
+                        };
+
+                        var mUpdatePos = new ToolStripMenuItem(isTR ? "Şu Anki Pozisyonu Ata" : "Set Current Position");
+                        mUpdatePos.Click += (s, e) => {
+                            if (Training_lstvAreas.SelectedItems.Count > 0)
+                            {
+                                var sel = Training_lstvAreas.SelectedItems[0];
+                                SRCoord cur = null;
+                                try { cur = InfoManager.Character.GetRealtimePosition(); } catch { }
+                                if (cur != null && sel.Tag is TrainingAreaInfo info)
+                                {
+                                    info.Region = cur.Region;
+                                    info.X = cur.X;
+                                    info.Y = cur.Y;
+                                    info.Z = cur.Z;
+                                    if (lblPos != null) lblPos.Text = cur.X + ", " + cur.Y;
+                                }
+                            }
+                        };
+
+                        var mAdd = new ToolStripMenuItem(isTR ? "Ekle..." : "Add...");
+                        mAdd.Click += (s, e) => {
+                            SRCoord cur = null;
+                            try { cur = InfoManager.Character.GetRealtimePosition(); } catch { }
+                            if (cur == null) cur = new SRCoord(0, 0);
+                            string name = (isTR ? "Yeni Kasılma Alanı " : "New Training Area ") + (Training_lstvAreas.Items.Count + 1);
+                            var info = new TrainingAreaInfo(name, cur.Region, cur.X, cur.Y, cur.Z, 50, 50, "", "Menzil");
+                            var it = new ListViewItem(info.Name) { Name = info.Name, Tag = info };
+                            it.SubItems.Add("");
+                            it.SubItems.Add(info.Radius.ToString());
+                            it.SubItems.Add(info.PickRadius.ToString());
+                            it.SubItems.Add(info.Type);
+                            Training_lstvAreas.Items.Add(it);
+                        };
+
+                        var mDel = new ToolStripMenuItem(isTR ? "Sil" : "Delete");
+                        mDel.Click += (s, e) => {
+                            if (Training_lstvAreas.SelectedItems.Count > 0)
+                            {
+                                foreach (ListViewItem it in Training_lstvAreas.SelectedItems)
+                                    Training_lstvAreas.Items.Remove(it);
+                            }
+                        };
+
+                        cm.Items.AddRange(new ToolStripItem[] { mEdit, mActivate, mUpdatePos, new ToolStripSeparator(), mAdd, mDel });
+                        Training_lstvAreas.ContextMenuStrip = cm;
+                    }
                 }
             }
             catch (Exception ex) { PhBotDebug("trainarea inner: " + ex.Message); }
             finally { _innerLayout = false; }
         }
 
+        private void TrainingAreaList_DoubleClick(object sender, EventArgs e)
+        {
+            try
+            {
+                if (Training_lstvAreas != null && Training_lstvAreas.SelectedItems.Count > 0)
+                {
+                    var sel = Training_lstvAreas.SelectedItems[0];
+                    TrainingAreaInfo info = sel.Tag as TrainingAreaInfo;
+                    if (info == null)
+                    {
+                        info = new TrainingAreaInfo(
+                            sel.Text,
+                            0, 0, 0, 0,
+                            sel.SubItems.Count > 2 && int.TryParse(sel.SubItems[2].Text, out int r) ? r : 50,
+                            sel.SubItems.Count > 3 && int.TryParse(sel.SubItems[3].Text, out int pr) ? pr : 50,
+                            sel.SubItems.Count > 1 ? sel.SubItems[1].Text : "",
+                            sel.SubItems.Count > 4 ? sel.SubItems[4].Text : "Menzil"
+                        );
+                        sel.Tag = info;
+                    }
+
+                    using (var dlg = new TrainingAreaEditForm(info))
+                    {
+                        if (dlg.ShowDialog(this) == DialogResult.OK)
+                        {
+                            sel.Text = info.Name;
+                            while (sel.SubItems.Count < 5) sel.SubItems.Add("");
+                            sel.SubItems[1].Text = System.IO.Path.GetFileName(info.ScriptPath);
+                            sel.SubItems[2].Text = info.Radius.ToString();
+                            sel.SubItems[3].Text = info.PickRadius.ToString();
+                            sel.SubItems[4].Text = info.Type;
+                        }
+                    }
+                }
+            }
+            catch { }
+        }
+
         // ---------------------------------------------------------------
-        // TRAINING > SCRIPT — Creator + Record + Output.
-        // ---------------------------------------------------------------
-        // ---------------------------------------------------------------
-        // TRAINING > SCRIPT — phbot_training-area_01.png
+        // TRAINING > SCRIPT — phbot_training-area_01.png / media_1789163208989.png
         // ---------------------------------------------------------------
         private void LayoutTrainingScriptInner()
         {
@@ -560,52 +795,57 @@ namespace xBot.App
 
                 if (p.Controls.ContainsKey("PhBot_TrScript_SkipTown")) return;
 
+                bool isTR = LocalizationManager.CurrentLanguage == "TR";
                 int y = 14;
-                var cSkip = AddPhBotCheck(p, "Skip town script entirely", 20, y, ReturnToAreaPolicy.SkipTownScript);
+                int step = 24;
+
+                var cSkip = AddPhBotCheck(p, isTR ? "Şehir döngüsünü atla" : "Skip town script entirely", 20, y, ReturnToAreaPolicy.SkipTownScript);
                 cSkip.Name = "PhBot_TrScript_SkipTown";
                 cSkip.CheckedChanged += (s, e) => ReturnToAreaPolicy.SkipTownScript = cSkip.Checked;
-                y += 24;
+                y += step;
 
-                var cCont = AddPhBotCheck(p, "Continue town scripts", 20, y, ReturnToAreaPolicy.ContinueTownScript);
+                var cCont = AddPhBotCheck(p, isTR ? "Şehir döngüsüne devam et" : "Continue town scripts", 20, y, ReturnToAreaPolicy.ContinueTownScript);
                 cCont.CheckedChanged += (s, e) => ReturnToAreaPolicy.ContinueTownScript = cCont.Checked;
-                y += 24;
+                y += step;
 
-                var cRet = AddPhBotCheck(p, "Return when can't continue script", 20, y, ReturnToAreaPolicy.ReturnIfScriptStuck);
+                var cRet = AddPhBotCheck(p, isTR ? "Yolda takılırsa şehre dön" : "Return when can't continue script", 20, y, ReturnToAreaPolicy.ReturnIfScriptStuck);
                 cRet.CheckedChanged += (s, e) => ReturnToAreaPolicy.ReturnIfScriptStuck = cRet.Checked;
-                y += 24;
+                y += step;
 
-                var cAvoid = AddPhBotCheck(p, "Avoid Statue of Justice in script", 20, y, ReturnToAreaPolicy.AvoidStatueOfJustice);
+                var cAvoid = AddPhBotCheck(p, isTR ? "Komutta Statue of Justice'den kaç" : "Avoid Statue of Justice in script", 20, y, ReturnToAreaPolicy.AvoidStatueOfJustice);
                 cAvoid.CheckedChanged += (s, e) => ReturnToAreaPolicy.AvoidStatueOfJustice = cAvoid.Checked;
-                y += 24;
+                y += step;
 
-                AddPhBotCheck(p, "Script walk delay", 20, y, false);
-                var nWalk = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(280, y - 2), Size = new Size(60, 22), Maximum = 10000, Value = 1000 };
+                var cWalk = AddPhBotCheck(p, isTR ? "Yürüme gecikmesi" : "Script walk delay", 20, y, ReturnToAreaPolicy.ScriptWalkDelay > 0);
+                var nWalk = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(280, y - 2), Size = new Size(60, 22), Maximum = 10000, Value = ReturnToAreaPolicy.ScriptWalkDelay > 0 ? ReturnToAreaPolicy.ScriptWalkDelay : 1000 };
                 var lWalk = new Label { Text = "ms", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(345, y + 2) };
                 p.Controls.AddRange(new Control[] { nWalk, lWalk });
-                y += 24;
+                cWalk.CheckedChanged += (s, e) => ReturnToAreaPolicy.ScriptWalkDelay = cWalk.Checked ? (int)nWalk.Value : 0;
+                nWalk.ValueChanged += (s, e) => { if (cWalk.Checked) ReturnToAreaPolicy.ScriptWalkDelay = (int)nWalk.Value; };
+                y += step;
 
-                AddPhBotCheck(p, "Go back a coordinate if stuck after", 20, y, true);
+                var cStuck = AddPhBotCheck(p, isTR ? "Karakter takılırsa bir koordinat geri dön" : "Go back a coordinate if stuck after", 20, y, true);
                 var nStuck = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(280, y - 2), Size = new Size(60, 22), Value = 15 };
                 var lStuck = new Label { Text = "s", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(345, y + 2) };
                 p.Controls.AddRange(new Control[] { nStuck, lStuck });
-                y += 24;
+                y += step;
 
-                AddPhBotCheck(p, "Return if stuck in script after", 20, y, false);
+                var cRetStuck = AddPhBotCheck(p, isTR ? "Şu süre boyunca takılı kalırsa şehre dön" : "Return if stuck in script after", 20, y, false);
                 var nRetStuck = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(280, y - 2), Size = new Size(60, 22), Value = 90 };
                 var lRetStuck = new Label { Text = "s", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(345, y + 2) };
                 p.Controls.AddRange(new Control[] { nRetStuck, lRetStuck });
-                y += 24;
+                y += step;
 
-                AddPhBotCheck(p, "Ride fellow pet to training area", 20, y, false);
-                y += 22;
+                AddPhBotCheck(p, isTR ? "Kasma alanına giderken fellow'a bin" : "Ride fellow pet to training area", 20, y, false);
+                y += step;
 
-                AddPhBotCheck(p, "Remount in caves", 40, y, false);
-                y += 22;
+                AddPhBotCheck(p, isTR ? "Mağaralarda yeniden bin" : "Remount in caves", 20, y, false);
+                y += step;
 
-                AddPhBotCheck(p, "Use town NPC teleporter for last recall", 20, y, false);
-                y += 24;
+                AddPhBotCheck(p, isTR ? "Son return kullanılan yere dönmek için şehirdeki Teleport NPC'lerini kullan" : "Use town NPC teleporter for last recall", 20, y, false);
+                y += step;
 
-                AddPhBotCheck(p, "Use town NPC teleporter for last death", 20, y, false);
+                AddPhBotCheck(p, isTR ? "Öldüğün yere dönmek için şehirdeki Teleport NPC'lerini kullan" : "Use town NPC teleporter for last death", 20, y, false);
             }
             catch (Exception ex) { PhBotDebug("trainscript inner: " + ex.Message); }
             finally { _innerLayout = false; }

@@ -298,6 +298,11 @@ namespace xBot.Game.Navigation
 				if (IsLinkBlacklisted(link))
 					continue;
 
+				// Çarpışma / Collision sekmesi filtreleri
+				int playerLevel = (int)(InfoManager.Character != null ? InfoManager.Character.Level : 0);
+				if (!CollisionPolicy.IsLinkAllowed(link, playerLevel))
+					continue;
+
 				double distToBoard = start.DistanceTo(link.BoardCoord);
 				double distFromArriveToTarget = link.ArriveCoord.DistanceTo(target);
 

@@ -143,6 +143,8 @@
     <Compile Include="App\CombatPolicy.cs" />
     <Compile Include="App\TeleportLinkPolicy.cs" />
     <Compile Include="App\ReturnToAreaPolicy.cs" />
+    <Compile Include="App\CollisionPolicy.cs" />
+    <Compile Include="App\TrainingOptionsPolicy.cs" />
     <Compile Include="App\SkillManager.cs" />
     <Compile Include="App\SkillPolicy.cs" />
     <Compile Include="App\AutoConfigureManager.cs" />
@@ -185,6 +187,16 @@
     <Compile Include="App\Window.PhBotInner3.cs" />
     <Compile Include="App\Window.PhBotInner4.cs" />
     <Compile Include="App\Window.PhBotInner5.cs" />
+    <Compile Include="App\TrainingAreaInfo.cs" />
+    <Compile Include="App\TrainingAreaEditForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="App\WalkCoordinateForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="App\ScriptCreatorForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="App\Theme\DarkTheme.cs" />
     <Compile Include="App\Theme\ModernLogger.cs" />
     <Compile Include="Game\Objects\Common\SRCollectionBook.cs" />

@@ -1338,9 +1338,16 @@ namespace xBot.App
 				else if (this.Training_lstvAreas.Items.Count > 0)
 					item = this.Training_lstvAreas.Items[0];
 
-				if (item != null && item.SubItems.Count > 4 && item.SubItems[1].Tag != null && item.SubItems[2].Tag != null && item.SubItems[3].Tag != null && item.SubItems[4].Tag != null)
+				if (item != null)
 				{
-					result = new SRCoord((ushort)item.SubItems[1].Tag, (int)item.SubItems[2].Tag, (int)item.SubItems[4].Tag, (int)item.SubItems[3].Tag);
+					if (item.Tag is TrainingAreaInfo info)
+					{
+						result = new SRCoord(info.Region, info.X, info.Z, info.Y);
+					}
+					else if (item.SubItems.Count > 4 && item.SubItems[1].Tag != null && item.SubItems[2].Tag != null && item.SubItems[3].Tag != null && item.SubItems[4].Tag != null)
+					{
+						result = new SRCoord((ushort)item.SubItems[1].Tag, (int)item.SubItems[2].Tag, (int)item.SubItems[4].Tag, (int)item.SubItems[3].Tag);
+					}
 				}
 			});
 			return result;
@@ -1357,15 +1364,44 @@ namespace xBot.App
 				else if (this.Training_lstvAreas.Items.Count > 0)
 					item = this.Training_lstvAreas.Items[0];
 
-				if (item != null && item.SubItems.Count > 5 && item.SubItems[5].Tag is int r && r > 0)
-					result = r;
+				if (item != null)
+				{
+					if (item.Tag is TrainingAreaInfo info && info.Radius > 0)
+						result = info.Radius;
+					else if (item.SubItems.Count > 5 && item.SubItems[5].Tag is int r && r > 0)
+						result = r;
+					else if (item.SubItems.Count > 2 && int.TryParse(item.SubItems[2].Text, out int r2) && r2 > 0)
+						result = r2;
+				}
 			});
 			return result;
 		}
 		public int TrainingArea_GetPickRadius()
 		{
-			int result = 35;
+			int result = 50;
 			this.InvokeIfRequired(() => {
+				ListViewItem item = null;
+				if (this.Training_lstvAreas.Tag is ListViewItem activeItem)
+					item = activeItem;
+				else if (this.Training_lstvAreas.SelectedItems.Count > 0)
+					item = this.Training_lstvAreas.SelectedItems[0];
+				else if (this.Training_lstvAreas.Items.Count > 0)
+					item = this.Training_lstvAreas.Items[0];
+
+				if (item != null)
+				{
+					if (item.Tag is TrainingAreaInfo info && info.PickRadius > 0)
+					{
+						result = info.PickRadius;
+						return;
+					}
+					else if (item.SubItems.Count > 3 && int.TryParse(item.SubItems[3].Text, out int pr) && pr > 0)
+					{
+						result = pr;
+						return;
+					}
+				}
+
 				try
 				{
 					Control[] found = this.Controls.Find("PhBot_PickRadius", true);
@@ -1408,8 +1444,15 @@ namespace xBot.App
 				else if (this.Training_lstvAreas.Items.Count > 0)
 					item = this.Training_lstvAreas.Items[0];
 
-				if (item != null && item.SubItems.Count > 6)
-					result = item.SubItems[6].Text ?? "";
+				if (item != null)
+				{
+					if (item.Tag is TrainingAreaInfo info)
+						result = info.ScriptPath ?? "";
+					else if (item.SubItems.Count > 6)
+						result = item.SubItems[6].Text ?? "";
+					else if (item.SubItems.Count > 1)
+						result = item.SubItems[1].Text ?? "";
+				}
 			});
 			return result;
 		}
@@ -1442,53 +1485,53 @@ namespace xBot.App
 					else
 					{
 						// Create new area if list is completely empty
-						string areaName = "Area #1";
-						targetItem = new ListViewItem(areaName);
-						targetItem.Name = areaName;
-						targetItem.SubItems.Add(new ListViewItem.ListViewSubItem { Tag = (ushort)currentPos.Region, Text = currentPos.Region.ToString() });
-						targetItem.SubItems.Add(new ListViewItem.ListViewSubItem { Tag = (int)currentPos.X, Text = currentPos.X.ToString() });
-						targetItem.SubItems.Add(new ListViewItem.ListViewSubItem { Tag = (int)currentPos.Y, Text = currentPos.Y.ToString() });
-						targetItem.SubItems.Add(new ListViewItem.ListViewSubItem { Tag = (int)currentPos.Z, Text = currentPos.Z.ToString() });
-						targetItem.SubItems.Add(new ListViewItem.ListViewSubItem { Tag = 50, Text = "50" });
-						targetItem.SubItems.Add(new ListViewItem.ListViewSubItem { Text = "" });
+						string areaName = LocalizationManager.CurrentLanguage == "TR" ? "Yeni Kasılma Alanı" : "New Training Area";
+						var newInfo = new TrainingAreaInfo(areaName, currentPos.Region, currentPos.X, currentPos.Y, currentPos.Z, 50, 50, "", "Menzil");
+						targetItem = new ListViewItem(newInfo.Name);
+						targetItem.Name = newInfo.Name;
+						targetItem.Tag = newInfo;
+						targetItem.SubItems.Add("");
+						targetItem.SubItems.Add(newInfo.Radius.ToString());
+						targetItem.SubItems.Add(newInfo.PickRadius.ToString());
+						targetItem.SubItems.Add(newInfo.Type);
 						Training_lstvAreas.Items.Add(targetItem);
 					}
 
-					// Ensure targetItem has at least 7 subitems (Name, Region, X, Y, Z, Radius, Script)
-					while (targetItem.SubItems.Count < 7)
+					TrainingAreaInfo info = targetItem.Tag as TrainingAreaInfo;
+					if (info == null)
+					{
+						info = new TrainingAreaInfo(targetItem.Text, currentPos.Region, currentPos.X, currentPos.Y, currentPos.Z, 50, 50, "", "Menzil");
+						targetItem.Tag = info;
+					}
+					else
+					{
+						info.Region = currentPos.Region;
+						info.X = currentPos.X;
+						info.Y = currentPos.Y;
+						info.Z = currentPos.Z;
+					}
+
+					while (targetItem.SubItems.Count < 5)
 					{
 						targetItem.SubItems.Add(new ListViewItem.ListViewSubItem());
 					}
 
-					targetItem.SubItems[1].Tag = (ushort)currentPos.Region;
-					targetItem.SubItems[1].Text = currentPos.Region.ToString();
-					targetItem.SubItems[2].Tag = (int)currentPos.X;
-					targetItem.SubItems[2].Text = currentPos.X.ToString();
-					targetItem.SubItems[3].Tag = (int)currentPos.Y;
-					targetItem.SubItems[3].Text = currentPos.Y.ToString();
-					targetItem.SubItems[4].Tag = (int)currentPos.Z;
-					targetItem.SubItems[4].Text = currentPos.Z.ToString();
+					targetItem.SubItems[0].Text = info.Name;
+					targetItem.SubItems[1].Text = Path.GetFileName(info.ScriptPath);
+					targetItem.SubItems[2].Text = info.Radius.ToString();
+					targetItem.SubItems[3].Text = info.PickRadius.ToString();
+					targetItem.SubItems[4].Text = info.Type;
 
-					int radius = 50;
-					if (targetItem.SubItems[5].Tag is int r && r > 0)
-						radius = r;
-					else if (int.TryParse(targetItem.SubItems[5].Text, out int rParsed) && rParsed > 0)
-						radius = rParsed;
-
-					targetItem.SubItems[5].Tag = radius;
-					targetItem.SubItems[5].Text = radius.ToString();
-
-					// Highlight active item and reset others
-					foreach (ListViewItem item in Training_lstvAreas.Items)
+					// Highlight active item green and reset others
+					foreach (ListViewItem it in Training_lstvAreas.Items)
 					{
-						if (item == targetItem)
-							item.ForeColor = Color.FromArgb(0, 180, 255);
+						if (it == targetItem)
+							it.ForeColor = Color.FromArgb(0, 150, 0);
 						else
-							item.ForeColor = Training_lstvAreas.ForeColor;
+							it.ForeColor = Training_lstvAreas.ForeColor;
 					}
 					Training_lstvAreas.Tag = targetItem;
 
-					// Ensure targetItem is selected in the list view
 					if (Training_lstvAreas.SelectedItems.Count != 1 || Training_lstvAreas.SelectedItems[0] != targetItem)
 					{
 						Training_lstvAreas.SelectedItems.Clear();
@@ -1502,11 +1545,17 @@ namespace xBot.App
 					Training_tbxX.Text = currentPos.X.ToString();
 					Training_tbxY.Text = currentPos.Y.ToString();
 					Training_tbxZ.Text = currentPos.Z.ToString();
-					Training_tbxRadius.Text = radius.ToString();
-					if (targetItem.SubItems.Count > 6)
-						Training_tbxScriptPath.Text = targetItem.SubItems[6].Text ?? "";
+					Training_tbxRadius.Text = info.Radius.ToString();
+					Training_tbxScriptPath.Text = info.ScriptPath ?? "";
 
-					// Force visual repainting
+					try
+					{
+						Control[] posLbl = this.Controls.Find("PhBot_TrainPosLbl", true);
+						if (posLbl != null && posLbl.Length > 0 && posLbl[0] is Label l)
+							l.Text = currentPos.X + ", " + currentPos.Y;
+					}
+					catch { }
+
 					Training_lstvAreas.Invalidate();
 					Training_lstvAreas.Update();
 					Training_tbxRegion.Invalidate();

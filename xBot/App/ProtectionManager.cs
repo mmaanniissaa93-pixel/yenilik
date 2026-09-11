@@ -7,6 +7,8 @@ using xBot.Game.Objects;
 using xBot.Game.Objects.Common;
 using xBot.Game.Objects.Entity;
 using xBot.Game.Objects.Item;
+using xBot.Network;
+using SecurityAPI;
 
 namespace xBot.App
 {
@@ -330,6 +332,15 @@ namespace xBot.App
 
                 lastTownReturnCheck = now;
 
+                if (input.DurabilityLow && UseRepairHammer)
+                {
+                    if (TryUseRepairHammer())
+                    {
+                        input.DurabilityLow = HasLowDurability(InfoManager.Character.Inventory);
+                        decision = ProtectionPolicy.Evaluate(input, options);
+                    }
+                }
+
                 if (decision == ProtectionDecision.ReturnToTown)
                     return TryReturnToTown(GetReturnReason(input));
 
@@ -610,6 +621,67 @@ namespace xBot.App
                     return true;
             }
 
+            return false;
+        }
+
+        public static bool TryUseRepairHammer()
+        {
+            try
+            {
+                var chr = InfoManager.Character;
+                if (chr == null || chr.Inventory == null) return false;
+                for (byte s = 13; s < chr.Inventory.Capacity; s++)
+                {
+                    var it = chr.Inventory[s];
+                    if (it == null) continue;
+                    string sn = it.ServerName ?? "";
+                    string name = it.Name ?? "";
+                    if (sn.IndexOf("REPAIR_HAMMER", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        sn.IndexOf("HAMMER", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        name.IndexOf("Repair Hammer", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        name.IndexOf("Tamir", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        Window.Get?.Log($"Protection: Repair Hammer kullanılıyor [{it.Name}]...");
+                        bool ok = PacketBuilder.UseItem(it, s);
+                        Thread.Sleep(500);
+                        return ok;
+                    }
+                }
+            }
+            catch { }
+            return false;
+        }
+
+        public static bool TryUseReverseReturnScroll(byte targetPoint = 2)
+        {
+            try
+            {
+                var chr = InfoManager.Character;
+                if (chr == null || chr.Inventory == null) return false;
+                for (byte s = 13; s < chr.Inventory.Capacity; s++)
+                {
+                    var it = chr.Inventory[s];
+                    if (it == null) continue;
+                    string sn = it.ServerName ?? "";
+                    string name = it.Name ?? "";
+                    if (sn.IndexOf("REVERSE", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        name.IndexOf("Reverse", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        Window.Get?.Log($"Reverse Scroll: Kullanılıyor [{it.Name}] (hedef={targetPoint})...");
+                        bool ok = PacketBuilder.UseItem(it, s);
+                        Thread.Sleep(800);
+                        try
+                        {
+                            Packet p = new Packet(Agent.Opcode.CLIENT_TELEPORT_USE_REQUEST);
+                            p.WriteByte(targetPoint);
+                            Bot.Get.Proxy.Agent.InjectToServer(p);
+                        }
+                        catch { }
+                        return ok;
+                    }
+                }
+            }
+            catch { }
             return false;
         }
 

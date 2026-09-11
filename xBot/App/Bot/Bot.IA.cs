@@ -38,6 +38,7 @@ namespace xBot.App
         private Thread tPetLooting = null;
         private volatile bool m_stopPetLootingRequested = false;
         private readonly Dictionary<uint, DateTime> _petCommandedDrops = new Dictionary<uint, DateTime>();
+        private readonly Dictionary<uint, DateTime> _unreachableMobs = new Dictionary<uint, DateTime>();
 
         /// <summary>
         /// Asenkron pet toplama iş parçacığını başlatır (Bot startlı olmasa bile çalışır).
@@ -287,6 +288,18 @@ namespace xBot.App
                         }
                         else
                         {
+                            // Training Options: Reverse scroll kontrolü (Şehirden sonra veya ölüm sonrası alana anında ışınlan)
+                            if ((TrainingOptionsPolicy.UseReverseAfterTown || TrainingOptionsPolicy.UseReverseOnDeath) && distanceToArea > 80.0)
+                            {
+                                byte targetPoint = TrainingOptionsPolicy.UseReverseOnDeath ? (byte)1 : (byte)2;
+                                if (ProtectionManager.TryUseReverseReturnScroll(targetPoint))
+                                {
+                                    w.LogProcess("Reverse scroll kullanıldı, alana ışınlanma bekleniyor...");
+                                    SleepInterruptible(3000);
+                                    continue;
+                                }
+                            }
+
                             // Alana Dönüş hazırlığı: buff tazele + hız eşyası + binek
                             // (45sn geçiş korumalı, spam yapmaz).
                             PrepareReturnTrip();
@@ -575,22 +588,51 @@ namespace xBot.App
                         {
                             if (!myPosition.Equals(trainingPosition, 3.0))
                             {
-                                // Move and wait
-                                timeTraveling = myPosition.TimeTo(trainingPosition, InfoManager.Character.GetMovementSpeed());
-                                MoveTo(trainingPosition);
-                                w.LogProcess("Walking to center (" + timeTraveling + "ms)...");
-                                WaitHandle.WaitAny(new WaitHandle[] { InfoManager.MonitorMobSpawnChanged, InfoManager.MonitorBuffRemoved }, Math.Min(timeTraveling, 3000));
+                                if (CollisionPolicy.EnableCollisionInTrainingArea && CollisionPolicy.NavigateAroundObstacles)
+                                {
+                                    w.LogProcess("Merkeze yürünüyor (engel algılama devrede)...");
+                                    ApproachTargetWithCollision(trainingPosition, 3.0, null);
+                                }
+                                else
+                                {
+                                    timeTraveling = myPosition.TimeTo(trainingPosition, InfoManager.Character.GetMovementSpeed());
+                                    MoveTo(trainingPosition);
+                                    w.LogProcess("Walking to center (" + timeTraveling + "ms)...");
+                                    WaitHandle.WaitAny(new WaitHandle[] { InfoManager.MonitorMobSpawnChanged, InfoManager.MonitorBuffRemoved }, Math.Min(timeTraveling, 3000));
+                                }
                             }
                         }
                         else
                         {
-                            // Avoid blind random walk across terrain / sectors. If drifted, return to center.
-                            if (myPosition.DistanceTo(trainingPosition) > 15.0)
+                            // Kasılma alanında dolaşma kontrolü
+                            if (TrainingOptionsPolicy.DontWalkAroundTrainingArea)
                             {
-                                timeTraveling = myPosition.TimeTo(trainingPosition, InfoManager.Character.GetMovementSpeed());
-                                MoveTo(trainingPosition);
-                                w.LogProcess("Returning towards center (" + timeTraveling + "ms)...");
-                                WaitHandle.WaitAny(new WaitHandle[] { InfoManager.MonitorMobSpawnChanged, InfoManager.MonitorBuffRemoved }, Math.Min(timeTraveling, 3000));
+                                if (myPosition.DistanceTo(trainingPosition) > trainingRadius)
+                                {
+                                    MoveTo(trainingPosition);
+                                    w.LogProcess("Kasılma alanında dolaşma: Sınıra ulaşıldı, merkeze dönülüyor...");
+                                    WaitHandle.WaitAny(new WaitHandle[] { InfoManager.MonitorMobSpawnChanged }, 1500);
+                                }
+                                else
+                                {
+                                    WaitHandle.WaitAny(new WaitHandle[] { InfoManager.MonitorMobSpawnChanged }, 1000);
+                                }
+                            }
+                            // Avoid blind random walk across terrain / sectors. If drifted, return to center.
+                            else if (myPosition.DistanceTo(trainingPosition) > 15.0)
+                            {
+                                if (CollisionPolicy.EnableCollisionInTrainingArea && CollisionPolicy.NavigateAroundObstacles)
+                                {
+                                    w.LogProcess("Merkeze dönülüyor (engel algılama devrede)...");
+                                    ApproachTargetWithCollision(trainingPosition, 5.0, null);
+                                }
+                                else
+                                {
+                                    timeTraveling = myPosition.TimeTo(trainingPosition, InfoManager.Character.GetMovementSpeed());
+                                    MoveTo(trainingPosition);
+                                    w.LogProcess("Returning towards center (" + timeTraveling + "ms)...");
+                                    WaitHandle.WaitAny(new WaitHandle[] { InfoManager.MonitorMobSpawnChanged, InfoManager.MonitorBuffRemoved }, Math.Min(timeTraveling, 3000));
+                                }
                             }
                             else
                             {
@@ -688,6 +730,32 @@ namespace xBot.App
                         continue;
                     }
 
+                    // Training Options: Düşük MP'de çekil
+                    if (TrainingOptionsPolicy.WithdrawOnLowMp && InfoManager.Character != null)
+                    {
+                        int mpPct = InfoManager.Character.GetMPPercent();
+                        if (mpPct <= TrainingOptionsPolicy.LowMpPercent)
+                        {
+                            w.LogProcess($"Düşük MP ({mpPct}% <= {TrainingOptionsPolicy.LowMpPercent}%): Güvenli merkeze çekiliniyor...");
+                            if (myPosition.DistanceTo(trainingPosition) > 5.0)
+                                MoveTo(trainingPosition);
+                            Thread.Sleep(1000);
+                            continue;
+                        }
+                    }
+
+                    // Training Options: Kasılma alanında periyodik kontroller
+                    CheckPandoraAndMonsterScrolls(mobs);
+                    CheckFlowerSummon();
+                    CheckTreasureBoxes();
+                    CheckAutoEquipBetterItems();
+
+                    if (TrainingOptionsPolicy.UseSpeedDrugs && !TrainingOptionsPolicy.SpeedDrugsOnlyInScript)
+                    {
+                        if (!HasSpeedBuffActive())
+                            TryUseSpeedDrug();
+                    }
+
                     SRMob mob = GetMobFiltered(mobs, trainingPosition, trainingRadius);
                     if (mob == null)
                     {
@@ -695,7 +763,14 @@ namespace xBot.App
                         w.LogProcess("No mobs around to attack");
                         LootDrops(trainingPosition, trainingRadius);
                         WaitHandle.WaitAny(new WaitHandle[] { InfoManager.MonitorMobSpawnChanged }, 1000);
-                        if (myPosition.DistanceTo(trainingPosition) > 20.0)
+                        if (TrainingOptionsPolicy.DontWalkAroundTrainingArea)
+                        {
+                            if (myPosition.DistanceTo(trainingPosition) > trainingRadius + 5.0)
+                                doMovement = true;
+                            else
+                                doMovement = false;
+                        }
+                        else if (myPosition.DistanceTo(trainingPosition) > 20.0)
                             doMovement = true;
                         else
                             doMovement = false;
@@ -719,18 +794,10 @@ namespace xBot.App
                         if (distanceToMob > maxAttackRange)
                         {
                             w.LogProcess($"Approaching {mob.Name} ({distanceToMob:F1}m)...");
-                            MoveTo(mobPosition);
-                            int approachAttempts = 0;
-                            while (isBotting && InfoManager.Mobs.ContainsKey(mob.UniqueID) && approachAttempts < 20)
+                            bool reached = ApproachTargetWithCollision(mobPosition, maxAttackRange, mob);
+                            if (!reached)
                             {
-                                Thread.Sleep(100);
-                                myPosition = InfoManager.Character.GetRealtimePosition();
-                                mobPosition = mob.GetRealtimePosition();
-                                if (myPosition.DistanceTo(mobPosition) <= maxAttackRange)
-                                    break;
-                                approachAttempts++;
-                                if (approachAttempts % 5 == 0)
-                                    MoveTo(mobPosition);
+                                continue;
                             }
                         }
 
@@ -749,6 +816,27 @@ namespace xBot.App
                                 if (SkillManager.NoAttackMode)
                                     break;
 
+                                // Training Options: Training alanında kal
+                                myPosition = InfoManager.Character.GetRealtimePosition();
+                                if (TrainingOptionsPolicy.StayInTrainingArea && trainingRadius > 0 && myPosition.DistanceTo(trainingPosition) > trainingRadius)
+                                {
+                                    w.LogProcess("Training alanında kal: Karakter sınır dışına taştı, hedeften vazgeçilip alana dönülüyor...");
+                                    MoveTo(trainingPosition);
+                                    break;
+                                }
+
+                                // Training Options: Düşük MP'de savaşı kes ve çekil
+                                if (TrainingOptionsPolicy.WithdrawOnLowMp && InfoManager.Character != null)
+                                {
+                                    int mpPct = InfoManager.Character.GetMPPercent();
+                                    if (mpPct <= TrainingOptionsPolicy.LowMpPercent)
+                                    {
+                                        w.LogProcess($"Düşük MP ({mpPct}% <= {TrainingOptionsPolicy.LowMpPercent}%): Savaş kesilip geri çekiliniyor...");
+                                        MoveTo(trainingPosition);
+                                        break;
+                                    }
+                                }
+
                                 // NOT: Imbue/Devil zaten mob başında (dış döngüde) kontrol ediliyor;
                                 // her vuruşta tekrar taramak iç döngüde mikro-takılma yapıyordu.
                                 // Distance check to target
@@ -760,8 +848,9 @@ namespace xBot.App
 
                                 if (distanceToMob > maxAttackRange)
                                 {
-                                    MoveTo(mobPosition);
-                                    Thread.Sleep(200);
+                                    bool reached = ApproachTargetWithCollision(mobPosition, maxAttackRange, mob);
+                                    if (!reached)
+                                        break;
                                     continue;
                                 }
 
@@ -1038,10 +1127,134 @@ namespace xBot.App
             return false;
         }
 
+        private bool ApproachTargetWithCollision(SRCoord targetPosition, double stopRange, SRMob targetMob)
+        {
+            Window w = Window.Get;
+            SRCoord myPosition = InfoManager.Character.GetRealtimePosition();
+            if (myPosition == null || targetPosition == null) return false;
+
+            double dist = myPosition.DistanceTo(targetPosition);
+            if (dist <= stopRange) return true;
+
+            bool collisionEnabled = CollisionPolicy.EnableCollisionInTrainingArea;
+            bool navigateAround = CollisionPolicy.NavigateAroundObstacles;
+
+            if (!collisionEnabled)
+            {
+                // Standart yaklaşım (engel algılama kapalıysa)
+                MoveTo(targetPosition);
+                int attempts = 0;
+                while (isBotting && (targetMob == null || InfoManager.Mobs.ContainsKey(targetMob.UniqueID)) && attempts < 20)
+                {
+                    Thread.Sleep(100);
+                    myPosition = InfoManager.Character.GetRealtimePosition();
+                    if (targetMob != null) targetPosition = targetMob.GetRealtimePosition();
+                    if (myPosition.DistanceTo(targetPosition) <= stopRange) return true;
+                    attempts++;
+                    if (attempts % 5 == 0) MoveTo(targetPosition);
+                }
+                return myPosition.DistanceTo(targetPosition) <= stopRange;
+            }
+
+            // Gelişmiş Çarpışma Algılama ve Engelin Etrafından Dolaşma (Collision & Obstacle Bypass)
+            SRCoord lastPos = myPosition;
+            int stuckCount = 0;
+            int bypassCount = 0;
+            bool avoidToRight = true;
+            int maxTotalSteps = 25;
+
+            for (int step = 0; step < maxTotalSteps && isBotting; step++)
+            {
+                if (targetMob != null && !InfoManager.Mobs.ContainsKey(targetMob.UniqueID))
+                    return false; // Canavar öldü veya yok oldu
+
+                myPosition = InfoManager.Character.GetRealtimePosition();
+                if (targetMob != null) targetPosition = targetMob.GetRealtimePosition();
+                dist = myPosition.DistanceTo(targetPosition);
+                if (dist <= stopRange) return true;
+
+                // Takılma / İlerleyememe kontrolü (Çarpışma algılayıcı)
+                if (lastPos != null && myPosition.DistanceTo(lastPos) < 0.5)
+                {
+                    stuckCount++;
+                    if (stuckCount >= 2)
+                    {
+                        // 2 denemedir konum değişmedi -> duvara/engelle tosladı!
+                        if (!navigateAround)
+                        {
+                            w.LogProcess($"Engel tespit edildi: {targetMob?.Name ?? "Hedef"} arkasında engel var. Alternatif hedefe geçiliyor...");
+                            if (targetMob != null)
+                                _unreachableMobs[targetMob.UniqueID] = DateTime.UtcNow.AddSeconds(15);
+                            return false;
+                        }
+
+                        bypassCount++;
+                        if (bypassCount > 3)
+                        {
+                            w.LogProcess($"Engel aşılamadı: {targetMob?.Name ?? "Hedef"} ulaşılamaz (duvar/uçurum), alternatif hedefe geçiliyor...");
+                            if (targetMob != null)
+                                _unreachableMobs[targetMob.UniqueID] = DateTime.UtcNow.AddSeconds(15);
+                            return false;
+                        }
+
+                        w.LogProcess($"Çarpışma algılandı! Engelin etrafından dolaşılıyor (Deneme {bypassCount}/3)...");
+
+                        double dx = targetPosition.PosX - myPosition.PosX;
+                        double dy = targetPosition.PosY - myPosition.PosY;
+                        double dNorm = Math.Sqrt(dx * dx + dy * dy);
+                        if (dNorm < 0.001) dNorm = 1.0;
+                        double nx = dx / dNorm;
+                        double ny = dy / dNorm;
+
+                        double perpX = avoidToRight ? -ny : ny;
+                        double perpY = avoidToRight ? nx : -nx;
+                        if (bypassCount % 2 == 0) avoidToRight = !avoidToRight;
+
+                        double avoidStep = Math.Min(10.0, 4.0 + (bypassCount - 1) * 2.5);
+                        double forwardStep = 2.5;
+                        double bx = myPosition.PosX + perpX * avoidStep + nx * forwardStep;
+                        double by = myPosition.PosY + perpY * avoidStep + ny * forwardStep;
+
+                        SRCoord bypassCoord = myPosition.inDungeon()
+                            ? new SRCoord(bx, by, myPosition.Region, myPosition.Z)
+                            : new SRCoord(bx, by);
+
+                        MoveTo(bypassCoord);
+                        Thread.Sleep(750);
+                        stuckCount = 0;
+                        lastPos = InfoManager.Character.GetRealtimePosition();
+                        continue;
+                    }
+                }
+                else
+                {
+                    stuckCount = 0;
+                }
+
+                lastPos = myPosition;
+                MoveTo(targetPosition);
+                Thread.Sleep(150);
+            }
+
+            return false;
+        }
+
         private SRMob GetMobFiltered(List<SRMob> mobs, SRCoord trainingPosition, int trainingRadius)
         {
             if (mobs == null || mobs.Count == 0)
                 return null;
+
+            if (_unreachableMobs.Count > 0)
+            {
+                DateTime now = DateTime.UtcNow;
+                var expired = new List<uint>();
+                foreach (var kvp in _unreachableMobs)
+                {
+                    if (now >= kvp.Value) expired.Add(kvp.Key);
+                }
+                for (int e = 0; e < expired.Count; e++)
+                    _unreachableMobs.Remove(expired[e]);
+            }
 
             SRMob bestMob = null;
             double bestScore = double.MinValue;
@@ -1053,6 +1266,11 @@ namespace xBot.App
             for (int j = 0; j < mobs.Count; j++)
             {
                 SRMob m = mobs[j];
+                if (m == null) continue;
+
+                // Çarpışma / Engel nedeniyle ulaşılamayan canavarlar geçici süreyle atlanır
+                if (_unreachableMobs.ContainsKey(m.UniqueID))
+                    continue;
 
                 // Check if user allowed targeting this mob type
                 bool allowed = true;
@@ -1086,6 +1304,16 @@ namespace xBot.App
                 SRCoord mobPosition = m.GetRealtimePosition();
                 bool withinTrainingArea = trainingPosition == null || trainingRadius <= 0
                     || trainingPosition.DistanceTo(mobPosition) <= trainingRadius;
+
+                // Training alanında kal: alan dışındaki moblara asla yönelme
+                if (TrainingOptionsPolicy.StayInTrainingArea && !withinTrainingArea)
+                    continue;
+
+                // Statue of Justice: onay verilmemişse saldırılmaz
+                bool isStatueOfJustice = (m.Name != null && (m.Name.IndexOf("Statue of Justice", StringComparison.OrdinalIgnoreCase) >= 0 || m.Name.IndexOf("Adalet", StringComparison.OrdinalIgnoreCase) >= 0))
+                    || (m.ServerName != null && m.ServerName.IndexOf("STATUE_OF_JUSTICE", StringComparison.OrdinalIgnoreCase) >= 0);
+                if (isStatueOfJustice && !TrainingOptionsPolicy.AttackStatueOfJustice)
+                    continue;
 
                 // Canavar Tercihleri: Yoksay (Ignore) kontrolü
                 var prefEntry = CombatAIEngine.FindPreference(m);
@@ -1209,7 +1437,16 @@ namespace xBot.App
 
             // Only trigger if Berserker bar is 100% full (5 points)
             if (InfoManager.Character.BerserkPoints < 5)
+            {
+                if (InfoManager.Character.GameStateType != SRModel.GameState.Berserk)
+                {
+                    if (TrainingOptionsPolicy.UseZerkPotion)
+                        TryUseZerkPotion();
+                    if (TrainingOptionsPolicy.UseEnergyOfLifeForZerk)
+                        TryUseEnergyOfLife(true);
+                }
                 return;
+            }
 
             // Don't trigger if already in Berserk mode (0x30BF sets GameStateType to Berserk = 1)
             if (InfoManager.Character.GameStateType == SRModel.GameState.Berserk)
@@ -1236,6 +1473,356 @@ namespace xBot.App
                 PacketBuilder.ActivateBerserk();
                 Thread.Sleep(400);
             }
+        }
+
+        private static DateTime s_lastZerkPotAttemptUtc = DateTime.MinValue;
+        private bool TryUseZerkPotion()
+        {
+            try
+            {
+                if ((DateTime.UtcNow - s_lastZerkPotAttemptUtc).TotalSeconds < 5.0)
+                    return false;
+                s_lastZerkPotAttemptUtc = DateTime.UtcNow;
+
+                var chr = InfoManager.Character;
+                if (chr == null || chr.Inventory == null) return false;
+                for (byte s = 13; s < chr.Inventory.Capacity; s++)
+                {
+                    var it = chr.Inventory[s];
+                    if (it == null) continue;
+                    string sn = it.ServerName ?? "";
+                    string name = it.Name ?? "";
+                    if (sn.IndexOf("ZERK", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        sn.IndexOf("BERSERK", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        name.IndexOf("Berserker regeneration", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        name.IndexOf("Zerk", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        Window.Get?.Log($"Berserker: Zerk potu kullanılıyor [{it.Name}]...");
+                        return PacketBuilder.UseItem(it, s);
+                    }
+                }
+            }
+            catch { }
+            return false;
+        }
+
+        private static DateTime s_lastEnergyOfLifeAttemptUtc = DateTime.MinValue;
+        private bool TryUseEnergyOfLife(bool forZerk = false)
+        {
+            try
+            {
+                if ((DateTime.UtcNow - s_lastEnergyOfLifeAttemptUtc).TotalSeconds < 5.0)
+                    return false;
+                s_lastEnergyOfLifeAttemptUtc = DateTime.UtcNow;
+
+                var chr = InfoManager.Character;
+                if (chr == null || chr.Inventory == null) return false;
+                for (byte s = 13; s < chr.Inventory.Capacity; s++)
+                {
+                    var it = chr.Inventory[s];
+                    if (it == null) continue;
+                    string sn = it.ServerName ?? "";
+                    string name = it.Name ?? "";
+                    if (sn.IndexOf("ENERGY_OF_LIFE", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        name.IndexOf("Energy of Life", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        Window.Get?.Log($"Energy of Life: {(forZerk ? "Zerk doldurmak için" : "HP için")} kullanılıyor [{it.Name}]...");
+                        return PacketBuilder.UseItem(it, s);
+                    }
+                }
+            }
+            catch { }
+            return false;
+        }
+
+        private static DateTime s_lastSummonScrollCheckUtc = DateTime.MinValue;
+        private void CheckPandoraAndMonsterScrolls(List<SRMob> nearbyMobs)
+        {
+            if (!TrainingOptionsPolicy.UsePandoraBoxOrMonsterScroll)
+                return;
+
+            if ((DateTime.UtcNow - s_lastSummonScrollCheckUtc).TotalSeconds < 10.0)
+                return;
+            s_lastSummonScrollCheckUtc = DateTime.UtcNow;
+
+            // Check if strong mobs alive
+            if (TrainingOptionsPolicy.WaitForStrongMobsBeforeSummon && nearbyMobs != null)
+            {
+                bool hasStrong = false;
+                for (int i = 0; i < nearbyMobs.Count; i++)
+                {
+                    var m = nearbyMobs[i];
+                    if (m != null && (m.MobType == SRMob.Mob.Champion || m.MobType == SRMob.Mob.Giant ||
+                                      m.MobType == SRMob.Mob.PartyChampion || m.MobType == SRMob.Mob.PartyGiant ||
+                                      m.MobType == SRMob.Mob.Elite || m.MobType == SRMob.Mob.Unique))
+                    {
+                        hasStrong = true;
+                        break;
+                    }
+                }
+                if (hasStrong)
+                    return;
+            }
+
+            var chr = InfoManager.Character;
+            if (chr == null || chr.Inventory == null)
+                return;
+
+            int pandoraCount = 0;
+            byte pandoraSlot = 0;
+            byte otherSummonSlot = 0;
+
+            for (byte s = 13; s < chr.Inventory.Capacity; s++)
+            {
+                var it = chr.Inventory[s];
+                if (it == null) continue;
+                string sn = it.ServerName ?? "";
+                string name = it.Name ?? "";
+
+                bool isPandora = sn.IndexOf("PANDORA", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                 name.IndexOf("Pandora", StringComparison.OrdinalIgnoreCase) >= 0;
+                bool isMonsterScroll = sn.IndexOf("SUMMON", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                       sn.IndexOf("MONSTER_SCROLL", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                       name.IndexOf("Monster Summon", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                       name.IndexOf("Canavar Çağırma", StringComparison.OrdinalIgnoreCase) >= 0;
+
+                if (isPandora)
+                {
+                    pandoraCount += it.Quantity > 0 ? it.Quantity : 1;
+                    if (pandoraSlot == 0) pandoraSlot = s;
+                }
+                else if (isMonsterScroll && otherSummonSlot == 0)
+                {
+                    otherSummonSlot = s;
+                }
+            }
+
+            if (otherSummonSlot > 0)
+            {
+                var it = chr.Inventory[otherSummonSlot];
+                Window.Get?.Log($"Kasılma Alanı: Canavar çağırma scroll'u kullanılıyor [{it.Name}]...");
+                PacketBuilder.UseItem(it, otherSummonSlot);
+                Thread.Sleep(500);
+                return;
+            }
+
+            if (pandoraSlot > 0)
+            {
+                if (TrainingOptionsPolicy.PreservePandora && pandoraCount <= TrainingOptionsPolicy.PreservePandoraCount)
+                    return;
+
+                var it = chr.Inventory[pandoraSlot];
+                Window.Get?.Log($"Kasılma Alanı: Pandora's Box açılıyor [{it.Name}] (Kalan: {pandoraCount})...");
+                PacketBuilder.UseItem(it, pandoraSlot);
+                Thread.Sleep(500);
+            }
+        }
+
+        private static DateTime s_lastFlowerCheckUtc = DateTime.MinValue;
+        private void CheckFlowerSummon()
+        {
+            if (!TrainingOptionsPolicy.SummonFlowersInTrainingArea)
+                return;
+
+            if ((DateTime.UtcNow - s_lastFlowerCheckUtc).TotalSeconds < 15.0)
+                return;
+            s_lastFlowerCheckUtc = DateTime.UtcNow;
+
+            var chr = InfoManager.Character;
+            if (chr == null || chr.Inventory == null)
+                return;
+
+            if (chr.Buffs != null)
+            {
+                for (byte b = 0; b < chr.Buffs.Count; b++)
+                {
+                    var buff = chr.Buffs.GetAt(b);
+                    if (buff == null) continue;
+                    string bname = buff.Name ?? "";
+                    string bsn = buff.ServerName ?? "";
+                    if (bname.IndexOf("Flower", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        bname.IndexOf("Çiçek", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        bsn.IndexOf("FLOWER", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        return;
+                    }
+                }
+            }
+
+            for (byte s = 13; s < chr.Inventory.Capacity; s++)
+            {
+                var it = chr.Inventory[s];
+                if (it == null) continue;
+                string sn = it.ServerName ?? "";
+                string name = it.Name ?? "";
+                if (sn.IndexOf("FLOWER", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    name.IndexOf("Flower", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    name.IndexOf("Çiçek", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    Window.Get?.Log($"Kasılma Alanı: Çiçek kullanılıyor [{it.Name}]...");
+                    PacketBuilder.UseItem(it, s);
+                    Thread.Sleep(500);
+                    return;
+                }
+            }
+        }
+
+        private static DateTime s_lastTreasureBoxCheckUtc = DateTime.MinValue;
+        private void CheckTreasureBoxes()
+        {
+            if (!TrainingOptionsPolicy.UseTreasureBoxes)
+                return;
+
+            if ((DateTime.UtcNow - s_lastTreasureBoxCheckUtc).TotalSeconds < 15.0)
+                return;
+            s_lastTreasureBoxCheckUtc = DateTime.UtcNow;
+
+            var chr = InfoManager.Character;
+            if (chr == null || chr.Inventory == null)
+                return;
+
+            for (byte s = 13; s < chr.Inventory.Capacity; s++)
+            {
+                var it = chr.Inventory[s];
+                if (it == null) continue;
+                string sn = it.ServerName ?? "";
+                string name = it.Name ?? "";
+                if (sn.IndexOf("TREASURE", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    sn.IndexOf("MAGIC_BOX", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    name.IndexOf("Treasure", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    name.IndexOf("Hazine", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    Window.Get?.Log($"Kasılma Alanı: Treasure Box kullanılıyor [{it.Name}]...");
+                    PacketBuilder.UseItem(it, s);
+                    Thread.Sleep(500);
+                    return;
+                }
+            }
+        }
+
+        private static DateTime s_lastAutoEquipCheckUtc = DateTime.MinValue;
+        private void CheckAutoEquipBetterItems()
+        {
+            if (!TrainingOptionsPolicy.AutoEquipBetterItems)
+                return;
+
+            if ((DateTime.UtcNow - s_lastAutoEquipCheckUtc).TotalSeconds < 8.0)
+                return;
+            s_lastAutoEquipCheckUtc = DateTime.UtcNow;
+
+            var chr = InfoManager.Character;
+            if (chr == null || chr.Inventory == null)
+                return;
+
+            byte charLevel = chr.Level;
+            bool isMale = chr.ServerName != null && chr.ServerName.Contains("_M_");
+            bool isFemale = chr.ServerName != null && chr.ServerName.Contains("_W_");
+            var charRace = chr.GetRace();
+
+            for (byte s = 13; s < chr.Inventory.Capacity; s++)
+            {
+                var it = chr.Inventory[s];
+                if (it == null || !it.isEquipable()) continue;
+
+                var eq = it as SREquipable ?? new SREquipable(it);
+                if (eq.LevelRequired > charLevel) continue;
+
+                var itemRace = eq.GetRace();
+                if (itemRace != SRTypes.Race.Unknown && itemRace != charRace) continue;
+
+                var genre = eq.GetGenre();
+                if (genre == SREquipable.Genre.Male && !isMale && isFemale) continue;
+                if (genre == SREquipable.Genre.Female && !isFemale && isMale) continue;
+
+                int targetSlot = -1;
+                switch (eq.ItemType)
+                {
+                    case SREquipable.Equipable.Garment:
+                    case SREquipable.Equipable.Protector:
+                    case SREquipable.Equipable.Armor:
+                    case SREquipable.Equipable.Robe:
+                    case SREquipable.Equipable.LightArmor:
+                    case SREquipable.Equipable.HeavyArmor:
+                        switch ((SRTypes.SetPart)eq.ID4)
+                        {
+                            case SRTypes.SetPart.Head: targetSlot = 0; break;
+                            case SRTypes.SetPart.Chest: targetSlot = 1; break;
+                            case SRTypes.SetPart.Shoulders: targetSlot = 2; break;
+                            case SRTypes.SetPart.Gloves: targetSlot = 3; break;
+                            case SRTypes.SetPart.Pants: targetSlot = 4; break;
+                            case SRTypes.SetPart.Boots: targetSlot = 5; break;
+                        }
+                        break;
+                    case SREquipable.Equipable.Weapon:
+                        var curWpn = chr.Inventory[6] as SREquipable;
+                        if (curWpn == null || curWpn.ID4 == eq.ID4)
+                            targetSlot = 6;
+                        break;
+                    case SREquipable.Equipable.Shield:
+                        targetSlot = 7;
+                        break;
+                    case SREquipable.Equipable.AccesoriesCH:
+                    case SREquipable.Equipable.AccesoriesEU:
+                        switch ((SRTypes.AccesoriesPart)eq.ID4)
+                        {
+                            case SRTypes.AccesoriesPart.Earring: targetSlot = 9; break;
+                            case SRTypes.AccesoriesPart.Necklace: targetSlot = 10; break;
+                            case SRTypes.AccesoriesPart.Ring:
+                                targetSlot = chr.Inventory[11] == null ? 11 : 12;
+                                break;
+                        }
+                        break;
+                }
+
+                if (targetSlot < 0 || targetSlot >= 13) continue;
+
+                var currentItem = chr.Inventory[targetSlot] as SREquipable;
+                byte eqDegree = AlchemyPolicy.CalculateDegree(eq.LevelRequired);
+                byte curDegree = currentItem != null ? AlchemyPolicy.CalculateDegree(currentItem.LevelRequired) : (byte)0;
+
+                bool isBetter = false;
+                if (currentItem == null)
+                {
+                    isBetter = true;
+                }
+                else if (eqDegree > curDegree)
+                {
+                    isBetter = true;
+                }
+                else if (eqDegree == curDegree)
+                {
+                    if (eq.GetRarity() > currentItem.GetRarity())
+                        isBetter = true;
+                    else if (eq.GetRarity() == currentItem.GetRarity() && eq.Plus > currentItem.Plus)
+                        isBetter = true;
+                }
+
+                if (isBetter)
+                {
+                    Window.Get?.Log($"Otomatik Kuşanma: Daha iyi eşya bulundu [{eq.Name}] -> Slot {targetSlot}'a kuşanılıyor...");
+                    EquipItem(s);
+                    Thread.Sleep(500);
+                    return;
+                }
+            }
+        }
+
+        private bool HasSpeedBuffActive()
+        {
+            var chr = InfoManager.Character;
+            if (chr == null || chr.Buffs == null) return false;
+            for (byte b = 0; b < chr.Buffs.Count; b++)
+            {
+                var buff = chr.Buffs.GetAt(b);
+                if (buff == null) continue;
+                string sn = buff.ServerName ?? "";
+                string name = buff.Name ?? "";
+                if (sn.IndexOf("SPEED", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    name.IndexOf("Speed", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    name.IndexOf("Hız", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return true;
+            }
+            return false;
         }
 
         private double GetWeaponAttackRange(SRTypes.Weapon weapon)
@@ -2235,10 +2822,22 @@ namespace xBot.App
                     if (!InfoManager.isEntityNear(drop.UniqueID))
                         continue;
                     double dist = myPos.DistanceTo(drop.GetRealtimePosition());
-                    if (dist > 4.0)
+                    if (dist > 3.0)
                     {
-                        MoveTo(drop.GetRealtimePosition());
-                        Thread.Sleep(200);
+                        if (CollisionPolicy.NavigateAroundObstaclesWhilePicking)
+                        {
+                            bool reached = ApproachTargetWithCollision(drop.GetRealtimePosition(), 3.0, null);
+                            if (!reached && CollisionPolicy.EnableCollisionInTrainingArea)
+                            {
+                                Window.Get?.LogProcess($"Eşyaya ({drop.Name}) giderken engel aşılamadı, atlanıyor...");
+                                continue;
+                            }
+                        }
+                        else
+                        {
+                            MoveTo(drop.GetRealtimePosition());
+                            Thread.Sleep(200);
+                        }
                     }
                     PacketBuilder.PickUpItem(drop.UniqueID);
                     Thread.Sleep(150);
@@ -2517,9 +3116,9 @@ namespace xBot.App
                 {
                     try { w.CastAllBuffs(); } catch { }
                 }
-                if (ReturnToAreaPolicy.UseSpeedDrug)
+                if (ReturnToAreaPolicy.UseSpeedDrug || TrainingOptionsPolicy.UseSpeedDrugs)
                     TryUseSpeedDrug();
-                if (ReturnToAreaPolicy.UseMount)
+                if (ReturnToAreaPolicy.UseMount && !TrainingOptionsPolicy.DoNotSpawnMount)
                     TrySummonMount();
             }
             catch { }
@@ -2579,6 +3178,9 @@ namespace xBot.App
         {
             try
             {
+                if (TrainingOptionsPolicy.DoNotSpawnMount)
+                    return false;
+
                 var chr = InfoManager.Character;
                 if (chr == null || chr.isRiding)
                     return false;
@@ -2994,6 +3596,15 @@ namespace xBot.App
         private bool ExecuteTeleportTransition(TeleportLinkInfo link)
         {
             Window w = Window.Get;
+            if (link != null)
+            {
+                int playerLevel = (int)(InfoManager.Character != null ? InfoManager.Character.Level : 0);
+                if (!CollisionPolicy.IsLinkAllowed(link, playerLevel))
+                {
+                    w.Log($"Ferry/Teleport: [{link.SourceName} -> {link.DestinationName}] Çarpışma sekmesi ayarları nedeniyle engellendi.");
+                    return false;
+                }
+            }
             w.Log($"Ferry/Teleport: Transitioning [{link.SourceName}] -> [{link.DestinationName}]...");
             // Teşhis: yeni kodun koştuğu ve mesafelerin logdan belli olması için.
             try
