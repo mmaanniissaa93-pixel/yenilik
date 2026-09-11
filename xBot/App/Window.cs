@@ -50,6 +50,8 @@ namespace xBot.App
 				InitializeFonts(this);
 				InitializePerformance(this);
 				InitializeValues();
+				try { ApplyPhBotClassicTheme(); } catch { }
+				try { ApplyPickFilterLightTheme(); } catch { }
 			}
 			catch
 			{
