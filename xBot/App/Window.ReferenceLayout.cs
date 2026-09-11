@@ -54,11 +54,12 @@ namespace xBot.App
             SuspendLayout();
             try
             {
-                FormBorderStyle = FormBorderStyle.FixedSingle;
-                MaximizeBox = false;
+                FormBorderStyle = FormBorderStyle.Sizable;
+                MaximizeBox = true;
                 MinimizeBox = ControlBox = true;
-                Size = new Size(980, 530);
-                MinimumSize = MaximumSize = new Size(980, 530);
+                Size = new Size(996, 539);
+                MinimumSize = new Size(996, 539);
+                MaximumSize = Size.Empty;
                 StartPosition = FormStartPosition.CenterScreen;
                 WindowState = FormWindowState.Normal;
                 ShowInTaskbar = true;
