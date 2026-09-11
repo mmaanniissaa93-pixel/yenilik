@@ -68,6 +68,17 @@ namespace xBot.App
                 pnlWindow.Dock = DockStyle.Fill;
                 pnlWindow.SizeChanged += (s, e) => LayoutXBotReference();
                 pnlWindow.BorderStyle = BorderStyle.None;
+                pnlWindow.Paint += (s, e) =>
+                {
+                    if (TabPageV_Control01 != null && TabPageV_Control01.Visible)
+                    {
+                        using (var p = new Pen(Color.FromArgb(220, 222, 226)))
+                        {
+                            e.Graphics.DrawRectangle(p, TabPageV_Control01.Left - 1, TabPageV_Control01.Top - 1,
+                                TabPageV_Control01.Width + 1, TabPageV_Control01.Height + 1);
+                        }
+                    }
+                };
                 pnlHeader.Visible = false;
                 btnBotStart.Visible = btnClientOptions.Visible = btnAnalyzer.Visible = false;
                 if (lblBotState != null)
@@ -220,24 +231,24 @@ namespace xBot.App
             TabPageV_Control01.MouseWheel += Sidebar_MouseWheel;
             TabPageV_Control01.Paint += (s, e) =>
             {
-                // 1px sağ ayrım çizgisi
-                using (var p = new Pen(Color.FromArgb(220, 220, 220)))
+                // 1px zarif kart kenarlığı
+                using (var p = new Pen(Color.FromArgb(226, 228, 232)))
                 {
-                    e.Graphics.DrawLine(p, TabPageV_Control01.Width - 1, 0, TabPageV_Control01.Width - 1, TabPageV_Control01.Height);
+                    e.Graphics.DrawRectangle(p, 0, 0, TabPageV_Control01.Width - 1, TabPageV_Control01.Height - 1);
                 }
-                // Seçili öğe mavi dikey göstergesi (X=3, Y=ortalanmış, W=3, H=16)
+                // Seçili öğe mavi dikey göstergesi (X=4, Y=ortalanmış, W=3, H=16, yuvarlak uçlu)
                 var selected = TabPageV_Control01.Tag as List<Control>;
                 if (selected != null && selected.Count > 0)
                 {
                     Control sel = selected[0];
                     int barY = sel.Top + (sel.Height - 16) / 2;
                     using (var b = new SolidBrush(Color.FromArgb(0, 103, 192)))
-                    using (var path = Theme.DarkTheme.CreateRoundedRectangle(new Rectangle(3, barY, 3, 16), 1))
+                    using (var path = Theme.DarkTheme.CreateRoundedRectangle(new Rectangle(4, barY, 3, 16), 1))
                     {
                         e.Graphics.FillPath(b, path);
                     }
                 }
-                // phBot zarif 2px overlay kaydırma çubuğu (X=Width-2, W=2)
+                // phBot zarif 2px overlay kaydırma çubuğu (X=Width-3, W=2)
                 int viewH = TabPageV_Control01.ClientSize.Height;
                 if (_sidebarTotalHeight > viewH && viewH > 0)
                 {
@@ -246,13 +257,13 @@ namespace xBot.App
                     int thumbY = (_sidebarScrollOffset * (viewH - thumbH)) / maxScroll;
                     using (var b = new SolidBrush(Color.FromArgb(141, 141, 141)))
                     {
-                        e.Graphics.FillRectangle(b, TabPageV_Control01.Width - 2, thumbY, 2, thumbH);
+                        e.Graphics.FillRectangle(b, TabPageV_Control01.Width - 3, thumbY, 2, thumbH);
                     }
                 }
             };
             TabPageV_ColorSelected = PhBotSelect;
             TabPageV_ColorHover = PhBotHover;
-            int y = 6;
+            int y = 8;
             foreach (Panel view in views)
             {
                 string key = view.Name.Replace("TabPageV_Control01_", "").Replace("_Panel", "");
@@ -265,7 +276,7 @@ namespace xBot.App
                 bool existingButton = oldButtons.TryGetValue(name, out button);
                 if (!existingButton) button = new Button();
                 button.Name = name; button.Text = title;
-                button.SetBounds(28, y, 148, 26);
+                button.SetBounds(32, y, 144, 26);
                 button.TextAlign = ContentAlignment.MiddleLeft;
                 button.FlatStyle = FlatStyle.Flat; button.BackColor = Color.White;
                 button.TabIndex = _referenceViews.Count;
@@ -281,7 +292,7 @@ namespace xBot.App
                 if (!existingIcon) icon = new Label();
                 icon.Name = name + "_Icon"; icon.Text = "";
                 icon.Image = PhBotIcons.Get(title);
-                icon.SetBounds(8, y, 18, 26);
+                icon.SetBounds(12, y, 20, 26);
                 icon.BackColor = Color.White; icon.Visible = true;
                 icon.Tag = y;
                 icon.MouseWheel -= Sidebar_MouseWheel;
@@ -620,15 +631,18 @@ namespace xBot.App
             try
             {
                 int w = pnlWindow.ClientSize.Width, h = pnlWindow.ClientSize.Height;
-                int sidebar = 195;
                 const int margin = 8;
-                int x = 205;
+                int sidebarX = margin;
+                int sidebarY = margin;
+                int sidebarW = 182;
+                int sidebarH = h - (margin * 2);
+                int x = sidebarX + sidebarW + margin;
                 int contentW = Math.Max(500, w - x - margin);
                 const int bottom = 85; // exact 3-row button grid height
                 int logY = h - bottom - margin - 20;
                 int contentH = logY - margin - 4;
 
-                TabPageV_Control01.SetBounds(0, 0, sidebar, h);
+                TabPageV_Control01.SetBounds(sidebarX, sidebarY, sidebarW, sidebarH);
                 TabPageV_Control01.BorderStyle = BorderStyle.None;
                 TabPageV_Control01.BackColor = Color.White;
 
@@ -636,13 +650,13 @@ namespace xBot.App
                 {
                     if (c is Button)
                     {
-                        c.Left = 28;
-                        c.Width = 148;
+                        c.Left = 32;
+                        c.Width = sidebarW - 32 - 6;
                     }
                     else if (c is Label)
                     {
-                        c.Left = 8;
-                        c.Width = 18;
+                        c.Left = 12;
+                        c.Width = 20;
                     }
                 }
                 UpdateSidebarItemPositions();

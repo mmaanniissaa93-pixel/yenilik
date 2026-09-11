@@ -2064,6 +2064,7 @@ namespace xBot.App
 			currentOption[0].BackColor = TabPageV_ColorSelected;
 			currentOption[1].BackColor = TabPageV_ColorSelected;
 			c.Parent.Parent.Controls[currentOption[1].Name.Replace("Icon", "Panel")].Visible = true;
+			try { c.Parent.Invalidate(); } catch { }
 		}
 		/// <summary>
 		/// Creates a custom color focus on icon and option used on TabPage Vertical.
