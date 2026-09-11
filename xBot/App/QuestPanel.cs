@@ -28,8 +28,8 @@ namespace xBot.App
         public event Action<uint> DetailsRequested;
         public event Action<uint, ContextMenuStrip> MenuRequested;
         public event Action OptionsChanged;
-        private readonly Panel[] pages = new Panel[3];
-        private readonly Button[] tabs = new Button[3];
+        private readonly TabControl mainTabControl;
+        private readonly TabPage[] tabPages = new TabPage[3];
         public readonly DataGridView ActiveGrid;
         public readonly DataGridView CatalogGrid;
         private readonly Label activeEmpty, catalogEmpty, status;
@@ -45,32 +45,31 @@ namespace xBot.App
         public QuestPanel()
         {
             BackColor = Color.White; ForeColor = Color.Black;
-            Font = new Font("Segoe UI", 9f); Padding = new Padding(8);
-            var navigation = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 34, WrapContents = false, Margin = Padding.Empty };
-            var body = new Panel { Dock = DockStyle.Fill, Padding = new Padding(0, 6, 0, 0) };
-            status = new Label { Dock = DockStyle.Bottom, Height = 26, ForeColor = Color.FromArgb(80, 80, 80), TextAlign = ContentAlignment.MiddleLeft };
-            Controls.Add(body); Controls.Add(status); Controls.Add(navigation);
+            Font = new Font("Segoe UI", 9f); Padding = new Padding(0);
+
+            mainTabControl = new TabControl { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9f) };
             string[] titles = { "Active", "All", "Options" };
-            for (int i = 0; i < pages.Length; i++)
+            for (int i = 0; i < tabPages.Length; i++)
             {
-                int index = i;
-                pages[i] = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
-                body.Controls.Add(pages[i]);
-                tabs[i] = MakeTabButton(titles[i], 85); tabs[i].Height = 28;
-                tabs[i].Click += (s, e) => SelectTab(index);
-                navigation.Controls.Add(tabs[i]);
+                tabPages[i] = new TabPage(titles[i]) { BackColor = Color.White, Padding = new Padding(8) };
+                mainTabControl.TabPages.Add(tabPages[i]);
             }
-            ActiveGrid = MakeGrid(true); CatalogGrid = MakeGrid(false);
-            pages[0].Controls.Add(ActiveGrid); pages[1].Controls.Add(CatalogGrid);
+            Controls.Add(mainTabControl);
+
+            status = new Label { Visible = false };
+
+            ActiveGrid = MakeGrid(true);
+            CatalogGrid = MakeGrid(false);
+
+            tabPages[0].Controls.Add(ActiveGrid);
             activeEmpty = EmptyMessage("No active quests", "Switch to the All tab to browse and enable quests.");
             catalogEmpty = EmptyMessage("Loading quest catalog...", "");
-            ActiveGrid.Controls.Add(activeEmpty); CatalogGrid.Controls.Add(catalogEmpty);
-            var activeFooter = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 40, Padding = new Padding(0, 6, 0, 0), WrapContents = false };
-            var refresh = MakeButton("Refresh", 80); refresh.Click += (s, e) => RefreshRequested?.Invoke();
-            activeFooter.Controls.Add(refresh);
-            activeFooter.Controls.Add(new Label { AutoSize = true, Margin = new Padding(12, 6, 0, 0), ForeColor = Color.FromArgb(100, 100, 100), Text = "Double-click: details  ·  Right-click: auto quest options" });
-            pages[0].Controls.Add(activeFooter);
-            var catalogFooter = new TableLayoutPanel { Dock = DockStyle.Bottom, Height = 42, Padding = new Padding(0, 6, 0, 0), ColumnCount = 5, RowCount = 1 };
+            ActiveGrid.Controls.Add(activeEmpty);
+            CatalogGrid.Controls.Add(catalogEmpty);
+
+            tabPages[1].Controls.Add(CatalogGrid);
+
+            var catalogFooter = new TableLayoutPanel { Dock = DockStyle.Bottom, Height = 36, Padding = new Padding(0, 6, 0, 0), ColumnCount = 5, RowCount = 1 };
             catalogFooter.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             for (int i = 0; i < 4; i++) catalogFooter.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));
             search = new TextBox { Dock = DockStyle.Fill, BackColor = Color.White, ForeColor = Color.Black, BorderStyle = BorderStyle.FixedSingle, Margin = new Padding(0, 3, 10, 0), AccessibleName = "Search quest name or ID" };
@@ -82,7 +81,7 @@ namespace xBot.App
             var reset = MakeButton(actions[3], 85); reset.Click += (s, e) => ResetRequested?.Invoke();
             catalogFooter.Controls.Add(searchButton, 1, 0); catalogFooter.Controls.Add(clear, 2, 0); catalogFooter.Controls.Add(update, 3, 0); catalogFooter.Controls.Add(reset, 4, 0);
             search.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) { SearchRequested?.Invoke(search.Text); e.SuppressKeyPress = true; } };
-            pages[1].Controls.Add(catalogFooter);
+            tabPages[1].Controls.Add(catalogFooter);
 
             var options = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, Padding = new Padding(12, 12, 0, 0) };
             aboveLevel = MakeCheck("Retrieve quests above your level", false);
@@ -107,8 +106,9 @@ namespace xBot.App
             foreach (var box in new[] { aboveLevel, waitAll, townEvents, cbxExpRatio, cbxWalkTown, cbxCompleteWay, cbxDanger })
                 box.CheckedChanged += (s, e) => { levelMargin.Enabled = aboveLevel.Checked; if (!loadingOptions) OptionsChanged?.Invoke(); };
             levelMargin.ValueChanged += (s, e) => { if (!loadingOptions) OptionsChanged?.Invoke(); };
-            pages[2].Controls.Add(options);
-            SelectTab(0);
+            tabPages[2].Controls.Add(options);
+
+            mainTabControl.SelectedIndexChanged += (s, e) => SelectedTab = mainTabControl.SelectedIndex;
         }
 
         public void SetOptions(int margin, bool wait, bool events)
@@ -120,13 +120,10 @@ namespace xBot.App
 
         public void SelectTab(int index)
         {
-            SelectedTab = index;
-            for (int i = 0; i < pages.Length; i++)
+            if (index >= 0 && index < tabPages.Length)
             {
-                pages[i].Visible = i == index;
-                tabs[i].BackColor = i == index ? Color.White : SystemColors.Control;
-                tabs[i].ForeColor = Color.Black;
-                tabs[i].Font = new Font("Segoe UI", 9f, i == index ? FontStyle.Bold : FontStyle.Regular);
+                mainTabControl.SelectedIndex = index;
+                SelectedTab = index;
             }
         }
 

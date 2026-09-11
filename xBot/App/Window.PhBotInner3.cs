@@ -71,9 +71,9 @@ namespace xBot.App
         }
 
         // ---------------------------------------------------------------
-        // PLAYERS — docs/phbot_ref/guide/phbot_players_01.png
-        // Sol: Players (0) + liste + alt butonlar (Refresh, Clear, 4 Invite)
-        // Sağ: Trace grubu (Player to trace + butonlar + seçenekler)
+        // PLAYERS — phbot_players_01.png birebir yerleşim
+        // Sol: Players (0) + liste + alt 6 buton
+        // Sağ: Trace GroupBox (Player to trace dropdown + butonlar + koordinatlar + 6 checkbox)
         // ---------------------------------------------------------------
         private void LayoutPlayersInner()
         {
@@ -86,13 +86,15 @@ namespace xBot.App
                 int W = p.Width, H = p.Height;
                 if (W < 200 || H < 100) return;
 
-                int listW = Math.Max(300, W - 320);
+                int traceW = 255;
+                int listW = Math.Max(280, W - traceW - 16);
+
                 try
                 {
                     if (Players_tvwPlayers != null)
                     {
                         Players_tvwPlayers.Location = new Point(8, 28);
-                        Players_tvwPlayers.Size = new Size(listW, Math.Max(150, H - 70));
+                        Players_tvwPlayers.Size = new Size(listW, Math.Max(150, H - 66));
                         Players_tvwPlayers.Visible = true;
                         Classicize(Players_tvwPlayers);
                     }
@@ -108,91 +110,149 @@ namespace xBot.App
                 }
                 catch { }
 
-                // Alt butonlar (phBot players 2..7 butonları)
-                int by = H - 36;
-                Button bRefresh = EnsurePlayerButton(p, "PhBot_PlayersRefresh", "Refresh", 8, by, 75);
+                // Alt 6 buton (phBot players 2..7 butonları)
+                int by = H - 32;
+                int gap = 4;
+                Button bRefresh, bClear, bParty, bAcad, bGuild, bUnion;
+                int reqW = 60 + 55 + 76 + 90 + 74 + 108 + (5 * gap); // 483 px
+                if (listW < reqW)
+                {
+                    int avail = listW - (5 * gap);
+                    int w1 = 56;
+                    int w2 = 50;
+                    int w3 = 74;
+                    int w4 = 96;
+                    int w5 = 78;
+                    int w6 = Math.Max(105, avail - (w1 + w2 + w3 + w4 + w5));
+                    int curX = 8;
+                    bRefresh = EnsurePlayerButton(p, "PhBot_PlayersRefresh", "Refresh", curX, by, w1, 24); curX += w1 + gap;
+                    bClear = EnsurePlayerButton(p, "PhBot_PlayersClear", "Clear", curX, by, w2, 24); curX += w2 + gap;
+                    bParty = EnsurePlayerButton(p, "PhBot_PlayersPartyInvite", "Party Invite", curX, by, w3, 24); curX += w3 + gap;
+                    bAcad = EnsurePlayerButton(p, "PhBot_PlayersAcadInvite", "Academy Invite", curX, by, w4, 24); curX += w4 + gap;
+                    bGuild = EnsurePlayerButton(p, "PhBot_PlayersGuildInvite", "Guild Invite", curX, by, w5, 24); curX += w5 + gap;
+                    bUnion = EnsurePlayerButton(p, "PhBot_PlayersUnionInvite", "Union Party Invite", curX, by, w6, 24);
+                }
+                else
+                {
+                    int w1 = 65, w2 = 65;
+                    int w3 = 80, w4 = 98, w5 = 76, w6 = 112;
+                    bRefresh = EnsurePlayerButton(p, "PhBot_PlayersRefresh", "Refresh", 8, by, w1, 24);
+                    bClear = EnsurePlayerButton(p, "PhBot_PlayersClear", "Clear", 8 + w1 + gap, by, w2, 24);
+
+                    int rx = 8 + listW;
+                    int x6 = rx - w6;
+                    int x5 = x6 - gap - w5;
+                    int x4 = x5 - gap - w4;
+                    int x3 = x4 - gap - w3;
+
+                    bParty = EnsurePlayerButton(p, "PhBot_PlayersPartyInvite", "Party Invite", x3, by, w3, 24);
+                    bAcad = EnsurePlayerButton(p, "PhBot_PlayersAcadInvite", "Academy Invite", x4, by, w4, 24);
+                    bGuild = EnsurePlayerButton(p, "PhBot_PlayersGuildInvite", "Guild Invite", x5, by, w5, 24);
+                    bUnion = EnsurePlayerButton(p, "PhBot_PlayersUnionInvite", "Union Party Invite", x6, by, w6, 24);
+                }
+
                 if (bRefresh != null && Players_btnRefreshPlayers != null)
                 {
                     try { bRefresh.Click -= PlayersRefreshClick; } catch { }
                     bRefresh.Click += PlayersRefreshClick;
                 }
-                Button bClear = EnsurePlayerButton(p, "PhBot_PlayersClear", "Clear", 88, by, 75);
                 if (bClear != null)
                 {
                     try { bClear.Click -= PlayersClearClick; } catch { }
                     bClear.Click += PlayersClearClick;
                 }
-                Button bParty = EnsurePlayerButton(p, "PhBot_PlayersPartyInvite", "Party Invite", 168, by, 95);
                 if (bParty != null)
                 {
                     try { bParty.Click -= PlayersPartyInviteClick; } catch { }
                     bParty.Click += PlayersPartyInviteClick;
                 }
-                Button bAcad = EnsurePlayerButton(p, "PhBot_PlayersAcadInvite", "Academy Invite", 268, by, 105);
                 if (bAcad != null)
                 {
                     try { bAcad.Click -= PlayersAcadInviteClick; } catch { }
                     bAcad.Click += PlayersAcadInviteClick;
                 }
-                Button bGuild = EnsurePlayerButton(p, "PhBot_PlayersGuildInvite", "Guild Invite", 378, by, 95);
                 if (bGuild != null)
                 {
                     try { bGuild.Click -= PlayersGuildInviteClick; } catch { }
                     bGuild.Click += PlayersGuildInviteClick;
                 }
-                EnsurePlayerButton(p, "PhBot_PlayersUnionInvite", "Union Party Invite", 478, by, 120);
 
-                // Sağ sütun: Trace bölümü (phBot players 8..17)
-                int x = W - 300;
-                PhBotLabel(p, "PhBot_TraceGroupTitle", "Trace", x, 8);
-                PhBotLabel(p, "PhBot_TraceLbl", "Player to trace", x, 32);
-                TextBox tbx = p.Controls["PhBot_TraceName"] as TextBox;
-                if (tbx == null)
+                // Sağ sütun: Trace GroupBox (phBot players 8..17)
+                int gx = W - traceW - 8;
+                GroupBox gbTrace = p.Controls["PhBot_TraceGroupBox"] as GroupBox;
+                if (gbTrace == null)
                 {
-                    tbx = new TextBox();
-                    tbx.Name = "PhBot_TraceName";
-                    tbx.Font = PhBotFont();
-                    tbx.BackColor = Color.White;
-                    try { p.Controls.Add(tbx); } catch { }
+                    gbTrace = new GroupBox
+                    {
+                        Name = "PhBot_TraceGroupBox",
+                        Text = "Trace",
+                        Font = PhBotFont(),
+                        ForeColor = Color.Black,
+                        BackColor = Color.White
+                    };
+                    p.Controls.Add(gbTrace);
                 }
-                try { tbx.Location = new Point(x + 105, 28); tbx.Size = new Size(175, 24); tbx.Visible = true; } catch { }
+                gbTrace.Location = new Point(gx, 8);
+                gbTrace.Size = new Size(traceW, H - 16);
+                gbTrace.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Right;
+                gbTrace.Visible = true;
 
-                Button bTRefresh = EnsurePlayerButton(p, "PhBot_TraceRefresh", "Refresh", x, 60, 80);
+                PhBotLabel(gbTrace, "PhBot_TraceLbl", "Player to trace", 10, 24);
+                ComboBox cbTrace = gbTrace.Controls["PhBot_TraceName"] as ComboBox;
+                if (cbTrace == null)
+                {
+                    cbTrace = new ComboBox
+                    {
+                        Name = "PhBot_TraceName",
+                        Font = PhBotFont(),
+                        DropDownStyle = ComboBoxStyle.DropDownList,
+                        BackColor = Color.White
+                    };
+                    cbTrace.Items.Add("None");
+                    cbTrace.SelectedIndex = 0;
+                    GrayCombo(cbTrace);
+                    gbTrace.Controls.Add(cbTrace);
+                }
+                cbTrace.Location = new Point(110, 20);
+                cbTrace.Size = new Size(138, 24);
+                cbTrace.Visible = true;
+
+                Button bTRefresh = EnsurePlayerButton(gbTrace, "PhBot_TraceRefresh", "Refresh", 15, 52, 75, 24);
                 if (bTRefresh != null && Players_btnRefreshPlayers != null)
                 {
                     try { bTRefresh.Click -= PlayersRefreshClick; } catch { }
                     bTRefresh.Click += PlayersRefreshClick;
                 }
-                PhBotLabel(p, "PhBot_TraceXLbl", "Trace X: 0", x + 95, 64);
+                PhBotLabel(gbTrace, "PhBot_TraceXLbl", "Trace X: 0", 105, 56);
 
-                Button bTStart = EnsurePlayerButton(p, "PhBot_TraceStart", "Start", x, 92, 80);
+                Button bTStart = EnsurePlayerButton(gbTrace, "PhBot_TraceStart", "Start", 15, 82, 75, 24);
                 if (bTStart != null)
                 {
                     try { bTStart.Click -= TraceStartClick; } catch { }
                     bTStart.Click += TraceStartClick;
                 }
-                PhBotLabel(p, "PhBot_TraceYLbl", "Trace Y: 0", x + 95, 96);
+                PhBotLabel(gbTrace, "PhBot_TraceYLbl", "Trace Y: 0", 105, 86);
 
-                Button bTStop = EnsurePlayerButton(p, "PhBot_TraceStop", "Stop", x, 124, 80);
+                Button bTStop = EnsurePlayerButton(gbTrace, "PhBot_TraceStop", "Stop", 15, 112, 75, 24);
                 if (bTStop != null)
                 {
                     try { bTStop.Click -= TraceStopClick; } catch { }
                     bTStop.Click += TraceStopClick;
                 }
 
-                int ty = 160;
-                PhBotTodoCheck(p, "PhBot_TraceAttack", "Attack monsters (uses training radius)", x, ty, false); ty += 26;
-                PhBotTodoCheck(p, "PhBot_TraceClear", "Kill all monsters before tracing", x, ty, false); ty += 26;
-                PhBotTodoCheck(p, "PhBot_TraceBuffs", "Buffs", x, ty, false); ty += 26;
-                PhBotTodoCheck(p, "PhBot_TracePartyBuffs", "Party buffs", x, ty, false); ty += 26;
-                PhBotTodoCheck(p, "PhBot_TracePick", "Pick items", x, ty, false); ty += 26;
-                PhBotTodoCheck(p, "PhBot_TraceGame", "Game trace", x, ty, false);
+                int ty = 146;
+                PhBotTodoCheck(gbTrace, "PhBot_TraceAttack", "Attack monsters (uses training radius)", 12, ty, false); ty += 26;
+                PhBotTodoCheck(gbTrace, "PhBot_TraceClear", "Kill all monsters before tracing", 12, ty, false); ty += 26;
+                PhBotTodoCheck(gbTrace, "PhBot_TraceBuffs", "Buffs", 12, ty, false); ty += 26;
+                PhBotTodoCheck(gbTrace, "PhBot_TracePartyBuffs", "Party buffs", 12, ty, false); ty += 26;
+                PhBotTodoCheck(gbTrace, "PhBot_TracePick", "Pick items", 12, ty, false); ty += 26;
+                PhBotTodoCheck(gbTrace, "PhBot_TraceGame", "Game trace", 12, ty, false);
             }
             catch (Exception ex) { PhBotDebug("players inner: " + ex.Message); }
             finally { _innerLayout = false; }
         }
 
-        private Button EnsurePlayerButton(Panel p, string name, string text, int x, int y, int w = 170, int h = 28)
+        private Button EnsurePlayerButton(Control p, string name, string text, int x, int y, int w = 170, int h = 28)
         {
             Button b = p.Controls[name] as Button;
             if (b == null)
@@ -332,13 +392,13 @@ namespace xBot.App
                         Guild_lstvInfo.Size = new Size(W - 16, listH);
                         Guild_lstvInfo.Visible = true;
                         Classicize(Guild_lstvInfo);
-                        if (Guild_lstvInfo.Columns.Count >= 4)
-                        {
-                            Guild_lstvInfo.Columns[0].Width = 220;
-                            Guild_lstvInfo.Columns[1].Width = 70;
-                            Guild_lstvInfo.Columns[2].Width = 140;
-                            Guild_lstvInfo.Columns[3].Width = 120;
-                        }
+                        Guild_lstvInfo.Columns.Clear();
+                        int colLocW = Math.Max(120, Guild_lstvInfo.ClientSize.Width - 180 - 65 - 85 - 80 - 4);
+                        Guild_lstvInfo.Columns.Add("Name", 180);
+                        Guild_lstvInfo.Columns.Add("Level", 65, HorizontalAlignment.Center);
+                        Guild_lstvInfo.Columns.Add("Type", 85, HorizontalAlignment.Center);
+                        Guild_lstvInfo.Columns.Add("Online", 80, HorizontalAlignment.Center);
+                        Guild_lstvInfo.Columns.Add("Location", colLocW);
                     }
                     foreach (Control c in new Control[] { Guild_lblLevel, Guild_lblMasterIcon, Guild_lblName, Guild_lblNotice, Guild_btnInfoRefresh })
                     {
@@ -359,7 +419,7 @@ namespace xBot.App
                     gbxInvite.ForeColor = Color.Black;
                     try { p.Controls.Add(gbxInvite); } catch { }
                 }
-                gbxInvite.SetBounds(8, by, 480, 115);
+                gbxInvite.SetBounds(8, by, 420, 115);
                 gbxInvite.Visible = true;
 
                 PhBotTodoCheck(gbxInvite, "PhBot_GuildShowInv", "Show guild invites", 14, 22, true);
@@ -368,7 +428,7 @@ namespace xBot.App
                 PhBotTodoCheck(gbxInvite, "PhBot_GuildAcceptAll", "Accept all guild invites", 14, 78, false);
 
                 // Alt sağ: View Notice butonu
-                Button bNotice = EnsurePlayerButton(p, "PhBot_GuildNoticeView", "View Notice", Math.Max(500, W - 140), by + 30, 120, 28);
+                Button bNotice = EnsurePlayerButton(p, "PhBot_GuildNoticeView", "View Notice", Math.Max(450, W - 140), by + 30, 120, 28);
                 if (bNotice != null)
                 {
                     try { bNotice.Click -= GuildNoticeClick; } catch { }
@@ -419,7 +479,7 @@ namespace xBot.App
                     tabs.TabPages.Add(new TabPage("Matching"));
                     foreach (TabPage pg0 in tabs.TabPages)
                     {
-                        try { pg0.BackColor = Color.White; pg0.AutoScroll = true; } catch { }
+                        try { pg0.BackColor = Color.White; pg0.AutoScroll = false; } catch { }
                     }
                     // Mevcut içeriği ilk sayfaya taşı.
                     var kids = new List<Control>();
@@ -434,22 +494,40 @@ namespace xBot.App
                 }
                 try
                 {
-                    // Boyutlandırma shell'e aittir (LayoutXBotReference); burada
-                    // yalnızca içerik kurulur.
                     tabs.Visible = true;
                 }
                 catch { }
                 TabPage main = tabs.TabPages[0];
-                if (main.Controls["PhBot_AcMembers"] == null)
+                ListView lv = main.Controls["PhBot_AcMembers"] as ListView;
+                if (lv == null)
                 {
-                    ListView lv = NewPhBotListView(10, 10, 560, 320, "Member|300", "Level|100");
+                    main.Controls.Clear();
+                    main.BackColor = Color.White;
+                    lv = NewPhBotListView(8, 8, W - 16, H - 48, "Name|180", "Level|65", "Position|120", "Type|100", "Online|80");
                     lv.Name = "PhBot_AcMembers";
+                    lv.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
                     main.Controls.Add(lv);
-                    Button bNotice = PhBotButton(main, "PhBot_AcNoticeView", "Notice View", 10, 340, 130);
+
+                    Button bNotice = PhBotButton(main, "PhBot_AcNoticeView", "View Notice", 8, H - 36, W - 16);
                     if (bNotice != null)
                     {
+                        bNotice.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
                         try { bNotice.Click -= AcademyNoticeClick; } catch { }
                         bNotice.Click += AcademyNoticeClick;
+                    }
+                }
+                if (lv != null)
+                {
+                    lv.Location = new Point(8, 8);
+                    lv.Size = new Size(W - 16, H - 48);
+                    if (lv.Columns.Count >= 5)
+                    {
+                        lv.Columns[0].Width = 180;
+                        lv.Columns[1].Width = 65;
+                        lv.Columns[2].Width = 125;
+                        lv.Columns[3].Width = 100;
+                        int rem = lv.ClientSize.Width - 180 - 65 - 125 - 100 - 4;
+                        lv.Columns[4].Width = Math.Max(80, rem);
                     }
                 }
                 BuildAcademyOptions(tabs.TabPages[1]);
@@ -470,25 +548,77 @@ namespace xBot.App
             if (tp == null || tp.Controls.Count > 0) return;
             try
             {
-                tp.BackColor = PhBotBg;
-                int y = 10;
-                PhBotTodoCheck(tp, "PhBot_AcAcceptAll", "Accept all academy invites", 10, y, false); y += 30;
-                PhBotTodoCheck(tp, "PhBot_AcAcceptList", "Accept academy invites from the list", 10, y, false); y += 30;
-                PhBotTodoCheck(tp, "PhBot_AcInviteAll", "Invite all players", 10, y, false); y += 30;
-                PhBotTodoCheck(tp, "PhBot_AcInviteList", "Invite only from the list", 10, y, false); y += 30;
-                PhBotTodoCheck(tp, "PhBot_AcShowInv", "Show academy invites", 10, y, true); y += 30;
-                PhBotTodoCheck(tp, "PhBot_AcAcceptJoin", "Accept join invitations", 10, y, true); y += 30;
-                PhBotTodoCheck(tp, "PhBot_AcInvitePlayers", "Invite players to the academy", 10, y, true); y += 30;
-                PhBotTodoCheck(tp, "PhBot_AcAutoGrad", "Auto graduate from the academy", 10, y, false); y += 30;
-                PhBotTodoCheck(tp, "PhBot_AcRefuse", "Refuse invites from players not in the list", 10, y, false); y += 30;
-                PhBotTodoCheck(tp, "PhBot_AcGradLevelL", "Graduate level:", 10, y, false);
-                PhBotTodoNumber(tp, "PhBot_AcGradLevel", 230, y - 2, 60, "40"); y += 30;
-                PhBotLabel(tp, "PhBot_AcPassLbl", "Password:", 10, y + 4);
-                PhBotTodoNumber(tp, "PhBot_AcPass", 230, y, 160, ""); y += 32;
-                ListView lv = NewPhBotListView(10, y, 460, 180, "Accept / Invite List|440");
-                lv.Name = "PhBot_AcList";
-                tp.Controls.Add(lv);
-                // TODO backend: academy motoru davet paketinden öteye gitmiyor.
+                tp.BackColor = Color.White;
+                tp.AutoScroll = false;
+                int W = tp.Width, H = tp.Height;
+                int gbH = Math.Max(290, Math.Min(305, H - 20));
+
+                // Sol: Accept / Invite GroupBox
+                GroupBox gbOpt = new GroupBox
+                {
+                    Name = "PhBot_AcOptGroup",
+                    Text = "Accept / Invite",
+                    Location = new Point(8, 8),
+                    Size = new Size(310, gbH),
+                    Font = PhBotFont(),
+                    ForeColor = Color.Black,
+                    BackColor = Color.White
+                };
+                tp.Controls.Add(gbOpt);
+
+                int y = 20;
+                RadioButton rbAccAll = new RadioButton { Name = "PhBot_AcAccAll", Text = "Accept all academy invites", Location = new Point(12, y), AutoSize = true, Checked = true, Font = PhBotFont() };
+                gbOpt.Controls.Add(rbAccAll); y += 22;
+                RadioButton rbAccList = new RadioButton { Name = "PhBot_AcAccList", Text = "Accept academy invites from list", Location = new Point(12, y), AutoSize = true, Font = PhBotFont() };
+                gbOpt.Controls.Add(rbAccList); y += 26;
+
+                RadioButton rbInvAll = new RadioButton { Name = "PhBot_AcInvAll", Text = "Invite all players", Location = new Point(12, y), AutoSize = true, Checked = true, Font = PhBotFont() };
+                gbOpt.Controls.Add(rbInvAll); y += 22;
+                RadioButton rbInvList = new RadioButton { Name = "PhBot_AcInvList", Text = "Invite only from the list", Location = new Point(12, y), AutoSize = true, Font = PhBotFont() };
+                gbOpt.Controls.Add(rbInvList); y += 26;
+
+                PhBotTodoCheck(gbOpt, "PhBot_AcShowInv", "Show academy invites", 12, y, true); y += 22;
+                PhBotTodoCheck(gbOpt, "PhBot_AcAcceptJoin", "Accept join invitations", 12, y, false); y += 22;
+                PhBotTodoCheck(gbOpt, "PhBot_AcInvitePlayers", "Invite players to the academy", 12, y, false); y += 22;
+                PhBotTodoCheck(gbOpt, "PhBot_AcAutoGrad", "Auto graduate from academy", 12, y, false); y += 22;
+                PhBotTodoCheck(gbOpt, "PhBot_AcRefuse", "Refuse invites from players not in the list", 12, y, false); y += 26;
+
+                PhBotLabel(gbOpt, "PhBot_AcGradLevelLbl", "Graduate level", 12, y + 4);
+                TextBox tbGrad = new TextBox { Name = "PhBot_AcGradLevel", Text = "40", Location = new Point(120, y), Size = new Size(50, 22), Font = PhBotFont(), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+                gbOpt.Controls.Add(tbGrad); y += 26;
+
+                PhBotTodoCheck(gbOpt, "PhBot_AcPassCheck", "Password", 12, y + 2, false);
+                TextBox tbPass = new TextBox { Name = "PhBot_AcPass", Location = new Point(120, y), Size = new Size(130, 22), Font = PhBotFont(), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+                gbOpt.Controls.Add(tbPass);
+
+                // Sağ: Accept / Invite List (Regex) GroupBox
+                GroupBox gbList = new GroupBox
+                {
+                    Name = "PhBot_AcListGroup",
+                    Text = "Accept / Invite List (Regex)",
+                    Location = new Point(326, 8),
+                    Size = new Size(240, gbH),
+                    Font = PhBotFont(),
+                    ForeColor = Color.Black,
+                    BackColor = Color.White
+                };
+                tp.Controls.Add(gbList);
+
+                ListBox lbx = new ListBox
+                {
+                    Name = "PhBot_AcRegexList",
+                    Location = new Point(10, 22),
+                    Size = new Size(175, gbH - 35),
+                    Font = PhBotFont(),
+                    BorderStyle = BorderStyle.FixedSingle,
+                    BackColor = Color.White
+                };
+                gbList.Controls.Add(lbx);
+
+                Button btnA = new Button { Name = "PhBot_AcBtnA", Text = "A", Location = new Point(192, 28), Size = new Size(34, 26), Font = PhBotFont(), FlatStyle = FlatStyle.Standard };
+                Button btnR = new Button { Name = "PhBot_AcBtnR", Text = "R", Location = new Point(192, 60), Size = new Size(34, 26), Font = PhBotFont(), FlatStyle = FlatStyle.Standard };
+                gbList.Controls.Add(btnA);
+                gbList.Controls.Add(btnR);
             }
             catch (Exception ex) { PhBotDebug("acadopt: " + ex.Message); }
         }
@@ -498,27 +628,40 @@ namespace xBot.App
             if (tp == null || tp.Controls.Count > 0) return;
             try
             {
-                tp.BackColor = PhBotBg;
-                int y = 10;
-                PhBotLabel(tp, "PhBot_AcTitleLbl", "Title:", 10, y + 4);
-                PhBotTodoNumber(tp, "PhBot_AcTitle", 130, y, 260, ""); y += 32;
-                PhBotTodoCheck(tp, "PhBot_AcAutoForm", "Auto form academy matching", 10, y, false); y += 30;
-                PhBotTodoCheck(tp, "PhBot_AcMatchType", "Matching type:", 10, y, false); y += 30;
-                PhBotButton(tp, "PhBot_AcViewMatch", "View Matching", 10, y, 150); y += 38;
-                ListView lv = NewPhBotListView(10, y, 500, 180, "Academy|300", "Members|180");
-                lv.Name = "PhBot_AcMatchList";
-                tp.Controls.Add(lv);
-                y += 190;
-                PhBotLabel(tp, "PhBot_AcJoinLbl", "Join academy #", 10, y + 4);
-                PhBotTodoNumber(tp, "PhBot_AcJoinN", 130, y, 80, ""); y += 32;
-                PhBotTodoCheck(tp, "PhBot_AcJoinByName", "Auto join matching by player name", 10, y, false); y += 30;
-                PhBotTodoCheck(tp, "PhBot_AcJoinByTitle", "Auto join matching by title", 10, y, false);
+                tp.BackColor = Color.White;
+                int y = 12;
+
+                PhBotLabel(tp, "PhBot_AcTitleLbl", "Title", 12, y + 4);
+                TextBox tbTitle = new TextBox { Name = "PhBot_AcMatchTitle", Text = "Academy", Location = new Point(65, y), Size = new Size(295, 22), Font = PhBotFont(), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+                tp.Controls.Add(tbTitle); y += 32;
+
+                PhBotTodoCheck(tp, "PhBot_AcAutoForm", "Auto form academy matching", 12, y, false); y += 26;
+
+                RadioButton rbAppr = new RadioButton { Name = "PhBot_AcApprentice", Text = "Apprentice", Location = new Point(24, y), AutoSize = true, Checked = true, Font = PhBotFont() };
+                tp.Controls.Add(rbAppr); y += 22;
+                RadioButton rbAsst = new RadioButton { Name = "PhBot_AcAssistant", Text = "Assistant", Location = new Point(24, y), AutoSize = true, Font = PhBotFont() };
+                tp.Controls.Add(rbAsst); y += 32;
+
+                PhBotButton(tp, "PhBot_AcViewMatch", "View Matching", 12, y, 145); y += 36;
+
+                PhBotLabel(tp, "PhBot_AcJoinLbl", "Join academy #", 12, y + 4);
+                TextBox tbJoin = new TextBox { Name = "PhBot_AcJoinNum", Location = new Point(125, y), Size = new Size(80, 22), Font = PhBotFont(), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+                tp.Controls.Add(tbJoin);
+                PhBotButton(tp, "PhBot_AcJoinBtn", "Join", 215, y - 1, 75); y += 32;
+
+                PhBotTodoCheck(tp, "PhBot_AcJoinNameCheck", "Join by name", 12, y + 2, false);
+                TextBox tbName = new TextBox { Name = "PhBot_AcJoinName", Location = new Point(125, y), Size = new Size(165, 22), Font = PhBotFont(), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+                tp.Controls.Add(tbName); y += 32;
+
+                PhBotTodoCheck(tp, "PhBot_AcJoinTitleCheck", "Join by title", 12, y + 2, false);
+                TextBox tbTitleMatch = new TextBox { Name = "PhBot_AcJoinTitle", Location = new Point(125, y), Size = new Size(235, 22), Font = PhBotFont(), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+                tp.Controls.Add(tbTitleMatch);
             }
             catch (Exception ex) { PhBotDebug("acmatch: " + ex.Message); }
         }
 
         // ---------------------------------------------------------------
-        // PET — Attack Pet 12 maddesi birebir (diğerleri bilgi).
+        // PET — phbot_pet_01.png birebir Attack Pet 3 sütun + göstergeler
         // ---------------------------------------------------------------
         private void LayoutPetInner()
         {
@@ -542,31 +685,86 @@ namespace xBot.App
                 try { tabs.TabPages[1].Text = "Transport"; } catch { }
                 try { tabs.TabPages[2].Text = "Pick"; } catch { }
                 TabPage atk = tabs.TabPages[0];
+                int W = Math.Max(500, atk.Width);
+
                 if (atk.Controls["PhBot_PetUse"] == null)
                 {
                     try { atk.Controls.Clear(); } catch { }
                     atk.BackColor = Color.White;
-                    int y = 10;
-                    PhBotTodoCheck(atk, "PhBot_PetUse", "Use attack pet", 10, y, true); y += 30;
-                    PhBotTodoCheck(atk, "PhBot_PetSummon", "Auto summon attack pet", 10, y, true); y += 30;
-                    PhBotTodoCheck(atk, "PhBot_PetRevive", "Auto revive attack pet", 10, y, true);
-                    PhBotTodoNumber(atk, "PhBot_PetReviveN", 300, y - 2, 60, "0"); y += 30;
-                    PhBotTodoCheck(atk, "PhBot_PetReturn", "Return to town when the attack pet dies", 10, y, false); y += 30;
-                    PhBotTodoCheck(atk, "PhBot_PetSP", "Use fellow pet SP recall in town", 10, y, false); y += 30;
-                    PhBotTodoCheck(atk, "PhBot_PetProtect", "Protect the attack pet", 10, y, false); y += 30;
-                    PhBotTodoCheck(atk, "PhBot_PetPassive", "Don't attack monsters", 10, y, false); y += 30;
-                    PhBotTodoCheck(atk, "PhBot_PetTownOnly", "Only summon the attack pet in town", 10, y, false); y += 30;
-                    PhBotTodoCheck(atk, "PhBot_PetNoRevive", "Only return when there aren't any revive items", 10, y, false); y += 30;
-                    PhBotTodoCheck(atk, "PhBot_PetAreaOnly", "Only summon the attack pet at the training area", 10, y, false); y += 30;
-                    PhBotTodoCheck(atk, "PhBot_PetHPPotions", "Only revive if HP potions are present", 10, y, false); y += 30;
-                    Button bUn = PhBotButton(atk, "PhBot_PetUnsummon", "Unsummon", 10, y, 120);
+
+                    // 1. Sütun Checkbox'lar
+                    PhBotTodoCheck(atk, "PhBot_PetUse", "Use attack pet", 12, 12, false);
+                    PhBotTodoCheck(atk, "PhBot_PetSummon", "Auto summon attack pet", 12, 38, false);
+                    PhBotTodoCheck(atk, "PhBot_PetRevive", "Auto revive attack pet", 12, 64, false);
+                    PhBotTodoCheck(atk, "PhBot_PetReturn", "Return to town when the attack pet dies", 12, 90, false);
+                    PhBotTodoCheck(atk, "PhBot_PetSP", "Use fellow pet SP recall in town", 12, 116, false);
+                    PhBotTodoCheck(atk, "PhBot_PetProtect", "Protect the attack pet", 12, 142, false);
+
+                    // 2. Sütun Checkbox'lar
+                    PhBotTodoCheck(atk, "PhBot_PetPassive", "Don't attack monsters", 215, 12, false);
+                    PhBotTodoCheck(atk, "PhBot_PetTownOnly", "only in town", 215, 38, false);
+                    NumericUpDown nudTimes = new NumericUpDown
+                    {
+                        Name = "PhBot_PetMaxTimes",
+                        Location = new Point(200, 62),
+                        Size = new Size(42, 22),
+                        Minimum = 0,
+                        Maximum = 999,
+                        Value = 0,
+                        Font = PhBotFont(),
+                        BackColor = Color.White
+                    };
+                    atk.Controls.Add(nudTimes);
+                    PhBotLabel(atk, "PhBot_PetMaxTimesLbl", "max times (0 for unlimited)", 248, 64);
+                    PhBotTodoCheck(atk, "PhBot_PetNoRevive", "only if there aren't any revive items", 248, 90, false);
+
+                    // 3. Sütun Checkbox'lar
+                    PhBotTodoCheck(atk, "PhBot_PetAreaOnly", "only at training area", 415, 38, false);
+                    PhBotTodoCheck(atk, "PhBot_PetHPPotions", "only if HP potions are present", 415, 64, false);
+
+                    // Unsummon Butonu
+                    Button bUn = PhBotButton(atk, "PhBot_PetUnsummon", "Unsummon", atk.ClientSize.Width > 150 ? atk.ClientSize.Width - 85 : 520, 12, 75);
                     if (bUn != null)
                     {
+                        bUn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
                         try { bUn.Click -= PetUnsummonClick; } catch { }
                         bUn.Click += PetUnsummonClick;
                     }
-                    // TODO backend: pet politikaları (docs/PHBOT_GAP_ANALYSIS.md §10).
+
+                    // Alt Göstergeler (phbot_pet_01.png birebir)
+                    PhBotLabel(atk, "PhBot_PetNameLbl", "Name", 12, 175);
+                    PhBotLabel(atk, "PhBot_PetNameVal", "No name", 75, 175);
+
+                    PhBotLabel(atk, "PhBot_PetLevelLbl", "Level", 12, 202);
+                    PhBotLabel(atk, "PhBot_PetLevelVal", "0", 75, 202);
+
+                    PhBotLabel(atk, "PhBot_PetHpLbl", "HP", 12, 228);
+                    ProgressBar pbHp = new ProgressBar { Name = "PhBot_PetHpBar", Location = new Point(75, 226), Size = new Size(240, 18), Minimum = 0, Maximum = 100, Value = 0 };
+                    atk.Controls.Add(pbHp);
+                    PhBotLabel(atk, "PhBot_PetHpPct", "0%", 325, 228);
+
+                    PhBotLabel(atk, "PhBot_PetHgpLbl", "HGP", 12, 254);
+                    ProgressBar pbHgp = new ProgressBar { Name = "PhBot_PetHgpBar", Location = new Point(75, 252), Size = new Size(240, 18), Minimum = 0, Maximum = 100, Value = 0 };
+                    atk.Controls.Add(pbHgp);
+                    PhBotLabel(atk, "PhBot_PetHgpPct", "0%", 325, 254);
+
+                    PhBotLabel(atk, "PhBot_PetExpLbl", "EXP", 12, 280);
+                    ProgressBar pbExp = new ProgressBar { Name = "PhBot_PetExpBar", Location = new Point(75, 278), Size = new Size(240, 18), Minimum = 0, Maximum = 100, Value = 0 };
+                    atk.Controls.Add(pbExp);
+                    PhBotLabel(atk, "PhBot_PetExpPct", "0%", 325, 280);
+
+                    Label lblNote = new Label
+                    {
+                        Name = "PhBot_PetNote",
+                        Text = "* Make sure you only have one attack pet in your inventory",
+                        Font = PhBotFont(),
+                        ForeColor = Color.FromArgb(60, 60, 60),
+                        Location = new Point(12, 308),
+                        AutoSize = true
+                    };
+                    atk.Controls.Add(lblNote);
                 }
+
                 foreach (TabPage pg in new TabPage[] { tabs.TabPages[1], tabs.TabPages[2] })
                 {
                     if (pg.Controls["PhBot_PetInfoDone"] == null)
@@ -581,9 +779,7 @@ namespace xBot.App
                             try { bUnOther.Click -= PetUnsummonClick; } catch { }
                             bUnOther.Click += PetUnsummonClick;
                         }
-                        Label dd = new Label();
-                        dd.Name = "PhBot_PetInfoDone";
-                        dd.Location = new Point(10, 312);
+                        Label dd = new Label { Name = "PhBot_PetInfoDone", Visible = false };
                         pg.Controls.Add(dd);
                     }
                 }
@@ -633,7 +829,7 @@ namespace xBot.App
         }
 
         // ---------------------------------------------------------------
-        // UNION PARTY — 3 liste + seçenekler birebir.
+        // UNION PARTY — phbot_union-party_01.png birebir yerleşim
         // ---------------------------------------------------------------
         private void LayoutUnionInner()
         {
@@ -647,66 +843,160 @@ namespace xBot.App
                     if (c is Panel && c.Name == "TabPageV_Control01_UnionParty_Panel") { host = (Panel)c; break; }
                 }
                 if (host == null) return;
-                int W = host.Width, H = host.Height;
-                if (W < 200 || H < 100) return;
-                try { host.AutoScroll = true; } catch { }
+                int W = host.ClientSize.Width, H = host.ClientSize.Height;
+                if (W < 300 || H < 150) return;
+                try { host.AutoScroll = false; } catch { }
 
-                // Kurulum (bir kez).
-                int lw = Math.Max(150, (W - 300) / 3);
-                int rx = 24 + lw * 3;
-                if (host.Controls["PhBot_Union1"] == null)
+                int rightW = 210;
+                int leftW = W - rightW - 24;
+                int topH = Math.Max(150, H - 105);
+                int rx = W - rightW - 12;
+
+                GroupBox gbUnion = host.Controls["PhBot_UnionPartyGroup"] as GroupBox;
+                if (gbUnion == null)
                 {
-                    ListView l1 = NewPhBotListView(8, 8, lw, H - 16, "Union Party #1|150");
-                    l1.Name = "PhBot_Union1";
-                    ListView l2 = NewPhBotListView(16 + lw, 8, lw, H - 16, "Union Party #2|150");
-                    l2.Name = "PhBot_Union2";
-                    ListView l3 = NewPhBotListView(24 + lw * 2, 8, lw, H - 16, "Union Party #3|150");
-                    l3.Name = "PhBot_Union3";
-                    host.Controls.Add(l1);
-                    host.Controls.Add(l2);
-                    host.Controls.Add(l3);
-                    ComboBox cb = new ComboBox();
-                    cb.Name = "PhBot_UnionType";
-                    cb.DropDownStyle = ComboBoxStyle.DropDownList;
-                    cb.Items.Add("Exp Share");
-                    cb.Items.Add("Item Share");
-                    cb.SelectedIndex = 0;
-                    try { host.Controls.Add(cb); } catch { }
-                    ListView li = NewPhBotListView(0, 0, 200, 150, "Invite list|190");
-                    li.Name = "PhBot_UnionInviteList";
-                    host.Controls.Add(li);
-                    ListView la = NewPhBotListView(0, 0, 200, 150, "Accept list|190");
-                    la.Name = "PhBot_UnionAcceptList";
-                    host.Controls.Add(la);
-                    // TODO backend: union motoru yok (docs/PHBOT_GAP_ANALYSIS.md §11).
+                    gbUnion = new GroupBox
+                    {
+                        Name = "PhBot_UnionPartyGroup",
+                        Text = "Union Party",
+                        Font = PhBotFont(),
+                        ForeColor = Color.Black,
+                        BackColor = Color.White
+                    };
+                    host.Controls.Add(gbUnion);
+
+                    Panel p1 = new Panel { Name = "PhBot_UnionP1", BorderStyle = BorderStyle.FixedSingle, BackColor = Color.White };
+                    Panel p2 = new Panel { Name = "PhBot_UnionP2", BorderStyle = BorderStyle.FixedSingle, BackColor = Color.White };
+                    Panel p3 = new Panel { Name = "PhBot_UnionP3", BorderStyle = BorderStyle.FixedSingle, BackColor = Color.White };
+                    gbUnion.Controls.Add(p1);
+                    gbUnion.Controls.Add(p2);
+                    gbUnion.Controls.Add(p3);
                 }
-                // Yerleşim (her zaman).
-                try
+                gbUnion.Location = new Point(8, 8);
+                gbUnion.Size = new Size(leftW, topH);
+                gbUnion.Visible = true;
+
+                int colW = (leftW - 24) / 3;
+                Control p1C = gbUnion.Controls["PhBot_UnionP1"];
+                Control p2C = gbUnion.Controls["PhBot_UnionP2"];
+                Control p3C = gbUnion.Controls["PhBot_UnionP3"];
+                if (p1C != null) p1C.SetBounds(8, 20, colW, topH - 28);
+                if (p2C != null) p2C.SetBounds(12 + colW, 20, colW, topH - 28);
+                if (p3C != null) p3C.SetBounds(16 + colW * 2, 20, colW, topH - 28);
+
+                GroupBox gbOpt = host.Controls["PhBot_UnionOptGroup"] as GroupBox;
+                if (gbOpt == null)
                 {
-                    ListView l1 = host.Controls["PhBot_Union1"] as ListView;
-                    ListView l2 = host.Controls["PhBot_Union2"] as ListView;
-                    ListView l3 = host.Controls["PhBot_Union3"] as ListView;
-                    if (l1 != null) { l1.Location = new Point(8, 8); l1.Size = new Size(lw, H - 16); l1.Visible = true; }
-                    if (l2 != null) { l2.Location = new Point(16 + lw, 8); l2.Size = new Size(lw, H - 16); l2.Visible = true; }
-                    if (l3 != null) { l3.Location = new Point(24 + lw * 2, 8); l3.Size = new Size(lw, H - 16); l3.Visible = true; }
+                    gbOpt = new GroupBox
+                    {
+                        Name = "PhBot_UnionOptGroup",
+                        Text = "Options",
+                        Font = PhBotFont(),
+                        ForeColor = Color.Black,
+                        BackColor = Color.White
+                    };
+                    host.Controls.Add(gbOpt);
+
+                    PhBotTodoCheck(gbOpt, "PhBot_UnionAccept", "Accept union party invites", 12, 22, false);
+                    PhBotTodoCheck(gbOpt, "PhBot_UnionInvite", "Invite players to the union party", 12, 50, false);
+
+                    ComboBox cbDist = new ComboBox
+                    {
+                        Name = "PhBot_UnionDist",
+                        DropDownStyle = ComboBoxStyle.DropDownList,
+                        Font = PhBotFont()
+                    };
+                    cbDist.Items.Add("EXP Free for All / Distribute Items Randomly");
+                    cbDist.Items.Add("EXP Distribution / Item Distribution");
+                    cbDist.SelectedIndex = 0;
+                    GrayCombo(cbDist);
+                    gbOpt.Controls.Add(cbDist);
                 }
-                catch { }
-                int x = rx, y = 8;
-                PhBotTodoCheck(host, "PhBot_UnionAccept", "Accept union party invites", x, y, false); y += 30;
-                PhBotTodoCheck(host, "PhBot_UnionInvite", "Invite players to the union party", x, y, false); y += 30;
-                PhBotLabel(host, "PhBot_UnionTypeLbl", "Union Party Type:", x, y + 4);
-                ComboBox cbx = host.Controls["PhBot_UnionType"] as ComboBox;
-                try { GrayCombo(cbx); cbx.Location = new Point(x, y + 26); cbx.Size = new Size(180, 24); cbx.Visible = true; } catch { }
-                y += 60;
-                try
+                gbOpt.Location = new Point(8, topH + 12);
+                gbOpt.Size = new Size(leftW, H - topH - 20);
+                gbOpt.Visible = true;
+
+                ComboBox cbD = gbOpt.Controls["PhBot_UnionDist"] as ComboBox;
+                if (cbD != null)
                 {
-                    ListView li2 = host.Controls["PhBot_UnionInviteList"] as ListView;
-                    if (li2 != null) { li2.Location = new Point(x, y); li2.Size = new Size(200, 150); li2.Visible = true; }
-                    y += 160;
-                    ListView la2 = host.Controls["PhBot_UnionAcceptList"] as ListView;
-                    if (la2 != null) { la2.Location = new Point(x, y); la2.Size = new Size(200, 150); la2.Visible = true; }
+                    cbD.Location = new Point(220, 48);
+                    cbD.Size = new Size(Math.Max(150, leftW - 230), 24);
                 }
-                catch { }
+
+                // Sağ Üst: Invite GroupBox
+                GroupBox gbInv = host.Controls["PhBot_UnionInvGroup"] as GroupBox;
+                if (gbInv == null)
+                {
+                    gbInv = new GroupBox
+                    {
+                        Name = "PhBot_UnionInvGroup",
+                        Text = "Invite",
+                        Font = PhBotFont(),
+                        ForeColor = Color.Black,
+                        BackColor = Color.White
+                    };
+                    host.Controls.Add(gbInv);
+
+                    ListBox lbxInv = new ListBox { Name = "PhBot_UnionLbxInv", BorderStyle = BorderStyle.FixedSingle, BackColor = Color.White, Font = PhBotFont() };
+                    Button btnInvA = new Button { Name = "PhBot_UnionBtnInvA", Text = "A", Size = new Size(26, 24), Font = PhBotFont() };
+                    Button btnInvR = new Button { Name = "PhBot_UnionBtnInvR", Text = "R", Size = new Size(26, 24), Font = PhBotFont() };
+                    gbInv.Controls.Add(lbxInv);
+                    gbInv.Controls.Add(btnInvA);
+                    gbInv.Controls.Add(btnInvR);
+                }
+                gbInv.Location = new Point(rx, 8);
+                gbInv.Size = new Size(rightW, (H - 60) / 2);
+                gbInv.Visible = true;
+
+                Control lbxInvC = gbInv.Controls["PhBot_UnionLbxInv"];
+                Control btnInvAC = gbInv.Controls["PhBot_UnionBtnInvA"];
+                Control btnInvRC = gbInv.Controls["PhBot_UnionBtnInvR"];
+                if (lbxInvC != null) lbxInvC.SetBounds(8, 20, rightW - 42, gbInv.Height - 28);
+                if (btnInvAC != null) btnInvAC.Location = new Point(rightW - 32, 20);
+                if (btnInvRC != null) btnInvRC.Location = new Point(rightW - 32, 48);
+
+                // Sağ Orta: Accept GroupBox
+                int accY = 8 + gbInv.Height + 8;
+                GroupBox gbAcc = host.Controls["PhBot_UnionAccGroup"] as GroupBox;
+                if (gbAcc == null)
+                {
+                    gbAcc = new GroupBox
+                    {
+                        Name = "PhBot_UnionAccGroup",
+                        Text = "Accept",
+                        Font = PhBotFont(),
+                        ForeColor = Color.Black,
+                        BackColor = Color.White
+                    };
+                    host.Controls.Add(gbAcc);
+
+                    ListBox lbxAcc = new ListBox { Name = "PhBot_UnionLbxAcc", BorderStyle = BorderStyle.FixedSingle, BackColor = Color.White, Font = PhBotFont() };
+                    Button btnAccA = new Button { Name = "PhBot_UnionBtnAccA", Text = "A", Size = new Size(26, 24), Font = PhBotFont() };
+                    Button btnAccR = new Button { Name = "PhBot_UnionBtnAccR", Text = "R", Size = new Size(26, 24), Font = PhBotFont() };
+                    gbAcc.Controls.Add(lbxAcc);
+                    gbAcc.Controls.Add(btnAccA);
+                    gbAcc.Controls.Add(btnAccR);
+                }
+                gbAcc.Location = new Point(rx, accY);
+                gbAcc.Size = new Size(rightW, (H - 60) / 2);
+                gbAcc.Visible = true;
+
+                Control lbxAccC = gbAcc.Controls["PhBot_UnionLbxAcc"];
+                Control btnAccAC = gbAcc.Controls["PhBot_UnionBtnAccA"];
+                Control btnAccRC = gbAcc.Controls["PhBot_UnionBtnAccR"];
+                if (lbxAccC != null) lbxAccC.SetBounds(8, 20, rightW - 42, gbAcc.Height - 28);
+                if (btnAccAC != null) btnAccAC.Location = new Point(rightW - 32, 20);
+                if (btnAccRC != null) btnAccRC.Location = new Point(rightW - 32, 48);
+
+                // Sağ Alt: Dismiss / Leave Butonu
+                Button btnLeave = host.Controls["PhBot_UnionLeave"] as Button;
+                if (btnLeave == null)
+                {
+                    btnLeave = PhBotButton(host, "PhBot_UnionLeave", "Dismiss / Leave", rx, H - 32, rightW);
+                }
+                btnLeave.SetBounds(rx, H - 32, rightW, 26);
+                btnLeave.Visible = true;
+                Classicize(btnLeave);
             }
             catch (Exception ex) { PhBotDebug("union inner: " + ex.Message); }
             finally { _innerLayout = false; }
@@ -813,37 +1103,138 @@ namespace xBot.App
             {
                 Panel p = TabPageH_Stall_Option02_Panel;
                 if (p == null) return;
+                p.AutoScroll = false;
+                p.BackColor = Color.White;
                 int W = p.Width;
                 if (W < 200) return;
-                int y = 8;
-                try
+
+                // Hide obsolete designer controls
+                try { if (Stall_lblStallTitle != null) Stall_lblStallTitle.Visible = false; } catch { }
+                try { if (Stall_lblStallNote != null) Stall_lblStallNote.Visible = false; } catch { }
+                try { if (Stall_cbxAutoOpenPlayerStall != null) Stall_cbxAutoOpenPlayerStall.Visible = false; } catch { }
+                try { if (Stall_lblMinimumPlayerStallItems != null) Stall_lblMinimumPlayerStallItems.Visible = false; } catch { }
+                try { if (Stall_nudMinimumPlayerStallItems != null) Stall_nudMinimumPlayerStallItems.Visible = false; } catch { }
+
+                // Authentic phBot stall options (phbot_stall_02.png)
+                CheckBox cbAutoStall = p.Controls["PhBot_StallOptAuto"] as CheckBox;
+                if (cbAutoStall == null)
                 {
-                    if (Stall_lblStallTitle != null) { Stall_lblStallTitle.Location = new Point(8, y + 4); Stall_lblStallTitle.Visible = true; }
-                    if (Stall_tbxStallTitle != null) { Stall_tbxStallTitle.Location = new Point(130, y); Stall_tbxStallTitle.Size = new Size(300, 24); Stall_tbxStallTitle.Visible = true; }
+                    cbAutoStall = AddPhBotCheck(p, "Automatically stall items when at least", 15, 15, Stall_cbxAutoOpenPlayerStall != null && Stall_cbxAutoOpenPlayerStall.Checked);
+                    cbAutoStall.Name = "PhBot_StallOptAuto";
+                    cbAutoStall.CheckedChanged += (s, e) => {
+                        if (Stall_cbxAutoOpenPlayerStall != null) Stall_cbxAutoOpenPlayerStall.Checked = cbAutoStall.Checked;
+                    };
                 }
-                catch { }
-                y += 32;
-                try
+                cbAutoStall.Location = new Point(15, 15);
+                cbAutoStall.Visible = true;
+
+                NumericUpDown nudCount = p.Controls["PhBot_StallOptCount"] as NumericUpDown;
+                if (nudCount == null)
                 {
-                    if (Stall_lblStallNote != null) { Stall_lblStallNote.Location = new Point(8, y + 4); Stall_lblStallNote.Visible = true; }
-                    if (Stall_tbxStallNote != null) { Stall_tbxStallNote.Location = new Point(130, y); Stall_tbxStallNote.Size = new Size(300, 24); Stall_tbxStallNote.Visible = true; }
+                    nudCount = new NumericUpDown();
+                    nudCount.Name = "PhBot_StallOptCount";
+                    nudCount.Font = PhBotFont();
+                    nudCount.Location = new Point(275, 13);
+                    nudCount.Size = new Size(50, 22);
+                    nudCount.Maximum = 100;
+                    nudCount.Value = Stall_nudMinimumPlayerStallItems != null ? Stall_nudMinimumPlayerStallItems.Value : 0;
+                    nudCount.ValueChanged += (s, e) => {
+                        if (Stall_nudMinimumPlayerStallItems != null) Stall_nudMinimumPlayerStallItems.Value = nudCount.Value;
+                    };
+                    p.Controls.Add(nudCount);
                 }
-                catch { }
-                y += 32;
-                try
+                nudCount.Location = new Point(275, 13);
+                nudCount.Visible = true;
+
+                Label lblCanStall = p.Controls["PhBot_StallOptCanStall"] as Label;
+                if (lblCanStall == null)
                 {
-                    if (Stall_cbxAutoOpenPlayerStall != null) { Stall_cbxAutoOpenPlayerStall.Location = new Point(8, y); Stall_cbxAutoOpenPlayerStall.Visible = true; }
+                    lblCanStall = new Label { Name = "PhBot_StallOptCanStall", Text = "items can be stalled", Font = PhBotFont(), AutoSize = true, Location = new Point(330, 15) };
+                    p.Controls.Add(lblCanStall);
                 }
-                catch { }
-                y += 30;
-                try
+                lblCanStall.Location = new Point(330, 15);
+                lblCanStall.Visible = true;
+
+                CheckBox cbTown = p.Controls["PhBot_StallOptTown"] as CheckBox;
+                if (cbTown == null)
                 {
-                    if (Stall_lblMinimumPlayerStallItems != null) { Stall_lblMinimumPlayerStallItems.Location = new Point(8, y + 4); Stall_lblMinimumPlayerStallItems.Visible = true; }
-                    if (Stall_nudMinimumPlayerStallItems != null) { Stall_nudMinimumPlayerStallItems.Location = new Point(230, y); Stall_nudMinimumPlayerStallItems.Visible = true; }
+                    cbTown = AddPhBotCheck(p, "Execute town script before opening the stall", 15, 42, false);
+                    cbTown.Name = "PhBot_StallOptTown";
                 }
-                catch { }
-                y += 32;
-                PhBotTodoCheck(p, "PhBot_StallTownLoop", "Stall before/after the town loop", 8, y, false);
+                cbTown.Location = new Point(15, 42);
+                cbTown.Visible = true;
+
+                CheckBox cbRefill = p.Controls["PhBot_StallOptRefill"] as CheckBox;
+                if (cbRefill == null)
+                {
+                    cbRefill = AddPhBotCheck(p, "Do not refill stall until it is empty", 15, 69, false);
+                    cbRefill.Name = "PhBot_StallOptRefill";
+                }
+                cbRefill.Location = new Point(15, 69);
+                cbRefill.Visible = true;
+
+                Label lblT = p.Controls["PhBot_StallOptTitleLbl"] as Label;
+                if (lblT == null)
+                {
+                    lblT = new Label { Name = "PhBot_StallOptTitleLbl", Text = "Title", Font = PhBotFont(), AutoSize = true, Location = new Point(15, 105) };
+                    p.Controls.Add(lblT);
+                }
+                lblT.Location = new Point(15, 105);
+                lblT.Visible = true;
+
+                if (Stall_tbxStallTitle != null)
+                {
+                    Stall_tbxStallTitle.Location = new Point(100, 102);
+                    Stall_tbxStallTitle.Size = new Size(250, 22);
+                    Stall_tbxStallTitle.Font = PhBotFont();
+                    Stall_tbxStallTitle.Visible = true;
+                }
+
+                Label lblG = p.Controls["PhBot_StallOptGreetLbl"] as Label;
+                if (lblG == null)
+                {
+                    lblG = new Label { Name = "PhBot_StallOptGreetLbl", Text = "Greeting", Font = PhBotFont(), AutoSize = true, Location = new Point(15, 135) };
+                    p.Controls.Add(lblG);
+                }
+                lblG.Location = new Point(15, 135);
+                lblG.Visible = true;
+
+                if (Stall_tbxStallNote != null)
+                {
+                    Stall_tbxStallNote.Location = new Point(100, 132);
+                    Stall_tbxStallNote.Size = new Size(380, 22);
+                    Stall_tbxStallNote.Font = PhBotFont();
+                    if (string.IsNullOrEmpty(Stall_tbxStallNote.Text) || Stall_tbxStallNote.Text.Contains("xBot"))
+                        Stall_tbxStallNote.Text = "Welcome!";
+                    Stall_tbxStallNote.Visible = true;
+                }
+
+                Label lblChat = p.Controls["PhBot_StallOptChatLbl"] as Label;
+                if (lblChat == null)
+                {
+                    lblChat = new Label { Name = "PhBot_StallOptChatLbl", Text = "Chat message", Font = PhBotFont(), AutoSize = true, Location = new Point(15, 165) };
+                    p.Controls.Add(lblChat);
+                }
+                lblChat.Location = new Point(15, 165);
+                lblChat.Visible = true;
+
+                TextBox txtChat = p.Controls["PhBot_StallOptChatTxt"] as TextBox;
+                if (txtChat == null)
+                {
+                    txtChat = new TextBox { Name = "PhBot_StallOptChatTxt", Font = PhBotFont(), Location = new Point(100, 162), Size = new Size(380, 22) };
+                    p.Controls.Add(txtChat);
+                }
+                txtChat.Location = new Point(100, 162);
+                txtChat.Visible = true;
+
+                Label lblNote = p.Controls["PhBot_StallOptTownNote"] as Label;
+                if (lblNote == null)
+                {
+                    lblNote = new Label { Name = "PhBot_StallOptTownNote", Text = "* Automatic stalling occurs when the bot is started in a town", Font = PhBotFont(), AutoSize = true, Location = new Point(15, 275), ForeColor = Color.FromArgb(60, 60, 60) };
+                    p.Controls.Add(lblNote);
+                }
+                lblNote.Location = new Point(15, 275);
+                lblNote.Visible = true;
             }
             catch (Exception ex) { PhBotDebug("stallopt inner: " + ex.Message); }
             finally { _innerLayout = false; }
@@ -858,30 +1249,35 @@ namespace xBot.App
                 Panel host = TabPageV_Control01_Stall_Panel;
                 Panel pg = FindHTabPanel(host, "TabPageH_Stall_Option", "Inventory");
                 if (pg == null) return;
+                pg.AutoScroll = false;
+                pg.BackColor = Color.White;
                 int sW = pg.Width, sH = pg.Height;
                 if (sW < 300 || sH < 200) return;
-                if (pg.Controls["PhBot_StallInvList"] == null)
+
+                ListView lv = pg.Controls["PhBot_StallInvList"] as ListView;
+                if (lv == null)
                 {
-                    ListView lv = NewPhBotListView(8, 8, Math.Max(300, sW - 16), Math.Max(200, sH - 60), "Item|350", "Price|150");
+                    lv = NewPhBotListView(15, 10, Math.Max(300, sW - 65), Math.Max(180, sH - 20), "Slot|50", "Icon|50", "Name|220", "Quantity|65", "Stall|55", "Consignment|85", "Price|80");
                     lv.Name = "PhBot_StallInvList";
+                    lv.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
                     pg.Controls.Add(lv);
-                    Label n = new Label();
-                    n.Name = "PhBot_StallInvNote";
-                    n.Font = PhBotFont();
-                    n.ForeColor = Color.FromArgb(60, 60, 60);
-                    n.AutoSize = true;
-                    n.Text = "Items are de-duplicated and prices are saved; stall a specific item like armor or weapons here.";
-                    pg.Controls.Add(n);
-                    // TODO backend: envanter fiyat modeli.
+
+                    var btnRefresh = new Button();
+                    btnRefresh.Name = "PhBot_StallInvRefresh";
+                    btnRefresh.Text = "R\nE\nF\nR\nE\nS\nH";
+                    btnRefresh.Font = new Font("Segoe UI", 8f, FontStyle.Regular);
+                    btnRefresh.Size = new Size(28, Math.Max(150, sH - 20));
+                    btnRefresh.Location = new Point(sW - 40, 10);
+                    btnRefresh.Anchor = AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom;
+                    Classicize(btnRefresh);
+                    pg.Controls.Add(btnRefresh);
                 }
-                try
+                else
                 {
-                    ListView lv2 = pg.Controls["PhBot_StallInvList"] as ListView;
-                    if (lv2 != null) { lv2.Location = new Point(8, 8); lv2.Size = new Size(sW - 16, sH - 60); lv2.Visible = true; }
-                    Label n2 = pg.Controls["PhBot_StallInvNote"] as Label;
-                    if (n2 != null) { n2.Location = new Point(8, sH - 40); n2.Visible = true; }
+                    lv.Location = new Point(15, 10);
+                    lv.Size = new Size(Math.Max(300, sW - 65), Math.Max(180, sH - 20));
+                    lv.Visible = true;
                 }
-                catch { }
             }
             catch (Exception ex) { PhBotDebug("stallinv inner: " + ex.Message); }
             finally { _innerLayout = false; }
@@ -896,32 +1292,49 @@ namespace xBot.App
                 Panel host = TabPageV_Control01_Stall_Panel;
                 Panel pg = FindHTabPanel(host, "TabPageH_Stall_Option", "Filter");
                 if (pg == null) return;
+                pg.AutoScroll = false;
+                pg.BackColor = Color.White;
                 int fW = pg.Width, fH = pg.Height;
                 if (fW < 300 || fH < 200) return;
-                if (pg.Controls["PhBot_StallFilterList"] == null)
+
+                ListView lv = pg.Controls["PhBot_StallFilterList"] as ListView;
+                if (lv == null)
                 {
-                    ListView lv = NewPhBotListView(8, 8, Math.Max(300, fW - 16), Math.Max(200, fH - 100), "Item|350", "Quantity|100");
+                    lv = NewPhBotListView(15, 10, Math.Max(300, fW - 30), Math.Max(150, fH - 55), "ID|50", "Icon|50", "Name|200", "Quantity|65", "Stall|55", "Stall Price|75", "Consignment|85", "Consignment Price|110");
                     lv.Name = "PhBot_StallFilterList";
+                    lv.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
                     pg.Controls.Add(lv);
-                    Label n = new Label();
-                    n.Name = "PhBot_StallFilterNote";
-                    n.Font = PhBotFont();
-                    n.ForeColor = Color.FromArgb(60, 60, 60);
-                    n.AutoSize = true;
-                    n.Text = "Sell generic items like elixirs here; the bot combines then splits stacks automatically.";
-                    pg.Controls.Add(n);
-                    // TODO backend: generic stall filtresi.
+
+                    var cbWear = new ComboBox { Name = "PhBot_StallFilterWear", DropDownStyle = ComboBoxStyle.DropDownList, Font = PhBotFont(), Location = new Point(15, fH - 35), Size = new Size(95, 22), Anchor = AnchorStyles.Bottom | AnchorStyles.Left };
+                    cbWear.Items.AddRange(new object[] { "Wearable", "Consumable", "General" });
+                    cbWear.SelectedIndex = 0;
+                    pg.Controls.Add(cbWear);
+
+                    var cbAll = new ComboBox { Name = "PhBot_StallFilterAll", DropDownStyle = ComboBoxStyle.DropDownList, Font = PhBotFont(), Location = new Point(115, fH - 35), Size = new Size(75, 22), Anchor = AnchorStyles.Bottom | AnchorStyles.Left };
+                    cbAll.Items.AddRange(new object[] { "All", "CH", "EU" });
+                    cbAll.SelectedIndex = 0;
+                    pg.Controls.Add(cbAll);
+
+                    var cbAny = new ComboBox { Name = "PhBot_StallFilterAny", DropDownStyle = ComboBoxStyle.DropDownList, Font = PhBotFont(), Location = new Point(195, fH - 35), Size = new Size(75, 22), Anchor = AnchorStyles.Bottom | AnchorStyles.Left };
+                    cbAny.Items.AddRange(new object[] { "Any", "Weapon", "Armor" });
+                    cbAny.SelectedIndex = 0;
+                    pg.Controls.Add(cbAny);
+
+                    var txtSearch = new TextBox { Name = "PhBot_StallFilterTxt", Font = PhBotFont(), Location = new Point(275, fH - 35), Size = new Size(140, 22), Anchor = AnchorStyles.Bottom | AnchorStyles.Left };
+                    pg.Controls.Add(txtSearch);
+
+                    var btnSearch = new Button { Name = "PhBot_StallFilterSearch", Text = "Search", Font = PhBotFont(), Location = new Point(420, fH - 37), Size = new Size(65, 25), Anchor = AnchorStyles.Bottom | AnchorStyles.Left };
+                    Classicize(btnSearch);
+                    pg.Controls.Add(btnSearch);
+
+                    var btnClear = new Button { Name = "PhBot_StallFilterClear", Text = "Clear", Font = PhBotFont(), Location = new Point(490, fH - 37), Size = new Size(60, 25), Anchor = AnchorStyles.Bottom | AnchorStyles.Left };
+                    Classicize(btnClear);
+                    pg.Controls.Add(btnClear);
+
+                    var btnReset = new Button { Name = "PhBot_StallFilterReset", Text = "Reset", Font = PhBotFont(), Location = new Point(555, fH - 37), Size = new Size(60, 25), Anchor = AnchorStyles.Bottom | AnchorStyles.Left };
+                    Classicize(btnReset);
+                    pg.Controls.Add(btnReset);
                 }
-                try
-                {
-                    ListView lv2 = pg.Controls["PhBot_StallFilterList"] as ListView;
-                    if (lv2 != null) { lv2.Location = new Point(8, 8); lv2.Size = new Size(fW - 16, fH - 100); lv2.Visible = true; }
-                    PhBotLabel(pg, "PhBot_StallFilterQLbl", "Quantity:", 8, fH - 80);
-                    PhBotTodoNumber(pg, "PhBot_StallFilterQ", 130, fH - 82, 80, "1");
-                    Label n2 = pg.Controls["PhBot_StallFilterNote"] as Label;
-                    if (n2 != null) { n2.Location = new Point(8, fH - 46); n2.Visible = true; }
-                }
-                catch { }
             }
             catch (Exception ex) { PhBotDebug("stallfilter inner: " + ex.Message); }
             finally { _innerLayout = false; }

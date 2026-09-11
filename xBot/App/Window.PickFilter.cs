@@ -24,7 +24,7 @@ namespace xBot.App
         private int pickCtxColumn = -1;
         private bool loadingPickFilterUi;
 
-        private CheckBox optPickupEnabled;
+        private CheckBox optDontPickItems;
         private CheckBox optPickItemsFirst;
         private CheckBox optUsePickPet;
         private CheckBox optPickOthers;
@@ -32,10 +32,6 @@ namespace xBot.App
         private CheckBox optAllowSellAll;
         private CheckBox optOnlyPickRareBlue;
         private CheckBox optOnlyStoreRareBlue;
-        private CheckBox optPickArrows;
-        private NumericUpDown nudArrowAmount;
-        private CheckBox optOnlyStoreBlues;
-        private CheckBox optOnlyPickBlues;
         private CheckBox optPickCharIfPetFull;
         private CheckBox optDontMovePetItems;
         private CheckBox optOnlyStorePlus;
@@ -265,16 +261,18 @@ namespace xBot.App
                 Size = new Size(633, 190),
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
+            try { lstPickItems.SmallImageList = Window.Get?.lstimgIcons; } catch { }
             lstPickItems.Columns.Add("ID", 50);
-            lstPickItems.Columns.Add("Name", 185);
+            lstPickItems.Columns.Add("Icon", 45);
+            lstPickItems.Columns.Add("Name", 210);
             lstPickItems.Columns.Add("Level", 45);
             lstPickItems.Columns.Add("Pick", 42);
             lstPickItems.Columns.Add("Pet", 42);
             lstPickItems.Columns.Add("Sell", 42);
-            lstPickItems.Columns.Add("Store", 50);
-            lstPickItems.Columns.Add("Store Guild", 80);
-            lstPickItems.Columns.Add("Take", 48);
-            lstPickItems.Columns.Add("Take Guild", 72);
+            lstPickItems.Columns.Add("Store", 45);
+            lstPickItems.Columns.Add("Store Guild", 75);
+            lstPickItems.Columns.Add("Take", 45);
+            lstPickItems.Columns.Add("Take Guild", 75);
 
             var ctx = new ContextMenuStrip();
             var miYes = new ToolStripMenuItem("Yes");
@@ -364,7 +362,7 @@ namespace xBot.App
         {
             try
             {
-                if (lstPickItems.SelectedItems.Count == 0 || pickCtxColumn < 3)
+                if (lstPickItems.SelectedItems.Count == 0 || pickCtxColumn < 4)
                     return;
                 foreach (ListViewItem item in lstPickItems.SelectedItems)
                 {
@@ -372,7 +370,7 @@ namespace xBot.App
                         continue;
                     if (value == "Reset")
                     {
-                        for (int c = 3; c <= 9 && c < item.SubItems.Count; c++)
+                        for (int c = 4; c <= 10 && c < item.SubItems.Count; c++)
                             item.SubItems[c].Text = "No";
                     }
                     else
@@ -392,9 +390,9 @@ namespace xBot.App
             {
                 string servername = item.Tag as string;
                 if (string.IsNullOrEmpty(servername)) return;
-                bool pick = GetFlag(item, 3), pet = GetFlag(item, 4), sell = GetFlag(item, 5);
-                bool store = GetFlag(item, 6), guild = GetFlag(item, 7);
-                bool take = GetFlag(item, 8), takeGuild = GetFlag(item, 9);
+                bool pick = GetFlag(item, 4), pet = GetFlag(item, 5), sell = GetFlag(item, 6);
+                bool store = GetFlag(item, 7), guild = GetFlag(item, 8);
+                bool take = GetFlag(item, 9), takeGuild = GetFlag(item, 10);
                 if (pick || pet || sell || store || guild || take || takeGuild)
                     ItemFilterManager.SetRuleFull(servername, pick, pet, sell, store, guild, take, takeGuild);
                 else
@@ -468,7 +466,7 @@ namespace xBot.App
                             take = rule.TakeStorage ? "Yes" : "No";
                             takeGuild = rule.TakeGuildStorage ? "Yes" : "No";
                         }
-                        var item = new ListViewItem(new string[] { id, name, level, pick, pet, sell, store, guild, take, takeGuild });
+                        var item = new ListViewItem(new string[] { id, "", name, level, pick, pet, sell, store, guild, take, takeGuild });
                         item.Tag = servername;
                         lstPickItems.Items.Add(item);
                     }
@@ -521,9 +519,9 @@ namespace xBot.App
                     {
                         string servername = item.Tag as string;
                         if (string.IsNullOrEmpty(servername)) continue;
-                        bool pick = GetFlag(item, 3), pet = GetFlag(item, 4), sell = GetFlag(item, 5);
-                        bool store = GetFlag(item, 6), guild = GetFlag(item, 7);
-                        bool take = GetFlag(item, 8), takeGuild = GetFlag(item, 9);
+                        bool pick = GetFlag(item, 4), pet = GetFlag(item, 5), sell = GetFlag(item, 6);
+                        bool store = GetFlag(item, 7), guild = GetFlag(item, 8);
+                        bool take = GetFlag(item, 9), takeGuild = GetFlag(item, 10);
                         if (pick || pet || sell || store || guild || take || takeGuild)
                         {
                             ItemFilterManager.SetRuleFull(servername, pick, pet, sell, store, guild, take, takeGuild);
@@ -603,7 +601,7 @@ namespace xBot.App
         /// Tema checkbox yazısını owner-draw ile beyaza boyadığı için başlık
         /// ayrı Label'dadır (tema onu ezemez) — kutu sadece kutudur.
         /// </summary>
-        private CheckBox AddOptCheck(TabPage tab, string text, int x, int y, int width)
+        private CheckBox AddOptCheck(Control parent, string text, int x, int y, int width)
         {
             var cbx = new CheckBox
             {
@@ -624,41 +622,47 @@ namespace xBot.App
             };
             lbl.Click += (s, e) => { try { cbx.Checked = !cbx.Checked; } catch { } };
             cbx.CheckedChanged += (s, e) => SaveAllPickFilterLive();
-            tab.Controls.Add(cbx);
-            tab.Controls.Add(lbl);
+            parent.Controls.Add(cbx);
+            parent.Controls.Add(lbl);
             return cbx;
         }
 
         private void BuildPickOptionsTab(TabPage tab)
         {
-            int x = 12, y = 12, w = 300;
-            optPickupEnabled = AddOptCheck(tab, "Enable item pickup", x, y, w); y += 19;
-            optPickItemsFirst = AddOptCheck(tab, "Pick items first", x, y, w); y += 19;
-            optUsePickPet = AddOptCheck(tab, "Use pick pet", x, y, w); y += 19;
-            optPickOthers = AddOptCheck(tab, "Pick other player's items", x, y, w); y += 19;
-            optPickParty = AddOptCheck(tab, "Pick party items", x, y, w); y += 19;
-            optAllowSellAll = AddOptCheck(tab, "Allow selling of all item types", x, y, w); y += 19;
-            optOnlyPickRareBlue = AddOptCheck(tab, "Only pick rare or blue items", x, y, w); y += 19;
-            optOnlyStoreRareBlue = AddOptCheck(tab, "Only store rare or blue items", x, y, w); y += 19;
-            optPickArrows = AddOptCheck(tab, "Pick Arrows/Bolts", x, y, 200);
-            nudArrowAmount = new NumericUpDown { Location = new Point(x + 210, y), Size = new Size(80, 22), Minimum = 0, Maximum = 10000, Value = 200 };
-            nudArrowAmount.ValueChanged += (s, e) => SaveAllPickFilterLive();
-            y += 19;
-            optOnlyStoreBlues = AddOptCheck(tab, "Only store items with specific blue attributes", x, y, w); y += 19;
-            optOnlyPickBlues = AddOptCheck(tab, "Only pick items with specific blue attributes", x, y, w); y += 19;
-            optPickCharIfPetFull = AddOptCheck(tab, "Pick with character if pet is unsummoned or full", x, y, 340); y += 19;
-            optDontMovePetItems = AddOptCheck(tab, "Do not move pet items except for storing/selling", x, y, 340); y += 19;
-            optNoSellPlus = AddOptCheck(tab, "Do not sell items with plus >=", x, y, 230);
-            nudNoSellPlus = new NumericUpDown { Location = new Point(x + 240, y), Size = new Size(60, 22), Minimum = 0, Maximum = 15, Value = 0 };
-            nudNoSellPlus.ValueChanged += (s, e) => SaveAllPickFilterLive();
-            y += 19;
-            optOnlyStorePlus = AddOptCheck(tab, "Only store items with plus >=", x, y, 230);
-            nudOnlyStorePlus = new NumericUpDown { Location = new Point(x + 240, y), Size = new Size(60, 22), Minimum = 0, Maximum = 15, Value = 0 };
-            nudOnlyStorePlus.ValueChanged += (s, e) => SaveAllPickFilterLive();
-            y += 19;
-            optPickEvenWhenFull = AddOptCheck(tab, "Pick even when inventory is full", x, y, w);
+            int x = 12, y = 12, w = 310, step = 22;
+            optPickItemsFirst = AddOptCheck(tab, "Pick items first", x, y, w); y += step;
+            optUsePickPet = AddOptCheck(tab, "Use pick pet", x, y, w); y += step;
+            optPickOthers = AddOptCheck(tab, "Pick other player's items", x, y, w); y += step;
+            optPickParty = AddOptCheck(tab, "Pick party items", x, y, w); y += step;
+            optDontPickItems = AddOptCheck(tab, "Don't pick items", x, y, w); y += step;
+            optAllowSellAll = AddOptCheck(tab, "Allow selling of all item types", x, y, w); y += step;
+            optOnlyPickRareBlue = AddOptCheck(tab, "Only pick rare or blue items", x, y, w); y += step;
+            optOnlyStoreRareBlue = AddOptCheck(tab, "Only store rare or blue items", x, y, w); y += step;
 
-            var lblBlues = new Label { Text = "Blues", Location = new Point(360, 8), AutoSize = true, ForeColor = SystemColors.ControlText };
+            optOnlyStorePlus = AddOptCheck(tab, "Only store items with plus >=", x, y, 220);
+            nudOnlyStorePlus = new NumericUpDown { Location = new Point(x + 225, y - 1), Size = new Size(50, 22), Minimum = 0, Maximum = 15, Value = 0 };
+            nudOnlyStorePlus.ValueChanged += (s, e) => SaveAllPickFilterLive();
+            tab.Controls.Add(nudOnlyStorePlus);
+            y += step;
+
+            optPickEvenWhenFull = AddOptCheck(tab, "Pick even when inventory is full", x, y, w); y += step;
+            optPickCharIfPetFull = AddOptCheck(tab, "Pick with character if pet is unsummoned or full", x, y, 320); y += step;
+            optDontMovePetItems = AddOptCheck(tab, "Do not move pet items except for storing/selling", x, y, 320); y += step;
+
+            optNoSellPlus = AddOptCheck(tab, "Do not sell items with plus >=", x, y, 220);
+            nudNoSellPlus = new NumericUpDown { Location = new Point(x + 225, y - 1), Size = new Size(50, 22), Minimum = 0, Maximum = 15, Value = 0 };
+            nudNoSellPlus.ValueChanged += (s, e) => SaveAllPickFilterLive();
+            tab.Controls.Add(nudNoSellPlus);
+
+            int gbH = Math.Max(305, tab.Height - 16);
+            var gbxBlues = new GroupBox
+            {
+                Text = "Blues",
+                Location = new Point(345, 8),
+                Size = new Size(280, gbH),
+                Font = PhBotFont(),
+                ForeColor = Color.Black
+            };
             lstBlues = new ListView
             {
                 View = View.Details,
@@ -667,11 +671,11 @@ namespace xBot.App
                 HideSelection = false,
                 BackColor = SystemColors.Window,
                 ForeColor = SystemColors.WindowText,
-                Location = new Point(360, 26),
-                Size = new Size(280, 280),
-                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+                Location = new Point(8, 20),
+                Size = new Size(264, gbH - 28),
+                Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
             };
-            lstBlues.Columns.Add("Name", 250);
+            lstBlues.Columns.Add("Name", 175);
             lstBlues.Columns.Add("Store", 80);
             var ctx = new ContextMenuStrip();
             var miYes = new ToolStripMenuItem("Yes");
@@ -690,7 +694,8 @@ namespace xBot.App
                     bluesCtxColumn = hit.Item != null ? hit.SubItem != null ? hit.Item.SubItems.IndexOf(hit.SubItem) : -1 : -1;
                 }
             };
-            tab.Controls.AddRange(new Control[] { lblBlues, lstBlues, nudArrowAmount, nudNoSellPlus, nudOnlyStorePlus });
+            gbxBlues.Controls.Add(lstBlues);
+            tab.Controls.Add(gbxBlues);
         }
 
         private void ApplyBluesFlag(string value)
@@ -780,8 +785,8 @@ namespace xBot.App
             try
             {
                 var o = ItemFilterManager.Pick;
-                if (o == null || optPickupEnabled == null || optPickItemsFirst == null) return;
-                optPickupEnabled.Checked = o.Enabled;
+                if (o == null || optPickItemsFirst == null) return;
+                if (optDontPickItems != null) optDontPickItems.Checked = o.DontPickItems;
                 optPickItemsFirst.Checked = o.PickItemsFirst;
                 optUsePickPet.Checked = o.UsePickPet;
                 optPickOthers.Checked = o.PickOthersItems;
@@ -789,10 +794,6 @@ namespace xBot.App
                 optAllowSellAll.Checked = o.AllowSellAll;
                 optOnlyPickRareBlue.Checked = o.OnlyPickRareBlue;
                 optOnlyStoreRareBlue.Checked = o.OnlyStoreRareBlue;
-                optPickArrows.Checked = o.PickArrowsBolts;
-                try { nudArrowAmount.Value = Math.Max(0, Math.Min(10000, o.ArrowBoltAmount)); } catch { }
-                optOnlyStoreBlues.Checked = o.OnlyStoreSpecificBlues;
-                if (optOnlyPickBlues != null) optOnlyPickBlues.Checked = o.OnlyPickSpecificBlues;
                 optPickCharIfPetFull.Checked = o.PickWithCharIfPetGoneFull;
                 optDontMovePetItems.Checked = o.DontMovePetItemsExceptStoreSell;
                 optOnlyStorePlus.Checked = o.OnlyStorePlusEnabled;
@@ -809,22 +810,19 @@ namespace xBot.App
             try
             {
                 var o = ItemFilterManager.Pick;
-                if (o == null || optPickupEnabled == null || optPickItemsFirst == null) return;
-                o.Enabled = optPickupEnabled.Checked;
+                if (o == null || optPickItemsFirst == null) return;
+                if (optDontPickItems != null)
+                {
+                    o.DontPickItems = optDontPickItems.Checked;
+                    o.Enabled = !optDontPickItems.Checked;
+                }
                 o.PickItemsFirst = optPickItemsFirst.Checked;
                 o.UsePickPet = optUsePickPet.Checked;
                 o.PickOthersItems = optPickOthers.Checked;
                 o.PickPartyItems = optPickParty.Checked;
-                // Ana etkinleştirme seçeneği, eski ters anlamlı "Don't pick"
-                // seçeneğinin yerini aldı.
-                o.DontPickItems = false;
                 o.AllowSellAll = optAllowSellAll.Checked;
                 o.OnlyPickRareBlue = optOnlyPickRareBlue.Checked;
                 o.OnlyStoreRareBlue = optOnlyStoreRareBlue.Checked;
-                o.PickArrowsBolts = optPickArrows.Checked;
-                try { o.ArrowBoltAmount = (int)nudArrowAmount.Value; } catch { }
-                o.OnlyStoreSpecificBlues = optOnlyStoreBlues.Checked;
-                if (optOnlyPickBlues != null) o.OnlyPickSpecificBlues = optOnlyPickBlues.Checked;
                 o.PickWithCharIfPetGoneFull = optPickCharIfPetFull.Checked;
                 o.DontMovePetItemsExceptStoreSell = optDontMovePetItems.Checked;
                 o.OnlyStorePlusEnabled = optOnlyStorePlus.Checked;
@@ -915,7 +913,17 @@ namespace xBot.App
 
         private void BuildDismantleTab(TabPage tab)
         {
-            var lblDeg = new Label { Text = "Degree", Location = new Point(12, 12), AutoSize = true, ForeColor = SystemColors.ControlText };
+            int H = Math.Max(305, tab.Height - 16);
+
+            // GroupBox 1: Degree
+            var gbDegree = new GroupBox
+            {
+                Text = "Degree",
+                Location = new Point(8, 8),
+                Size = new Size(185, H),
+                Font = PhBotFont(),
+                ForeColor = Color.Black
+            };
             lstDegrees = new ListView
             {
                 View = View.Details,
@@ -924,11 +932,12 @@ namespace xBot.App
                 HideSelection = false,
                 BackColor = SystemColors.Window,
                 ForeColor = SystemColors.WindowText,
-                Location = new Point(12, 34),
-                Size = new Size(190, 260)
+                Location = new Point(8, 20),
+                Size = new Size(169, H - 28),
+                Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
             };
-            lstDegrees.Columns.Add("Degree", 90);
-            lstDegrees.Columns.Add("Dismantle", 90);
+            lstDegrees.Columns.Add("Degree", 80);
+            lstDegrees.Columns.Add("Dismantle", 80);
             var ctx = new ContextMenuStrip();
             var miYes = new ToolStripMenuItem("Yes");
             var miNo = new ToolStripMenuItem("No");
@@ -946,23 +955,41 @@ namespace xBot.App
                     degreeCtxColumn = hit.Item != null ? hit.SubItem != null ? hit.Item.SubItems.IndexOf(hit.SubItem) : -1 : -1;
                 }
             };
+            gbDegree.Controls.Add(lstDegrees);
 
-            var lblDis = new Label { Text = "Dismantle", Location = new Point(230, 12), AutoSize = true, ForeColor = SystemColors.ControlText };
-            optDisWhite = AddOptCheck(tab, "White items", 230, 34, 220);
-            optDisPlussed = AddOptCheck(tab, "Plussed items <", 230, 62, 140);
-            nudDisPlussed = new NumericUpDown { Location = new Point(375, 62), Size = new Size(60, 22), Minimum = 0, Maximum = 15, Value = 3 };
+            // GroupBox 2: Dismantle
+            var gbDis = new GroupBox
+            {
+                Text = "Dismantle",
+                Location = new Point(201, 8),
+                Size = new Size(205, H),
+                Font = PhBotFont(),
+                ForeColor = Color.Black
+            };
+            optDisWhite = AddOptCheck(gbDis, "White items", 12, 24, 180);
+            optDisPlussed = AddOptCheck(gbDis, "Plussed items <", 12, 54, 120);
+            nudDisPlussed = new NumericUpDown { Location = new Point(136, 52), Size = new Size(55, 22), Minimum = 0, Maximum = 15, Value = 3 };
             nudDisPlussed.ValueChanged += (s, e) => SaveAllPickFilterLive();
-            optDisBlue = AddOptCheck(tab, "Blue items", 230, 90, 220);
-            optDisRare = AddOptCheck(tab, "Rare items", 230, 118, 220);
+            gbDis.Controls.Add(nudDisPlussed);
+            optDisBlue = AddOptCheck(gbDis, "Blue items", 12, 84, 180);
+            optDisRare = AddOptCheck(gbDis, "Rare items", 12, 114, 180);
 
-            var lblAuto = new Label { Text = "Auto dismantle before...", Location = new Point(470, 12), AutoSize = true, ForeColor = SystemColors.ControlText };
-            optDisBeforeSmith = AddOptCheck(tab, "Blacksmith", 470, 34, 200);
-            optDisBeforeGrocery = AddOptCheck(tab, "Grocery trader", 470, 62, 200);
-            optDisBeforeHerbalist = AddOptCheck(tab, "Herbalist", 470, 90, 200);
-            optDisBeforeStorage = AddOptCheck(tab, "Storage", 470, 118, 200);
-            optDisBeforeGuild = AddOptCheck(tab, "Guild storage", 470, 146, 200);
+            // GroupBox 3: Auto dismantle before...
+            var gbAuto = new GroupBox
+            {
+                Text = "Auto dismantle before...",
+                Location = new Point(414, 8),
+                Size = new Size(210, H),
+                Font = PhBotFont(),
+                ForeColor = Color.Black
+            };
+            optDisBeforeSmith = AddOptCheck(gbAuto, "Blacksmith", 12, 24, 180);
+            optDisBeforeGrocery = AddOptCheck(gbAuto, "Grocery trader", 12, 54, 180);
+            optDisBeforeHerbalist = AddOptCheck(gbAuto, "Herbalist", 12, 84, 180);
+            optDisBeforeStorage = AddOptCheck(gbAuto, "Storage", 12, 114, 180);
+            optDisBeforeGuild = AddOptCheck(gbAuto, "Guild storage", 12, 144, 180);
 
-            tab.Controls.AddRange(new Control[] { lblDeg, lstDegrees, lblDis, lblAuto, nudDisPlussed });
+            tab.Controls.AddRange(new Control[] { gbDegree, gbDis, gbAuto });
         }
 
         private void ApplyDegreeFlag(string value)

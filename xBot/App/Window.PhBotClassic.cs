@@ -889,16 +889,16 @@ namespace xBot.App
                 // Trace içeriği Option03'te durur; etiketi Conditions yapmak içeriği
                 // yanlış etiketlerdi, o yüzden Trace korunur (EnsurePhBotTrainingExtraTabs
                 // Conditions/Collision/Settings'i ayrı sekmeler olarak ekler).
-                RenamePhBotSubTabs(TabPageH_Training_Option01, "Training Area");
+                RenamePhBotSubTabs(TabPageH_Training_Option01, "Training");
                 RenamePhBotSubTabs(TabPageH_Training_Option02, "Script");
                 RenamePhBotSubTabs(TabPageH_Training_Option03, "Trace");
             }
             catch { }
             try
             {
-                // Party: Party | Accept / Invite | Matching | Taxi
+                // Party: Party | Options | Matching | Taxi | Taxi Options
                 RenamePhBotSubTabs(TabPageH_Party_Option01, "Party");
-                RenamePhBotSubTabs(TabPageH_Party_Option02, "Accept / Invite");
+                RenamePhBotSubTabs(TabPageH_Party_Option02, "Options");
                 RenamePhBotSubTabs(TabPageH_Party_Option03, "Matching");
                 RenamePhBotSubTabs(TabPageH_Party_Option04, "Taxi");
             }
@@ -1805,6 +1805,7 @@ namespace xBot.App
             c.Font = PhBotFont();
             c.ForeColor = Color.Black;
             c.AutoSize = true;
+            c.UseMnemonic = false;
             c.Location = new Point(x, y);
             c.Checked = check;
             parent.Controls.Add(c);

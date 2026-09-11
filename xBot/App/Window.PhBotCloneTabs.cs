@@ -175,8 +175,9 @@ namespace xBot.App
             string panelName = hPrefix + SanitizeName(title) + "_Panel";
             try
             {
-                if (hostV.Controls.ContainsKey(panelName))
-                    return hostV.Controls[panelName] as Panel;
+                var matches = hostV.Controls.Find(panelName, true);
+                if (matches != null && matches.Length > 0 && matches[0] is Panel p)
+                    return p;
             }
             catch { }
             return null;
@@ -340,8 +341,8 @@ namespace xBot.App
 
                 LayoutHStrip(TabPageH_Character_Option04.Parent, new string[]
                 {
-                    "TabPageH_Character_Option02", "TabPageH_Character_Option03",
-                    pre + "Sockets", pre + "PetReturn",
+                    "TabPageH_Character_Option02", pre + "Sockets", "TabPageH_Character_Option03",
+                    pre + "PetReturn",
                     pre + "Berserk", pre + "MonsterPreferences", pre + "DevilsSpirit",
                     pre + "Scrolls", pre + "StatPoints", "TabPageH_Character_Option04"
                 });
@@ -359,63 +360,159 @@ namespace xBot.App
 
         private void BuildProtectionSockets(Panel p)
         {
-            if (p == null || p.Controls.Count > 0) return;
-            AddPhBotCheck(p, "Use gear socket skills automatically", 10, 10, false);
-            AddPhBotCheck(p, "Change primary weapon if broken (same item type)", 10, 34, false);
-            NewPhBotNote(p, "TODO backend: ProtectionManager'a socket + kırık silah takası kuralı eklenecek.", 10, 62);
+            if (p == null) return;
+            p.Controls.Clear();
+            p.BackColor = Color.White;
+            p.AutoScroll = false;
+
+            int y = 14;
+            AddPhBotCheck(p, "Socket Stone of Liberation", 20, y, false);
+
+            y += 32;
+            AddPhBotCheck(p, "Socket Stone of Stamina", 20, y, false);
+            var l1 = new Label { Text = "HP <=", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(320, y + 2) };
+            var n1 = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(366, y - 2), Size = new Size(50, 22), Value = 0 };
+            var p1 = new Label { Text = "%", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(420, y + 2) };
+            p.Controls.AddRange(new Control[] { l1, n1, p1 });
+
+            y += 32;
+            AddPhBotCheck(p, "Socket Stone of Recovery", 20, y, false);
+            var l2 = new Label { Text = "HP <=", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(320, y + 2) };
+            var n2 = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(366, y - 2), Size = new Size(50, 22), Value = 0 };
+            var p2 = new Label { Text = "%", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(420, y + 2) };
+            p.Controls.AddRange(new Control[] { l2, n2, p2 });
+
+            y += 32;
+            AddPhBotCheck(p, "Socket Stone of Magic Power", 20, y, false);
+            var l3 = new Label { Text = "MP <=", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(320, y + 2) };
+            var n3 = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(366, y - 2), Size = new Size(50, 22), Value = 0 };
+            var p3 = new Label { Text = "%", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(420, y + 2) };
+            p.Controls.AddRange(new Control[] { l3, n3, p3 });
+
+            y += 32;
+            AddPhBotCheck(p, "Socket Stone of Block", 20, y, false);
+            var l4 = new Label { Text = "HP <=", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(320, y + 2) };
+            var n4 = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(366, y - 2), Size = new Size(50, 22), Value = 0 };
+            var p4 = new Label { Text = "%", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(420, y + 2) };
+            p.Controls.AddRange(new Control[] { l4, n4, p4 });
+
+            y += 32;
+            AddPhBotCheck(p, "Socket Stone of Iron Wall", 20, y, false);
+            var l5 = new Label { Text = "HP <=", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(320, y + 2) };
+            var n5 = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(366, y - 2), Size = new Size(50, 22), Value = 0 };
+            var p5 = new Label { Text = "%", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(420, y + 2) };
+            p.Controls.AddRange(new Control[] { l5, n5, p5 });
+
+            y += 32;
+            AddPhBotCheck(p, "Socket Stone of Concentration", 20, y, false);
+
+            y += 32;
+            AddPhBotCheck(p, "Socket Stone of Rapidity", 20, y, false);
         }
 
         private void BuildProtectionPetReturn(Panel p)
         {
-            if (p == null || p.Controls.Count > 0) return;
-            // phbot/protection.md -> Pet Return 1..6
-            var c1 = AddPhBotCheck(p, "Return when out of pet recovery kits (fellow)", 10, 10, ProtectionManager.ReturnOutOfPetRecoveryKits);
+            if (p == null) return;
+            p.Controls.Clear();
+            p.BackColor = Color.White;
+            p.AutoScroll = false;
+
+            var gbx = new GroupBox
+            {
+                Text = "Potions / Inventory",
+                Font = PhBotFont(),
+                ForeColor = Color.Black,
+                BackColor = Color.White,
+                Location = new Point(15, 12),
+                Size = new Size(210, 270)
+            };
+            p.Controls.Add(gbx);
+
+            var c1 = AddPhBotCheck(gbx, "Pet recovery kits", 15, 25, ProtectionManager.ReturnOutOfPetRecoveryKits);
             c1.CheckedChanged += (s, e) => ProtectionManager.ReturnOutOfPetRecoveryKits = c1.Checked;
 
-            var c2 = AddPhBotCheck(p, "Return when out of pet revive items", 10, 34, ProtectionManager.ReturnOutOfPetRevive);
+            var c2 = AddPhBotCheck(gbx, "Pet revive", 15, 55, ProtectionManager.ReturnOutOfPetRevive);
             c2.CheckedChanged += (s, e) => ProtectionManager.ReturnOutOfPetRevive = c2.Checked;
 
-            var c3 = AddPhBotCheck(p, "Return when out of pet feed items", 10, 58, ProtectionManager.ReturnOutOfPetFeed);
+            var c3 = AddPhBotCheck(gbx, "Pet feed", 15, 85, ProtectionManager.ReturnOutOfPetFeed);
             c3.CheckedChanged += (s, e) => ProtectionManager.ReturnOutOfPetFeed = c3.Checked;
 
-            var c4 = AddPhBotCheck(p, "Return when out of pet abnormal state potions", 10, 82, ProtectionManager.ReturnOutOfPetAbnormalPill);
+            var c4 = AddPhBotCheck(gbx, "Abnormal state", 15, 115, ProtectionManager.ReturnOutOfPetAbnormalPill);
             c4.CheckedChanged += (s, e) => ProtectionManager.ReturnOutOfPetAbnormalPill = c4.Checked;
 
-            var c5 = AddPhBotCheck(p, "Return when out of transport recovery kits (wolf)", 10, 106, ProtectionManager.ReturnOutOfTransportRecoveryKits);
+            var c5 = AddPhBotCheck(gbx, "Transport recovery kits", 15, 145, ProtectionManager.ReturnOutOfTransportRecoveryKits);
             c5.CheckedChanged += (s, e) => ProtectionManager.ReturnOutOfTransportRecoveryKits = c5.Checked;
 
-            var c6 = AddPhBotCheck(p, "Return when the pick pet is full", 10, 130, ProtectionManager.ReturnFullPetInventory);
+            var c6 = AddPhBotCheck(gbx, "Pick pet full", 15, 175, ProtectionManager.ReturnFullPetInventory);
             c6.CheckedChanged += (s, e) => ProtectionManager.ReturnFullPetInventory = c6.Checked;
         }
 
         private void BuildProtectionBerserk(Panel p)
         {
-            if (p == null || p.Controls.Count > 0) return;
-            var c1 = AddPhBotCheck(p, "Use berserk against preferred monster types", 10, 10, CombatAIEngine.ZerkRarityBased);
-            c1.CheckedChanged += (s, e) => CombatAIEngine.ZerkRarityBased = c1.Checked;
+            if (p == null) return;
+            p.Controls.Clear();
+            p.BackColor = Color.White;
+            p.AutoScroll = false;
 
-            var n1 = AddPhBotLabeledNumber(p, "Minimum attackers to trigger berserk", 10, 38, CombatAIEngine.ZerkMonsterCount);
-            n1.ValueChanged += (s, e) => {
-                CombatAIEngine.ZerkMonsterCount = (int)n1.Value;
-                CombatAIEngine.ZerkMonsterCountEnabled = n1.Value > 0;
+            var gbx = new GroupBox
+            {
+                Text = "Berserk",
+                Font = PhBotFont(),
+                ForeColor = Color.Black,
+                BackColor = Color.White,
+                Location = new Point(15, 12),
+                Size = new Size(340, 285)
             };
+            p.Controls.Add(gbx);
 
-            var c2 = AddPhBotCheck(p, "Use berserk while executing the script", 10, 66, CombatAIEngine.ZerkInScript);
-            c2.CheckedChanged += (s, e) => CombatAIEngine.ZerkInScript = c2.Checked;
+            var cAtt = AddPhBotCheck(gbx, "Monsters attacking >", 15, 18, CombatAIEngine.ZerkMonsterCountEnabled);
+            var nAtt = new NumericUpDown
+            {
+                Font = PhBotFont(),
+                BackColor = Color.White,
+                Location = new Point(160, 16),
+                Size = new Size(50, 22),
+                Value = Math.Max(1, CombatAIEngine.ZerkMonsterCount > 0 ? CombatAIEngine.ZerkMonsterCount : 3)
+            };
+            nAtt.ValueChanged += (s, e) => {
+                CombatAIEngine.ZerkMonsterCount = (int)nAtt.Value;
+                CombatAIEngine.ZerkMonsterCountEnabled = cAtt.Checked;
+            };
+            cAtt.CheckedChanged += (s, e) => {
+                CombatAIEngine.ZerkMonsterCountEnabled = cAtt.Checked;
+                CombatAIEngine.ZerkMonsterCount = (int)nAtt.Value;
+            };
+            gbx.Controls.Add(nAtt);
 
-            var c3 = AddPhBotCheck(p, "Use berserker regeneration potion", 10, 90, CombatAIEngine.UseZerkPotion);
-            c3.CheckedChanged += (s, e) => CombatAIEngine.UseZerkPotion = c3.Checked;
+            AddPhBotCheck(gbx, "Full", 15, 38, false);
+            AddPhBotCheck(gbx, "even if no monsters are attacking", 80, 38, false);
 
-            var c4 = AddPhBotCheck(p, "Use Energy of Life potions", 10, 114, CombatAIEngine.UseEnergyOfLife);
-            c4.CheckedChanged += (s, e) => CombatAIEngine.UseEnergyOfLife = c4.Checked;
-
-            AddPhBotCheck(p, "Use Energy of Life berserk regeneration", 10, 138, false);
+            AddPhBotCheck(gbx, "Giant", 15, 58, CombatAIEngine.GetRule(SRMob.Mob.Giant).Berserk);
+            AddPhBotCheck(gbx, "Party General", 15, 78, CombatAIEngine.GetRule(SRMob.Mob.PartyGeneral).Berserk);
+            AddPhBotCheck(gbx, "Party Champion", 15, 98, CombatAIEngine.GetRule(SRMob.Mob.PartyChampion).Berserk);
+            AddPhBotCheck(gbx, "Party Giant", 15, 118, CombatAIEngine.GetRule(SRMob.Mob.PartyGiant).Berserk);
+            AddPhBotCheck(gbx, "Titan", 15, 138, false);
+            AddPhBotCheck(gbx, "Elite", 15, 158, CombatAIEngine.GetRule(SRMob.Mob.Elite).Berserk);
+            AddPhBotCheck(gbx, "Strong", 15, 178, false);
+            AddPhBotCheck(gbx, "Event", 15, 198, CombatAIEngine.GetRule(SRMob.Mob.Event).Berserk);
+            AddPhBotCheck(gbx, "Unique", 15, 218, CombatAIEngine.GetRule(SRMob.Mob.Unique).Berserk);
+            var cScript = AddPhBotCheck(gbx, "Script", 15, 238, CombatAIEngine.ZerkInScript);
+            cScript.CheckedChanged += (s, e) => CombatAIEngine.ZerkInScript = cScript.Checked;
+            AddPhBotCheck(gbx, "Pillars", 15, 258, false);
         }
 
         private void BuildProtectionMonsterPrefs(Panel p)
         {
-            if (p == null || p.Controls.Count > 0) return;
-            var lv = NewPhBotListView(10, 10, 460, 220, "Preference|250", "Priority|100");
+            if (p == null) return;
+            p.Controls.Clear();
+            p.BackColor = Color.White;
+            p.AutoScroll = false;
+
+            int pw = p.Width > 200 ? p.Width : 620;
+            int ph = p.Height > 200 ? p.Height : 380;
+
+            var lv = NewPhBotListView(15, 15, pw - 60, ph - 65, "Type|100", "ID|90", "Name|220", "Preference|220");
+            lv.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
             p.Controls.Add(lv);
 
             Action refreshList = () => {
@@ -423,8 +520,10 @@ namespace xBot.App
                 foreach (SRMob.Mob mobType in Enum.GetValues(typeof(SRMob.Mob)))
                 {
                     var rule = CombatAIEngine.GetRule(mobType);
-                    string state = rule.Prefer ? "Prefer" : (rule.Avoid ? "Avoid" : (rule.Berserk ? "Berserk" : "Normal"));
+                    string state = rule.Prefer ? "Prefer" : (rule.Avoid ? "Avoid" : (rule.Berserk ? "Berserk" : "None"));
                     var lvi = new ListViewItem(mobType.ToString());
+                    lvi.SubItems.Add("");
+                    lvi.SubItems.Add(mobType.ToString());
                     lvi.SubItems.Add(state);
                     lvi.Tag = mobType;
                     lv.Items.Add(lvi);
@@ -432,99 +531,130 @@ namespace xBot.App
             };
             refreshList();
 
-            var btnUp = new Button();
-            btnUp.Text = "Prefer"; btnUp.Font = PhBotFont(); btnUp.Size = new Size(80, 26);
-            btnUp.Location = new Point(480, 10); btnUp.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnUp.Click += (s, e) => {
-                if (lv.SelectedItems.Count > 0 && lv.SelectedItems[0].Tag is SRMob.Mob type)
+            var btnUp = new Button { Text = "▲", Font = PhBotFont(), Size = new Size(26, 26), Location = new Point(pw - 38, 140), Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            var btnDown = new Button { Text = "▼", Font = PhBotFont(), Size = new Size(26, 26), Location = new Point(pw - 38, 170), Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            p.Controls.Add(btnUp);
+            p.Controls.Add(btnDown);
+
+            var cbSwitch = AddPhBotCheck(p, "Switch monster based on position in the list", 15, ph - 32, false);
+            cbSwitch.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+
+            var ctx = new ContextMenuStrip();
+            var mAdd = new ToolStripMenuItem("Add");
+            mAdd.DropDownItems.Add("Type");
+            mAdd.DropDownItems.Add("Monster");
+            ctx.Items.Add(mAdd);
+
+            Action<string> setPref = (pref) => {
+                if (lv.SelectedItems.Count > 0 && lv.SelectedItems[0].Tag is SRMob.Mob t)
                 {
-                    CombatAIEngine.SetRule(type, false, true, false);
+                    if (pref == "Prefer") CombatAIEngine.SetRule(t, false, true, false);
+                    else if (pref == "Avoid") CombatAIEngine.SetRule(t, true, false, false);
+                    else if (pref == "Ignore") CombatAIEngine.SetRule(t, true, false, false);
+                    else CombatAIEngine.SetRule(t, false, false, false);
                     refreshList();
                 }
             };
-
-            var btnDown = new Button();
-            btnDown.Text = "Avoid"; btnDown.Font = PhBotFont(); btnDown.Size = new Size(80, 26);
-            btnDown.Location = new Point(480, 42); btnDown.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnDown.Click += (s, e) => {
-                if (lv.SelectedItems.Count > 0 && lv.SelectedItems[0].Tag is SRMob.Mob type)
+            var mNone = new ToolStripMenuItem("None", null, (s, e) => setPref("None"));
+            var mIgnore = new ToolStripMenuItem("Ignore", null, (s, e) => setPref("Ignore"));
+            var mAvoid = new ToolStripMenuItem("Avoid", null, (s, e) => setPref("Avoid"));
+            var mPrefer = new ToolStripMenuItem("Prefer", null, (s, e) => setPref("Prefer"));
+            var mSep = new ToolStripSeparator();
+            var mRemove = new ToolStripMenuItem("Remove", null, (s, e) => {
+                if (lv.SelectedItems.Count > 0 && lv.SelectedItems[0].Tag is SRMob.Mob t)
                 {
-                    CombatAIEngine.SetRule(type, true, false, false);
+                    CombatAIEngine.SetRule(t, false, false, false);
                     refreshList();
                 }
-            };
-
-            var btnZerk = new Button();
-            btnZerk.Text = "Berserk"; btnZerk.Font = PhBotFont(); btnZerk.Size = new Size(80, 26);
-            btnZerk.Location = new Point(480, 74); btnZerk.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnZerk.Click += (s, e) => {
-                if (lv.SelectedItems.Count > 0 && lv.SelectedItems[0].Tag is SRMob.Mob type)
-                {
-                    CombatAIEngine.SetRule(type, false, false, true);
-                    refreshList();
-                }
-            };
-
-            var btnReset = new Button();
-            btnReset.Text = "Normal"; btnReset.Font = PhBotFont(); btnReset.Size = new Size(80, 26);
-            btnReset.Location = new Point(480, 106); btnReset.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnReset.Click += (s, e) => {
-                if (lv.SelectedItems.Count > 0 && lv.SelectedItems[0].Tag is SRMob.Mob type)
-                {
-                    CombatAIEngine.SetRule(type, false, false, false);
-                    refreshList();
-                }
-            };
-
-            p.Controls.Add(btnUp); p.Controls.Add(btnDown); p.Controls.Add(btnZerk); p.Controls.Add(btnReset);
-            AddPhBotCheck(p, "Switch monster based on position in the list", 10, 240, false);
+            });
+            ctx.Items.AddRange(new ToolStripItem[] { mNone, mIgnore, mAvoid, mPrefer, mSep, mRemove });
+            lv.ContextMenuStrip = ctx;
         }
 
         private void BuildProtectionDevilSpirit(Panel p)
         {
-            if (p == null || p.Controls.Count > 0) return;
-            var c1 = AddPhBotCheck(p, "Use Devil's Spirit", 10, 10, SkillManager.UseDevilSpirit);
-            c1.CheckedChanged += (s, e) => {
-                SkillManager.UseDevilSpirit = c1.Checked;
-                if (c1.Checked) SkillManager.CheckDevilSpirit();
+            if (p == null) return;
+            p.Controls.Clear();
+            p.BackColor = Color.White;
+            p.AutoScroll = false;
+
+            var gbx = new GroupBox
+            {
+                Text = "Monsters",
+                Font = PhBotFont(),
+                ForeColor = Color.Black,
+                BackColor = Color.White,
+                Location = new Point(15, 12),
+                Size = new Size(340, 265)
             };
+            p.Controls.Add(gbx);
 
-            var c2 = AddPhBotCheck(p, "Use Angel's Spirit", 10, 34, SkillManager.UseDevilSpirit);
-            c2.CheckedChanged += (s, e) => {
-                SkillManager.UseDevilSpirit = c2.Checked;
-                if (c2.Checked) SkillManager.CheckDevilSpirit();
+            var cAtt = AddPhBotCheck(gbx, "Monsters attacking >", 15, 18, false);
+            var nAtt = new NumericUpDown
+            {
+                Font = PhBotFont(),
+                BackColor = Color.White,
+                Location = new Point(160, 16),
+                Size = new Size(50, 22),
+                Value = 3
             };
+            gbx.Controls.Add(nAtt);
 
-            var n1 = AddPhBotLabeledNumber(p, "Use below HP %", 10, 62, SkillManager.DevilSpiritHPPercent);
-            n1.ValueChanged += (s, e) => SkillManager.DevilSpiritHPPercent = (byte)n1.Value;
+            var cReady = AddPhBotCheck(gbx, "Ready", 15, 38, true);
+            cReady.CheckedChanged += (s, e) => {
+                SkillManager.UseDevilSpirit = cReady.Checked;
+                if (cReady.Checked) SkillManager.CheckDevilSpirit();
+            };
+            AddPhBotCheck(gbx, "even if no monsters are attacking", 80, 38, false);
 
-            var n2 = AddPhBotLabeledNumber(p, "Re-cast delay (s)", 10, 90, SkillManager.DevilSpiritDelaySeconds);
-            n2.ValueChanged += (s, e) => SkillManager.DevilSpiritDelaySeconds = (int)n2.Value;
+            AddPhBotCheck(gbx, "Giant", 15, 58, false);
+            AddPhBotCheck(gbx, "Party General", 15, 78, false);
+            AddPhBotCheck(gbx, "Party Champion", 15, 98, false);
+            AddPhBotCheck(gbx, "Party Giant", 15, 118, false);
+            AddPhBotCheck(gbx, "Titan", 15, 138, false);
+            AddPhBotCheck(gbx, "Elite", 15, 158, false);
+            AddPhBotCheck(gbx, "Strong", 15, 178, false);
+            AddPhBotCheck(gbx, "Event", 15, 198, false);
+            AddPhBotCheck(gbx, "Unique", 15, 218, false);
+            AddPhBotCheck(gbx, "Pillars", 15, 238, false);
         }
 
         private void BuildProtectionScrolls(Panel p)
         {
-            if (p == null || p.Controls.Count > 0) return;
-            var c1 = AddPhBotCheck(p, "Use return scrolls", 10, 10, ProtectionManager.UseReturnScrolls);
-            c1.CheckedChanged += (s, e) => ProtectionManager.UseReturnScrolls = c1.Checked;
+            if (p == null) return;
+            p.Controls.Clear();
+            p.BackColor = Color.White;
+            p.AutoScroll = false;
 
-            var c2 = AddPhBotCheck(p, "Use a reverse return scroll when you die", 10, 34, ProtectionManager.UseReverseOnDeath);
-            c2.CheckedChanged += (s, e) => ProtectionManager.UseReverseOnDeath = c2.Checked;
+            int x1 = 20;
+            AddPhBotCheck(p, "Accuracy", x1, 20, false);
+            AddPhBotCheck(p, "Strength", x1, 48, false);
+            AddPhBotCheck(p, "Intelligence", x1, 76, false);
+            AddPhBotCheck(p, "Damage Increase", x1, 104, false);
+            AddPhBotCheck(p, "Damage Absorption", x1, 132, false);
+            AddPhBotCheck(p, "HP Increase", x1, 160, false);
+            AddPhBotCheck(p, "MP Increase", x1, 188, false);
+            AddPhBotCheck(p, "Subscription Card", x1, 216, false);
+            AddPhBotCheck(p, "Skill Point", x1, 244, false);
+            AddPhBotCheck(p, "Evasion", x1, 272, false);
 
-            var c3 = AddPhBotCheck(p, "Use a reverse return scroll after returning to town", 10, 58, ProtectionManager.UseReverseAfterTown);
-            c3.CheckedChanged += (s, e) => ProtectionManager.UseReverseAfterTown = c3.Checked;
-
-            var c4 = AddPhBotCheck(p, "Use movement speed drugs", 10, 82, ProtectionManager.UseSpeedDrugs || ReturnToAreaPolicy.UseSpeedDrug);
-            c4.CheckedChanged += (s, e) => {
-                ProtectionManager.UseSpeedDrugs = c4.Checked;
-                ReturnToAreaPolicy.UseSpeedDrug = c4.Checked;
+            int x2 = 230;
+            AddPhBotCheck(p, "EXP Increase", x2, 20, false);
+            AddPhBotCheck(p, "SP EXP Increase", x2, 48, false);
+            var cSpd = AddPhBotCheck(p, "Speed", x2, 76, ProtectionManager.UseSpeedDrugs || ReturnToAreaPolicy.UseSpeedDrug);
+            cSpd.CheckedChanged += (s, e) => {
+                ProtectionManager.UseSpeedDrugs = cSpd.Checked;
+                ReturnToAreaPolicy.UseSpeedDrug = cSpd.Checked;
             };
+            AddPhBotCheck(p, "Trigger", x2, 104, false);
+            AddPhBotCheck(p, "EXP Tickets", x2, 132, false);
+            AddPhBotCheck(p, "SP EXP Tickets", x2, 160, false);
 
-            var c5 = AddPhBotCheck(p, "Only use speed drugs in the script", 10, 106, ProtectionManager.SpeedDrugsOnlyInScript);
-            c5.CheckedChanged += (s, e) => ProtectionManager.SpeedDrugsOnlyInScript = c5.Checked;
-
-            var c6 = AddPhBotCheck(p, "Use a repair hammer instead of returning", 10, 130, ProtectionManager.UseRepairHammer);
-            c6.CheckedChanged += (s, e) => ProtectionManager.UseRepairHammer = c6.Checked;
+            var btnEn = new Button { Text = "Enable", Font = PhBotFont(), Location = new Point(440, 18), Size = new Size(76, 26) };
+            var btnDis = new Button { Text = "Disable", Font = PhBotFont(), Location = new Point(522, 18), Size = new Size(76, 26) };
+            var cbBotOnly = AddPhBotCheck(p, "Only use while botting", 440, 54, false);
+            p.Controls.Add(btnEn);
+            p.Controls.Add(btnDis);
         }
 
         private void BuildProtectionStats(Panel p)
@@ -534,32 +664,63 @@ namespace xBot.App
             {
                 p.Controls.Clear();
                 p.BackColor = Color.White;
-                GroupBox gbx = Character_gbxStatPoints;
-                if (gbx != null)
-                {
-                    if (gbx.Parent != null && gbx.Parent != p)
-                        gbx.Parent.Controls.Remove(gbx);
-                    gbx.Font = PhBotFont();
-                    gbx.ForeColor = Color.Black;
-                    gbx.BackColor = Color.White;
-                    gbx.Location = new Point(14, 14);
-                    gbx.Size = new Size(380, 240);
-                    gbx.Text = "Stat Points";
-                    p.Controls.Add(gbx);
+                p.AutoScroll = false;
 
-                    if (Character_lblSTR != null) { Character_lblSTR.Text = "Str"; Character_lblSTR.Location = new Point(16, 28); }
-                    if (Character_btnAddSTR != null) { Character_btnAddSTR.Text = "+"; Character_btnAddSTR.SetBounds(55, 24, 28, 24); }
-                    if (Character_lblAddSTR != null) { Character_lblAddSTR.SetBounds(95, 24, 50, 24); }
-                    if (Character_lblINT != null) { Character_lblINT.Text = "Int"; Character_lblINT.Location = new Point(16, 60); }
-                    if (Character_btnAddINT != null) { Character_btnAddINT.Text = "+"; Character_btnAddINT.SetBounds(55, 56, 28, 24); }
-                    if (Character_lblAddINT != null) { Character_lblAddINT.SetBounds(95, 56, 50, 24); }
-                    if (Character_lblStatPoints != null) { Character_lblStatPoints.Location = new Point(16, 96); Character_lblStatPoints.AutoSize = true; }
-                    if (Character_cbxAutoStat != null) { Character_cbxAutoStat.Text = "Automatically add stat points"; Character_cbxAutoStat.Location = new Point(16, 130); Character_cbxAutoStat.AutoSize = true; }
-                    if (Character_rbnAutoSTR != null) { Character_rbnAutoSTR.Text = "Pure STR"; Character_rbnAutoSTR.Location = new Point(20, 160); Character_rbnAutoSTR.AutoSize = true; }
-                    if (Character_rbnAutoINT != null) { Character_rbnAutoINT.Text = "Pure INT"; Character_rbnAutoINT.Location = new Point(120, 160); Character_rbnAutoINT.AutoSize = true; }
+                // 1. Str [+] [ 0 ]
+                var lStr = new Label { Text = "Str", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(25, 25) };
+                var btnAddStr = new Button { Text = "+", Font = PhBotFont(), Size = new Size(22, 22), Location = new Point(65, 22) };
+                var txtStr = new TextBox { Text = "0", Font = PhBotFont(), ReadOnly = true, BackColor = Color.White, ForeColor = Color.Black, Location = new Point(95, 22), Size = new Size(40, 22) };
+                btnAddStr.Click += (s, e) => {
+                    try { if (Character_btnAddSTR != null) Character_btnAddSTR.PerformClick(); } catch { }
+                };
+
+                // 2. Int [+] [ 0 ]
+                var lInt = new Label { Text = "Int", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(25, 55) };
+                var btnAddInt = new Button { Text = "+", Font = PhBotFont(), Size = new Size(22, 22), Location = new Point(65, 52) };
+                var txtInt = new TextBox { Text = "0", Font = PhBotFont(), ReadOnly = true, BackColor = Color.White, ForeColor = Color.Black, Location = new Point(95, 52), Size = new Size(40, 22) };
+                btnAddInt.Click += (s, e) => {
+                    try { if (Character_btnAddINT != null) Character_btnAddINT.PerformClick(); } catch { }
+                };
+
+                // 3. Stat points available: 0
+                string availCount = "0";
+                if (Character_lblStatPoints != null && !string.IsNullOrEmpty(Character_lblStatPoints.Text) && Character_lblStatPoints.Text != "- - -")
+                    availCount = Character_lblStatPoints.Text.Trim();
+                var lAvail = new Label { Text = "Stat points available: " + availCount, Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(25, 90) };
+                if (Character_lblStatPoints != null)
+                {
+                    Character_lblStatPoints.TextChanged += (s, e) => {
+                        string val = Character_lblStatPoints.Text != "- - -" ? Character_lblStatPoints.Text.Trim() : "0";
+                        lAvail.Text = "Stat points available: " + val;
+                    };
                 }
+
+                // 4. [ ] Automatically add stat points
+                bool autoStat = Character_cbxAutoStat != null && Character_cbxAutoStat.Checked;
+                var cbAuto = new CheckBox { Text = "Automatically add stat points", Checked = autoStat, Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(25, 125) };
+                cbAuto.CheckedChanged += (s, e) => {
+                    if (Character_cbxAutoStat != null) Character_cbxAutoStat.Checked = cbAuto.Checked;
+                };
+
+                // 5. Str [ 0 ]
+                var lStrN = new Label { Text = "Str", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(25, 160) };
+                var nStr = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, ForeColor = Color.Black, Location = new Point(95, 158), Size = new Size(45, 22), Maximum = 3, Value = StatPointManager.TargetSTR };
+                nStr.ValueChanged += (s, e) => {
+                    StatPointManager.TargetSTR = (int)nStr.Value;
+                    if (nudAutoStatSTR != null) try { nudAutoStatSTR.Value = nStr.Value; } catch { }
+                };
+
+                // 6. Int [ 0 ]
+                var lIntN = new Label { Text = "Int", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(25, 192) };
+                var nInt = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, ForeColor = Color.Black, Location = new Point(95, 190), Size = new Size(45, 22), Maximum = 3, Value = StatPointManager.TargetINT };
+                nInt.ValueChanged += (s, e) => {
+                    StatPointManager.TargetINT = (int)nInt.Value;
+                    if (nudAutoStatINT != null) try { nudAutoStatINT.Value = nInt.Value; } catch { }
+                };
+
+                p.Controls.AddRange(new Control[] { lStr, btnAddStr, txtStr, lInt, btnAddInt, txtInt, lAvail, cbAuto, lStrN, nStr, lIntN, nInt });
             }
-            catch (Exception ex) { PhBotDebug("stats move: " + ex.Message); }
+            catch (Exception ex) { PhBotDebug("stats build: " + ex.Message); }
         }
 
         // ---------------------------------------------------------------
@@ -586,100 +747,225 @@ namespace xBot.App
 
                 EnsureExtraHTab(host, TabPageH_Training_Option03, pre, "Conditions");
                 EnsureExtraHTab(host, TabPageH_Training_Option03, pre, "Collision");
-                EnsureExtraHTab(host, TabPageH_Training_Option03, pre, "Settings");
+                EnsureExtraHTab(host, TabPageH_Training_Option03, pre, "Options");
 
                 var order = new List<string>();
                 order.Add("TabPageH_Training_Option01");
-                order.Add("TabPageH_Training_Option02");
-                order.Add("TabPageH_Training_Option03");
-                try
-                {
-                    if (btnTrainingCombat != null) order.Add(btnTrainingCombat.Name);
-                }
-                catch { }
                 order.Add(pre + "Conditions");
                 order.Add(pre + "Collision");
-                order.Add(pre + "Settings");
+                order.Add(pre + "Options");
+                order.Add("TabPageH_Training_Option02");
                 Control strip = TabPageH_Training_Option03.Parent;
                 LayoutHStrip(strip, order.ToArray());
 
                 BuildTrainingConditions(GetExtraHTabPanel(host, pre, "Conditions"));
                 BuildTrainingCollision(GetExtraHTabPanel(host, pre, "Collision"));
-                BuildTrainingSettings(GetExtraHTabPanel(host, pre, "Settings"));
+                BuildTrainingSettings(GetExtraHTabPanel(host, pre, "Options"));
             }
             catch (Exception ex) { PhBotDebug("training tabs: " + ex.Message); }
+        }
+
+        private void EnsurePhBotPartyExtraTabs()
+        {
+            try
+            {
+                if (TabPageV_Control01_Party_Panel == null) return;
+                Panel host = TabPageV_Control01_Party_Panel;
+                if (TabPageH_Party_Option04 == null) return;
+                const string pre = "TabPageH_Party_Option";
+
+                EnsureExtraHTab(host, TabPageH_Party_Option04, pre, "Taxi Options");
+
+                LayoutHStrip(TabPageH_Party_Option04.Parent, new string[]
+                {
+                    "TabPageH_Party_Option01", "TabPageH_Party_Option02",
+                    "TabPageH_Party_Option03", "TabPageH_Party_Option04",
+                    pre + "TaxiOptions"
+                });
+            }
+            catch (Exception ex) { PhBotDebug("party tabs: " + ex.Message); }
         }
 
         private void BuildTrainingConditions(Panel p)
         {
             if (p == null || p.Controls.Count > 0) return;
-            var lv = NewPhBotListView(10, 10, 420, 220, "Level|80", "Switch to|320");
+            p.AutoScroll = false;
+            p.BackColor = Color.White;
+
+            var btnClear = new Button();
+            btnClear.Text = "Clear";
+            btnClear.Font = PhBotFont();
+            btnClear.Location = new Point(14, 14);
+            btnClear.Size = new Size(80, 26);
+            Classicize(btnClear);
+            p.Controls.Add(btnClear);
+
+            var lv = NewPhBotListView(105, 14, Math.Max(400, p.ClientSize.Width - 120), Math.Max(200, p.ClientSize.Height - 28), "Condition|220", "Change To|220");
+            lv.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
+            lv.ContextMenuStrip = new ContextMenuStrip();
+
+            var addMenu = new ToolStripMenuItem("Add");
+            var itemLevel = new ToolStripMenuItem("Level");
+            var itemTime = new ToolStripMenuItem("Time");
+            var itemNotAttacked = new ToolStripMenuItem("Not Attacked");
+            var itemScriptFinished = new ToolStripMenuItem("Script Finished");
+            addMenu.DropDownItems.AddRange(new ToolStripItem[] { itemLevel, itemTime, itemNotAttacked, itemScriptFinished });
+
+            var removeMenu = new ToolStripMenuItem("Remove");
+            removeMenu.Click += (s, e) => {
+                if (lv.SelectedItems.Count > 0)
+                {
+                    foreach (ListViewItem it in lv.SelectedItems)
+                        lv.Items.Remove(it);
+                }
+            };
+
+            EventHandler onAddCondition = (s, e) => {
+                string condType = (s as ToolStripItem)?.Text ?? "Level";
+                Form dlg = new Form();
+                dlg.Text = "Condition";
+                dlg.FormBorderStyle = FormBorderStyle.FixedDialog;
+                dlg.MaximizeBox = false;
+                dlg.MinimizeBox = false;
+                dlg.StartPosition = FormStartPosition.CenterParent;
+                dlg.ClientSize = new Size(250, 110);
+                dlg.BackColor = SystemColors.Control;
+                dlg.Font = PhBotFont();
+
+                Label lbl = new Label();
+                lbl.Text = "Select the condition type:";
+                lbl.Location = new Point(12, 12);
+                lbl.AutoSize = true;
+                dlg.Controls.Add(lbl);
+
+                ComboBox cb = new ComboBox();
+                cb.DropDownStyle = ComboBoxStyle.DropDownList;
+                cb.Items.AddRange(new object[] { "Level", "Time", "Not Attacked", "Script Finished" });
+                cb.SelectedItem = condType;
+                cb.Location = new Point(14, 34);
+                cb.Size = new Size(220, 22);
+                dlg.Controls.Add(cb);
+
+                Button btnOk = new Button();
+                btnOk.Text = "OK";
+                btnOk.Location = new Point(70, 70);
+                btnOk.Size = new Size(75, 24);
+                btnOk.DialogResult = DialogResult.OK;
+                dlg.Controls.Add(btnOk);
+
+                Button btnCancel = new Button();
+                btnCancel.Text = "Cancel";
+                btnCancel.Location = new Point(155, 70);
+                btnCancel.Size = new Size(75, 24);
+                btnCancel.DialogResult = DialogResult.Cancel;
+                dlg.Controls.Add(btnCancel);
+                dlg.AcceptButton = btnOk;
+                dlg.CancelButton = btnCancel;
+
+                if (dlg.ShowDialog(p) == DialogResult.OK)
+                {
+                    string selected = cb.SelectedItem?.ToString() ?? "Level";
+                    ListViewItem lvi = new ListViewItem(selected);
+                    lvi.SubItems.Add("");
+                    lv.Items.Add(lvi);
+                }
+            };
+
+            itemLevel.Click += onAddCondition;
+            itemTime.Click += onAddCondition;
+            itemNotAttacked.Click += onAddCondition;
+            itemScriptFinished.Click += onAddCondition;
+
+            lv.ContextMenuStrip.Items.Add(addMenu);
+            lv.ContextMenuStrip.Items.Add(removeMenu);
+
+            btnClear.Click += (s, e) => {
+                lv.Items.Clear();
+            };
+
             p.Controls.Add(lv);
-            AddPhBotCheck(p, "Change training area on level up", 10, 240, false);
-            NewPhBotNote(p, "Sağ tık -> Add ile seviye koşulu eklenir (TODO backend).", 10, 268);
         }
 
         private void BuildTrainingCollision(Panel p)
         {
             if (p == null || p.Controls.Count > 0) return;
-            // phbot/training-area.md -> Collision 1..7
-            AddPhBotCheck(p, "Enable collision detection in the training area", 10, 10, false);
-            AddPhBotCheck(p, "Navigate around obstacles", 10, 34, false);
-            AddPhBotCheck(p, "Navigate to item drops (NavMesh)", 10, 58, false);
-            AddPhBotCheck(p, "Disable Samarkand teleport", 10, 82, false);
-            AddPhBotCheck(p, "Disable Alexandria teleport", 10, 106, false);
-            AddPhBotCheck(p, "Disable Guide/Advice NPCs", 10, 130, false);
-            AddPhBotCheck(p, "Ignore teleport level", 10, 154, false);
-            NewPhBotNote(p, "NavMesh verisi yoksa collision seçenekleri etkisizdir (TODO backend).", 10, 182);
+            p.AutoScroll = false;
+            p.BackColor = Color.White;
+
+            // phbot/training-area.md -> Collision 1..7 (phbot_training-area_06.png)
+            AddPhBotCheck(p, "Enable collision detection in the training area", 15, 12, false);
+            AddPhBotCheck(p, "Navigate around obstacles", 15, 36, false);
+            AddPhBotCheck(p, "Navigate to item drops", 15, 60, false);
+            AddPhBotCheck(p, "Disable Samarkand", 35, 84, false);
+            AddPhBotCheck(p, "Disable Alexandria", 35, 108, false);
+            AddPhBotCheck(p, "Disable Guide/Advice NPCs", 35, 132, false);
+            AddPhBotCheck(p, "Ignore teleport level", 35, 156, false);
         }
 
         private void BuildTrainingSettings(Panel p)
         {
             if (p == null || p.Controls.Count > 0) return;
-            // phbot/training-area.md -> Settings 1..15 + Script 1..11
-            var c1 = AddPhBotCheck(p, "Don't walk around in the training area", 10, 10, ReturnToAreaPolicy.DontWalkAroundTrainingArea);
+            p.AutoScroll = false;
+            p.BackColor = Color.White;
+
+            // phbot/training-area.md -> Options 1..15 (phbot_training-area_09.png)
+            int y = 10;
+            const int step = 19;
+
+            var c1 = AddPhBotCheck(p, "Don't walk around", 15, y, ReturnToAreaPolicy.DontWalkAroundTrainingArea);
             c1.CheckedChanged += (s, e) => ReturnToAreaPolicy.DontWalkAroundTrainingArea = c1.Checked;
+            y += step;
 
-            AddPhBotCheck(p, "Use Treasure Boxes (Jangan cave)", 10, 34, false);
-            AddPhBotCheck(p, "Use Easter Egg event NPCs", 10, 58, false);
-            AddPhBotCheck(p, "Equip better items (low level only!)", 10, 82, false);
-            AddPhBotCheck(p, "Summon flowers in the training area", 10, 106, false);
+            AddPhBotCheck(p, "Use Treasure Boxes", 15, y, false);
+            y += step;
 
-            var cHammer = AddPhBotCheck(p, "Use a repair hammer", 10, 130, ProtectionManager.UseRepairHammer);
+            AddPhBotCheck(p, "Use Easter Egg event NPCs", 15, y, false);
+            y += step;
+
+            AddPhBotCheck(p, "Equip better items", 15, y, false);
+            y += step;
+
+            AddPhBotCheck(p, "Summon flowers in the training area", 15, y, false);
+            y += step;
+
+            var cHammer = AddPhBotCheck(p, "Use a repair hammer", 15, y, ProtectionManager.UseRepairHammer);
             cHammer.CheckedChanged += (s, e) => ProtectionManager.UseRepairHammer = cHammer.Checked;
+            y += step;
 
-            var cZerkPot = AddPhBotCheck(p, "Use berserker regeneration potions", 10, 154, CombatAIEngine.UseZerkPotion);
+            var cZerkPot = AddPhBotCheck(p, "Use berserker regeneration potions", 15, y, CombatAIEngine.UseZerkPotion);
             cZerkPot.CheckedChanged += (s, e) => CombatAIEngine.UseZerkPotion = cZerkPot.Checked;
+            y += step;
 
-            var cEol = AddPhBotCheck(p, "Use Energy of Life potions", 10, 178, CombatAIEngine.UseEnergyOfLife);
+            var cEol = AddPhBotCheck(p, "Use Energy of Life potions", 15, y, CombatAIEngine.UseEnergyOfLife);
             cEol.CheckedChanged += (s, e) => CombatAIEngine.UseEnergyOfLife = cEol.Checked;
+            y += step;
 
-            AddPhBotCheck(p, "Use monster summon scrolls & Pandora's Box", 10, 202, false);
-            AddPhBotCheck(p, "Wait for strong monsters before next summon", 10, 226, false);
+            AddPhBotCheck(p, "Use Energy of Life berserk regeneration", 15, y, false);
+            y += step;
 
-            var cSkipTown = AddPhBotCheck(p, "Skip town script entirely", 10, 250, ReturnToAreaPolicy.SkipTownScript);
-            cSkipTown.CheckedChanged += (s, e) => ReturnToAreaPolicy.SkipTownScript = cSkipTown.Checked;
+            var cRevDeath = AddPhBotCheck(p, "Use a reverse return scroll when you die", 15, y, ProtectionManager.UseReverseOnDeath);
+            cRevDeath.CheckedChanged += (s, e) => ProtectionManager.UseReverseOnDeath = cRevDeath.Checked;
+            y += step;
 
-            var cContTown = AddPhBotCheck(p, "Continue town scripts after reconnect", 10, 274, ReturnToAreaPolicy.ContinueTownScript);
-            cContTown.CheckedChanged += (s, e) => ReturnToAreaPolicy.ContinueTownScript = cContTown.Checked;
+            var cRevTown = AddPhBotCheck(p, "Use a reverse return scroll after returning to town", 15, y, ProtectionManager.UseReverseAfterTown);
+            cRevTown.CheckedChanged += (s, e) => ProtectionManager.UseReverseAfterTown = cRevTown.Checked;
+            y += step;
 
-            var cRetStuck = AddPhBotCheck(p, "Return when can't continue script", 10, 298, ReturnToAreaPolicy.ReturnIfScriptStuck);
-            cRetStuck.CheckedChanged += (s, e) => ReturnToAreaPolicy.ReturnIfScriptStuck = cRetStuck.Checked;
+            AddPhBotCheck(p, "Use monster summon scrolls & Pandora's Box in the training area", 15, y, false);
+            y += step;
 
-            var cAvoidStatue = AddPhBotCheck(p, "Avoid Statue of Justice in the script", 10, 322, ReturnToAreaPolicy.AvoidStatueOfJustice);
-            cAvoidStatue.CheckedChanged += (s, e) => ReturnToAreaPolicy.AvoidStatueOfJustice = cAvoidStatue.Checked;
+            AddPhBotCheck(p, "Wait for all strong monsters to be killed before summoning", 35, y, false);
+            y += step;
 
-            var nWalkDelay = AddPhBotLabeledNumber(p, "Script walk delay (ms)", 10, 350, ReturnToAreaPolicy.ScriptWalkDelay);
-            nWalkDelay.Maximum = 10000;
-            nWalkDelay.ValueChanged += (s, e) => ReturnToAreaPolicy.ScriptWalkDelay = (int)nWalkDelay.Value;
+            var cSpeed = AddPhBotCheck(p, "Use speed drugs", 15, y, ProtectionManager.UseSpeedDrugs || ReturnToAreaPolicy.UseSpeedDrug);
+            cSpeed.CheckedChanged += (s, e) => {
+                ProtectionManager.UseSpeedDrugs = cSpeed.Checked;
+                ReturnToAreaPolicy.UseSpeedDrug = cSpeed.Checked;
+            };
+            y += step;
 
-            var nGoBack = AddPhBotLabeledNumber(p, "Go back if stuck after (s)", 10, 378, ReturnToAreaPolicy.StuckGoBackSeconds);
-            nGoBack.Maximum = 600;
-            nGoBack.ValueChanged += (s, e) => ReturnToAreaPolicy.StuckGoBackSeconds = (int)nGoBack.Value;
-
-            var nReturnStuck = AddPhBotLabeledNumber(p, "Return if stuck in script after (s)", 10, 406, ReturnToAreaPolicy.StuckReturnSeconds);
-            nReturnStuck.Maximum = 600;
-            nReturnStuck.ValueChanged += (s, e) => ReturnToAreaPolicy.StuckReturnSeconds = (int)nReturnStuck.Value;
+            var cSpeedScript = AddPhBotCheck(p, "Only use speed drugs in the script", 35, y, ProtectionManager.SpeedDrugsOnlyInScript);
+            cSpeedScript.CheckedChanged += (s, e) => ProtectionManager.SpeedDrugsOnlyInScript = cSpeedScript.Checked;
         }
 
         // ---------------------------------------------------------------
@@ -704,9 +990,8 @@ namespace xBot.App
         }
 
         // ---------------------------------------------------------------
-        // ADIM 5: Inventory alt-sekmeleri: Exchange | Job Tickets | Item | Gori.
-        // Mevcut: Inventory (eşya) | Avatar | Storage | Pet korunur; yalnızca
-        // yanlış "Exchange" etiketi düzeltilir (içerik avatar listesidir).
+        // ADIM 5: Inventory alt-sekmeleri:
+        // Inventory | Avatar | Job | Job Pouch | Pet | Transport | Storage | Guild | Exchange | Job Tickets | Item | Gori Item Exchange
         // ---------------------------------------------------------------
         private void EnsurePhBotInventoryExtraTabs()
         {
@@ -717,6 +1002,10 @@ namespace xBot.App
                 if (TabPageH_Inventory_Option04 == null) return;
                 const string pre = "TabPageH_Inventory_Option";
 
+                EnsureExtraHTab(host, TabPageH_Inventory_Option04, pre, "Job");
+                EnsureExtraHTab(host, TabPageH_Inventory_Option04, pre, "Job Pouch");
+                EnsureExtraHTab(host, TabPageH_Inventory_Option04, pre, "Transport");
+                EnsureExtraHTab(host, TabPageH_Inventory_Option04, pre, "Guild");
                 EnsureExtraHTab(host, TabPageH_Inventory_Option04, pre, "Exchange");
                 EnsureExtraHTab(host, TabPageH_Inventory_Option04, pre, "Job Tickets");
                 EnsureExtraHTab(host, TabPageH_Inventory_Option04, pre, "Item");
@@ -724,11 +1013,24 @@ namespace xBot.App
 
                 LayoutHStrip(TabPageH_Inventory_Option04.Parent, new string[]
                 {
-                    "TabPageH_Inventory_Option01", pre + "Exchange", "TabPageH_Inventory_Option02",
-                    "TabPageH_Inventory_Option03", "TabPageH_Inventory_Option04",
-                    pre + "JobTickets", pre + "Item", pre + "GoriItemExchange"
+                    "TabPageH_Inventory_Option01",
+                    "TabPageH_Inventory_Option02",
+                    pre + "Job",
+                    pre + "JobPouch",
+                    "TabPageH_Inventory_Option04",
+                    pre + "Transport",
+                    "TabPageH_Inventory_Option03",
+                    pre + "Guild",
+                    pre + "Exchange",
+                    pre + "JobTickets",
+                    pre + "Item",
+                    pre + "GoriItemExchange"
                 });
 
+                BuildInventoryGridTab(GetExtraHTabPanel(host, pre, "Job"), "Job");
+                BuildInventoryGridTab(GetExtraHTabPanel(host, pre, "Job Pouch"), "Job Pouch");
+                BuildInventoryGridTab(GetExtraHTabPanel(host, pre, "Transport"), "Transport");
+                BuildInventoryGridTab(GetExtraHTabPanel(host, pre, "Guild"), "Guild");
                 BuildInventoryExchange(GetExtraHTabPanel(host, pre, "Exchange"));
                 BuildInventoryJobTickets(GetExtraHTabPanel(host, pre, "Job Tickets"));
                 BuildInventoryItem(GetExtraHTabPanel(host, pre, "Item"));
@@ -737,73 +1039,242 @@ namespace xBot.App
             catch (Exception ex) { PhBotDebug("inventory tabs: " + ex.Message); }
         }
 
+        private void BuildInventoryGridTab(Panel p, string typeName)
+        {
+            if (p == null || p.Controls.Count > 0) return;
+            p.AutoScroll = false;
+            p.BackColor = Color.White;
+
+            var lv = NewPhBotListView(24, 6, Math.Max(300, p.ClientSize.Width - 110), Math.Max(150, p.ClientSize.Height - 45), "Slot|50", "Icon|50", "Item|250", "Quantity|75");
+            lv.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
+            p.Controls.Add(lv);
+
+            var btnRefresh = new Button();
+            btnRefresh.Text = "R\nE\nF\nR\nE\nS\nH";
+            btnRefresh.Font = new Font("Segoe UI", 8f, FontStyle.Regular);
+            btnRefresh.Size = new Size(30, Math.Max(150, p.ClientSize.Height - 45));
+            btnRefresh.Location = new Point(Math.Max(330, p.ClientSize.Width - 68), 6);
+            btnRefresh.Anchor = AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom;
+            Classicize(btnRefresh);
+            p.Controls.Add(btnRefresh);
+
+            var btnSort = new Button();
+            btnSort.Text = "S\nO\nR\nT";
+            btnSort.Font = new Font("Segoe UI", 8f, FontStyle.Regular);
+            btnSort.Size = new Size(30, Math.Max(150, p.ClientSize.Height - 45));
+            btnSort.Location = new Point(Math.Max(365, p.ClientSize.Width - 34), 6);
+            btnSort.Anchor = AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom;
+            Classicize(btnSort);
+            p.Controls.Add(btnSort);
+
+            var lblCount = new Label();
+            lblCount.Text = "Item count: 0/0";
+            lblCount.Font = PhBotFont();
+            lblCount.AutoSize = true;
+            lblCount.Location = new Point(24, Math.Max(160, p.ClientSize.Height - 30));
+            lblCount.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+            p.Controls.Add(lblCount);
+        }
+
         private void BuildInventoryExchange(Panel p)
         {
             if (p == null || p.Controls.Count > 0) return;
-            // phbot/inventory.md -> Exchange 1..13 (görsel klon)
-            var lvPlayers = NewPhBotListView(10, 10, 250, 180, "Players|170", "Level|70");
-            p.Controls.Add(lvPlayers);
-            var lvMine = NewPhBotListView(270, 10, 250, 180, "My items|170", "Qty|70");
-            p.Controls.Add(lvMine);
-            var lvTheir = NewPhBotListView(530, 10, 250, 180, "Their items|170", "Qty|70");
-            p.Controls.Add(lvTheir);
-            AddPhBotLabeledNumber(p, "Gold given", 10, 200, 0);
-            var btnReq = new Button();
-            btnReq.Text = "Exchange"; btnReq.Font = PhBotFont(); btnReq.Size = new Size(90, 26);
-            btnReq.Location = new Point(10, 230);
-            var btnConfirm = new Button();
-            btnConfirm.Text = "Confirm"; btnConfirm.Font = PhBotFont(); btnConfirm.Size = new Size(90, 26);
-            btnConfirm.Location = new Point(106, 230);
-            var btnApprove = new Button();
-            btnApprove.Text = "Approve"; btnApprove.Font = PhBotFont(); btnApprove.Size = new Size(90, 26);
-            btnApprove.Location = new Point(202, 230);
-            var btnCancel = new Button();
-            btnCancel.Text = "Cancel"; btnCancel.Font = PhBotFont(); btnCancel.Size = new Size(90, 26);
-            btnCancel.Location = new Point(298, 230);
-            p.Controls.Add(btnReq); p.Controls.Add(btnConfirm); p.Controls.Add(btnApprove); p.Controls.Add(btnCancel);
-            NewPhBotNote(p, "TODO backend: oyuncu takas paketlerine bağlanacak.", 10, 264);
+            p.AutoScroll = false;
+            p.BackColor = Color.White;
+
+            // phbot_inventory_04.png birebir
+            AddPhBotCheck(p, "Show requests", 12, 8, true);
+
+            var lblP = new Label { Text = "Players", Font = PhBotFont(), Location = new Point(12, 32), AutoSize = true };
+            p.Controls.Add(lblP);
+            var lvP = NewPhBotListView(12, 50, 115, 170, "Name|110");
+            p.Controls.Add(lvP);
+            var btnRefP = new Button { Text = "Refresh", Font = PhBotFont(), Location = new Point(12, 226), Size = new Size(58, 24) };
+            Classicize(btnRefP);
+            p.Controls.Add(btnRefP);
+            var btnEx = new Button { Text = "Exchange", Font = PhBotFont(), Location = new Point(72, 226), Size = new Size(68, 24) };
+            Classicize(btnEx);
+            p.Controls.Add(btnEx);
+
+            var lblInv = new Label { Text = "Inventory", Font = PhBotFont(), Location = new Point(135, 32), AutoSize = true };
+            p.Controls.Add(lblInv);
+            var lvInv = NewPhBotListView(135, 50, 140, 170, "Item|135");
+            p.Controls.Add(lvInv);
+            var btnRefInv = new Button { Text = "Refresh", Font = PhBotFont(), Location = new Point(135, 226), Size = new Size(140, 24) };
+            Classicize(btnRefInv);
+            p.Controls.Add(btnRefInv);
+
+            var btnTo = new Button { Text = "►", Font = PhBotFont(), Location = new Point(282, 95), Size = new Size(28, 26) };
+            Classicize(btnTo);
+            p.Controls.Add(btnTo);
+            var btnFrom = new Button { Text = "◄", Font = PhBotFont(), Location = new Point(282, 130), Size = new Size(28, 26) };
+            Classicize(btnFrom);
+            p.Controls.Add(btnFrom);
+
+            var lblMy = new Label { Text = "My Items", Font = PhBotFont(), Location = new Point(318, 32), AutoSize = true };
+            p.Controls.Add(lblMy);
+            var lvMy = NewPhBotListView(318, 50, 140, 140, "Item|135");
+            p.Controls.Add(lvMy);
+            var txtGoldMy = new TextBox { Text = "0", Font = PhBotFont(), Location = new Point(318, 196), Size = new Size(122, 22), TextAlign = HorizontalAlignment.Right };
+            p.Controls.Add(txtGoldMy);
+            var lblG = new Label { Text = "G", Font = PhBotFont(), Location = new Point(442, 198), AutoSize = true };
+            p.Controls.Add(lblG);
+
+            var lblOther = new Label { Text = "Other Players Items", Font = PhBotFont(), Location = new Point(468, 32), AutoSize = true };
+            p.Controls.Add(lblOther);
+            var lvOther = NewPhBotListView(468, 50, 140, 140, "Item|135");
+            p.Controls.Add(lvOther);
+            var txtGoldOther = new TextBox { Text = "0", Font = PhBotFont(), Location = new Point(468, 196), Size = new Size(140, 22), TextAlign = HorizontalAlignment.Right };
+            p.Controls.Add(txtGoldOther);
+
+            var btnConfirm = new Button { Text = "Confirm", Font = PhBotFont(), Location = new Point(318, 226), Size = new Size(68, 24) };
+            Classicize(btnConfirm);
+            p.Controls.Add(btnConfirm);
+            var btnApprove = new Button { Text = "Approve", Font = PhBotFont(), Location = new Point(390, 226), Size = new Size(68, 24) };
+            Classicize(btnApprove);
+            p.Controls.Add(btnApprove);
+            var btnCancel = new Button { Text = "Cancel", Font = PhBotFont(), Location = new Point(468, 226), Size = new Size(68, 24) };
+            Classicize(btnCancel);
+            p.Controls.Add(btnCancel);
         }
 
         private void BuildInventoryJobTickets(Panel p)
         {
             if (p == null || p.Controls.Count > 0) return;
-            AddPhBotCheck(p, "Exchange job tickets automatically", 10, 10, false);
-            AddPhBotCheck(p, "Drop unwanted job rewards", 10, 34, false);
-            var lv = NewPhBotListView(10, 62, 460, 180, "Ticket|300", "Count|100");
-            p.Controls.Add(lv);
-            NewPhBotNote(p, "TODO backend: Job ticket exchange motoru yok.", 10, 252);
+            p.AutoScroll = false;
+            p.BackColor = Color.White;
+
+            // phbot_inventory_01.png birebir
+            var gb = new GroupBox { Text = "Drop", Font = PhBotFont(), Location = new Point(14, 14), Size = new Size(270, 185) };
+            AddPhBotCheck(gb, "Lowest quality", 20, 24, false);
+            AddPhBotCheck(gb, "Low quality", 20, 56, false);
+            AddPhBotCheck(gb, "Medium quality", 20, 88, false);
+            AddPhBotCheck(gb, "High quality", 20, 120, false);
+            AddPhBotCheck(gb, "Highest quality", 20, 152, false);
+            p.Controls.Add(gb);
+
+            var btnEx = new Button { Text = "Exchange", Font = PhBotFont(), Location = new Point(14, 210), Size = new Size(80, 26) };
+            Classicize(btnEx);
+            p.Controls.Add(btnEx);
+
+            var btnCancel = new Button { Text = "Cancel", Font = PhBotFont(), Location = new Point(100, 210), Size = new Size(80, 26), Enabled = false };
+            Classicize(btnCancel);
+            p.Controls.Add(btnCancel);
         }
 
         private void BuildInventoryItem(Panel p)
         {
             if (p == null || p.Controls.Count > 0) return;
-            AddPhBotCheck(p, "Inflate balloons during the Balloon event", 10, 10, false);
-            AddPhBotCheck(p, "Awakening Enhancement: Devil/Angel Spirit", 10, 34, false);
-            var btnStart = new Button();
-            btnStart.Text = "Start"; btnStart.Font = PhBotFont(); btnStart.Size = new Size(90, 26);
-            btnStart.Location = new Point(10, 62);
-            var btnStop = new Button();
-            btnStop.Text = "Stop"; btnStop.Font = PhBotFont(); btnStop.Size = new Size(90, 26);
-            btnStop.Location = new Point(106, 62);
-            p.Controls.Add(btnStart); p.Controls.Add(btnStop);
-            NewPhBotNote(p, "TODO backend: event otomasyonu yok.", 10, 98);
+            p.AutoScroll = false;
+            p.BackColor = Color.White;
+
+            // phbot_inventory_02.png birebir
+            var gbInf = new GroupBox { Text = "Inflation Level", Font = PhBotFont(), Location = new Point(14, 14), Size = new Size(200, 75) };
+            var cbInf = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Font = PhBotFont(), Location = new Point(16, 28), Size = new Size(168, 22) };
+            cbInf.Items.AddRange(new object[] { "1", "2", "3", "4", "5" });
+            cbInf.SelectedIndex = 0;
+            gbInf.Controls.Add(cbInf);
+            p.Controls.Add(gbInf);
+
+            var btnInfStart = new Button { Text = "Start", Font = PhBotFont(), Location = new Point(14, 98), Size = new Size(80, 26) };
+            Classicize(btnInfStart);
+            p.Controls.Add(btnInfStart);
+
+            var btnInfStop = new Button { Text = "Stop", Font = PhBotFont(), Location = new Point(100, 98), Size = new Size(80, 26), Enabled = false };
+            Classicize(btnInfStop);
+            p.Controls.Add(btnInfStop);
+
+            var gbAwk = new GroupBox { Text = "Awakening Enhancement", Font = PhBotFont(), Location = new Point(230, 14), Size = new Size(200, 75) };
+            var cbAwk = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Font = PhBotFont(), Location = new Point(16, 28), Size = new Size(168, 22) };
+            cbAwk.Items.AddRange(new object[] { "1", "2", "3", "4", "5" });
+            cbAwk.SelectedIndex = 0;
+            gbAwk.Controls.Add(cbAwk);
+            p.Controls.Add(gbAwk);
+
+            var btnAwkStart = new Button { Text = "Start", Font = PhBotFont(), Location = new Point(230, 98), Size = new Size(80, 26) };
+            Classicize(btnAwkStart);
+            p.Controls.Add(btnAwkStart);
+
+            var btnAwkStop = new Button { Text = "Stop", Font = PhBotFont(), Location = new Point(316, 98), Size = new Size(80, 26), Enabled = false };
+            Classicize(btnAwkStop);
+            p.Controls.Add(btnAwkStop);
         }
 
         private void BuildInventoryGori(Panel p)
         {
             if (p == null || p.Controls.Count > 0) return;
-            AddPhBotCheck(p, "Enable Gori item exchange (Magic POP)", 10, 10, false);
-            var lbl = new Label();
-            lbl.Text = "Stop at white stat:"; lbl.Font = PhBotFont(); lbl.AutoSize = true;
-            lbl.Location = new Point(10, 40);
-            p.Controls.Add(lbl);
-            var tbx = new TextBox();
-            tbx.Font = PhBotFont(); tbx.BackColor = Color.White;
-            tbx.Location = new Point(130, 37); tbx.Size = new Size(220, 22);
-            p.Controls.Add(tbx);
-            var lv = NewPhBotListView(10, 68, 460, 180, "Item|300", "Result|150");
-            p.Controls.Add(lv);
-            NewPhBotNote(p, "TODO backend: Gori exchange motoru yok.", 10, 258);
+            p.AutoScroll = false;
+            p.BackColor = Color.White;
+
+            // phbot_inventory_03.png birebir
+            var lblItem = new Label { Text = "Item", Font = PhBotFont(), Location = new Point(14, 14), AutoSize = true };
+            p.Controls.Add(lblItem);
+            var cbItem = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Font = PhBotFont(), Location = new Point(80, 11), Size = new Size(200, 22) };
+            p.Controls.Add(cbItem);
+            var btnR = new Button { Text = "R", Font = PhBotFont(), Location = new Point(285, 11), Size = new Size(28, 22) };
+            Classicize(btnR);
+            p.Controls.Add(btnR);
+
+            var lblEx = new Label { Text = "Exchange", Font = PhBotFont(), Location = new Point(330, 14), AutoSize = true };
+            p.Controls.Add(lblEx);
+            var cbEx = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Font = PhBotFont(), Location = new Point(395, 11), Size = new Size(200, 22) };
+            p.Controls.Add(cbEx);
+
+            string[] leftStats = new string[] {
+                "Physical Attack/Defense Power",
+                "Magical Attack/Defense Power",
+                "Durability",
+                "Attack Rate",
+                "Critical",
+                "Physical Reinforce",
+                "Magical Reinforce"
+            };
+
+            int y = 46;
+            foreach (var stat in leftStats)
+            {
+                var lblStat = new Label { Text = stat, Font = PhBotFont(), Location = new Point(14, y + 2), AutoSize = true };
+                p.Controls.Add(lblStat);
+                var nud = new NumericUpDown { Font = PhBotFont(), Location = new Point(215, y), Size = new Size(60, 22), Maximum = 100, Value = 0, TextAlign = HorizontalAlignment.Center };
+                p.Controls.Add(nud);
+                var lblPct = new Label { Text = "%", Font = PhBotFont(), Location = new Point(280, y + 2), AutoSize = true };
+                p.Controls.Add(lblPct);
+                y += 30;
+            }
+
+            // Right column stats
+            var lblPlus = new Label { Text = "Plus", Font = PhBotFont(), Location = new Point(330, 48), AutoSize = true };
+            p.Controls.Add(lblPlus);
+            var nudPlus = new NumericUpDown { Font = PhBotFont(), Location = new Point(450, 46), Size = new Size(60, 22), Maximum = 50, Value = 0, TextAlign = HorizontalAlignment.Center };
+            p.Controls.Add(nudPlus);
+
+            var lblParry = new Label { Text = "Parry Ratio", Font = PhBotFont(), Location = new Point(330, 78), AutoSize = true };
+            p.Controls.Add(lblParry);
+            var nudParry = new NumericUpDown { Font = PhBotFont(), Location = new Point(450, 76), Size = new Size(60, 22), Maximum = 100, Value = 0, TextAlign = HorizontalAlignment.Center };
+            p.Controls.Add(nudParry);
+            var lblParryPct = new Label { Text = "%", Font = PhBotFont(), Location = new Point(515, 78), AutoSize = true };
+            p.Controls.Add(lblParryPct);
+
+            AddPhBotCheck(p, "Stop when gold drops below", 330, 108, false);
+            var nudGold = new NumericUpDown { Font = PhBotFont(), Location = new Point(510, 106), Size = new Size(120, 22), Maximum = 100000000000M, Value = 0 };
+            p.Controls.Add(nudGold);
+
+            AddPhBotCheck(p, "Stop when any item reaches a set stat", 330, 138, false);
+
+            var btnStart = new Button { Text = "Start", Font = PhBotFont(), Location = new Point(14, 262), Size = new Size(80, 26) };
+            Classicize(btnStart);
+            p.Controls.Add(btnStart);
+
+            var btnStop = new Button { Text = "Stop", Font = PhBotFont(), Location = new Point(100, 262), Size = new Size(80, 26), Enabled = false };
+            Classicize(btnStop);
+            p.Controls.Add(btnStop);
+
+            var btnClear = new Button { Text = "Clear", Font = PhBotFont(), Location = new Point(186, 262), Size = new Size(80, 26) };
+            Classicize(btnClear);
+            p.Controls.Add(btnClear);
+
+            var lblHint = new Label { Text = "* Setting the value to 0 will ignore the stat", Font = PhBotFont(), Location = new Point(330, 266), AutoSize = true, ForeColor = Color.FromArgb(60, 60, 60) };
+            p.Controls.Add(lblHint);
         }
     }
 }

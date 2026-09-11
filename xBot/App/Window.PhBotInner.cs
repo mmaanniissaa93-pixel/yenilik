@@ -287,18 +287,18 @@ namespace xBot.App
                     catch { }
                 }
 
-                // Transfer ><
+                // Transfer ►◄
                 try
                 {
                     if (Skills_btnAddAttack != null)
                     {
-                        Skills_btnAddAttack.Text = ">";
+                        Skills_btnAddAttack.Text = "►";
                         Classicize(Skills_btnAddAttack);
                         Place(Skills_btnAddAttack, tx, 90, tw, th);
                     }
                     if (Skills_btnRemAttack != null)
                     {
-                        Skills_btnRemAttack.Text = "<";
+                        Skills_btnRemAttack.Text = "◄";
                         Classicize(Skills_btnRemAttack);
                         Place(Skills_btnRemAttack, tx, 125, tw, th);
                     }
@@ -432,6 +432,7 @@ namespace xBot.App
                 int W = p.Width, H = p.Height;
                 if (W < 200 || H < 100) return;
 
+                p.AutoScroll = false;
                 const int tx = 12, tw = 32, th = 26;
                 const int lx = 50, lw = 175;
                 const int ux = 232, uw = 32;
@@ -467,13 +468,13 @@ namespace xBot.App
                 {
                     if (Skills_btnAddBuff != null)
                     {
-                        Skills_btnAddBuff.Text = ">";
+                        Skills_btnAddBuff.Text = "►";
                         Classicize(Skills_btnAddBuff);
                         Place(Skills_btnAddBuff, tx, 90, tw, th);
                     }
                     if (Skills_btnRemBuff != null)
                     {
-                        Skills_btnRemBuff.Text = "<";
+                        Skills_btnRemBuff.Text = "◄";
                         Classicize(Skills_btnRemBuff);
                         Place(Skills_btnRemBuff, tx, 125, tw, th);
                     }
@@ -514,11 +515,16 @@ namespace xBot.App
                 PhBotTodoNumber(p, "PhBot_MobAttackingN", ox + 160, y - 2, 50, "0"); y += 24;
                 PhBotLabel(p, "PhBot_BadStatusL", "Bad status", ox, y + 3); y += 20;
                 ComboBox bad = EnsureBadStatusCombo(p, ox, y, 260); y += 28;
-                PhBotTodoCheck(p, "PhBot_RecastAll", "Recast all buffs when one buff ends if it requires a weapon switch", ox, y, false);
+                PhBotTodoCheck(p, "PhBot_RecastAll", "Recast all buffs when one buff ends if it\nrequires a weapon switch", ox, y, false);
                 try
                 {
                     CheckBox rc = p.Controls["PhBot_RecastAll"] as CheckBox;
-                    if (rc != null) { rc.MaximumSize = new Size(360, 0); }
+                    if (rc != null)
+                    {
+                        rc.Text = "Recast all buffs when one buff ends if it\nrequires a weapon switch";
+                        rc.AutoSize = false;
+                        rc.Size = new Size(250, 36);
+                    }
                 }
                 catch { }
             }

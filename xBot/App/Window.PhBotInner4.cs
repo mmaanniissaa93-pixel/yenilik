@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
+using xBot.Game;
 
 namespace xBot.App
 {
@@ -184,7 +185,6 @@ namespace xBot.App
                 if (host == null || host.Controls["PhBot_SoundTabs"] != null) return;
                 host.Controls.Clear();
                 try { host.AutoScroll = false; } catch { }
-                int W = Math.Max(500, host.Width), H = Math.Max(300, host.Height);
 
                 TabControl tc = new TabControl();
                 tc.Name = "PhBot_SoundTabs";
@@ -193,14 +193,14 @@ namespace xBot.App
 
                 TabPage tabGen = new TabPage("General");
                 tabGen.BackColor = Color.White;
-                try { tabGen.AutoScroll = false; } catch { }
+                try { tabGen.AutoScroll = true; } catch { }
 
                 TabPage tabUniq = new TabPage("Unique Spawn");
                 tabUniq.BackColor = Color.White;
                 try { tabUniq.AutoScroll = false; } catch { }
 
                 // Tab 1: General (13 triggers matching phbot_sound_02.png)
-                int y = 6;
+                int y = 8;
                 string[] items = new string[]
                 {
                     "GM spawned", "Unique spawned", "Titan spawned", "Unique in range",
@@ -208,6 +208,9 @@ namespace xBot.App
                     "Private message", "Attacked", "Thief nearby", "Hunter nearby",
                     "Rare item drop", "Transport died"
                 };
+                var textboxes = new List<TextBox>();
+                var loadBtns = new List<Button>();
+                var resetBtns = new List<Button>();
                 foreach (string it in items)
                 {
                     string safe = it.Replace(" ", "");
@@ -219,21 +222,62 @@ namespace xBot.App
                         Name = "PhBot_SndPath_" + safe,
                         Font = PhBotFont(),
                         Location = new Point(175, y),
-                        Size = new Size(Math.Max(150, W - 325), 22),
+                        Size = new Size(350, 22),
                         BorderStyle = BorderStyle.FixedSingle,
                         BackColor = Color.White
                     };
                     tabGen.Controls.Add(tb);
+                    textboxes.Add(tb);
 
-                    PhBotButton(tabGen, "PhBot_SndLoad_" + safe, "Load", W - 140, y - 1, 58);
-                    PhBotButton(tabGen, "PhBot_SndReset_" + safe, "Reset", W - 78, y - 1, 58);
+                    Button bLoad = PhBotButton(tabGen, "PhBot_SndLoad_" + safe, "Load", 535, y - 1, 58);
+                    Button bReset = PhBotButton(tabGen, "PhBot_SndReset_" + safe, "Reset", 598, y - 1, 58);
+                    if (bLoad != null) loadBtns.Add(bLoad);
+                    if (bReset != null) resetBtns.Add(bReset);
 
                     y += 24;
                 }
 
+                Action updateGenLayout = () =>
+                {
+                    int cw = tabGen.ClientSize.Width;
+                    if (cw < 350) return;
+                    int btnResetX = cw - 70;
+                    int btnLoadX = btnResetX - 62;
+                    int tbW = Math.Max(120, btnLoadX - 185);
+                    for (int i = 0; i < textboxes.Count; i++)
+                    {
+                        textboxes[i].Width = tbW;
+                        if (i < loadBtns.Count) loadBtns[i].Left = btnLoadX;
+                        if (i < resetBtns.Count) resetBtns[i].Left = btnResetX;
+                    }
+                };
+                tabGen.Resize += (s, e) => updateGenLayout();
+                updateGenLayout();
+
                 // Tab 2: Unique Spawn (matching phbot_sound_01.png)
-                ListView lv = NewPhBotListView(6, 6, W - 20, Math.Max(120, H - 45), "Unique|250", "Sound Path|350");
-                lv.Name = "PhBot_SoundUniques";
+                ListView lv = new ListView
+                {
+                    Name = "PhBot_SoundUniques",
+                    View = View.Details,
+                    FullRowSelect = true,
+                    GridLines = true,
+                    BorderStyle = BorderStyle.FixedSingle,
+                    BackColor = Color.White,
+                    Font = PhBotFont(),
+                    Dock = DockStyle.Fill
+                };
+                lv.Columns.Add("Unique", 250);
+                lv.Columns.Add("Sound Path", 450);
+                Action updateLvCols = () =>
+                {
+                    if (lv.ClientSize.Width > 300)
+                    {
+                        lv.Columns[0].Width = 220;
+                        lv.Columns[1].Width = Math.Max(150, lv.ClientSize.Width - 225);
+                    }
+                };
+                lv.Resize += (s, e) => updateLvCols();
+
                 string[] defaultUniques = new string[]
                 {
                     "Tiger Girl", "Uruchi", "Isyutaru", "Demon Shaitan", "Cerberus",
@@ -247,14 +291,17 @@ namespace xBot.App
                     lv.Items.Add(item);
                 }
                 tabUniq.Controls.Add(lv);
+                updateLvCols();
 
                 tc.TabPages.Add(tabGen);
                 tc.TabPages.Add(tabUniq);
                 host.Controls.Add(tc);
             }
-            catch (Exception ex) { PhBotDebug("sound inner: " + ex.Message); }
+            catch (Exception ex) { PhBotDebug("snd inner: " + ex.Message); }
             finally { _innerLayout = false; }
         }
+
+
 
         private void LayoutInventoryMainInner()
         {
@@ -268,17 +315,92 @@ namespace xBot.App
                 int W = p.Width, H = p.Height;
                 if (W < 200 || H < 100) return;
 
+                int rightBtnsW = 75;
+                int bottomH = 32;
+
+                Label lblPlayer = p.Controls["PhBot_InvPlayerLbl"] as Label;
+                if (lblPlayer == null)
+                {
+                    lblPlayer = new Label
+                    {
+                        Name = "PhBot_InvPlayerLbl",
+                        Text = "P\nL\nA\nY\nE\nR",
+                        Font = new Font("Segoe UI", 7.5f, FontStyle.Regular),
+                        ForeColor = Color.FromArgb(80, 80, 80),
+                        TextAlign = ContentAlignment.MiddleCenter,
+                        AutoSize = false,
+                        Location = new Point(4, 120),
+                        Size = new Size(18, 120)
+                    };
+                    p.Controls.Add(lblPlayer);
+                }
+                lblPlayer.Visible = true;
+
                 if (Inventory_lstvItems != null)
                 {
-                    Inventory_lstvItems.Location = new Point(6, 6);
-                    Inventory_lstvItems.Size = new Size(W - 12, H - 12);
+                    Inventory_lstvItems.Location = new Point(24, 6);
+                    Inventory_lstvItems.Size = new Size(W - rightBtnsW - 32, H - bottomH - 12);
                     Inventory_lstvItems.Visible = true;
                     Classicize(Inventory_lstvItems);
-                    AutoFitListView(Inventory_lstvItems);
+                    if (Inventory_lstvItems.Columns.Count != 4 || Inventory_lstvItems.Columns[1].Text != "Icon")
+                    {
+                        Inventory_lstvItems.Columns.Clear();
+                        Inventory_lstvItems.Columns.Add("Slot", 50);
+                        Inventory_lstvItems.Columns.Add("Icon", 50);
+                        int itemColW = Math.Max(200, (W - rightBtnsW - 32) - 50 - 50 - 75 - 20);
+                        Inventory_lstvItems.Columns.Add("Item", itemColW);
+                        Inventory_lstvItems.Columns.Add("Quantity", 75);
+                    }
                 }
-                if (Inventory_btnItemsRefresh != null) Inventory_btnItemsRefresh.Visible = false;
-                if (Inventory_btnItemsSort != null) Inventory_btnItemsSort.Visible = false;
-                if (Inventory_lblCapacity != null) Inventory_lblCapacity.Visible = false;
+
+                // Sağ dikey butonlar: REFRESH ve SORT
+                if (Inventory_btnItemsRefresh != null)
+                {
+                    Inventory_btnItemsRefresh.Text = "R\nE\nF\nR\nE\nS\nH";
+                    Inventory_btnItemsRefresh.Font = new Font("Segoe UI", 8f, FontStyle.Regular);
+                    Inventory_btnItemsRefresh.Location = new Point(W - 68, 6);
+                    Inventory_btnItemsRefresh.Size = new Size(30, H - bottomH - 12);
+                    Inventory_btnItemsRefresh.Visible = true;
+                    Classicize(Inventory_btnItemsRefresh);
+                }
+                if (Inventory_btnItemsSort != null)
+                {
+                    Inventory_btnItemsSort.Text = "S\nO\nR\nT";
+                    Inventory_btnItemsSort.Font = new Font("Segoe UI", 8f, FontStyle.Regular);
+                    Inventory_btnItemsSort.Location = new Point(W - 34, 6);
+                    Inventory_btnItemsSort.Size = new Size(30, H - bottomH - 12);
+                    Inventory_btnItemsSort.Visible = true;
+                    Classicize(Inventory_btnItemsSort);
+                }
+
+                // Alt çubuk: Item count ve Gold
+                if (Inventory_lblCapacity != null)
+                {
+                    Inventory_lblCapacity.Text = "Item count: " + (Inventory_lstvItems != null ? Inventory_lstvItems.Items.Count : 0) + "/109";
+                    Inventory_lblCapacity.Font = PhBotFont();
+                    Inventory_lblCapacity.ForeColor = Color.Black;
+                    Inventory_lblCapacity.Location = new Point(8, H - 24);
+                    Inventory_lblCapacity.AutoSize = true;
+                    Inventory_lblCapacity.Visible = true;
+                }
+
+                Label lblGold = p.Controls["PhBot_InvGoldLbl"] as Label;
+                if (lblGold == null)
+                {
+                    lblGold = new Label
+                    {
+                        Name = "PhBot_InvGoldLbl",
+                        Font = PhBotFont(),
+                        ForeColor = Color.Black,
+                        TextAlign = ContentAlignment.MiddleRight,
+                        AutoSize = false
+                    };
+                    p.Controls.Add(lblGold);
+                }
+                lblGold.Text = (InfoManager.Character != null ? InfoManager.Character.Gold.ToString("N0") : "0");
+                lblGold.Location = new Point(W - 220, H - 24);
+                lblGold.Size = new Size(210, 20);
+                lblGold.Visible = true;
             }
             catch { }
             finally { _innerLayout = false; }
@@ -324,7 +446,7 @@ namespace xBot.App
         }
 
         // ---------------------------------------------------------------
-        // KEY BINDINGS — 10 madde.
+        // KEY BINDINGS — phbot_key-bindings_01.png birebir yerleşim
         // ---------------------------------------------------------------
         private void LayoutKeysInner()
         {
@@ -335,39 +457,110 @@ namespace xBot.App
                 Panel host = PlaceholderHost("Key Bindings");
                 if (host == null || host.Controls["PhBot_KeysDone"] != null) return;
                 host.Controls.Clear();
-                int y = 10;
-                PhBotTodoCheck(host, "PhBot_KeyEnable", "Enable key bindings", 10, y, false); y += 34;
-                string[] rows = new string[]
+                host.BackColor = Color.White;
+                try { host.AutoScroll = true; } catch { }
+
+                CheckBox cbEnable = PhBotTodoCheck(host, "PhBot_KeyEnable", "Enable key bindings", 12, 12, false);
+
+                string[] standardActions = new string[]
                 {
-                    "Start Bot", "Stop Bot", "Start Trace", "Stop Trace",
-                    "Get Position", "Enable conditions", "Disable conditions",
-                    "Call Python", "Python function name"
+                    "Start bot", "Stop bot", "Start trace", "Stop trace",
+                    "Get position", "Enable conditions", "Disable conditions"
                 };
-                ListView lv = NewPhBotListView(10, y, 460, 280, "Action|260", "Key|180");
-                lv.Name = "PhBot_KeysList";
-                host.Controls.Add(lv);
-                foreach (string r in rows)
+
+                int y = 44;
+                for (int i = 0; i < standardActions.Length; i++)
                 {
-                    var it = new ListViewItem(r);
-                    it.SubItems.Add("");
-                    lv.Items.Add(it);
+                    string action = standardActions[i];
+                    string safe = action.Replace(" ", "");
+                    Label lbl = new Label
+                    {
+                        Name = "PhBot_KeyLbl_" + safe,
+                        Text = action,
+                        Font = PhBotFont(),
+                        ForeColor = Color.Black,
+                        Location = new Point(12, y + 4),
+                        AutoSize = true
+                    };
+                    host.Controls.Add(lbl);
+
+                    TextBox tb = new TextBox
+                    {
+                        Name = "PhBot_KeyBox_" + safe,
+                        Text = "Press shortcut",
+                        Font = PhBotFont(),
+                        ForeColor = Color.FromArgb(70, 70, 70),
+                        Location = new Point(135, y),
+                        Size = new Size(95, 23),
+                        ReadOnly = true,
+                        TextAlign = HorizontalAlignment.Center,
+                        BackColor = Color.White,
+                        BorderStyle = BorderStyle.FixedSingle
+                    };
+                    host.Controls.Add(tb);
+
+                    PhBotButton(host, "PhBot_KeyReset_" + safe, "Reset", 238, y - 1, 55);
+
+                    if (i == 1 || i == 3 || i == 4 || i == 6)
+                        y += 34;
+                    else
+                        y += 28;
                 }
-                Label done = new Label();
-                done.Name = "PhBot_KeysDone";
-                done.Text = "Start/stop multiple bots at the same time with a single key press.";
-                done.Font = PhBotFont();
-                done.ForeColor = Color.FromArgb(60, 60, 60);
-                done.AutoSize = true;
-                done.Location = new Point(10, y + 290);
+
+                // 3 rows of Call Python
+                for (int p = 1; p <= 3; p++)
+                {
+                    Label lbl = new Label
+                    {
+                        Name = "PhBot_KeyLbl_Py" + p,
+                        Text = "Call Python",
+                        Font = PhBotFont(),
+                        ForeColor = Color.Black,
+                        Location = new Point(12, y + 4),
+                        AutoSize = true
+                    };
+                    host.Controls.Add(lbl);
+
+                    TextBox tb = new TextBox
+                    {
+                        Name = "PhBot_KeyBox_Py" + p,
+                        Text = "Press shortcut",
+                        Font = PhBotFont(),
+                        ForeColor = Color.FromArgb(70, 70, 70),
+                        Location = new Point(135, y),
+                        Size = new Size(95, 23),
+                        ReadOnly = true,
+                        TextAlign = HorizontalAlignment.Center,
+                        BackColor = Color.White,
+                        BorderStyle = BorderStyle.FixedSingle
+                    };
+                    host.Controls.Add(tb);
+
+                    PhBotButton(host, "PhBot_KeyReset_Py" + p, "Reset", 238, y - 1, 55);
+
+                    TextBox tbScript = new TextBox
+                    {
+                        Name = "PhBot_KeyPyScript_" + p,
+                        Font = PhBotFont(),
+                        Location = new Point(302, y),
+                        Size = new Size(165, 23),
+                        BackColor = Color.White,
+                        BorderStyle = BorderStyle.FixedSingle
+                    };
+                    host.Controls.Add(tbScript);
+
+                    y += 28;
+                }
+
+                Label done = new Label { Name = "PhBot_KeysDone", Text = "", Visible = false };
                 host.Controls.Add(done);
-                // TODO backend: genel hotkey sistemi yok (docs/PHBOT_GAP_ANALYSIS.md §22).
             }
             catch (Exception ex) { PhBotDebug("keys inner: " + ex.Message); }
             finally { _innerLayout = false; }
         }
 
         // ---------------------------------------------------------------
-        // CONDITIONS — If/Then editörü.
+        // CONDITIONS — phbot_conditions_01.png birebir 2 alt-sekme (Conditions, Builder)
         // ---------------------------------------------------------------
         private void LayoutConditionsInner()
         {
@@ -376,54 +569,136 @@ namespace xBot.App
             try
             {
                 Panel host = PlaceholderHost("Conditions");
-                if (host == null || host.Controls["PhBot_CondDone"] != null) return;
+                if (host == null || host.Controls["PhBot_ConditionsTabs"] != null) return;
                 host.Controls.Clear();
-                int y = 10;
-                PhBotLabel(host, "PhBot_CondIfLbl", "If:", 10, y + 4);
-                ComboBox cbIf = new ComboBox();
-                cbIf.Name = "PhBot_CondIf";
-                cbIf.DropDownStyle = ComboBoxStyle.DropDownList;
-                cbIf.Items.AddRange(new object[] { "Player HP % <", "Monster count >=", "Level reached", "In town", "Dead" });
-                try { cbIf.SelectedIndex = 0; } catch { }
-                GrayCombo(cbIf);
-                cbIf.Location = new Point(130, y);
-                cbIf.Size = new Size(260, 24);
-                host.Controls.Add(cbIf);
-                Button bAddIf = PhBotButton(host, "PhBot_CondAddIf", "Add", 400, y - 2, 90);
-                y += 36;
-                ListView lv = NewPhBotListView(10, y, 560, 180, "If|270", "Then|270");
-                lv.Name = "PhBot_CondList";
-                host.Controls.Add(lv);
-                y += 190;
-                PhBotLabel(host, "PhBot_CondThenLbl", "Then:", 10, y + 4);
-                ComboBox cbThen = new ComboBox();
-                cbThen.Name = "PhBot_CondThen";
-                cbThen.DropDownStyle = ComboBoxStyle.DropDownList;
-                cbThen.Items.AddRange(new object[] { "Return to town", "Disconnect", "Stop bot", "Use return scroll", "Cast skill" });
-                try { cbThen.SelectedIndex = 0; } catch { }
-                GrayCombo(cbThen);
-                cbThen.Location = new Point(130, y);
-                cbThen.Size = new Size(260, 24);
-                host.Controls.Add(cbThen);
-                PhBotButton(host, "PhBot_CondAddThen", "Add", 400, y - 2, 90);
-                y += 36;
-                Label done = new Label();
-                done.Name = "PhBot_CondDone";
-                done.Text = "Conditions execute whether the bot is started/stopped/tracing/stalling. Multiple Then options execute in order.";
-                done.Font = PhBotFont();
-                done.ForeColor = Color.FromArgb(60, 60, 60);
-                done.AutoSize = true;
-                done.MaximumSize = new Size(560, 0);
-                done.Location = new Point(10, y);
-                host.Controls.Add(done);
-                // TODO backend: genel Conditions motoru yok (docs/PHBOT_GAP_ANALYSIS.md §23).
+                host.BackColor = Color.White;
+                int W = Math.Max(500, host.Width), H = Math.Max(300, host.Height);
+
+                TabControl tc = new TabControl
+                {
+                    Name = "PhBot_ConditionsTabs",
+                    Dock = DockStyle.Fill,
+                    Font = PhBotFont()
+                };
+
+                TabPage tabCond = new TabPage("Conditions") { BackColor = Color.White };
+                TabPage tabBuild = new TabPage("Builder") { BackColor = Color.White };
+
+                // Tab 1: Conditions list + reorder buttons
+                ListBox lbxCond = new ListBox
+                {
+                    Name = "PhBot_ConditionsListBox",
+                    Font = PhBotFont(),
+                    BorderStyle = BorderStyle.FixedSingle,
+                    BackColor = Color.White,
+                    ItemHeight = 20
+                };
+                ContextMenuStrip cms = new ContextMenuStrip { Font = PhBotFont() };
+                cms.Items.Add("Disable");
+                cms.Items.Add("Edit");
+                cms.Items.Add("Delete");
+                cms.Items.Add("Clear");
+                lbxCond.ContextMenuStrip = cms;
+                lbxCond.Items.Add("if (In town && Time Elapsed (seconds) > 300) { Chat party ( hello! ); }");
+                tabCond.Controls.Add(lbxCond);
+
+                Button btnUp = new Button
+                {
+                    Name = "PhBot_CondBtnUp",
+                    Text = "▲",
+                    Size = new Size(26, 24),
+                    FlatStyle = FlatStyle.Standard,
+                    UseVisualStyleBackColor = true,
+                    Font = new Font("Segoe UI Symbol", 8.5f)
+                };
+                Button btnDown = new Button
+                {
+                    Name = "PhBot_CondBtnDown",
+                    Text = "▼",
+                    Size = new Size(26, 24),
+                    FlatStyle = FlatStyle.Standard,
+                    UseVisualStyleBackColor = true,
+                    Font = new Font("Segoe UI Symbol", 8.5f)
+                };
+                tabCond.Controls.Add(btnUp);
+                tabCond.Controls.Add(btnDown);
+
+                Action updateCondLayout = () =>
+                {
+                    int cw = tabCond.ClientSize.Width, ch = tabCond.ClientSize.Height;
+                    if (cw < 100 || ch < 50) return;
+                    btnUp.Location = new Point(cw - 34, ch / 2 - 28);
+                    btnDown.Location = new Point(cw - 34, ch / 2 + 2);
+                    lbxCond.Location = new Point(8, 8);
+                    lbxCond.Size = new Size(Math.Max(50, cw - 46), Math.Max(40, ch - 16));
+                };
+                tabCond.Resize += (s, e) => updateCondLayout();
+                tc.SelectedIndexChanged += (s, e) => updateCondLayout();
+                updateCondLayout();
+
+                // Tab 2: Builder
+                int by = 12;
+                PhBotLabel(tabBuild, "PhBot_BldIfLbl", "If:", 12, by + 4);
+                ComboBox cbBldIf = new ComboBox
+                {
+                    Name = "PhBot_BldIf",
+                    DropDownStyle = ComboBoxStyle.DropDownList,
+                    Location = new Point(60, by),
+                    Size = new Size(240, 24)
+                };
+                cbBldIf.Items.AddRange(new object[] { "In town", "Dead", "HP < %", "MP < %", "Monster count >=", "Time elapsed (seconds) >" });
+                try { cbBldIf.SelectedIndex = 0; } catch { }
+                GrayCombo(cbBldIf);
+                tabBuild.Controls.Add(cbBldIf);
+                TextBox tbBldIfVal = new TextBox { Name = "PhBot_BldIfVal", Location = new Point(308, by), Size = new Size(70, 22), Font = PhBotFont(), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+                tabBuild.Controls.Add(tbBldIfVal);
+                by += 38;
+
+                PhBotLabel(tabBuild, "PhBot_BldThenLbl", "Then:", 12, by + 4);
+                ComboBox cbBldThen = new ComboBox
+                {
+                    Name = "PhBot_BldThen",
+                    DropDownStyle = ComboBoxStyle.DropDownList,
+                    Location = new Point(60, by),
+                    Size = new Size(240, 24)
+                };
+                cbBldThen.Items.AddRange(new object[] { "Chat party", "Return to town", "Stop bot", "Disconnect", "Cast skill" });
+                try { cbBldThen.SelectedIndex = 0; } catch { }
+                GrayCombo(cbBldThen);
+                tabBuild.Controls.Add(cbBldThen);
+                TextBox tbBldThenVal = new TextBox { Name = "PhBot_BldThenVal", Location = new Point(308, by), Size = new Size(180, 22), Font = PhBotFont(), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+                tabBuild.Controls.Add(tbBldThenVal);
+                by += 38;
+
+                PhBotLabel(tabBuild, "PhBot_BldElseLbl", "Else:", 12, by + 4);
+                ComboBox cbBldElse = new ComboBox
+                {
+                    Name = "PhBot_BldElse",
+                    DropDownStyle = ComboBoxStyle.DropDownList,
+                    Location = new Point(60, by),
+                    Size = new Size(240, 24)
+                };
+                cbBldElse.Items.AddRange(new object[] { "None", "Chat party", "Return to town", "Stop bot" });
+                try { cbBldElse.SelectedIndex = 0; } catch { }
+                GrayCombo(cbBldElse);
+                tabBuild.Controls.Add(cbBldElse);
+                TextBox tbBldElseVal = new TextBox { Name = "PhBot_BldElseVal", Location = new Point(308, by), Size = new Size(180, 22), Font = PhBotFont(), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+                tabBuild.Controls.Add(tbBldElseVal);
+                by += 42;
+
+                PhBotButton(tabBuild, "PhBot_BldAdd", "Add Condition", 60, by, 110);
+                PhBotButton(tabBuild, "PhBot_BldReset", "Reset", 178, by, 75);
+
+                tc.TabPages.Add(tabCond);
+                tc.TabPages.Add(tabBuild);
+                host.Controls.Add(tc);
             }
             catch (Exception ex) { PhBotDebug("cond inner: " + ex.Message); }
             finally { _innerLayout = false; }
         }
 
         // ---------------------------------------------------------------
-        // NOTIFICATIONS — olay listesi.
+        // NOTIFICATIONS — phbot_notifications_01.png birebir
         // ---------------------------------------------------------------
         private void LayoutNotifInner()
         {
@@ -446,21 +721,34 @@ namespace xBot.App
                 TabPage tabOpt = new TabPage("Options");
                 tabOpt.BackColor = Color.White;
 
-                // Tab 1: Notifications
-                ListView lv = NewPhBotListView(6, 6, W - 24, Math.Max(120, H - 72), "Date|130", "Notification|480", "Icon|60");
+                // Tab 1: Notifications (exact columns matching phbot_notifications_01.png)
+                ListView lv = NewPhBotListView(8, 8, W - 20, Math.Max(120, H - 75), "Date|130", "Notification|480", "Icon|80");
                 lv.Name = "PhBot_NotifList";
-                lv.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
                 tabNotif.Controls.Add(lv);
 
-                int by = H - 62;
-                Button btnClear = PhBotButton(tabNotif, "PhBot_NotifClear", "Clear", 6, by, 75);
-                if (btnClear != null) btnClear.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+                int by = H - 60;
+                Button btnClear = PhBotButton(tabNotif, "PhBot_NotifClear", "Clear", 8, by, 75);
+                CheckBox cbLog = PhBotTodoCheck(tabNotif, "PhBot_NotifLog", "Enable notification logging", 100, by + 4, true);
+                CheckBox cbChat = PhBotTodoCheck(tabNotif, "PhBot_NotifChat", "Enable chat logging", 295, by + 4, true);
 
-                CheckBox cbLog = PhBotTodoCheck(tabNotif, "PhBot_NotifLog", "Enable notification logging", 95, by + 2, true);
-                if (cbLog != null) cbLog.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
-
-                CheckBox cbChat = PhBotTodoCheck(tabNotif, "PhBot_NotifChat", "Enable chat logging", 275, by + 2, true);
-                if (cbChat != null) cbChat.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+                Action relayoutNotif = () => {
+                    int th = tabNotif.ClientSize.Height;
+                    int tw = tabNotif.ClientSize.Width;
+                    if (th < 50 || tw < 50) return;
+                    lv.SetBounds(8, 8, tw - 16, th - 48);
+                    if (lv.Columns.Count >= 3)
+                    {
+                        lv.Columns[0].Width = 130;
+                        lv.Columns[1].Width = Math.Max(200, tw - 16 - 130 - 80 - 4);
+                        lv.Columns[2].Width = 80;
+                    }
+                    int bY = th - 34;
+                    if (btnClear != null) btnClear.Location = new Point(8, bY);
+                    if (cbLog != null) cbLog.Location = new Point(100, bY + 3);
+                    if (cbChat != null) cbChat.Location = new Point(295, bY + 3);
+                };
+                tabNotif.Resize += (s, e) => relayoutNotif();
+                relayoutNotif();
 
                 // Tab 2: Options
                 string[] evts = new string[]
@@ -555,15 +843,16 @@ namespace xBot.App
                 PhBotButton(gbProf, "PhBot_AutoDelete", "Delete", 168, 52, 75);
                 host.Controls.Add(gbProf);
 
-                PhBotTodoCheck(host, "PhBot_AutoBeforeLoop", "Auto configure before each town loop", 12, 302, false);
+                // Horizontally aligned with Delete button as in phbot_auto-configure_01.png
+                PhBotTodoCheck(host, "PhBot_AutoBeforeLoop", "Auto configure before each town loop", 275, 258, false);
 
-                // Configure Butonu (Büyük Sağ Buton)
+                // Configure Button (Big Right Button)
                 Button btnConfigure = new Button
                 {
                     Name = "PhBot_AutoConfigureBigBtn",
                     Text = "Configure",
-                    Location = new Point(285, 36),
-                    Size = new Size(330, 162),
+                    Location = new Point(275, 36),
+                    Size = new Size(260, 162),
                     FlatStyle = FlatStyle.Flat,
                     BackColor = Color.FromArgb(225, 225, 225),
                     ForeColor = Color.Black,
@@ -579,14 +868,13 @@ namespace xBot.App
 
                 Label done = new Label { Name = "PhBot_AutoDone", Text = "", Visible = false };
                 host.Controls.Add(done);
-                // TODO backend: otomatik skill kurulumu yok (docs/PHBOT_GAP_ANALYSIS.md §2).
             }
             catch (Exception ex) { PhBotDebug("autocfg inner: " + ex.Message); }
             finally { _innerLayout = false; }
         }
 
         // ---------------------------------------------------------------
-        // MASTERIES — ağaç + gap + temizleme.
+        // MASTERIES — phbot_mastery_01.png birebir TreeView + Gap + Kart + Butonlar
         // ---------------------------------------------------------------
         private void LayoutMasteryInner()
         {
@@ -596,46 +884,150 @@ namespace xBot.App
             {
                 Panel host = PlaceholderHost("Masteries");
                 if (host == null) return;
-                int W = host.Width, H = host.Height;
-                if (W < 400 || H < 250) return;
-                try { host.AutoScroll = true; } catch { }
-                if (host.Controls["PhBot_MastDone"] == null)
+                try { host.AutoScroll = false; } catch { }
+
+                if (host.Controls["PhBot_MastTree"] == null)
                 {
                     host.Controls.Clear();
-                    ListView lv = NewPhBotListView(8, 8, Math.Max(300, W - 280), 320, "Mastery / Skill|300", "Level|80", "Auto|80");
-                    lv.Name = "PhBot_MastTree";
-                    host.Controls.Add(lv);
-                    Label done = new Label();
-                    done.Name = "PhBot_MastDone";
-                    done.Text = "Gap farming: keep a skill level gap to gain more SP and less EXP.";
-                    done.Font = PhBotFont();
-                    done.ForeColor = Color.FromArgb(60, 60, 60);
-                    done.AutoSize = true;
+                    host.BackColor = Color.White;
+
+                    Label lblTitle = new Label
+                    {
+                        Name = "PhBot_MastTitle",
+                        Text = "Masteries",
+                        Font = PhBotFont(),
+                        ForeColor = Color.Black,
+                        Location = new Point(8, 8),
+                        AutoSize = true
+                    };
+                    host.Controls.Add(lblTitle);
+
+                    TreeView tv = new TreeView
+                    {
+                        Name = "PhBot_MastTree",
+                        Location = new Point(8, 28),
+                        Font = PhBotFont(),
+                        BorderStyle = BorderStyle.FixedSingle,
+                        BackColor = Color.White,
+                        ShowLines = true,
+                        ShowPlusMinus = true,
+                        ShowRootLines = true,
+                        ItemHeight = 20
+                    };
+                    try { tv.ImageList = Window.Get?.lstimgIcons; } catch { }
+
+                    string[] masters = new string[]
+                    {
+                        "Bicheon Lv 0 (Weapon)", "Heuksal Lv 0 (Weapon)", "Pacheon Lv 0 (Weapon)",
+                        "Cold Lv 0 (Force)", "Lightning Lv 0 (Force)", "Fire Lv 0 (Force)", "Force Lv 0 (Force)",
+                        "Warrior Lv 0", "Wizard Lv 0", "Rogue Lv 0", "Warlock Lv 0", "Bard Lv 0", "Cleric Lv 0"
+                    };
+                    foreach (string m in masters)
+                    {
+                        tv.Nodes.Add(m);
+                    }
+                    host.Controls.Add(tv);
+
+                    PhBotLabel(host, "PhBot_MastGapLbl", "Gap", 400, 14);
+                    NumericUpDown nudGap = new NumericUpDown
+                    {
+                        Name = "PhBot_MastGap",
+                        Location = new Point(445, 12),
+                        Size = new Size(50, 22),
+                        Minimum = 0,
+                        Maximum = 9,
+                        Value = 0,
+                        Font = PhBotFont(),
+                        BackColor = Color.White
+                    };
+                    host.Controls.Add(nudGap);
+
+                    Label lblSkillTitle = new Label
+                    {
+                        Name = "PhBot_MastSkillTitle",
+                        Text = "Strike Smash Lv9",
+                        Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                        ForeColor = Color.Black,
+                        Location = new Point(400, 55),
+                        AutoSize = true
+                    };
+                    host.Controls.Add(lblSkillTitle);
+
+                    Label lblSkillDesc = new Label
+                    {
+                        Name = "PhBot_MastSkillDesc",
+                        Text = "Swing your sword to inflict great damage to the enemy.",
+                        Font = PhBotFont(),
+                        ForeColor = Color.FromArgb(60, 60, 60),
+                        Location = new Point(400, 80),
+                        Size = new Size(200, 100)
+                    };
+                    host.Controls.Add(lblSkillDesc);
+
+                    PhBotButton(host, "PhBot_MastClearM", "Clear Auto Mastery", 400, 200, 200);
+                    PhBotButton(host, "PhBot_MastClearS", "Clear Auto Skill", 400, 230, 200);
+
+                    Label done = new Label { Name = "PhBot_MastDone", Text = "", Visible = false };
                     host.Controls.Add(done);
-                    // TODO backend: mastery/skill otomasyonu yok (docs/PHBOT_GAP_ANALYSIS.md §19).
+
+                    host.Resize += (s, e) => UpdateMasteriesPositioning(host);
+                    UpdateMasteriesPositioning(host);
                 }
-                int x = Math.Max(320, W - 260);
-                try
+                else
                 {
-                    ListView lv2 = host.Controls["PhBot_MastTree"] as ListView;
-                    if (lv2 != null) { lv2.Location = new Point(8, 8); lv2.Size = new Size(Math.Max(300, W - 280), 320); lv2.Visible = true; }
+                    UpdateMasteriesPositioning(host);
                 }
-                catch { }
-                int y = 8;
-                PhBotLabel(host, "PhBot_MastGapLbl", "Gap:", x, y + 4);
-                PhBotTodoNumber(host, "PhBot_MastGap", x + 120, y, 60, "0"); y += 34;
-                PhBotButton(host, "PhBot_MastClearM", "Clear Auto Mastery", x, y, 170); y += 36;
-                PhBotButton(host, "PhBot_MastClearS", "Clear Auto Skill", x, y, 170); y += 36;
-                PhBotTodoCheck(host, "PhBot_MastAuto", "Auto level up masteries/skills", x, y, false);
-                try
-                {
-                    Label d2 = host.Controls["PhBot_MastDone"] as Label;
-                    if (d2 != null) { d2.Location = new Point(8, 336); d2.Visible = true; }
-                }
-                catch { }
             }
             catch (Exception ex) { PhBotDebug("mast inner: " + ex.Message); }
             finally { _innerLayout = false; }
+        }
+
+        private void UpdateMasteriesPositioning(Panel host)
+        {
+            if (host == null) return;
+            int W = host.ClientSize.Width, H = host.ClientSize.Height;
+            if (W < 200 || H < 100) return;
+
+            int rightW = 200;
+            int treeW = Math.Max(200, W - rightW - 20);
+
+            Control tv = host.Controls["PhBot_MastTree"];
+            if (tv != null)
+            {
+                tv.Location = new Point(8, 28);
+                tv.Size = new Size(treeW, Math.Max(100, H - 36));
+            }
+
+            int rx = W - rightW - 8;
+            Control lblGap = host.Controls["PhBot_MastGapLbl"];
+            if (lblGap != null) lblGap.Location = new Point(rx, 14);
+
+            Control nudGap = host.Controls["PhBot_MastGap"];
+            if (nudGap != null) nudGap.Location = new Point(rx + 45, 12);
+
+            Control lblSkillTitle = host.Controls["PhBot_MastSkillTitle"];
+            if (lblSkillTitle != null) lblSkillTitle.Location = new Point(rx, 55);
+
+            Control lblSkillDesc = host.Controls["PhBot_MastSkillDesc"];
+            if (lblSkillDesc != null)
+            {
+                lblSkillDesc.Location = new Point(rx, 80);
+                lblSkillDesc.Size = new Size(rightW, 100);
+            }
+
+            Control btnClearM = host.Controls["PhBot_MastClearM"];
+            if (btnClearM != null)
+            {
+                btnClearM.Location = new Point(rx, Math.Max(80, H - 65));
+                btnClearM.Size = new Size(rightW, 26);
+            }
+
+            Control btnClearS = host.Controls["PhBot_MastClearS"];
+            if (btnClearS != null)
+            {
+                btnClearS.Location = new Point(rx, Math.Max(110, H - 35));
+                btnClearS.Size = new Size(rightW, 26);
+            }
         }
 
         // ---------------------------------------------------------------
@@ -649,38 +1041,8 @@ namespace xBot.App
             {
                 Panel host = TabPageV_Control01_Inventory_Panel;
                 Panel pg = FindHTabPanel(host, "TabPageH_Inventory_Option", "Exchange");
-                if (pg == null || pg.Controls["PhBot_InvExDone"] != null) return;
-                pg.Controls.Clear();
-                int W = pg.Width;
-                PhBotTodoCheck(pg, "PhBot_InvExShow", "Show requests", 8, 8, true);
-                ListView lvP = NewPhBotListView(8, 36, 240, 200, "Players|220");
-                lvP.Name = "PhBot_InvExPlayers";
-                pg.Controls.Add(lvP);
-                PhBotButton(pg, "PhBot_InvExRefreshP", "Refresh", 8, 242, 110);
-                PhBotButton(pg, "PhBot_InvExDo", "Exchange", 138, 242, 110);
-                ListView lvM = NewPhBotListView(258, 36, 240, 200, "Inventory|220");
-                lvM.Name = "PhBot_InvExMine";
-                pg.Controls.Add(lvM);
-                PhBotButton(pg, "PhBot_InvExRefreshM", "Refresh", 258, 242, 110);
-                int mx = 508;
-                Button bTo = PhBotButton(pg, "PhBot_InvExTo", ">", mx, 100, 44);
-                Button bFrom = PhBotButton(pg, "PhBot_InvExFrom", "<", mx, 140, 44);
-                ListView lvG = NewPhBotListView(mx + 54, 36, 220, 95, "Giving|200");
-                lvG.Name = "PhBot_InvExGive";
-                pg.Controls.Add(lvG);
-                PhBotLabel(pg, "PhBot_InvExGoldLbl", "Gold:", mx + 54, 140);
-                PhBotTodoNumber(pg, "PhBot_InvExGold", mx + 110, 138, 110, "0");
-                ListView lvT = NewPhBotListView(mx + 54, 170, 220, 66, "Receiving|200");
-                lvT.Name = "PhBot_InvExTake";
-                pg.Controls.Add(lvT);
-                PhBotButton(pg, "PhBot_InvExConfirm", "Confirm", mx + 54, 242, 90);
-                PhBotButton(pg, "PhBot_InvExApprove", "Approve", mx + 150, 242, 90);
-                PhBotButton(pg, "PhBot_InvExCancel", "Cancel", mx + 246, 242, 90);
-                Label done = new Label();
-                done.Name = "PhBot_InvExDone";
-                done.Location = new Point(8, 280);
-                pg.Controls.Add(done);
-                // TODO backend: takas otomasyonu Players > Exchange dışında yok.
+                if (pg == null) return;
+                BuildInventoryExchange(pg);
             }
             catch (Exception ex) { PhBotDebug("invex inner: " + ex.Message); }
             finally { _innerLayout = false; }
@@ -697,17 +1059,8 @@ namespace xBot.App
             {
                 Panel host = TabPageV_Control01_Inventory_Panel;
                 Panel pg = FindHTabPanel(host, "TabPageH_Inventory_Option", "Job Tickets");
-                if (pg == null || pg.Controls["PhBot_InvJobDone"] != null) return;
-                pg.Controls.Clear();
-                PhBotTodoCheck(pg, "PhBot_InvJobEx", "Exchange job tickets automatically", 10, 10, false);
-                PhBotTodoCheck(pg, "PhBot_InvJobDrop", "Drop unwanted rewards", 10, 40, false);
-                ListView lv = NewPhBotListView(10, 72, 460, 200, "Ticket|340", "Count|100");
-                lv.Name = "PhBot_InvJobList";
-                pg.Controls.Add(lv);
-                Label done = new Label();
-                done.Name = "PhBot_InvJobDone";
-                done.Location = new Point(10, 280);
-                pg.Controls.Add(done);
+                if (pg == null) return;
+                BuildInventoryJobTickets(pg);
             }
             catch (Exception ex) { PhBotDebug("invjob inner: " + ex.Message); }
             finally { _innerLayout = false; }
@@ -721,16 +1074,8 @@ namespace xBot.App
             {
                 Panel host = TabPageV_Control01_Inventory_Panel;
                 Panel pg = FindHTabPanel(host, "TabPageH_Inventory_Option", "Item");
-                if (pg == null || pg.Controls["PhBot_InvItemDone"] != null) return;
-                pg.Controls.Clear();
-                PhBotTodoCheck(pg, "PhBot_InvBalloon", "Inflate balloons during the Balloon event", 10, 10, false);
-                PhBotTodoCheck(pg, "PhBot_InvAwake", "Awakening Enhancement: Devil/Angel Spirit", 10, 40, false);
-                PhBotButton(pg, "PhBot_InvItemStart", "Start", 10, 74, 90);
-                PhBotButton(pg, "PhBot_InvItemStop", "Stop", 106, 74, 90);
-                Label done = new Label();
-                done.Name = "PhBot_InvItemDone";
-                done.Location = new Point(10, 110);
-                pg.Controls.Add(done);
+                if (pg == null) return;
+                BuildInventoryItem(pg);
             }
             catch (Exception ex) { PhBotDebug("invitem inner: " + ex.Message); }
             finally { _innerLayout = false; }
@@ -744,18 +1089,8 @@ namespace xBot.App
             {
                 Panel host = TabPageV_Control01_Inventory_Panel;
                 Panel pg = FindHTabPanel(host, "TabPageH_Inventory_Option", "Gori Item Exchange");
-                if (pg == null || pg.Controls["PhBot_InvGoriDone"] != null) return;
-                pg.Controls.Clear();
-                PhBotTodoCheck(pg, "PhBot_GoriEnable", "Enable Gori item exchange (Magic POP Guide)", 10, 10, false);
-                PhBotLabel(pg, "PhBot_GoriStatLbl", "Stop at white stat:", 10, 44);
-                PhBotTodoNumber(pg, "PhBot_GoriStat", 190, 42, 220, "");
-                ListView lv = NewPhBotListView(10, 74, 460, 200, "Item|300", "Result|150");
-                lv.Name = "PhBot_GoriList";
-                pg.Controls.Add(lv);
-                Label done = new Label();
-                done.Name = "PhBot_InvGoriDone";
-                done.Location = new Point(10, 282);
-                pg.Controls.Add(done);
+                if (pg == null) return;
+                BuildInventoryGori(pg);
             }
             catch (Exception ex) { PhBotDebug("invgori inner: " + ex.Message); }
             finally { _innerLayout = false; }

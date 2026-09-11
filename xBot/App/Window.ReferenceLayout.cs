@@ -84,6 +84,7 @@ namespace xBot.App
                 try { EnsurePhBotAttackExtraTabs(); } catch { }
                 try { EnsurePhBotProtectionExtraTabs(); } catch { }
                 try { EnsurePhBotTrainingExtraTabs(); } catch { }
+                try { EnsurePhBotPartyExtraTabs(); } catch { }
                 try { EnsurePhBotInventoryExtraTabs(); } catch { }
                 try { EnsurePhBotStallExtraTabs(); } catch { }
                 try { EnsureMissingSidebarPanels(); } catch { }
@@ -340,9 +341,50 @@ namespace xBot.App
                     return (ai < 0 ? 100 : ai).CompareTo(bi < 0 ? 100 : bi);
                 });
             }
+            else if (view == TabPageV_Control01_Party_Panel)
+            {
+                string[] partyOrder = { "Party", "Options", "Matching", "Taxi", "Taxi Options" };
+                buttons.Sort((a, b) => {
+                    int ai = Array.IndexOf(partyOrder, a.Text);
+                    int bi = Array.IndexOf(partyOrder, b.Text);
+                    return (ai < 0 ? 100 : ai).CompareTo(bi < 0 ? 100 : bi);
+                });
+            }
+            else if (view == TabPageV_Control01_Training_Panel)
+            {
+                string[] trainOrder = { "Training", "Conditions", "Collision", "Options", "Script" };
+                buttons.Sort((a, b) => {
+                    int ai = Array.IndexOf(trainOrder, a.Text);
+                    int bi = Array.IndexOf(trainOrder, b.Text);
+                    return (ai < 0 ? 100 : ai).CompareTo(bi < 0 ? 100 : bi);
+                });
+            }
+            else if (view == TabPageV_Control01_Inventory_Panel)
+            {
+                string[] invOrder = { "Inventory", "Avatar", "Job", "Job Pouch", "Pet", "Transport", "Storage", "Guild", "Exchange", "Job Tickets", "Item", "Gori Item Exchange" };
+                buttons.Sort((a, b) => {
+                    int ai = Array.IndexOf(invOrder, a.Text);
+                    int bi = Array.IndexOf(invOrder, b.Text);
+                    return (ai < 0 ? 100 : ai).CompareTo(bi < 0 ? 100 : bi);
+                });
+            }
+            else if (view == TabPageV_Control01_Stall_Panel)
+            {
+                string[] stallOrder = { "Stall", "Inventory", "Filter", "Consignment", "Options" };
+                buttons.Sort((a, b) => {
+                    int ai = Array.IndexOf(stallOrder, a.Text);
+                    int bi = Array.IndexOf(stallOrder, b.Text);
+                    return (ai < 0 ? 100 : ai).CompareTo(bi < 0 ? 100 : bi);
+                });
+            }
 
             var tabs = new TabControl { Name = strip.Name + "_Tabs", Font = PhBotFont(),
-                Padding = new Point(8, 3), Multiline = false };
+                Padding = (view == TabPageV_Control01_Inventory_Panel) ? new Point(3, 2) : new Point(8, 3),
+                Multiline = false };
+            if (view == TabPageV_Control01_Inventory_Panel)
+            {
+                tabs.Font = new Font("Segoe UI", 8.25f, FontStyle.Regular);
+            }
             var selected = strip.Tag as Control;
             foreach (Button button in buttons)
             {
@@ -352,6 +394,12 @@ namespace xBot.App
                 if (button == TabPageH_Town_Option03) { panel.Visible = false; continue; }
                 // Protection Info sekmesi phBot'ta yoktur (genel statlar Map sekmesindedir).
                 if (button == TabPageH_Character_Option01) { panel.Visible = false; continue; }
+                // Training sekmesinde Trace/Combat subtab phBot'ta yoktur
+                if (view == TabPageV_Control01_Training_Panel && (button.Text == "Trace" || button.Text == "Combat" || button.Name == "TabPageH_Training_Option03"))
+                {
+                    panel.Visible = false;
+                    continue;
+                }
 
                 var page = new TabPage(button.Text) { Tag = button, BackColor = Color.White, Padding = new Padding(8) };
                 tabs.TabPages.Add(page);

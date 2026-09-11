@@ -760,15 +760,17 @@ namespace xBot.App
 					item.Name = item.Text = j.ToString();
 					if (inventory[j] != null)
 					{
-						item.SubItems.Add(inventory[j].GetFullName());
-						item.SubItems.Add(inventory[j].isEquipable()? "1" : inventory[j].Quantity + "/" + inventory[j].QuantityMax);
-						item.SubItems.Add(inventory[j].ServerName);
+						item.SubItems.Add(""); // Icon
+						item.SubItems.Add(inventory[j].GetFullName()); // Item
+						item.SubItems.Add(inventory[j].isEquipable()? "1" : inventory[j].Quantity + "/" + inventory[j].QuantityMax); // Quantity
 						item.ImageKey = GetImageKeyIcon(inventory[j].Icon);
 						item.ToolTipText = inventory[j].GetTooltip();
 					}
 					else
 					{
+						item.SubItems.Add("");
 						item.SubItems.Add("Empty");
+						item.SubItems.Add("");
 					}
 
 					// Add
@@ -1196,10 +1198,19 @@ namespace xBot.App
 
 					ListViewItem item = new ListViewItem();
 					item.Name = member.ID.ToString();
-          item.Text = member.Name + (member.Nickname == "" ? "" : " * " + member.Nickname);
+					item.Text = member.Name + (member.Nickname == "" ? "" : " * " + member.Nickname);
 					item.SubItems.Add(member.Level.ToString());
-					item.SubItems.Add(member.PermissionsFlags.ToString());
-					item.SubItems.Add(member.GPoints.ToString());
+					if (Guild_lstvInfo.Columns.Count >= 5 && Guild_lstvInfo.Columns[2].Text == "Type")
+					{
+						item.SubItems.Add(member.ModelID > 0 ? (member.ModelID < 2000 ? "CH" : "EU") : "CH");
+						item.SubItems.Add(member.isOffline ? "No" : "Yes");
+						item.SubItems.Add("");
+					}
+					else
+					{
+						item.SubItems.Add(member.PermissionsFlags.ToString());
+						item.SubItems.Add(member.GPoints.ToString());
+					}
 					// Add online status as color
 					if (member.Name == InfoManager.CharName)
 						item.BackColor = ColorItemHighlight;
