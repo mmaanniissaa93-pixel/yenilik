@@ -71,8 +71,8 @@ namespace xBot.App
         }
 
         // ---------------------------------------------------------------
-        // LOGIN — initial-startup_05.png: Login grubu (1..8 + 10..20),
-        // Reduce Memory (9), Server Capacity (21).
+        // LOGIN / SILKROAD BAĞLANTISI (phBot v33.6.3 1:1)
+        // Sub-tabs: Bağlan | Ayarlar | Credentials
         // ---------------------------------------------------------------
         private void LayoutLoginInner()
         {
@@ -86,307 +86,800 @@ namespace xBot.App
                 if (W < 200 || H < 100) return;
                 try { host.AutoScroll = false; } catch { }
 
-                // Akış panelini çöz (gruplar panele döner).
-                try
-                {
-                    Control flow = null;
-                    foreach (Control c in host.Controls)
-                    {
-                        if (c is FlowLayoutPanel && c.Name == host.Name + "_Groups") { flow = c; break; }
-                    }
-                    if (flow != null)
-                    {
-                        var kids = new List<Control>();
-                        foreach (Control k in flow.Controls) kids.Add(k);
-                        foreach (Control k in kids)
-                        {
-                            try { flow.Controls.Remove(k); host.Controls.Add(k); } catch { }
-                        }
-                        flow.Visible = false;
-                    }
-                }
-                catch { }
+                bool isTR = LocalizationManager.CurrentLanguage == "TR";
+
+                // Eski grupları gizle
                 try { if (Login_gbxAdvertising != null) Login_gbxAdvertising.Visible = false; } catch { }
                 try { if (gbxStrategy != null) gbxStrategy.Visible = false; } catch { }
-
-                // Connection grubunu çöz (içindekiler Login grubuna dizilir).
-                try
-                {
-                    if (Login_gbxConnection != null && Login_gbxConnection.Parent == host)
-                    {
-                        var kids = new List<Control>();
-                        foreach (Control k in Login_gbxConnection.Controls) kids.Add(k);
-                        foreach (Control k in kids)
-                        {
-                            try { Login_gbxConnection.Controls.Remove(k); host.Controls.Add(k); } catch { }
-                        }
-                        Login_gbxConnection.Visible = false;
-                    }
-                }
-                catch { }
-
-                // Ana Login grubu (Sol Kolon: x=8, y=8, w=385, h=290)
-                GroupBox login = Login_gbxLogin;
-                int lx = 8, ly = 8, lw = 385, lh = 290;
-                try
-                {
-                    if (login != null && login.Parent != host)
-                    {
-                        try { login.Parent.Controls.Remove(login); } catch { }
-                        try { host.Controls.Add(login); } catch { }
-                    }
-                    if (login != null)
-                    {
-                        login.Text = "Login";
-                        login.Font = PhBotFont();
-                        login.ForeColor = Color.Black;
-                        login.BackColor = Color.White;
-                        login.Location = new Point(lx, ly);
-                        login.Size = new Size(lw, lh);
-                        login.Visible = true;
-                    }
-                }
-                catch { }
-                if (login == null) return;
-
-                // Eski/çakışan kontrolleri gizle
-                try { if (Login_btnStart != null) Login_btnStart.Visible = false; } catch { }
-                try { if (Login_btnLauncher != null) Login_btnLauncher.Visible = false; } catch { }
-                try { if (Login_rbnClient != null) Login_rbnClient.Visible = false; } catch { }
-                try { if (Login_rbnClientless != null) Login_rbnClientless.Visible = false; } catch { }
-                try { if (Login_cbxGoClientless != null) Login_cbxGoClientless.Visible = false; } catch { }
+                try { if (Login_gbxConnection != null) Login_gbxConnection.Visible = false; } catch { }
+                try { if (Login_gbxLogin != null) Login_gbxLogin.Visible = false; } catch { }
+                try { if (Login_gbxServers != null) Login_gbxServers.Visible = false; } catch { }
                 try { if (Login_gbxCharacters != null) Login_gbxCharacters.Visible = false; } catch { }
 
-                // Sol alt-kolon (x=10..235):
-                int y = 16;
-                const int lStep = 24;
-                LoginRow(login, Login_lblUsername, "Username", Login_tbxUsername, 10, y, 120); y += lStep;
-                LoginRow(login, Login_lblPassword, "Password", Login_tbxPassword, 10, y, 120); y += lStep;
-                LoginRow(login, Login_lblServer, "Server", Login_cmbxServer, 10, y, 120); y += lStep;
-
-                // Gateway
-                PhBotLabel(login, "PhBot_LoginGwLbl", "Gateway", 10, y + 4);
-                ComboBox gw = login.Controls["PhBot_LoginGw"] as ComboBox;
-                if (gw == null)
+                // TabControl'ü al veya oluştur
+                TabControl tabLoginRoot = host.Controls["tabLoginRoot"] as TabControl;
+                if (tabLoginRoot == null)
                 {
-                    gw = new ComboBox();
-                    gw.Name = "PhBot_LoginGw";
-                    gw.DropDownStyle = ComboBoxStyle.DropDownList;
-                    try { login.Controls.Add(gw); } catch { }
-                }
-                GrayCombo(gw);
-                gw.Location = new Point(115, y); gw.Size = new Size(120, 22); gw.Visible = true;
-                y += lStep;
-
-                // Switch gateway after
-                PhBotLabel(login, "PhBot_LoginSwLbl", "Switch gateway after", 10, y + 4);
-                PhBotTodoNumber(login, "PhBot_LoginSw", 132, y, 35, "0");
-                PhBotLabel(login, "PhBot_LoginSwU", "attempts", 172, y + 4);
-                y += lStep;
-
-                // SOCKS IP/Port
-                PhBotLabel(login, "PhBot_SocksIpLbl", "SOCKS IP/Port", 10, y + 4);
-                PhBotTodoNumber(login, "PhBot_SocksIp", 115, y, 75, "");
-                try { (login.Controls["PhBot_SocksIp"] as TextBox).Size = new Size(75, 22); } catch { }
-                PhBotTodoNumber(login, "PhBot_SocksPort", 193, y, 42, "0");
-                y += lStep;
-
-                // SOCKS User
-                PhBotLabel(login, "PhBot_SocksUserLbl", "SOCKS User", 10, y + 4);
-                PhBotTodoNumber(login, "PhBot_SocksUser", 115, y, 120, "");
-                try { (login.Controls["PhBot_SocksUser"] as TextBox).Size = new Size(120, 22); } catch { }
-                y += lStep;
-
-                // SOCKS Pass
-                PhBotLabel(login, "PhBot_SocksPassLbl", "SOCKS Pass", 10, y + 4);
-                PhBotTodoNumber(login, "PhBot_SocksPass", 115, y, 120, "");
-                try
-                {
-                    (login.Controls["PhBot_SocksPass"] as TextBox).Size = new Size(120, 22);
-                    (login.Controls["PhBot_SocksPass"] as TextBox).UseSystemPasswordChar = true;
-                }
-                catch { }
-                y += lStep;
-
-                // Character
-                LoginRow(login, Login_lblCharacter, "Character", Login_cmbxCharacter, 10, y, 120); y += lStep;
-
-                // Captcha
-                LoginRow(login, Login_lblCaptcha, "Captcha", Login_tbxCaptcha, 10, y, 120); y += lStep;
-
-                // Saved Accounts
-                try
-                {
-                    if (Login_lblAccount != null)
+                    tabLoginRoot = new TabControl
                     {
-                        Login_lblAccount.Text = "Accounts:";
-                        Login_lblAccount.Visible = true;
-                        if (Login_lblAccount.Parent != login)
-                        {
-                            try { Login_lblAccount.Parent.Controls.Remove(Login_lblAccount); } catch { }
-                            try { login.Controls.Add(Login_lblAccount); } catch { }
-                        }
-                        Login_lblAccount.Location = new Point(10, y + 4);
+                        Name = "tabLoginRoot",
+                        Dock = DockStyle.Fill,
+                        Font = PhBotFont(),
+                        Padding = new Point(8, 3)
+                    };
+                    host.Controls.Add(tabLoginRoot);
+                }
+                tabLoginRoot.Visible = true;
+                tabLoginRoot.BringToFront();
+
+                // Host üzerindeki diğer tüm kontrolleri gizle (sadece tabLoginRoot açık kalsın)
+                foreach (Control c in host.Controls)
+                {
+                    if (c != tabLoginRoot)
+                    {
+                        try { c.Visible = false; } catch { }
                     }
-                    MoveToLogin(login, Login_cmbxSavedAccounts, 70, y, 95);
-                    MoveToLogin(login, Login_btnSaveAccount, 168, y - 2, 48);
-                    MoveToLogin(login, Login_btnDeleteAccount, 218, y - 2, 48);
-                    MoveToLogin(login, Login_btnAccountSetup, 268, y - 2, 95);
-                    if (Login_btnSaveAccount != null) Login_btnSaveAccount.Text = "Save";
-                    if (Login_btnDeleteAccount != null) Login_btnDeleteAccount.Text = "Del";
-                    if (Login_btnAccountSetup != null) Login_btnAccountSetup.Text = "Setup";
                 }
-                catch { }
 
-                // Sağ alt-kolon (x=244..370):
-                int rx = 244;
-                MoveToLogin(login, Login_cbxUseReturnScroll, rx, 16, 0);
-                SetCheckText(Login_cbxUseReturnScroll, "Return to town on login");
+                // 3 Alt Sekme (Bağlan, Ayarlar, Credentials)
+                TabPage pageConnect = null;
+                TabPage pageSettings = null;
+                TabPage pageCredentials = null;
 
-                try
+                foreach (TabPage p in tabLoginRoot.TabPages)
                 {
-                    MoveToLogin(login, cbxGeneralAutoStart, rx, 40, 0);
-                    SetCheckText(cbxGeneralAutoStart, "Start bot on login");
+                    if (p.Name == "pageConnect") pageConnect = p;
+                    else if (p.Name == "pageSettings") pageSettings = p;
+                    else if (p.Name == "pageCredentials") pageCredentials = p;
                 }
-                catch { }
 
-                MoveToLogin(login, Login_cbxRelogin, rx, 64, 0);
-                SetCheckText(Login_cbxRelogin, "Relog on disconnect");
-
-                // Login / Logout butonları
-                Button btnLogin = login.Controls["PhBot_LoginStartBtn"] as Button;
-                if (btnLogin == null)
+                if (pageConnect == null)
                 {
-                    btnLogin = new Button { Name = "PhBot_LoginStartBtn", Text = "Login", FlatStyle = FlatStyle.Flat };
-                    btnLogin.Click += (s, e) => { try { if (Login_btnStart != null) Login_btnStart.PerformClick(); } catch { } };
-                    login.Controls.Add(btnLogin);
+                    pageConnect = new TabPage { Name = "pageConnect", BackColor = Color.White, AutoScroll = true };
+                    tabLoginRoot.TabPages.Add(pageConnect);
                 }
-                btnLogin.SetBounds(rx, 88, 58, 24);
-                btnLogin.Font = PhBotFont();
-                btnLogin.BackColor = Color.FromArgb(246, 247, 248);
-                btnLogin.FlatAppearance.BorderColor = Color.FromArgb(210, 212, 216);
+                if (pageSettings == null)
+                {
+                    pageSettings = new TabPage { Name = "pageSettings", BackColor = Color.White, AutoScroll = true };
+                    tabLoginRoot.TabPages.Add(pageSettings);
+                }
+                if (pageCredentials == null)
+                {
+                    pageCredentials = new TabPage { Name = "pageCredentials", BackColor = Color.White, AutoScroll = true };
+                    tabLoginRoot.TabPages.Add(pageCredentials);
+                }
 
-                Button btnLogout = login.Controls["PhBot_LoginLogoutBtn"] as Button;
+                pageConnect.Text = isTR ? "Bağlan" : "Connect";
+                pageSettings.Text = isTR ? "Ayarlar" : "Settings";
+                pageCredentials.Text = "Credentials";
+
+                // =======================================================
+                // TAB 1: BAĞLAN (CONNECT)
+                // =======================================================
+                int lx = 14;
+                int ix = 150;
+                int iw = 165;
+                int y = 14;
+                const int rStep = 28;
+
+                // 1. Saved login
+                PhBotLabel(pageConnect, "lblSavedLogin", "Saved login", lx, y + 3);
+                ComboBox cbSavedLogin = pageConnect.Controls["PhBot_LoginSavedLogins"] as ComboBox;
+                if (cbSavedLogin == null)
+                {
+                    cbSavedLogin = new ComboBox { Name = "PhBot_LoginSavedLogins", DropDownStyle = ComboBoxStyle.DropDownList };
+                    cbSavedLogin.SelectedIndexChanged += OnPhBotSavedLoginSelected;
+                    pageConnect.Controls.Add(cbSavedLogin);
+                }
+                cbSavedLogin.Font = PhBotFont();
+                cbSavedLogin.BackColor = Color.White;
+                cbSavedLogin.ForeColor = Color.Black;
+                cbSavedLogin.SetBounds(ix, y, iw, 22);
+                cbSavedLogin.Visible = true;
+                y += rStep;
+
+                // 2. Kullanıcı Adı
+                PhBotLabel(pageConnect, "lblLoginUser", isTR ? "Kullanıcı Adı" : "Username", lx, y + 3);
+                if (Login_tbxUsername != null)
+                {
+                    if (Login_tbxUsername.Parent != pageConnect)
+                    {
+                        try { Login_tbxUsername.Parent?.Controls.Remove(Login_tbxUsername); } catch { }
+                        pageConnect.Controls.Add(Login_tbxUsername);
+                    }
+                    Login_tbxUsername.Font = PhBotFont();
+                    Login_tbxUsername.BackColor = Color.White;
+                    Login_tbxUsername.ForeColor = Color.Black;
+                    Login_tbxUsername.SetBounds(ix, y, iw, 22);
+                    Login_tbxUsername.Visible = true;
+                }
+                y += rStep;
+
+                // 3. Şifre
+                PhBotLabel(pageConnect, "lblLoginPass", isTR ? "Şifre" : "Password", lx, y + 3);
+                if (Login_tbxPassword != null)
+                {
+                    if (Login_tbxPassword.Parent != pageConnect)
+                    {
+                        try { Login_tbxPassword.Parent?.Controls.Remove(Login_tbxPassword); } catch { }
+                        pageConnect.Controls.Add(Login_tbxPassword);
+                    }
+                    Login_tbxPassword.Font = PhBotFont();
+                    Login_tbxPassword.BackColor = Color.White;
+                    Login_tbxPassword.ForeColor = Color.Black;
+                    Login_tbxPassword.UseSystemPasswordChar = true;
+                    Login_tbxPassword.SetBounds(ix, y, iw, 22);
+                    Login_tbxPassword.Visible = true;
+                }
+                y += rStep;
+
+                // 4. Sunucu + Bağlan + Çıkış yap
+                PhBotLabel(pageConnect, "lblLoginServer", isTR ? "Sunucu" : "Server", lx, y + 3);
+                if (Login_cmbxServer != null)
+                {
+                    if (Login_cmbxServer.Parent != pageConnect)
+                    {
+                        try { Login_cmbxServer.Parent?.Controls.Remove(Login_cmbxServer); } catch { }
+                        pageConnect.Controls.Add(Login_cmbxServer);
+                    }
+                    Login_cmbxServer.Font = PhBotFont();
+                    Login_cmbxServer.BackColor = Color.White;
+                    Login_cmbxServer.ForeColor = Color.Black;
+                    Login_cmbxServer.DropDownStyle = ComboBoxStyle.DropDownList;
+                    Login_cmbxServer.SetBounds(ix, y, 115, 22);
+                    Login_cmbxServer.Visible = true;
+                }
+
+                if (Login_btnStart != null)
+                {
+                    if (Login_btnStart.Parent != pageConnect)
+                    {
+                        try { Login_btnStart.Parent?.Controls.Remove(Login_btnStart); } catch { }
+                        pageConnect.Controls.Add(Login_btnStart);
+                    }
+                    Login_btnStart.Font = PhBotFont();
+                    Login_btnStart.FlatStyle = FlatStyle.Flat;
+                    Login_btnStart.BackColor = Color.FromArgb(246, 247, 248);
+                    Login_btnStart.ForeColor = Color.Black;
+                    Login_btnStart.FlatAppearance.BorderColor = Color.FromArgb(210, 212, 216);
+                    Login_btnStart.SetBounds(ix + 120, y - 1, 60, 24);
+                    Login_btnStart.Text = isTR ? "Bağlan" : "Connect";
+                    Login_btnStart.Visible = true;
+                }
+
+                Button btnLogout = pageConnect.Controls["btnPhBotLogout"] as Button;
                 if (btnLogout == null)
                 {
-                    btnLogout = new Button { Name = "PhBot_LoginLogoutBtn", Text = "Logout", Enabled = false, FlatStyle = FlatStyle.Flat };
-                    login.Controls.Add(btnLogout);
+                    btnLogout = new Button { Name = "btnPhBotLogout", Enabled = false, FlatStyle = FlatStyle.Flat };
+                    btnLogout.Click += (s, e) => {
+                        try {
+                            if (Login_btnStart != null && Login_btnStart.Text == "STOP")
+                                Control_Click(Login_btnStart, EventArgs.Empty);
+                        } catch { }
+                    };
+                    pageConnect.Controls.Add(btnLogout);
                 }
-                btnLogout.SetBounds(rx + 62, 88, 58, 24);
                 btnLogout.Font = PhBotFont();
                 btnLogout.BackColor = Color.FromArgb(246, 247, 248);
+                btnLogout.ForeColor = Color.Black;
                 btnLogout.FlatAppearance.BorderColor = Color.FromArgb(210, 212, 216);
+                btnLogout.SetBounds(ix + 185, y - 1, 68, 24);
+                btnLogout.Text = isTR ? "Çıkış yap" : "Logout";
+                btnLogout.Visible = true;
+                y += rStep;
 
-                PhBotTodoCheck(login, "PhBot_LoginJCP", "JCP", rx, 114, false);
-                PhBotTodoCheck(login, "PhBot_LoginClient", "Client", rx, 138, false);
-                PhBotTodoCheck(login, "PhBot_LoginCap4", "4", rx, 162, false);
-                PhBotTodoCheck(login, "PhBot_LoginCap5", "5", rx + 32, 162, true);
-                PhBotTodoCheck(login, "PhBot_LoginQueue", "Queue", rx + 66, 162, false);
-
-                PhBotButton(login, "PhBot_SocksReset", "Reset", rx, 186, 50);
-                PhBotTodoCheck(login, "PhBot_LoginHide", "Hide login", rx + 56, 188, false);
-
-                PhBotTodoCheck(login, "PhBot_LoginCaptcha", "Captcha", rx, 214, true);
-                PhBotTodoNumber(login, "PhBot_LoginCaptchaN", rx + 75, 212, 25, "1");
-                PhBotTodoCheck(login, "PhBot_LoginXTrap", "Allow X-Trap", rx, 240, false);
-
-                // Reduce Memory (Sol alt: x=8, y=302, w=145, h=50)
-                GroupBox reduce = null;
-                try
+                // 5. Gateway
+                PhBotLabel(pageConnect, "lblLoginGw", "Gateway", lx, y + 3);
+                ComboBox cbGw = pageConnect.Controls["PhBot_LoginGw"] as ComboBox;
+                if (cbGw == null)
                 {
-                    foreach (Control c in host.Controls)
-                    {
-                        if (c is GroupBox && c.Name == "PhBot_ReduceMem") { reduce = (GroupBox)c; break; }
-                    }
-                    if (reduce == null)
-                    {
-                        reduce = new GroupBox { Name = "PhBot_ReduceMem", Text = "Reduce Memory", Font = PhBotFont(), ForeColor = Color.Black, BackColor = Color.White };
-                        try { host.Controls.Add(reduce); } catch { }
-                        PhBotTodoCheck(reduce, "PhBot_ReduceSilk", "Silkroad", 12, 20, false);
-                    }
-                    reduce.Location = new Point(8, 302);
-                    reduce.Size = new Size(145, 50);
-                    reduce.Visible = true;
+                    cbGw = new ComboBox { Name = "PhBot_LoginGw", DropDownStyle = ComboBoxStyle.DropDownList };
+                    cbGw.Items.AddRange(new object[] { "94.199.103.68", "127.0.0.1" });
+                    if (cbGw.Items.Count > 0) cbGw.SelectedIndex = 0;
+                    pageConnect.Controls.Add(cbGw);
                 }
-                catch { }
+                cbGw.Font = PhBotFont();
+                cbGw.BackColor = Color.White;
+                cbGw.ForeColor = Color.Black;
+                cbGw.SetBounds(ix, y, iw, 22);
+                cbGw.Visible = true;
+                y += rStep;
 
-                // Sağ Kolon: Silkroad Seçici + Server Capacity
-                int rightX = 400;
-                int rightW = Math.Max(250, W - rightX - 8);
+                // 6. Şu kadar denemeden sonra [ 0 ] gateway değiştir
+                PhBotLabel(pageConnect, "lblSwGw1", isTR ? "Şu kadar denemeden sonra" : "Switch gateway after", lx, y + 3);
+                TextBox txtSw = PhBotTodoNumber(pageConnect, "PhBot_LoginSw", 152, y, 42, "0");
+                txtSw.TextAlign = HorizontalAlignment.Center;
+                PhBotLabel(pageConnect, "lblSwGw2", isTR ? "gateway değiştir" : "attempts", 200, y + 3);
+                y += rStep;
 
-                // Silkroad Seçici (Sol altta, Reduce Memory'nin hemen sağında kompakt grup: 158, 302, 235, 50)
-                try
+                // 7. SOCKS IP/Port + 4 + 5
+                PhBotLabel(pageConnect, "lblSocksIp", "SOCKS IP/Port", lx, y + 3);
+                TextBox tSocksIp = PhBotTodoNumber(pageConnect, "PhBot_SocksIp", ix, y, 98, "");
+                tSocksIp.TextAlign = HorizontalAlignment.Left;
+                TextBox tSocksPort = PhBotTodoNumber(pageConnect, "PhBot_SocksPort", ix + 104, y, 46, "0");
+                tSocksPort.TextAlign = HorizontalAlignment.Center;
+
+                RadioButton rb4 = pageConnect.Controls["PhBot_Socks4"] as RadioButton;
+                if (rb4 == null)
                 {
-                    Control sel = null;
-                    foreach (Control c in host.Controls)
-                    {
-                        if (c.Name == "XBotServerSelection") { sel = c; break; }
-                    }
-                    if (sel == null && Login_cmbxSilkroad != null)
-                    {
-                        sel = new GroupBox { Name = "XBotServerSelection", Text = "Silkroad", Font = PhBotFont(), BackColor = Color.White, ForeColor = Color.Black };
-                        foreach (Control c in new Control[] { Login_lblSilkroad, Login_cmbxSilkroad, Login_btnAddSilkroad })
-                        {
-                            if (c != null)
-                            {
-                                try { c.Parent?.Controls.Remove(c); } catch { }
-                                sel.Controls.Add(c);
-                            }
-                        }
-                        try { host.Controls.Add(sel); } catch { }
-                    }
-                    if (sel != null)
-                    {
-                        sel.Location = new Point(158, 302);
-                        sel.Size = new Size(235, 50);
-                        sel.Visible = true;
-                        if (Login_lblSilkroad != null) { Login_lblSilkroad.Visible = false; }
-                        if (Login_cmbxSilkroad != null) { Login_cmbxSilkroad.SetBounds(8, 18, 185, 24); Login_cmbxSilkroad.Visible = true; }
-                        if (Login_btnAddSilkroad != null) { Login_btnAddSilkroad.SetBounds(197, 17, 28, 24); Login_btnAddSilkroad.Text = "..."; Login_btnAddSilkroad.Visible = true; }
-                    }
+                    rb4 = new RadioButton { Name = "PhBot_Socks4", Text = "4", AutoSize = true, Font = PhBotFont() };
+                    pageConnect.Controls.Add(rb4);
                 }
-                catch { }
+                rb4.SetBounds(ix + 156, y + 2, 38, 20);
+                rb4.Visible = true;
 
-                // Server Capacity (tam sağ kolon: x=400, y=8, w=rightW, h=344)
-                try
+                RadioButton rb5 = pageConnect.Controls["PhBot_Socks5"] as RadioButton;
+                if (rb5 == null)
                 {
-                    if (Login_gbxServers != null)
+                    rb5 = new RadioButton { Name = "PhBot_Socks5", Text = "5", AutoSize = true, Checked = true, Font = PhBotFont() };
+                    pageConnect.Controls.Add(rb5);
+                }
+                rb5.SetBounds(ix + 198, y + 2, 38, 20);
+                rb5.Visible = true;
+                y += rStep;
+
+                // 8. SOCKS Kullanıcı
+                PhBotLabel(pageConnect, "lblSocksUser", isTR ? "SOCKS Kullanıcı" : "SOCKS User", lx, y + 3);
+                TextBox tSocksUser = PhBotTodoNumber(pageConnect, "PhBot_SocksUser", ix, y, iw, "");
+                tSocksUser.TextAlign = HorizontalAlignment.Left;
+                y += rStep;
+
+                // 9. SOCKS Şifre + Sıfırla
+                PhBotLabel(pageConnect, "lblSocksPass", isTR ? "SOCKS Şifre" : "SOCKS Pass", lx, y + 3);
+                TextBox tSocksPass = PhBotTodoNumber(pageConnect, "PhBot_SocksPass", ix, y, 105, "");
+                tSocksPass.UseSystemPasswordChar = true;
+                tSocksPass.TextAlign = HorizontalAlignment.Left;
+
+                Button btnReset = pageConnect.Controls["btnSocksReset"] as Button;
+                if (btnReset == null)
+                {
+                    btnReset = new Button { Name = "btnSocksReset", FlatStyle = FlatStyle.Flat };
+                    btnReset.Click += (s, e) => {
+                        try {
+                            tSocksIp.Text = "";
+                            tSocksPort.Text = "0";
+                            tSocksUser.Text = "";
+                            tSocksPass.Text = "";
+                        } catch { }
+                    };
+                    pageConnect.Controls.Add(btnReset);
+                }
+                btnReset.Font = PhBotFont();
+                btnReset.BackColor = Color.FromArgb(246, 247, 248);
+                btnReset.ForeColor = Color.Black;
+                btnReset.FlatAppearance.BorderColor = Color.FromArgb(210, 212, 216);
+                btnReset.SetBounds(ix + 112, y - 1, 60, 24);
+                btnReset.Text = isTR ? "Sıfırla" : "Reset";
+                btnReset.Visible = true;
+
+                // -------------------------------------------------------
+                // Right Side: Server List + Checkboxes
+                // -------------------------------------------------------
+                int rightX = 420;
+                int rightW = Math.Max(300, W - rightX - 24);
+
+                if (Login_lstvServers != null)
+                {
+                    if (Login_lstvServers.Parent != pageConnect)
                     {
-                        if (Login_gbxServers.Parent != host)
-                        {
-                            try { Login_gbxServers.Parent.Controls.Remove(Login_gbxServers); } catch { }
-                            try { host.Controls.Add(Login_gbxServers); } catch { }
-                        }
-                        Login_gbxServers.Text = "Server Capacity";
-                        Login_gbxServers.Font = PhBotFont();
-                        Login_gbxServers.ForeColor = Color.Black;
-                        Login_gbxServers.BackColor = Color.White;
-                        Login_gbxServers.Location = new Point(rightX, 8);
-                        Login_gbxServers.Size = new Size(rightW, Math.Max(200, Math.Min(344, H - 16)));
-                        Login_gbxServers.Visible = true;
+                        try { Login_lstvServers.Parent?.Controls.Remove(Login_lstvServers); } catch { }
+                        pageConnect.Controls.Add(Login_lstvServers);
                     }
-                    if (Login_lstvServers != null)
+                    Login_lstvServers.Location = new Point(rightX, 14);
+                    Login_lstvServers.Size = new Size(rightW, 105);
+                    Login_lstvServers.BackColor = Color.White;
+                    Login_lstvServers.ForeColor = Color.Black;
+                    Login_lstvServers.BorderStyle = BorderStyle.FixedSingle;
+                    Login_lstvServers.Font = PhBotFont();
+                    Login_lstvServers.View = View.Details;
+                    Login_lstvServers.FullRowSelect = true;
+                    Login_lstvServers.HeaderStyle = ColumnHeaderStyle.Nonclickable;
+                    Login_lstvServers.Visible = true;
+
+                    if (Login_lstvServers.Columns.Count >= 3)
                     {
-                        Login_lstvServers.Location = new Point(8, 20);
-                        Login_lstvServers.Size = new Size(Math.Max(180, Login_gbxServers.Width - 16), Math.Max(100, Login_gbxServers.Height - 28));
-                        Login_lstvServers.Visible = true;
-                        Classicize(Login_lstvServers);
-                        if (Login_lstvServers.Columns.Count >= 3)
-                        {
-                            Login_lstvServers.Columns[0].Text = "Server";
-                            Login_lstvServers.Columns[1].Text = "State";
-                            Login_lstvServers.Columns[2].Text = "Capacity";
-                            int usable = Login_lstvServers.ClientSize.Width - 4;
-                            Login_lstvServers.Columns[0].Width = (int)(usable * 0.40);
-                            Login_lstvServers.Columns[1].Width = (int)(usable * 0.30);
-                            Login_lstvServers.Columns[2].Width = Math.Max(60, usable - Login_lstvServers.Columns[0].Width - Login_lstvServers.Columns[1].Width);
-                        }
+                        Login_lstvServers.Columns[0].Text = isTR ? "Sunucu" : "Server";
+                        Login_lstvServers.Columns[1].Text = isTR ? "Durum" : "State";
+                        Login_lstvServers.Columns[2].Text = isTR ? "Kapasite" : "Capacity";
+                        int usable = Login_lstvServers.ClientSize.Width - 4;
+                        Login_lstvServers.Columns[0].Width = (int)(usable * 0.40);
+                        Login_lstvServers.Columns[1].Width = (int)(usable * 0.30);
+                        Login_lstvServers.Columns[2].Width = Math.Max(60, usable - Login_lstvServers.Columns[0].Width - Login_lstvServers.Columns[1].Width);
                     }
                 }
-                catch { }
+
+                // Checkboxes below server list
+                int col1X = rightX;
+                int col2X = rightX + 220;
+                int cy = 126;
+                const int cStep = 22;
+
+                // Col 1:
+                MoveToLogin(pageConnect, Login_cbxUseReturnScroll, col1X, cy);
+                SetCheckText(Login_cbxUseReturnScroll, isTR ? "Giriş Yapınca Şehre Dön" : "Return to town on login");
+                cy += cStep;
+
+                MoveToLogin(pageConnect, cbxGeneralAutoStart, col1X, cy);
+                SetCheckText(cbxGeneralAutoStart, isTR ? "Giriş Yapınca Botu Başlat" : "Start bot on login");
+                cy += cStep;
+
+                MoveToLogin(pageConnect, Login_cbxRelogin, col1X, cy);
+                SetCheckText(Login_cbxRelogin, isTR ? "Tekrar Bağlan" : "Relog");
+                PhBotTodoNumber(pageConnect, "PhBot_RelogDelay", col1X + (isTR ? 104 : 64), cy, 38, "20").TextAlign = HorizontalAlignment.Center;
+                PhBotLabel(pageConnect, "lblRelogSec", "s", col1X + (isTR ? 146 : 106), cy + 2);
+                cy += cStep;
+
+                PhBotTodoCheck(pageConnect, "PhBot_LoginCheck", isTR ? "Giriş kontrolü" : "Login check", col1X, cy, false);
+                cy += cStep;
+
+                PhBotTodoCheck(pageConnect, "PhBot_NoClientless", isTR ? "Clientless yok" : "No clientless", col1X, cy, false);
+                cy += cStep + 2;
+
+                PhBotLabel(pageConnect, "lblWaitDelay", isTR ? "Bekleme tekrar gecikmesi" : "Wait retry delay", col1X, cy + 2);
+                PhBotTodoNumber(pageConnect, "PhBot_WaitRetry", col1X + (isTR ? 152 : 104), cy, 38, "120").TextAlign = HorizontalAlignment.Center;
+                PhBotLabel(pageConnect, "lblWaitFor", isTR ? "için" : "for", col1X + (isTR ? 194 : 146), cy + 2);
+                PhBotTodoNumber(pageConnect, "PhBot_WaitDur", col1X + (isTR ? 218 : 170), cy, 38, "300").TextAlign = HorizontalAlignment.Center;
+                PhBotLabel(pageConnect, "lblWaitSec", "s", col1X + (isTR ? 260 : 212), cy + 2);
+                cy += cStep + 2;
+
+                PhBotLabel(pageConnect, "lblBlockAfter", isTR ? "Sonra engelle" : "Block after", col1X, cy + 2);
+                PhBotTodoNumber(pageConnect, "PhBot_BlockAfter", col1X + (isTR ? 84 : 74), cy, 44, "200").TextAlign = HorizontalAlignment.Center;
+                PhBotLabel(pageConnect, "lblBlockQueue", isTR ? "Sıra denemesi" : "Queue attempts", col1X + (isTR ? 132 : 122), cy + 2);
+
+                // Col 2:
+                int cy2 = 126;
+                PhBotTodoCheck(pageConnect, "PhBot_ClientMode", "Client", col2X, cy2, true);
+                cy2 += cStep;
+                PhBotTodoCheck(pageConnect, "PhBot_HideLogin", isTR ? "Bilgileri gizle" : "Hide login info", col2X, cy2, false);
+                cy2 += cStep;
+                PhBotTodoCheck(pageConnect, "PhBot_AllowXTrap", isTR ? "X-Tap'a İzin Ver" : "Allow X-Trap", col2X, cy2, false);
+                cy2 += cStep;
+                PhBotTodoCheck(pageConnect, "PhBot_InstantAccess", isTR ? "Anında erişim" : "Instant access", col2X, cy2, false);
+
+                // =======================================================
+                // TAB 2: AYARLAR (SETTINGS)
+                // =======================================================
+                int ay = 16;
+                const int aStep = 26;
+
+                PhBotLabel(pageSettings, "lblCharSel", isTR ? "Karakter seçimi gecikmesi" : "Character select delay", 14, ay + 3);
+                PhBotTodoNumber(pageSettings, "PhBot_CharSelectDelay", 170, ay, 40, "5").TextAlign = HorizontalAlignment.Center;
+                PhBotLabel(pageSettings, "lblCharSelSec", "s", 216, ay + 3);
+                ay += aStep + 4;
+
+                PhBotTodoCheck(pageSettings, "PhBot_ReduceMemSilk", isTR ? "Silkroad bellek kullanımını azalt" : "Reduce Silkroad memory usage", 14, ay, false);
+                ay += aStep;
+
+                PhBotTodoCheck(pageSettings, "PhBot_LowLatency", isTR ? "Düşük gecikme" : "Low latency", 14, ay, false);
+                ay += aStep;
+
+                PhBotTodoCheck(pageSettings, "PhBot_CaptchaCheck", "Captcha", 14, ay, true);
+                if (Login_tbxCaptcha != null)
+                {
+                    if (Login_tbxCaptcha.Parent != pageSettings)
+                    {
+                        try { Login_tbxCaptcha.Parent?.Controls.Remove(Login_tbxCaptcha); } catch { }
+                        pageSettings.Controls.Add(Login_tbxCaptcha);
+                    }
+                    Login_tbxCaptcha.Font = PhBotFont();
+                    Login_tbxCaptcha.BackColor = Color.White;
+                    Login_tbxCaptcha.ForeColor = Color.Black;
+                    Login_tbxCaptcha.TextAlign = HorizontalAlignment.Center;
+                    Login_tbxCaptcha.UseSystemPasswordChar = false;
+                    Login_tbxCaptcha.PasswordChar = '\0';
+                    if (string.IsNullOrWhiteSpace(Login_tbxCaptcha.Text)) Login_tbxCaptcha.Text = "1";
+                    Login_tbxCaptcha.SetBounds(95, ay - 1, 40, 22);
+                    Login_tbxCaptcha.Visible = true;
+                }
+                else
+                {
+                    PhBotTodoNumber(pageSettings, "PhBot_CaptchaNum", 95, ay - 1, 40, "1").TextAlign = HorizontalAlignment.Center;
+                }
+                ay += aStep;
+
+                PhBotTodoCheck(pageSettings, "PhBot_Noel", "Noel", 14, ay, false);
+                ay += aStep;
+
+                PhBotTodoCheck(pageSettings, "PhBot_Queue", isTR ? "Kuyruk" : "Queue", 14, ay, false);
+                ay += aStep;
+
+                PhBotTodoCheck(pageSettings, "PhBot_IdleDisconnect", isTR ? "Boşta kopmayı kapat" : "Disable idle disconnect", 14, ay, false);
+                PhBotTodoNumber(pageSettings, "PhBot_IdleMinutes", 160, ay - 1, 40, "10").TextAlign = HorizontalAlignment.Center;
+                PhBotLabel(pageSettings, "lblIdleMin", isTR ? "Dk" : "Min", 206, ay + 2);
+                ay += aStep + 16;
+
+                // Silkroad Path (kod uyumluluğu için mevcut kalır, phBot v33.6.3 görselinde yer almaz)
+                if (Login_cmbxSilkroad != null)
+                {
+                    if (Login_cmbxSilkroad.Parent != pageSettings)
+                    {
+                        try { Login_cmbxSilkroad.Parent?.Controls.Remove(Login_cmbxSilkroad); } catch { }
+                        pageSettings.Controls.Add(Login_cmbxSilkroad);
+                    }
+                    Login_cmbxSilkroad.Visible = false;
+                }
+                if (Login_btnAddSilkroad != null)
+                {
+                    if (Login_btnAddSilkroad.Parent != pageSettings)
+                    {
+                        try { Login_btnAddSilkroad.Parent?.Controls.Remove(Login_btnAddSilkroad); } catch { }
+                        pageSettings.Controls.Add(Login_btnAddSilkroad);
+                    }
+                    Login_btnAddSilkroad.Visible = false;
+                }
+
+                // =======================================================
+                // TAB 3: CREDENTIALS
+                // =======================================================
+                PhBotLabel(pageCredentials, "lblCredSavedTitle", "Saved logins", 14, 14);
+
+                ListBox lbCred = pageCredentials.Controls["PhBot_CredList"] as ListBox;
+                if (lbCred == null)
+                {
+                    lbCred = new ListBox { Name = "PhBot_CredList", BorderStyle = BorderStyle.FixedSingle };
+                    lbCred.SelectedIndexChanged += OnPhBotCredListSelectionChanged;
+                    pageCredentials.Controls.Add(lbCred);
+                }
+                lbCred.Font = PhBotFont();
+                lbCred.BackColor = Color.White;
+                lbCred.ForeColor = Color.Black;
+                lbCred.SetBounds(14, 34, 160, 205);
+                lbCred.Visible = true;
+
+                Button btnNew = pageCredentials.Controls["btnCredNew"] as Button;
+                if (btnNew == null)
+                {
+                    btnNew = new Button { Name = "btnCredNew", FlatStyle = FlatStyle.Flat };
+                    btnNew.Click += OnPhBotCredNewClicked;
+                    pageCredentials.Controls.Add(btnNew);
+                }
+                btnNew.Font = PhBotFont();
+                btnNew.BackColor = Color.FromArgb(246, 247, 248);
+                btnNew.ForeColor = Color.Black;
+                btnNew.FlatAppearance.BorderColor = Color.FromArgb(210, 212, 216);
+                btnNew.SetBounds(14, 246, 76, 25);
+                btnNew.Text = "New";
+                btnNew.Visible = true;
+
+                Button btnDel = pageCredentials.Controls["btnCredDelete"] as Button;
+                if (btnDel == null)
+                {
+                    btnDel = new Button { Name = "btnCredDelete", FlatStyle = FlatStyle.Flat };
+                    btnDel.Click += OnPhBotCredDeleteClicked;
+                    pageCredentials.Controls.Add(btnDel);
+                }
+                btnDel.Font = PhBotFont();
+                btnDel.BackColor = Color.FromArgb(246, 247, 248);
+                btnDel.ForeColor = Color.Black;
+                btnDel.FlatAppearance.BorderColor = Color.FromArgb(210, 212, 216);
+                btnDel.SetBounds(98, 246, 76, 25);
+                btnDel.Text = "Delete";
+                btnDel.Visible = true;
+
+                // Right fields of Credentials
+                int cry = 34;
+                const int crStep = 28;
+
+                PhBotLabel(pageCredentials, "lblCredName", "Name", 195, cry + 3);
+                TextBox tCredName = PhBotTodoNumber(pageCredentials, "PhBot_CredName", 280, cry, 180, "");
+                tCredName.TextAlign = HorizontalAlignment.Left;
+                cry += crStep;
+
+                PhBotLabel(pageCredentials, "lblCredUser", isTR ? "Kullanıcı Adı" : "Username", 195, cry + 3);
+                TextBox tCredUser = PhBotTodoNumber(pageCredentials, "PhBot_CredUser", 280, cry, 180, "");
+                tCredUser.TextAlign = HorizontalAlignment.Left;
+                cry += crStep;
+
+                PhBotLabel(pageCredentials, "lblCredPass", isTR ? "Şifre" : "Password", 195, cry + 3);
+                TextBox tCredPass = PhBotTodoNumber(pageCredentials, "PhBot_CredPass", 280, cry, 180, "");
+                tCredPass.UseSystemPasswordChar = true;
+                tCredPass.TextAlign = HorizontalAlignment.Left;
+                cry += crStep;
+
+                PhBotLabel(pageCredentials, "lblCredPin", "Passcode", 195, cry + 3);
+                TextBox tCredPin = PhBotTodoNumber(pageCredentials, "PhBot_CredPin", 280, cry, 180, "");
+                tCredPin.UseSystemPasswordChar = true;
+                tCredPin.TextAlign = HorizontalAlignment.Left;
+                cry += crStep;
+
+                PhBotLabel(pageCredentials, "lblCredServer", isTR ? "Sunucu" : "Server", 195, cry + 3);
+                ComboBox cbCredServer = pageCredentials.Controls["PhBot_CredServer"] as ComboBox;
+                if (cbCredServer == null)
+                {
+                    cbCredServer = new ComboBox { Name = "PhBot_CredServer", DropDownStyle = ComboBoxStyle.DropDownList };
+                    pageCredentials.Controls.Add(cbCredServer);
+                }
+                cbCredServer.Font = PhBotFont();
+                cbCredServer.BackColor = Color.White;
+                cbCredServer.ForeColor = Color.Black;
+                cbCredServer.SetBounds(280, cry, 180, 22);
+                cbCredServer.Visible = true;
+                if (Login_cmbxServer != null && Login_cmbxServer.Items.Count > 0 && cbCredServer.Items.Count == 0)
+                {
+                    foreach (var it in Login_cmbxServer.Items) cbCredServer.Items.Add(it);
+                }
+                cry += crStep;
+
+                PhBotLabel(pageCredentials, "lblCredChar", "Character", 195, cry + 3);
+                TextBox tCredChar = PhBotTodoNumber(pageCredentials, "PhBot_CredChar", 280, cry, 180, "");
+                tCredChar.TextAlign = HorizontalAlignment.Left;
+                cry += crStep;
+
+                CheckBox chkJCP = PhBotTodoCheck(pageCredentials, "PhBot_CredJCP", "JCP (JC Planet)", 280, cry, false);
+                cry += crStep + 6;
+
+                Button btnSave = pageCredentials.Controls["btnCredSave"] as Button;
+                if (btnSave == null)
+                {
+                    btnSave = new Button { Name = "btnCredSave", FlatStyle = FlatStyle.Flat };
+                    btnSave.Click += OnPhBotCredSaveClicked;
+                    pageCredentials.Controls.Add(btnSave);
+                }
+                btnSave.Font = PhBotFont();
+                btnSave.BackColor = Color.FromArgb(246, 247, 248);
+                btnSave.ForeColor = Color.Black;
+                btnSave.FlatAppearance.BorderColor = Color.FromArgb(210, 212, 216);
+                btnSave.SetBounds(280, cry, 75, 25);
+                btnSave.Text = "Save";
+                btnSave.Visible = true;
+
+                // UI senkronizasyonu
+                RefreshPhBotCredentialsUI();
             }
             catch (Exception ex) { PhBotDebug("login inner: " + ex.Message); }
             finally { _innerLayout = false; }
+        }
+
+        private void OnPhBotSavedLoginSelected(object sender, EventArgs e)
+        {
+            try
+            {
+                ComboBox cb = sender as ComboBox;
+                if (cb == null || cb.SelectedIndex <= 0) return;
+                if (cb.SelectedItem is SavedAccount acc)
+                {
+                    if (Login_tbxUsername != null) Login_tbxUsername.Text = acc.Username;
+                    if (Login_tbxPassword != null) Login_tbxPassword.Text = acc.Password;
+                    if (Login_cmbxServer != null && !string.IsNullOrWhiteSpace(acc.Server))
+                    {
+                        Login_cmbxServer.Text = acc.Server;
+                        xBot.Game.InfoManager.ServerName = acc.Server;
+                    }
+                    if (Login_cmbxCharacter != null && !string.IsNullOrWhiteSpace(acc.Character))
+                        Login_cmbxCharacter.Text = acc.Character;
+
+                    Panel host = TabPageV_Control01_Login_Panel;
+                    if (host != null)
+                    {
+                        Control[] fIp = host.Controls.Find("PhBot_SocksIp", true);
+                        if (fIp.Length > 0 && fIp[0] is TextBox tIp) tIp.Text = acc.ProxyHost;
+
+                        Control[] fPort = host.Controls.Find("PhBot_SocksPort", true);
+                        if (fPort.Length > 0 && fPort[0] is TextBox tPort) tPort.Text = acc.ProxyPort > 0 ? acc.ProxyPort.ToString() : "0";
+
+                        Control[] fUser = host.Controls.Find("PhBot_SocksUser", true);
+                        if (fUser.Length > 0 && fUser[0] is TextBox tUser) tUser.Text = acc.ProxyUsername;
+
+                        Control[] fPass = host.Controls.Find("PhBot_SocksPass", true);
+                        if (fPass.Length > 0 && fPass[0] is TextBox tPass) tPass.Text = acc.ProxyPassword;
+                    }
+                }
+            }
+            catch { }
+        }
+
+        private void OnPhBotCredListSelectionChanged(object sender, EventArgs e)
+        {
+            try
+            {
+                ListBox lb = sender as ListBox;
+                if (lb == null) return;
+                if (lb.SelectedItem is SavedAccount acc)
+                {
+                    Panel host = TabPageV_Control01_Login_Panel;
+                    if (host == null) return;
+
+                    Control[] fName = host.Controls.Find("PhBot_CredName", true);
+                    if (fName.Length > 0 && fName[0] is TextBox tName) tName.Text = acc.ProfileName;
+
+                    Control[] fUser = host.Controls.Find("PhBot_CredUser", true);
+                    if (fUser.Length > 0 && fUser[0] is TextBox tUser) tUser.Text = acc.Username;
+
+                    Control[] fPass = host.Controls.Find("PhBot_CredPass", true);
+                    if (fPass.Length > 0 && fPass[0] is TextBox tPass) tPass.Text = acc.Password;
+
+                    Control[] fPin = host.Controls.Find("PhBot_CredPin", true);
+                    if (fPin.Length > 0 && fPin[0] is TextBox tPin) tPin.Text = acc.SecondaryPasscode;
+
+                    Control[] fServer = host.Controls.Find("PhBot_CredServer", true);
+                    if (fServer.Length > 0 && fServer[0] is ComboBox cbServer && !string.IsNullOrWhiteSpace(acc.Server)) cbServer.Text = acc.Server;
+
+                    Control[] fChar = host.Controls.Find("PhBot_CredChar", true);
+                    if (fChar.Length > 0 && fChar[0] is TextBox tChar) tChar.Text = acc.Character;
+
+                    Control[] fJCP = host.Controls.Find("PhBot_CredJCP", true);
+                    if (fJCP.Length > 0 && fJCP[0] is CheckBox chkJCP) chkJCP.Checked = acc.IsJCP;
+                }
+            }
+            catch { }
+        }
+
+        private void OnPhBotCredNewClicked(object sender, EventArgs e)
+        {
+            try
+            {
+                Panel host = TabPageV_Control01_Login_Panel;
+                if (host == null) return;
+
+                Control[] fList = host.Controls.Find("PhBot_CredList", true);
+                if (fList.Length > 0 && fList[0] is ListBox lb) lb.SelectedIndex = -1;
+
+                Control[] fName = host.Controls.Find("PhBot_CredName", true);
+                if (fName.Length > 0 && fName[0] is TextBox tName) { tName.Text = ""; tName.Focus(); }
+
+                Control[] fUser = host.Controls.Find("PhBot_CredUser", true);
+                if (fUser.Length > 0 && fUser[0] is TextBox tUser) tUser.Text = "";
+
+                Control[] fPass = host.Controls.Find("PhBot_CredPass", true);
+                if (fPass.Length > 0 && fPass[0] is TextBox tPass) tPass.Text = "";
+
+                Control[] fPin = host.Controls.Find("PhBot_CredPin", true);
+                if (fPin.Length > 0 && fPin[0] is TextBox tPin) tPin.Text = "";
+
+                Control[] fServer = host.Controls.Find("PhBot_CredServer", true);
+                if (fServer.Length > 0 && fServer[0] is ComboBox cbServer) cbServer.SelectedIndex = -1;
+
+                Control[] fChar = host.Controls.Find("PhBot_CredChar", true);
+                if (fChar.Length > 0 && fChar[0] is TextBox tChar) tChar.Text = "";
+
+                Control[] fJCP = host.Controls.Find("PhBot_CredJCP", true);
+                if (fJCP.Length > 0 && fJCP[0] is CheckBox chkJCP) chkJCP.Checked = false;
+            }
+            catch { }
+        }
+
+        private void OnPhBotCredDeleteClicked(object sender, EventArgs e)
+        {
+            try
+            {
+                Panel host = TabPageV_Control01_Login_Panel;
+                if (host == null) return;
+
+                Control[] fList = host.Controls.Find("PhBot_CredList", true);
+                if (fList.Length > 0 && fList[0] is ListBox lb && lb.SelectedItem is SavedAccount acc)
+                {
+                    AccountManager.DeleteAccount(acc.Username);
+                    RefreshPhBotCredentialsUI();
+                    OnPhBotCredNewClicked(null, null);
+                }
+            }
+            catch { }
+        }
+
+        private void OnPhBotCredSaveClicked(object sender, EventArgs e)
+        {
+            try
+            {
+                Panel host = TabPageV_Control01_Login_Panel;
+                if (host == null) return;
+
+                Control[] fName = host.Controls.Find("PhBot_CredName", true);
+                Control[] fUser = host.Controls.Find("PhBot_CredUser", true);
+                Control[] fPass = host.Controls.Find("PhBot_CredPass", true);
+                Control[] fPin = host.Controls.Find("PhBot_CredPin", true);
+                Control[] fServer = host.Controls.Find("PhBot_CredServer", true);
+                Control[] fChar = host.Controls.Find("PhBot_CredChar", true);
+                Control[] fJCP = host.Controls.Find("PhBot_CredJCP", true);
+
+                string user = (fUser.Length > 0 && fUser[0] is TextBox tu) ? tu.Text.Trim() : "";
+                if (string.IsNullOrWhiteSpace(user))
+                {
+                    Log("[Hesap] Kaydetmek için lütfen Kullanıcı Adı girin.", Theme.LogLevel.Warning);
+                    return;
+                }
+
+                string name = (fName.Length > 0 && fName[0] is TextBox tn) ? tn.Text.Trim() : "";
+                string pass = (fPass.Length > 0 && fPass[0] is TextBox tp) ? tp.Text : "";
+                string pin = (fPin.Length > 0 && fPin[0] is TextBox tpi) ? tpi.Text : "";
+                string srv = (fServer.Length > 0 && fServer[0] is ComboBox cs) ? cs.Text.Trim() : "";
+                string chr = (fChar.Length > 0 && fChar[0] is TextBox tc) ? tc.Text.Trim() : "";
+                bool isJcp = (fJCP.Length > 0 && fJCP[0] is CheckBox cj) ? cj.Checked : false;
+
+                SavedAccount acc = new SavedAccount
+                {
+                    ProfileName = name,
+                    Username = user,
+                    Password = pass,
+                    SecondaryPasscode = pin,
+                    Server = srv,
+                    Character = chr,
+                    IsJCP = isJcp,
+                    Silkroad = Login_cmbxSilkroad?.Text?.Trim() ?? ""
+                };
+
+                AccountManager.SaveAccount(acc);
+                RefreshPhBotCredentialsUI();
+                Log($"[Hesap] '{user}' hesabı kaydedildi.");
+            }
+            catch { }
+        }
+
+        public void RefreshPhBotCredentialsUI()
+        {
+            try
+            {
+                Panel host = TabPageV_Control01_Login_Panel;
+                if (host == null) return;
+
+                // 1. PhBot_CredList
+                Control[] fList = host.Controls.Find("PhBot_CredList", true);
+                if (fList.Length > 0 && fList[0] is ListBox lb)
+                {
+                    lb.BeginUpdate();
+                    lb.Items.Clear();
+                    foreach (var a in AccountManager.Accounts) lb.Items.Add(a);
+                    lb.EndUpdate();
+                }
+
+                // 2. PhBot_LoginSavedLogins
+                Control[] fCombo = host.Controls.Find("PhBot_LoginSavedLogins", true);
+                if (fCombo.Length > 0 && fCombo[0] is ComboBox cb)
+                {
+                    cb.BeginUpdate();
+                    cb.Items.Clear();
+                    cb.Items.Add("(None)");
+                    int sel = 0;
+                    for (int i = 0; i < AccountManager.Accounts.Count; i++)
+                    {
+                        var a = AccountManager.Accounts[i];
+                        cb.Items.Add(a);
+                        if (!string.IsNullOrEmpty(AccountManager.SelectedAccountUsername) &&
+                            a.Username.Equals(AccountManager.SelectedAccountUsername, StringComparison.OrdinalIgnoreCase))
+                        {
+                            sel = i + 1;
+                        }
+                    }
+                    if (cb.Items.Count > 0 && sel < cb.Items.Count) cb.SelectedIndex = sel;
+                    cb.EndUpdate();
+                }
+
+                // 3. PhBot_CredServer sync from Login_cmbxServer
+                Control[] fCredServer = host.Controls.Find("PhBot_CredServer", true);
+                if (fCredServer.Length > 0 && fCredServer[0] is ComboBox cbCredServer && Login_cmbxServer != null)
+                {
+                    if (Login_cmbxServer.Items.Count > 0 && cbCredServer.Items.Count == 0)
+                    {
+                        foreach (var it in Login_cmbxServer.Items) cbCredServer.Items.Add(it);
+                    }
+                }
+            }
+            catch { }
+        }
+
+        private void MoveToLogin(Control container, Control c, int x, int y, int w = 0)
+        {
+            if (c == null || container == null) return;
+            try
+            {
+                if (c.Parent != container)
+                {
+                    try { c.Parent?.Controls.Remove(c); } catch { }
+                    try { container.Controls.Add(c); } catch { }
+                }
+                Classicize(c);
+                if (c is CheckBox || c is RadioButton)
+                {
+                    (c as ButtonBase).AutoSize = true;
+                }
+                else if (w > 0)
+                {
+                    c.Size = new Size(w, c.Height);
+                }
+                c.Location = new Point(x, y);
+                c.Visible = true;
+                try { c.Anchor = AnchorStyles.Top | AnchorStyles.Left; } catch { }
+            }
+            catch { }
         }
 
         private void LayoutGameInfoInner()

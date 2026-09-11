@@ -9,12 +9,14 @@ namespace xBot.App
     /// </summary>
     public class SavedAccount
     {
+        public string ProfileName { get; set; } = string.Empty;
         public string Username { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
         public string Server { get; set; } = string.Empty;
         public string Character { get; set; } = string.Empty;
         public string Silkroad { get; set; } = string.Empty;
         public string SecondaryPasscode { get; set; } = string.Empty;
+        public bool IsJCP { get; set; } = false;
         public bool UseProxy { get; set; } = false;
         public string ProxyHost { get; set; } = string.Empty;
         public ushort ProxyPort { get; set; } = 1080;
@@ -23,6 +25,8 @@ namespace xBot.App
 
         public override string ToString()
         {
+            if (!string.IsNullOrWhiteSpace(ProfileName))
+                return ProfileName;
             if (!string.IsNullOrWhiteSpace(Character) && !string.IsNullOrWhiteSpace(Server))
                 return $"{Username} [{Server} - {Character}]";
             if (!string.IsNullOrWhiteSpace(Server))
@@ -51,11 +55,13 @@ namespace xBot.App
             var existing = Accounts.Find(a => a.Username.Equals(normalized, StringComparison.OrdinalIgnoreCase));
             if (existing != null)
             {
+                existing.ProfileName = account.ProfileName ?? string.Empty;
                 existing.Password = account.Password;
                 existing.Server = account.Server ?? string.Empty;
                 existing.Character = account.Character ?? string.Empty;
                 existing.Silkroad = account.Silkroad ?? string.Empty;
                 existing.SecondaryPasscode = account.SecondaryPasscode ?? string.Empty;
+                existing.IsJCP = account.IsJCP;
                 existing.UseProxy = account.UseProxy;
                 existing.ProxyHost = account.ProxyHost ?? string.Empty;
                 existing.ProxyPort = account.ProxyPort;
@@ -115,12 +121,14 @@ namespace xBot.App
             {
                 JObject obj = new JObject
                 {
+                    ["ProfileName"] = acc.ProfileName,
                     ["Username"] = acc.Username,
                     ["Password"] = SecretStore.Protect(acc.Password),
                     ["Server"] = acc.Server,
                     ["Character"] = acc.Character,
                     ["Silkroad"] = acc.Silkroad,
                     ["SecondaryPasscode"] = SecretStore.Protect(acc.SecondaryPasscode),
+                    ["IsJCP"] = acc.IsJCP,
                     ["UseProxy"] = acc.UseProxy,
                     ["ProxyHost"] = acc.ProxyHost,
                     ["ProxyPort"] = acc.ProxyPort,
@@ -148,12 +156,14 @@ namespace xBot.App
 
                     SavedAccount acc = new SavedAccount
                     {
+                        ProfileName = (string)obj["ProfileName"] ?? string.Empty,
                         Username = user.Trim(),
                         Password = SecretStore.Unprotect((string)obj["Password"] ?? string.Empty),
                         Server = (string)obj["Server"] ?? string.Empty,
                         Character = (string)obj["Character"] ?? string.Empty,
                         Silkroad = (string)obj["Silkroad"] ?? string.Empty,
                         SecondaryPasscode = SecretStore.Unprotect((string)obj["SecondaryPasscode"] ?? string.Empty),
+                        IsJCP = obj.ContainsKey("IsJCP") ? (bool)obj["IsJCP"] : false,
                         UseProxy = obj.ContainsKey("UseProxy") ? (bool)obj["UseProxy"] : false,
                         ProxyHost = (string)obj["ProxyHost"] ?? string.Empty,
                         ProxyPort = obj.ContainsKey("ProxyPort") ? (ushort)obj["ProxyPort"] : (ushort)1080,

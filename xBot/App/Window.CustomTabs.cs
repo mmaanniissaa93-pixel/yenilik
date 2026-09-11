@@ -745,6 +745,7 @@ namespace xBot.App
             {
                 ApplySavedAccountToInputs(selAcc);
             }
+            try { RefreshPhBotCredentialsUI(); } catch { }
         }
 
         private void OnSavedAccountSelected()
