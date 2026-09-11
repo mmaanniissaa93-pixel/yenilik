@@ -57,8 +57,8 @@ namespace xBot.App
                 FormBorderStyle = FormBorderStyle.FixedSingle;
                 MaximizeBox = false;
                 MinimizeBox = ControlBox = true;
-                Size = new Size(975, 526);
-                MinimumSize = MaximumSize = new Size(975, 526);
+                Size = new Size(980, 530);
+                MinimumSize = MaximumSize = new Size(980, 530);
                 StartPosition = FormStartPosition.CenterScreen;
                 WindowState = FormWindowState.Normal;
                 ShowInTaskbar = true;
