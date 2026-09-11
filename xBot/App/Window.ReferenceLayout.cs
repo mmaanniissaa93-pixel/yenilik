@@ -792,8 +792,16 @@ namespace xBot.App
 
         private void PrepareXBotPickFilter()
         {
-            if (lstPickItems == null) return;
+            if (lstPickItems == null || tabPickFilterRoot == null || tabPickFilterRoot.TabPages.Count == 0) return;
             var page = tabPickFilterRoot.TabPages[0];
+            var existingFooter = page.Controls.OfType<Panel>().FirstOrDefault(p => p.Name == "XBotPickSearch");
+            if (existingFooter != null)
+            {
+                page.Padding = new Padding(6);
+                lstPickItems.Dock = DockStyle.Fill;
+                lstPickItems.BringToFront();
+                return;
+            }
             var footer = new Panel { Name = "XBotPickSearch", Dock = DockStyle.Bottom, Height = 72, BackColor = Color.White };
             foreach (Control c in page.Controls.Cast<Control>().Where(c => c != lstPickItems).ToArray())
             {
@@ -809,7 +817,7 @@ namespace xBot.App
             }
             if (txtPickSearch != null)
             {
-                txtPickSearch.Location = new Point(330, 4);
+                txtPickSearch.Location = new Point(338, 6);
                 txtPickSearch.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             }
             page.Controls.Add(footer);
@@ -818,17 +826,17 @@ namespace xBot.App
             lstPickItems.BringToFront();
             footer.Resize += (s, e) =>
             {
-                if (txtPickSearch != null) txtPickSearch.Width = Math.Max(120, footer.Width - 336);
-                var btnReset = footer.Controls.OfType<Button>().FirstOrDefault(b => b.Text == "Reset");
-                var btnUpdate = footer.Controls.OfType<Button>().FirstOrDefault(b => b.Text == "Update");
-                var btnClear = footer.Controls.OfType<Button>().FirstOrDefault(b => b.Text == "Clear");
-                if (btnReset != null) { btnReset.Location = new Point(footer.Width - 76, 32); btnReset.BringToFront(); }
-                if (btnUpdate != null) { btnUpdate.Location = new Point(footer.Width - 152, 32); btnUpdate.BringToFront(); }
-                if (btnClear != null) { btnClear.Location = new Point(footer.Width - 228, 32); btnClear.BringToFront(); }
+                if (txtPickSearch != null) txtPickSearch.Width = Math.Max(100, footer.Width - 344);
+                var btnReset = footer.Controls.OfType<Button>().FirstOrDefault(b => b.Text == "Reset" || b.Text == "Sıfırla");
+                var btnUpdate = footer.Controls.OfType<Button>().FirstOrDefault(b => b.Text == "Update" || b.Text == "Güncelle");
+                var btnClear = footer.Controls.OfType<Button>().FirstOrDefault(b => b.Text == "Clear" || b.Text == "Temizle");
+                if (btnReset != null) { btnReset.Location = new Point(footer.Width - 76, 33); btnReset.BringToFront(); }
+                if (btnUpdate != null) { btnUpdate.Location = new Point(footer.Width - 152, 33); btnUpdate.BringToFront(); }
+                if (btnClear != null) { btnClear.Location = new Point(footer.Width - 228, 33); btnClear.BringToFront(); }
                 var lblNote = footer.Controls.OfType<Label>().FirstOrDefault(l => l.Text.Contains("SOX"));
                 if (lblNote != null)
                 {
-                    lblNote.Width = Math.Max(200, footer.Width - 235);
+                    lblNote.Width = Math.Max(180, footer.Width - 235);
                     lblNote.SendToBack();
                 }
             };

@@ -240,7 +240,11 @@ namespace xBot.App
 					lblBotState.Text = text;
 				});
 			}
-			try { UpdatePhBotTitle(text); } catch { }
+			// Başlık güncellemesi yalnızca gerçek durum değişikliklerinde yapılır (cast/loop logları başlığa basılmaz).
+			if (state == ProcessState.Disconnected || text == "Online" || text == "Disconnected")
+			{
+				try { UpdatePhBotTitle(); } catch { }
+			}
 			if (!_phBotClassicApplied)
 			{
 				switch (state)

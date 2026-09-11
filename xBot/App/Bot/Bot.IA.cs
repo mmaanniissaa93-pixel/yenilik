@@ -35,6 +35,46 @@ namespace xBot.App
         private SRCoord m_lastTownLoopEndPos = null;
         private DateTime m_lastPartyAutoTick = DateTime.MinValue;
         private DateTime m_lastPartyMatchReform = DateTime.MinValue;
+        private Thread tPetLooting = null;
+        private volatile bool m_stopPetLootingRequested = false;
+        private readonly Dictionary<uint, DateTime> _petCommandedDrops = new Dictionary<uint, DateTime>();
+
+        /// <summary>
+        /// Asenkron pet toplama iş parçacığını başlatır (Bot startlı olmasa bile çalışır).
+        /// </summary>
+        public void StartPetLooting()
+        {
+            try
+            {
+                m_stopPetLootingRequested = false;
+                if (tPetLooting != null && tPetLooting.IsAlive)
+                    return;
+
+                tPetLooting = new Thread(this.ThreadPetLooting)
+                {
+                    IsBackground = true,
+                    Priority = ThreadPriority.Normal
+                };
+                tPetLooting.Start();
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// Pet toplama iş parçacığını durdurur (Client bağlantısı kesildiğinde çağrılır).
+        /// </summary>
+        public void StopPetLooting()
+        {
+            try
+            {
+                m_stopPetLootingRequested = true;
+                Thread tp = tPetLooting;
+                tPetLooting = null;
+                try { if (tp != null && tp.IsAlive && tp != Thread.CurrentThread) tp.Join(500); } catch { }
+                lock (_petCommandedDrops) { _petCommandedDrops.Clear(); }
+            }
+            catch { }
+        }
         /// <summary>
         /// Kesilebilir bekleme: Stop() çağrılırsa erken döner (uzun Sleep'lerin bloklamasını önler).
         /// </summary>
@@ -76,6 +116,8 @@ namespace xBot.App
                 tBotting.IsBackground = true;
                 tBotting.Priority = ThreadPriority.Normal;
                 tBotting.Start();
+
+                StartPetLooting();
                 // ...
                 Window w = Window.Get;
                 w.Log("Starting bot");
@@ -1896,7 +1938,7 @@ namespace xBot.App
             {
                 if (InfoManager.Character == null)
                     return false;
-                if (!ItemFilterManager.Pick.Enabled || ItemFilterManager.Pick.DontPickItems)
+                if (!ItemFilterManager.IsFilterActive)
                     return false;
                 SRCoord myPos = InfoManager.Character.GetRealtimePosition();
                 if (myPos == null)
@@ -1949,12 +1991,151 @@ namespace xBot.App
             catch { return false; }
         }
 
+        /// <summary>
+        /// Asenkron Pet Toplama Döngüsü.
+        /// Karakter savaşırken, skill basarken veya hareket ederken pet'in
+        /// yerdeki eşyaları gecikmesiz, anında ve bağımsız olarak toplamasını sağlar.
+        /// </summary>
+        private void ThreadPetLooting()
+        {
+            while (!m_stopPetLootingRequested)
+            {
+                try
+                {
+                    if (!InfoManager.inGame || InfoManager.Character == null)
+                    {
+                        Thread.Sleep(500);
+                        continue;
+                    }
+
+                    if (!ItemFilterManager.Pick.UsePickPet || !ItemFilterManager.IsFilterActive || ItemFilterManager.Pick.DontPickItems)
+                    {
+                        Thread.Sleep(300);
+                        continue;
+                    }
+
+                    SRCoService pickPet = null;
+                    try { pickPet = InfoManager.MyPets.Find(p => p != null && p.isPickPet()); } catch { }
+                    if (pickPet == null)
+                    {
+                        Thread.Sleep(500);
+                        continue;
+                    }
+
+                    bool petFull = false;
+                    try
+                    {
+                        petFull = pickPet.Inventory == null
+                            || pickPet.Inventory.FindIndex(item => item == null, 0) == -1;
+                    }
+                    catch { petFull = false; }
+
+                    if (petFull)
+                    {
+                        Thread.Sleep(1000);
+                        continue;
+                    }
+
+                    SRCoord center = InfoManager.Character.GetRealtimePosition();
+                    if (center == null)
+                    {
+                        Thread.Sleep(200);
+                        continue;
+                    }
+
+                    int pickRadius = 45;
+                    try
+                    {
+                        if (Window.Get != null)
+                            pickRadius = Window.Get.TrainingArea_GetPickRadius();
+                    }
+                    catch { }
+                    if (pickRadius < 30) pickRadius = 45;
+
+                    DateTime now = DateTime.UtcNow;
+
+                    // 4 saniyeden eski veya artık çevrede olmayan komutları hafızadan düşür
+                    lock (_petCommandedDrops)
+                    {
+                        List<uint> cleanup = null;
+                        foreach (var kvp in _petCommandedDrops)
+                        {
+                            if ((now - kvp.Value).TotalSeconds > 3.0 || !InfoManager.isEntityNear(kvp.Key))
+                            {
+                                if (cleanup == null) cleanup = new List<uint>();
+                                cleanup.Add(kvp.Key);
+                            }
+                        }
+                        if (cleanup != null)
+                        {
+                            for (int c = 0; c < cleanup.Count; c++)
+                                _petCommandedDrops.Remove(cleanup[c]);
+                        }
+                    }
+
+                    // Yerdeki dropları tara
+                    List<SRDrop> petDrops = new List<SRDrop>();
+                    for (int i = 0; i < InfoManager.Entities.Count; i++)
+                    {
+                        SREntity entity = null;
+                        try { entity = InfoManager.Entities.GetAt(i); } catch { continue; }
+                        if (entity is SRDrop drop)
+                        {
+                            try
+                            {
+                                if (!InfoManager.isEntityNear(drop.UniqueID))
+                                    continue;
+
+                                double dist = drop.GetRealtimePosition().DistanceTo(center);
+                                if (dist <= pickRadius)
+                                {
+                                    if (ItemFilterManager.ShouldUsePet(drop, true, petFull))
+                                    {
+                                        lock (_petCommandedDrops)
+                                        {
+                                            if (!_petCommandedDrops.ContainsKey(drop.UniqueID))
+                                                petDrops.Add(drop);
+                                        }
+                                    }
+                                }
+                            }
+                            catch { }
+                        }
+                    }
+
+                    if (petDrops.Count > 0)
+                    {
+                        // En yakından başlayarak pet'e komut ver
+                        petDrops.Sort((a, b) => a.GetRealtimePosition().DistanceTo(center).CompareTo(b.GetRealtimePosition().DistanceTo(center)));
+
+                        for (int d = 0; d < petDrops.Count; d++)
+                        {
+                            if (m_stopPetLootingRequested) break;
+                            SRDrop drop = petDrops[d];
+                            if (!InfoManager.isEntityNear(drop.UniqueID)) continue;
+
+                            lock (_petCommandedDrops)
+                            {
+                                _petCommandedDrops[drop.UniqueID] = DateTime.UtcNow;
+                            }
+
+                            PacketBuilder.PickUpItem(drop.UniqueID, pickPet.UniqueID);
+                            Thread.Sleep(100);
+                        }
+                    }
+                }
+                catch { }
+
+                Thread.Sleep(100);
+            }
+        }
+
         private void LootDrops(SRCoord trainingPosition, int trainingRadius)
         {
             if (InfoManager.Character == null || InfoManager.Character.Inventory == null)
                 return;
 
-            if (!ItemFilterManager.Pick.Enabled || ItemFilterManager.Pick.DontPickItems)
+            if (!ItemFilterManager.IsFilterActive || ItemFilterManager.Pick.DontPickItems)
                 return;
 
             // Çantada boş yer var mı? (13. slottan itibaren)
@@ -1963,6 +2144,7 @@ namespace xBot.App
                 return; // Envanter dolu
 
             SRCoord myPos = InfoManager.Character.GetRealtimePosition();
+            if (myPos == null) return;
 
             bool wantPet = ItemFilterManager.Pick.UsePickPet;
             SRCoService pickPet = wantPet ? InfoManager.MyPets.Find(p => p.isPickPet()) : null;
@@ -1978,34 +2160,40 @@ namespace xBot.App
                 catch { petFull = false; }
             }
 
-            int pickRadius = Window.Get != null ? Window.Get.TrainingArea_GetPickRadius() : 35;
+            int pickRadius = Window.Get != null ? Window.Get.TrainingArea_GetPickRadius() : 45;
             List<SRDrop> drops = new List<SRDrop>();
 
             for (int i = 0; i < InfoManager.Entities.Count; i++)
             {
-                SREntity entity = InfoManager.Entities.GetAt(i);
+                SREntity entity = null;
+                try { entity = InfoManager.Entities.GetAt(i); } catch { continue; }
                 if (entity is SRDrop drop)
                 {
-                    double dist = drop.GetRealtimePosition().DistanceTo(myPos);
-                    if (dist <= pickRadius)
+                    try
                     {
-						// Karakter listesi (Pick) VEYA pet listesi (Pet): ikisi de
-						// bağımsızdır, biri tutsa damla listeye girer.
-						bool charWantsDrop = ItemFilterManager.ShouldPickup(drop);
-						bool petWantsDrop = petId != 0 && ItemFilterManager.ShouldUsePet(drop, true, petFull);
-						if (!charWantsDrop && !petWantsDrop)
-							continue;
+                        if (!InfoManager.isEntityNear(drop.UniqueID))
+                            continue;
 
-                        // Ok/mermi kotası dolduysa yerden alma.
-                        if (drop.ID2 == 3 && drop.ID3 == 4 && ItemFilterManager.Pick.PickArrowsBolts)
+                        double dist = drop.GetRealtimePosition().DistanceTo(myPos);
+                        if (dist <= pickRadius)
                         {
-                            int have = CountItemTotalQuantity(3, 4, 0);
-                            if (have >= ItemFilterManager.Pick.ArrowBoltAmount)
+                            bool charWantsDrop = ItemFilterManager.ShouldPickup(drop);
+                            bool petWantsDrop = petId != 0 && ItemFilterManager.ShouldUsePet(drop, true, petFull);
+                            if (!charWantsDrop && !petWantsDrop)
                                 continue;
-                        }
 
-                        drops.Add(drop);
+                            // Ok/mermi kotası dolduysa yerden alma.
+                            if (drop.ID2 == 3 && drop.ID3 == 4 && ItemFilterManager.Pick.PickArrowsBolts)
+                            {
+                                int have = CountItemTotalQuantity(3, 4, 0);
+                                if (have >= ItemFilterManager.Pick.ArrowBoltAmount)
+                                    continue;
+                            }
+
+                            drops.Add(drop);
+                        }
                     }
+                    catch { }
                 }
             }
 
@@ -2015,16 +2203,13 @@ namespace xBot.App
             // En yakından uzağa sırala
             drops.Sort((a, b) => a.GetRealtimePosition().DistanceTo(myPos).CompareTo(b.GetRealtimePosition().DistanceTo(myPos)));
 
-            for (int d = 0; d < drops.Count && d < 3; d++)
+            for (int d = 0; d < drops.Count && d < 15; d++)
             {
+                if (!isBotting || m_stopBottingRequested) break;
                 SRDrop drop = drops[d];
                 if (!InfoManager.isEntityNear(drop.UniqueID))
                     continue;
 
-                // Pick ve Pet sütunları bağımsızdır:
-                // Pick=Yes -> karakter yürüyüp toplar (pet açık olsa bile).
-                // Pet=Yes  -> pet kapar. İkisi de Yes ise ikisi de dener.
-                // Pet-only (Pick=No) + pet yok/dolu + karakter yedeği açıksa karakter toplar.
                 var dropRule = ItemFilterManager.GetRule(drop.Name) ?? ItemFilterManager.GetRule(drop.ServerName);
                 bool petOnly = dropRule != null && dropRule.Pet && !dropRule.Pickup;
                 bool petWants = petId != 0 && ItemFilterManager.ShouldUsePet(drop, true, petFull);
@@ -2032,25 +2217,31 @@ namespace xBot.App
                 if (petOnly && !petWants && ItemFilterManager.Pick.PickWithCharIfPetGoneFull)
                     charWants = true;
 
+                // Pet toplayabiliyorsa pet'e komut ver
                 if (petWants)
                 {
+                    lock (_petCommandedDrops)
+                    {
+                        _petCommandedDrops[drop.UniqueID] = DateTime.UtcNow;
+                    }
                     PacketBuilder.PickUpItem(drop.UniqueID, petId);
-                    Thread.Sleep(200);
                 }
 
-                if (charWants)
+                // Karakter yalnızca pet alamıyorsa veya pet yoksa/doluysa yürüyüp toplasın
+                // (Pet toplayacaksa karakterin savaşı durdurup yürümesine gerek yok)
+                bool needCharMove = charWants && (!petWants || pickPet == null || petFull);
+                if (needCharMove)
                 {
-                    // Pet kapmış olabilir; paket boşa giderse zararsız, yine dene.
                     if (!InfoManager.isEntityNear(drop.UniqueID))
                         continue;
                     double dist = myPos.DistanceTo(drop.GetRealtimePosition());
                     if (dist > 4.0)
                     {
                         MoveTo(drop.GetRealtimePosition());
-                        Thread.Sleep(300);
+                        Thread.Sleep(200);
                     }
                     PacketBuilder.PickUpItem(drop.UniqueID);
-                    Thread.Sleep(300);
+                    Thread.Sleep(150);
                 }
             }
         }

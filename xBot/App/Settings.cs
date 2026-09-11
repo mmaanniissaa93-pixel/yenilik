@@ -646,6 +646,7 @@ namespace xBot.App
 				root["ReturnToAreaPolicy"] = ReturnToAreaPolicy.ToJson();
 				root["StatPointManager"] = StatPointManager.ToJson();
 				root["ItemFilterManager"] = ItemFilterManager.ToJson();
+				root["EzFilterManager"] = EzFilterManager.ToJson();
 				root["AutoConfigureManager"] = AutoConfigureManager.ToJson();
 
 					// Saving (atomic)
@@ -1266,6 +1267,8 @@ Window w = Window.Get;
 				ItemFilterManager.FromJson(root.ContainsKey("ItemFilterManager")
 					? (Newtonsoft.Json.Linq.JObject)root["ItemFilterManager"]
 					: new Newtonsoft.Json.Linq.JObject());
+				if (root.ContainsKey("EzFilterManager"))
+					EzFilterManager.FromJson((Newtonsoft.Json.Linq.JObject)root["EzFilterManager"]);
 
 				LoadingCharacterSettings = false;
 				s_loadedCharacterProfilePath = string.IsNullOrEmpty(path) ? "" : Path.GetFullPath(path);

@@ -152,6 +152,7 @@
     <Compile Include="App\StatPointManager.cs" />
     <Compile Include="App\ItemFilterManager.cs" />
     <Compile Include="App\ItemFilterPolicy.cs" />
+    <Compile Include="App\EzFilterManager.cs" />
     <Compile Include="App\ConsignmentPolicy.cs" />
     <Compile Include="App\ConsignmentManager.cs" />
     <Compile Include="App\TradeLoopManager.cs" />

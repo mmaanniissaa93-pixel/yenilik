@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace xBot.App
 {
     public enum ItemFilterAction
@@ -26,14 +28,18 @@ namespace xBot.App
         public bool IsRare { get; set; }
         public bool IsBlue { get; set; }
         public int Plus { get; set; }
-        public System.Collections.Generic.List<string> BlueNames { get; set; }
+        public List<string> BlueNames { get; set; }
         public bool IsArrowBolt { get; set; }
         public int Degree { get; set; }
         public bool IsChina { get; set; }
         public bool IsEurope { get; set; }
         public bool IsMale { get; set; }
         public bool IsFemale { get; set; }
-        /// <summary>0 = sahipsiz/serbest, 1 = bana ait, 2 = parti üyesine ait, 3 = yabancı oyuncuya ait.</summary>
+        public byte ID2 { get; set; }
+        public byte ID3 { get; set; }
+        public byte ID4 { get; set; }
+        public EzFilterCategory? EzCategory { get; set; }
+        /// <summary>0 = sahipsiz/serbest, 1 = bana ait, 2 = parti Ã¼yesine ait, 3 = yabancÄ± oyuncuya ait.</summary>
         public int OwnerKind { get; set; }
     }
 
@@ -71,13 +77,14 @@ namespace xBot.App
             if (input == null)
                 return false;
 
-            if (pick != null && !pick.Enabled)
-                return false;
-
             if (pick != null && pick.DontPickItems)
                 return false;
 
-            // Sahiplik: yabancı oyuncunun eşyası / parti eşyası.
+            // Gri barda eşyaları toplama: sahipsiz değilse ve bana/partime ait değilse alma
+            if (pick != null && pick.DontPickGreyBar && input.OwnerKind == 3)
+                return false;
+
+            // Sahiplik: yabancÄ± oyuncunun eÅŸyasÄ± / parti eÅŸyasÄ±.
             if (pick != null)
             {
                 if (input.OwnerKind == 3 && !pick.PickOthersItems)
@@ -86,40 +93,34 @@ namespace xBot.App
                     return false;
             }
 
-            // Kural varsa Pick sütunu KARAKTERİN yürüyeceği eşyadır (pet açık
-            // olsa bile). Pet işine ShouldUsePet karar verir — iki sütun bağımsızdır.
+            // 1. DoÄŸrudan EÅŸya KuralÄ± (Toplama Filtresi tablosundaki kural)
             if (rule != null)
                 return rule.Pickup;
 
-            // Mavi-özellik modu: kuralı olmayan ekipmanlarda sadece nadir/mavi/sox
-            // toplanır (hangi mavi olduğu yerde bilinmez; kesin eşleşme depoda yapılır).
-            if (pick != null && pick.OnlyPickSpecificBlues && input.IsEquipable
-                && !input.IsRare && !input.IsBlue && !input.IsSox)
-                return false;
+            // 2. Ez Filter Kategori KuralÄ±
+            if (input.EzCategory.HasValue)
+            {
+                var ezRule = EzFilterManager.GetRule(input.EzCategory.Value);
+                if (ezRule != null && ezRule.Pick)
+                {
+                    // Ekipman ise ve "Sadece SOX ya da Blue eÅŸyalarÄ± topla" aÃ§Ä±ksa filtrele
+                    if (pick != null && pick.OnlyPickRareBlue && input.IsEquipable && !input.IsRare && !input.IsBlue && !input.IsSox)
+                        return false;
 
-            if (pick != null && pick.OnlyPickRareBlue && !input.IsRare && !input.IsBlue && !input.IsSox)
-                return false;
+                    return true;
+                }
+            }
 
-            if (input.IsGold || input.IsElixirOrStone || !input.IsEquipable)
+            // 3. "Sadece SOX ya da Blue eÅŸyalarÄ± topla"
+            if (pick != null && pick.OnlyPickRareBlue && (input.IsRare || input.IsBlue || input.IsSox))
                 return true;
 
-            if (options == null)
+            // Mavi-Ã¶zellik modu
+            if (pick != null && pick.OnlyPickSpecificBlues && input.IsEquipable && (input.IsRare || input.IsBlue || input.IsSox))
                 return true;
 
-            if (input.Degree > 0 && (input.Degree < options.MinDegree || input.Degree > options.MaxDegree))
-                return false;
-            if (options.OnlySox && !input.IsSox)
-                return false;
-            if (input.IsChina && !options.FilterChina)
-                return false;
-            if (input.IsEurope && !options.FilterEurope)
-                return false;
-            if (input.IsMale && !options.FilterMale)
-                return false;
-            if (input.IsFemale && !options.FilterFemale)
-                return false;
-
-            return true;
+            // HiÃ§bir kural veya filtre eÅŸleÅŸmiyorsa TOPLAMA (varsayÄ±lan: false)
+            return false;
         }
 
         // Eski imza ile uyumluluk.
@@ -129,41 +130,85 @@ namespace xBot.App
         }
 
         /// <summary>
-        /// Eşya pet ile mi toplansın? Varsayılan KARAKTER toplar; sadece kuralda
-        /// Pet=Yes yazan eşyayı pet toplar (phBot davranışı).
+        /// EÅŸya pet ile mi toplansÄ±n?
         /// </summary>
         public static bool ShouldUsePet(ItemFilterInput input, ItemFilterRule rule, PickFilterOptions pick, bool petAvailable, bool petFull)
         {
             if (!petAvailable)
                 return false;
-            if (pick != null && !pick.Enabled)
+            if (pick != null && pick.DontPickItems)
                 return false;
             if (pick != null && !pick.UsePickPet)
                 return false;
-            // Kural yoksa pet toplamasın — karakter toplar.
-            if (rule == null)
-                return false;
-            if (!rule.Pet)
-                return false;
             if (petFull)
                 return false;
-            return true;
+
+            // Gri barda eşyaları toplama
+            if (pick != null && pick.DontPickGreyBar && input != null && input.OwnerKind == 3)
+                return false;
+
+            if (pick != null && input != null)
+            {
+                if (input.OwnerKind == 3 && !pick.PickOthersItems)
+                    return false;
+                if (input.OwnerKind == 2 && !pick.PickPartyItems)
+                    return false;
+            }
+
+            // 1. DoÄŸrudan EÅŸya KuralÄ± (Toplama Filtresi tablosundaki Pet sÃ¼tunu)
+            if (rule != null)
+                return rule.Pet;
+
+            // 2. Ez Filter Kategori KuralÄ± (pet pick)
+            if (input != null && input.EzCategory.HasValue)
+            {
+                var ezRule = EzFilterManager.GetRule(input.EzCategory.Value);
+                if (ezRule != null && ezRule.PetPick)
+                {
+                    if (pick != null && pick.OnlyPickRareBlue && input.IsEquipable && !input.IsRare && !input.IsBlue && !input.IsSox)
+                        return false;
+
+                    return true;
+                }
+            }
+
+            // 3. SOX/Blue toplama
+            if (pick != null && pick.OnlyPickRareBlue && input != null && (input.IsRare || input.IsBlue || input.IsSox))
+                return true;
+
+            return false;
         }
 
         public static bool ShouldSell(ItemFilterInput input, ItemFilterRule rule, PickFilterOptions pick)
         {
             if (input == null)
                 return false;
-            // SOX asla satılmaz.
+            // SOX asla satÄ±lmaz.
             if (input.IsSox)
                 return false;
             if (pick != null && pick.NoSellPlusEnabled && input.Plus >= pick.NoSellPlus)
                 return false;
+
+            // 1. DoÄŸrudan EÅŸya KuralÄ±
             if (rule != null)
                 return rule.Sell;
-            // Kural yoksa: sadece "hepsini sat" modu beyaz eşyayı satar.
+
+            // 2. SeÃ§ili blue'lu eÅŸyalarÄ± sat
+            if (pick != null && pick.SellSelectedBlues && ShouldSellByBlue(input, ItemFilterManager.GetBlues()))
+                return true;
+
+            // 3. Ez Filter Kategori KuralÄ±
+            if (input.EzCategory.HasValue)
+            {
+                var ezRule = EzFilterManager.GetRule(input.EzCategory.Value);
+                if (ezRule != null && ezRule.Sell)
+                    return true;
+            }
+
+            // 4. Kural yoksa: sadece "TÃ¼m eÅŸya tÃ¼rlerini satmaya izin ver" modu beyaz eÅŸyayÄ± satar.
             if (pick != null && pick.AllowSellAll && input.IsEquipable && !input.IsRare && !input.IsBlue)
                 return true;
+
             return false;
         }
 
@@ -173,7 +218,7 @@ namespace xBot.App
             return ShouldSell(input, rule, null);
         }
 
-        public static bool ShouldStore(ItemFilterInput input, ItemFilterRule rule, PickFilterOptions pick, System.Collections.Generic.IDictionary<string, BlueAttributeRule> blues)
+        public static bool ShouldStore(ItemFilterInput input, ItemFilterRule rule, PickFilterOptions pick, IDictionary<string, BlueAttributeRule> blues)
         {
             if (input == null)
                 return false;
@@ -181,18 +226,32 @@ namespace xBot.App
                 return false;
             if (pick != null && pick.OnlyStorePlusEnabled && input.IsEquipable && input.Plus < pick.OnlyStorePlus)
                 return false;
+
+            // 1. DoÄŸrudan kural
             if (rule != null)
             {
                 if (rule.Store)
                     return true;
-                // Kural var ama Store=No: sadece mavi-özellik kuralı kurtarabilir.
                 return ShouldStoreByBlue(input, pick, blues);
             }
 
+            // 2. Mavi-Ã¶zellik kontrolÃ¼
             if (ShouldStoreByBlue(input, pick, blues))
                 return true;
 
-            return input.IsElixirOrStone || input.IsSox;
+            // 3. Ez Filter Kategori KuralÄ±
+            if (input.EzCategory.HasValue)
+            {
+                var ezRule = EzFilterManager.GetRule(input.EzCategory.Value);
+                if (ezRule != null && ezRule.Store)
+                    return true;
+            }
+
+            // 4. SOX depola
+            if (pick != null && pick.OnlyStoreRareBlue && (input.IsSox || input.IsRare || input.IsBlue))
+                return true;
+
+            return false;
         }
 
         // Eski imza ile uyumluluk.
@@ -201,7 +260,7 @@ namespace xBot.App
             return ShouldStore(input, rule, null, null);
         }
 
-        private static bool ShouldStoreByBlue(ItemFilterInput input, PickFilterOptions pick, System.Collections.Generic.IDictionary<string, BlueAttributeRule> blues)
+        private static bool ShouldStoreByBlue(ItemFilterInput input, PickFilterOptions pick, IDictionary<string, BlueAttributeRule> blues)
         {
             if (pick == null || !pick.OnlyStoreSpecificBlues || blues == null || blues.Count == 0)
                 return false;
@@ -218,9 +277,37 @@ namespace xBot.App
             return false;
         }
 
+        private static bool ShouldSellByBlue(ItemFilterInput input, IDictionary<string, BlueAttributeRule> blues)
+        {
+            if (blues == null || blues.Count == 0 || input == null || !input.IsBlue || input.BlueNames == null)
+                return false;
+            foreach (string blue in input.BlueNames)
+            {
+                if (string.IsNullOrEmpty(blue))
+                    continue;
+                BlueAttributeRule rule;
+                if (blues.TryGetValue(blue, out rule) && rule != null && rule.Sell)
+                    return true;
+            }
+            return false;
+        }
+
         public static bool ShouldStoreGuild(ItemFilterInput input, ItemFilterRule rule)
         {
-            return input != null && rule != null && rule.StoreGuild;
+            if (input == null)
+                return false;
+
+            if (rule != null)
+                return rule.StoreGuild;
+
+            if (input.EzCategory.HasValue)
+            {
+                var ezRule = EzFilterManager.GetRule(input.EzCategory.Value);
+                if (ezRule != null && ezRule.GuildStore)
+                    return true;
+            }
+
+            return false;
         }
 
         public static bool ShouldTakeStorage(ItemFilterInput input, ItemFilterRule rule)
@@ -234,7 +321,7 @@ namespace xBot.App
         }
 
         /// <summary>
-        /// Dismantle adayı mı? (Motor paketi yoksa çağıran taraf loglar/atlar.)
+        /// Dismantle adayÄ± mÄ±?
         /// </summary>
         public static bool ShouldDismantle(ItemFilterInput input, DismantleOptions dismantle)
         {

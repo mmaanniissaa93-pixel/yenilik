@@ -289,6 +289,20 @@ namespace xBot.App
                     }
                     catch { }
 
+                    if (!string.IsNullOrEmpty(customStatus))
+                    {
+                        if (customStatus.StartsWith("Casting", StringComparison.OrdinalIgnoreCase) ||
+                            customStatus.Contains("skill") ||
+                            customStatus.Contains("ms)...") ||
+                            customStatus.Contains("Attack loop") ||
+                            customStatus.Contains("Sorting") ||
+                            customStatus.Contains("Weapon Swap") ||
+                            customStatus.Contains("Checking current"))
+                        {
+                            customStatus = null;
+                        }
+                    }
+
                     string status;
                     if (!string.IsNullOrEmpty(customStatus))
                     {
@@ -297,8 +311,16 @@ namespace xBot.App
                     else
                     {
                         bool isConnected = false;
-                        try { isConnected = InfoManager.inGame || (Bot.Get != null && Bot.Get.isBotting); } catch { }
-                        status = isConnected ? (isTR ? "Bağlandı" : "Connected") : (isTR ? "Bağlantı kesildi" : "Disconnected");
+                        try { isConnected = InfoManager.inGame; } catch { }
+                        bool isBotting = false;
+                        try { isBotting = Bot.Get != null && Bot.Get.isBotting; } catch { }
+
+                        if (isBotting)
+                            status = isTR ? "Bot Çalışıyor" : "Botting";
+                        else if (isConnected)
+                            status = isTR ? "Bağlandı" : "Connected";
+                        else
+                            status = isTR ? "Bağlantı kesildi" : "Disconnected";
                     }
                     this.Text = string.Format("xBot - {0} - {1}", charName, status);
                 });

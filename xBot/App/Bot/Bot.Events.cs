@@ -47,6 +47,7 @@ namespace xBot.App
 				tUsingHGP.Enabled =
 				tCycleAutoParty.Enabled =
 			tJoinedLoop.Enabled = false;
+			try { StopPetLooting(); } catch { }
 		}
 		/// <summary>
 		/// Called when on character selection but only if the AutoLogin fails.
@@ -229,6 +230,7 @@ namespace xBot.App
 			tJoinedLoop.Elapsed += new ElapsedEventHandler(this.OnLoop);
 			JoinedLoopCounter = 0;
 			tJoinedLoop.Start();
+			try { StartPetLooting(); } catch { }
 		}
 		/// <summary>
 		/// Event loop.
@@ -249,6 +251,7 @@ namespace xBot.App
 			// Run all protection checks from one throttled, serialized tick.
 			if (JoinedLoopCounter % 5 == 0)
 			{
+				try { StartPetLooting(); } catch { }
 				ProtectionManager.RunTick();
 				// Pot güvenlik ağı: HP sabitse HP paketi gelmez ve event tetiklenmez
 				// (şehirde bekleme, dirilme sonrası). 1sn yoklama bottan bağımsız çalışır;

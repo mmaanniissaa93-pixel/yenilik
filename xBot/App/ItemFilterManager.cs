@@ -21,6 +21,15 @@ namespace xBot.App
 
         // phBot tarzı sekmeler: Options / Store Gold / Dismantle + Blues listesi
         public static PickFilterOptions Pick { get; set; } = new PickFilterOptions();
+        public static bool IsFilterActive
+        {
+            get
+            {
+                if (Pick.DontPickItems)
+                    return false;
+                return Pick.Enabled || Rules.Count > 0 || EzFilterManager.HasAnyRule() || Pick.OnlyPickRareBlue;
+            }
+        }
         public static StoreGoldOptions StoreGold { get; set; } = new StoreGoldOptions();
         public static DismantleOptions Dismantle { get; set; } = new DismantleOptions();
         private static readonly ConcurrentDictionary<string, BlueAttributeRule> Blues =
@@ -356,11 +365,11 @@ namespace xBot.App
             catch { return value; }
         }
 
-        public static void SetBlue(string serverName, string name, bool store)
+        public static void SetBlue(string serverName, string name, bool store, bool sell = false)
         {
             if (string.IsNullOrEmpty(serverName))
                 return;
-            Blues[serverName] = new BlueAttributeRule { ServerName = serverName, Name = name ?? serverName, Store = store };
+            Blues[serverName] = new BlueAttributeRule { ServerName = serverName, Name = name ?? serverName, Store = store, Sell = sell };
         }
 
         public static void ClearBlues()
@@ -491,13 +500,17 @@ namespace xBot.App
         private static ItemFilterInput CreateInput(SRItem item, bool isEquipable)
         {
             SREquipable equip = item as SREquipable;
+            byte tid2 = item.ID2;
+            byte tid3 = item.ID3;
+            byte tid4 = item.ID4;
+            var ezCat = EzFilterManager.Classify(tid2, tid3, tid4, item.ServerName);
             var input = new ItemFilterInput
             {
                 ItemName = item.Name,
                 ServerName = item.ServerName,
                 IsEquipable = isEquipable,
-                IsGold = item.isType(1, 1, 0) || item.isType(1, 2, 0),
-                IsElixirOrStone = item.isType(3, 11, 1) || item.isType(3, 11, 2),
+                IsGold = item.isType(1, 1, 0) || item.isType(1, 2, 0) || (tid2 == 3 && tid3 == 5),
+                IsElixirOrStone = (tid2 == 3 && tid3 == 10) || (tid2 == 3 && tid3 == 11 && (tid4 == 1 || tid4 == 2 || tid4 == 7 || tid4 == 8 || tid4 == 10)),
                 IsSox = equip != null && equip.GetRarity() != SREquipable.Rarity.None,
                 Degree = GetDegree(item.LevelRequired),
                 IsChina = equip != null && equip.GetRace() == xBot.Game.Objects.Common.SRTypes.Race.Chinese,
@@ -506,6 +519,10 @@ namespace xBot.App
                 IsFemale = equip != null && equip.GetGenre() == SREquipable.Genre.Female,
                 Plus = equip != null ? equip.Plus : 0,
                 IsArrowBolt = item.ID1 == 3 && item.ID2 == 3 && item.ID3 == 4,
+                ID2 = tid2,
+                ID3 = tid3,
+                ID4 = tid4,
+                EzCategory = ezCat,
                 OwnerKind = 1
             };
             if (equip != null)
@@ -536,23 +553,31 @@ namespace xBot.App
 
         private static ItemFilterInput CreateInput(SRDrop drop)
         {
+            byte tid2 = drop.ID2;
+            byte tid3 = drop.ID3;
+            byte tid4 = drop.ID4;
+            var ezCat = EzFilterManager.Classify(tid2, tid3, tid4, drop.ServerName);
             return new ItemFilterInput
             {
                 ItemName = drop.Name,
                 ServerName = drop.ServerName,
                 IsEquipable = drop.isEquipable(),
-                IsGold = drop.isGold(),
-                IsElixirOrStone = drop.ID2 == 3 && drop.ID3 == 11 && (drop.ID4 == 1 || drop.ID4 == 2),
+                IsGold = drop.isGold() || (tid2 == 3 && tid3 == 5),
+                IsElixirOrStone = (tid2 == 3 && tid3 == 10) || (tid2 == 3 && tid3 == 11 && (tid4 == 1 || tid4 == 2 || tid4 == 7 || tid4 == 8 || tid4 == 10)),
                 IsSox = drop.Rarity != 0,
                 IsRare = drop.Rarity != 0,
                 IsBlue = drop.Rarity != 0,
                 Plus = drop.Plus,
-                IsArrowBolt = drop.ID2 == 3 && drop.ID3 == 4,
+                IsArrowBolt = tid2 == 3 && tid3 == 4,
                 Degree = GetDegree(drop.LevelRequired),
                 IsChina = ContainsToken(drop.ServerName, "_CH_"),
                 IsEurope = ContainsToken(drop.ServerName, "_EU_"),
                 IsMale = ContainsToken(drop.ServerName, "_M_"),
                 IsFemale = ContainsToken(drop.ServerName, "_W_"),
+                ID2 = tid2,
+                ID3 = tid3,
+                ID4 = tid4,
+                EzCategory = ezCat,
                 OwnerKind = GetOwnerKind(drop)
             };
         }
@@ -618,6 +643,8 @@ namespace xBot.App
             p["NoSellPlusEnabled"] = Pick.NoSellPlusEnabled;
             p["NoSellPlus"] = Pick.NoSellPlus;
             p["PickEvenWhenFull"] = Pick.PickEvenWhenFull;
+            p["DontPickGreyBar"] = Pick.DontPickGreyBar;
+            p["SellSelectedBlues"] = Pick.SellSelectedBlues;
             p["StorageTakeKeepEmptySlots"] = Pick.StorageTakeKeepEmptySlots;
             json["PickOptions"] = p;
 
@@ -628,6 +655,7 @@ namespace xBot.App
                 o["ServerName"] = b.ServerName;
                 o["Name"] = b.Name;
                 o["Store"] = b.Store;
+                o["Sell"] = b.Sell;
                 bluesArray.Add(o);
             }
             json["Blues"] = bluesArray;
@@ -759,6 +787,8 @@ namespace xBot.App
                 Pick.NoSellPlusEnabled = GetBool(po, "NoSellPlusEnabled", false);
                 Pick.NoSellPlus = GetInt(po, "NoSellPlus", 0);
                 Pick.PickEvenWhenFull = GetBool(po, "PickEvenWhenFull", false);
+                Pick.DontPickGreyBar = GetBool(po, "DontPickGreyBar", false);
+                Pick.SellSelectedBlues = GetBool(po, "SellSelectedBlues", false);
                 Pick.StorageTakeKeepEmptySlots = Math.Max(0, Math.Min(50, GetInt(po, "StorageTakeKeepEmptySlots", 3)));
             }
 
@@ -775,7 +805,8 @@ namespace xBot.App
                     {
                         ServerName = sn,
                         Name = o.ContainsKey("Name") ? (string)o["Name"] : sn,
-                        Store = o.ContainsKey("Store") && (bool)o["Store"]
+                        Store = o.ContainsKey("Store") && (bool)o["Store"],
+                        Sell = o.ContainsKey("Sell") && (bool)o["Sell"]
                     };
                 }
             }

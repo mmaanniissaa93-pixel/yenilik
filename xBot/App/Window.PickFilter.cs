@@ -8,8 +8,8 @@ using xBot.Game;
 namespace xBot.App
 {
     /// <summary>
-    /// phBot tarzı Pick Filter sekmeleri: Pick Filter / Options / Store Gold / Dismantle.
-    /// Item Filter sekmesinin içeriğini kaplar; motor ItemFilterManager üzerinden çalışır.
+    /// phBot tarzı Toplama Filtresi sekmeleri:
+    /// 1. Toplama Filtresi  2. Ez Filter  3. Ayarlar  4. Altın Aktarımı  5. Kırdırma
     /// </summary>
     public partial class Window
     {
@@ -17,31 +17,41 @@ namespace xBot.App
         private ListView lstPickItems;
         private ComboBox cmbPickGroup;
         private ComboBox cmbPickRace;
-        private ComboBox cmbPickGender;
         private ComboBox cmbPickDegree;
+        private ComboBox cmbPickGender;
         private TextBox txtPickSearch;
         private Label lblPickCount;
         private int pickCtxColumn = -1;
         private bool loadingPickFilterUi;
 
-        private CheckBox optDontPickItems;
+        // Ez Filter Checkboxes
+        private readonly Dictionary<EzFilterCategory, (CheckBox Pick, CheckBox PetPick, CheckBox Sell, CheckBox Store, CheckBox GuildStore)> ezChecks =
+            new Dictionary<EzFilterCategory, (CheckBox Pick, CheckBox PetPick, CheckBox Sell, CheckBox Store, CheckBox GuildStore)>();
+
+        // Ayarlar (Options)
         private CheckBox optPickItemsFirst;
         private CheckBox optUsePickPet;
         private CheckBox optPickOthers;
         private CheckBox optPickParty;
+        private CheckBox optDontPickItems;
         private CheckBox optAllowSellAll;
         private CheckBox optOnlyPickRareBlue;
         private CheckBox optOnlyStoreRareBlue;
-        private CheckBox optPickCharIfPetFull;
-        private CheckBox optDontMovePetItems;
         private CheckBox optOnlyStorePlus;
         private NumericUpDown nudOnlyStorePlus;
+        private CheckBox optPickEvenWhenFull;
+        private CheckBox optPickCharIfPetFull;
+        private CheckBox optDontMovePetItems;
         private CheckBox optNoSellPlus;
         private NumericUpDown nudNoSellPlus;
-        private CheckBox optPickEvenWhenFull;
+        private CheckBox optSellSelectedBlues;
+        private CheckBox optDontPickGreyBar;
+
         private ListView lstBlues;
         private int bluesCtxColumn = -1;
+        private bool bluesLoaded = false;
 
+        // Altın Aktarımı
         private CheckBox optGoldEnabled;
         private TextBox txtGoldKeep;
         private CheckBox optGoldTakeStorage;
@@ -51,6 +61,7 @@ namespace xBot.App
         private CheckBox optGoldStoreGuild;
         private TextBox txtGoldStoreGuildMax;
 
+        // Kırdırma
         private ListView lstDegrees;
         private int degreeCtxColumn = -1;
         private CheckBox optDisWhite;
@@ -66,9 +77,9 @@ namespace xBot.App
 
         private static readonly string[] PickGroups = new string[]
         {
-            "All", "Weapon", "Armor", "Shield", "Accessory", "Avatar",
-            "Potion", "Pill", "Scroll", "Ammo", "Gold", "TradeGoods",
-            "Quest", "Elixir", "AlchemyMaterial", "CosTransport", "Other"
+            "--", "Armor", "Silahlar", "Kalkan", "Aksesuar", "Avatar",
+            "Potlar", "Pill", "Scroll", "Ok/Mermi", "Altın", "Kervan",
+            "Görev", "Elixir", "Simya", "Taşıma/Pet", "Diğer"
         };
 
         public void BuildPickFilterTabs()
@@ -78,8 +89,6 @@ namespace xBot.App
                 if (TabPageH_Town_Option03_Panel == null)
                     return;
 
-                // Eski basit filtre grubu yeni sistemle çakışmasın diye gizlenir
-                // (referanslar Bot tarafında null-kontrollü kullanıldığı için durur).
                 try
                 {
                     if (Filter_gbxPick != null) Filter_gbxPick.Visible = false;
@@ -90,8 +99,6 @@ namespace xBot.App
                 }
                 catch { }
 
-                // "Lojistik & Pot Alma" sekmesi kaldırıldı: motor varsayılan
-                // değerlerle çalışır (hepsi açık), ayar menüsü yok.
                 try
                 {
                     if (TabPageH_Town_Option01 != null) TabPageH_Town_Option01.Visible = false;
@@ -102,16 +109,19 @@ namespace xBot.App
                 tabPickFilterRoot = new TabControl
                 {
                     Dock = DockStyle.Fill,
-                    Font = new Font("Segoe UI", 8.5F)
+                    Font = PhBotFont()
                 };
 
-                var tabItems = new TabPage("Pick Filter");
-                var tabOptions = new TabPage("Options");
-                var tabGold = new TabPage("Store Gold");
-                var tabDismantle = new TabPage("Dismantle");
-                tabPickFilterRoot.TabPages.AddRange(new TabPage[] { tabItems, tabOptions, tabGold, tabDismantle });
-                // Blues DB'ye bağlıdır (açılışta DB henüz yoksa boş kalır) — sekmeye
-                // girince eksikse doldur. Eşya listesi bilinçli tembeldir.
+                bool isTR = LocalizationManager.CurrentLanguage == "TR";
+
+                var tabItems = new TabPage(isTR ? "Toplama Filtresi" : "Pick Filter");
+                var tabEz = new TabPage("Ez Filter");
+                var tabOptions = new TabPage(isTR ? "Ayarlar" : "Options");
+                var tabGold = new TabPage(isTR ? "Altın Aktarımı" : "Store Gold");
+                var tabDismantle = new TabPage(isTR ? "Kırdırma" : "Dismantle");
+
+                tabPickFilterRoot.TabPages.AddRange(new TabPage[] { tabItems, tabEz, tabOptions, tabGold, tabDismantle });
+
                 tabPickFilterRoot.SelectedIndexChanged += (s, e) =>
                 {
                     try
@@ -123,6 +133,7 @@ namespace xBot.App
                 };
 
                 BuildPickItemsTab(tabItems);
+                BuildEzFilterTab(tabEz);
                 BuildPickOptionsTab(tabOptions);
                 BuildStoreGoldTab(tabGold);
                 BuildDismantleTab(tabDismantle);
@@ -130,31 +141,11 @@ namespace xBot.App
                 TabPageH_Town_Option03_Panel.Controls.Add(tabPickFilterRoot);
                 tabPickFilterRoot.BringToFront();
 
-                // Tema (Window_Load dahil) sonradan tekrar koyu basarsa diye:
-                // sekme görünür olunca + açılıştan 1.5sn sonra açık temayı tazelet.
                 tabPickFilterRoot.VisibleChanged += (s, e) =>
                 {
                     try { if (tabPickFilterRoot.Visible) ApplyPickFilterLightTheme(); } catch { }
                 };
-                try
-                {
-                    var lateTheme = new Timer { Interval = 1500 };
-                    lateTheme.Tick += (s, e) =>
-                    {
-                        try
-                        {
-                            lateTheme.Stop();
-                            lateTheme.Dispose();
-                            ApplyPickFilterLightTheme();
-                        }
-                        catch { }
-                    };
-                    lateTheme.Start();
-                }
-                catch { }
 
-                // Eşya listesi açılışta YÜKLENMEZ (RAM + isimsiz yığın): kullanıcı
-                // kategori seçince ya da isim arayınca dolar. Blues/Degree küçüktür.
                 LoadPickFilterSettingsToUi();
             }
             catch (Exception ex)
@@ -163,11 +154,6 @@ namespace xBot.App
             }
         }
 
-        /// <summary>
-        /// ApplyModernTheme tüm kontrollere koyu tema bastığı için Pick Filter
-        /// sekmeleri (phBot görünümü) sonradan açık temaya geri alınır.
-        /// InitializeCustomUBOTFeatures içinde ApplyModernTheme() SONRASINDA çağrılmalı.
-        /// </summary>
         public void ApplyPickFilterLightTheme()
         {
             try
@@ -175,24 +161,9 @@ namespace xBot.App
                 if (tabPickFilterRoot == null) return;
                 foreach (TabPage page in tabPickFilterRoot.TabPages)
                 {
-                    try { page.BackColor = SystemColors.Control; page.ForeColor = SystemColors.ControlText; } catch { }
+                    page.BackColor = SystemColors.Control;
+                    page.ForeColor = SystemColors.ControlText;
                     ApplyLightThemeRecursive(page);
-                }
-                // OwnerDraw kapatılınca sistem başlıkları (açık) geri gelir.
-                foreach (var lv in new ListView[] { lstPickItems, lstBlues, lstDegrees })
-                {
-                    try
-                    {
-                        if (lv == null) continue;
-                        lv.OwnerDraw = false;
-                        lv.BackColor = SystemColors.Window;
-                        lv.ForeColor = SystemColors.WindowText;
-                        foreach (ColumnHeader col in lv.Columns)
-                        {
-                            try { col.Width = Math.Max(40, col.Width); } catch { }
-                        }
-                    }
-                    catch { }
                 }
             }
             catch { }
@@ -204,7 +175,11 @@ namespace xBot.App
             {
                 try
                 {
-                    if (c is ListView) { /* ayrıca ele alınır */ }
+                    if (c is ListView lv)
+                    {
+                        lv.BackColor = SystemColors.Window;
+                        lv.ForeColor = SystemColors.WindowText;
+                    }
                     else if (c is Button b)
                     {
                         b.BackColor = SystemColors.Control;
@@ -222,17 +197,12 @@ namespace xBot.App
                         c.ForeColor = Color.Black;
                         c.BackColor = Color.Transparent;
                     }
-                    else if (c is TextBox || c is ComboBox)
+                    else if (c is TextBox || c is ComboBox || c is NumericUpDown)
                     {
                         c.BackColor = SystemColors.Window;
                         c.ForeColor = SystemColors.WindowText;
                     }
-                    else if (c is NumericUpDown)
-                    {
-                        c.BackColor = SystemColors.Window;
-                        c.ForeColor = SystemColors.WindowText;
-                    }
-                    else if (c is TabPage || c is TabControl || c is Panel)
+                    else if (c is TabPage || c is TabControl || c is Panel || c is GroupBox)
                     {
                         c.BackColor = SystemColors.Control;
                         c.ForeColor = SystemColors.ControlText;
@@ -244,10 +214,12 @@ namespace xBot.App
             }
         }
 
-        #region Tab: Pick Filter (liste)
+        #region Tab 1: Toplama Filtresi (Items)
 
         private void BuildPickItemsTab(TabPage tab)
         {
+            bool isTR = LocalizationManager.CurrentLanguage == "TR";
+
             lstPickItems = new ListView
             {
                 View = View.Details,
@@ -262,17 +234,16 @@ namespace xBot.App
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
             try { lstPickItems.SmallImageList = Window.Get?.lstimgIcons; } catch { }
-            lstPickItems.Columns.Add("ID", 50);
-            lstPickItems.Columns.Add("Icon", 45);
-            lstPickItems.Columns.Add("Name", 210);
-            lstPickItems.Columns.Add("Level", 45);
-            lstPickItems.Columns.Add("Pick", 42);
-            lstPickItems.Columns.Add("Pet", 42);
-            lstPickItems.Columns.Add("Sell", 42);
-            lstPickItems.Columns.Add("Store", 45);
-            lstPickItems.Columns.Add("Store Guild", 75);
-            lstPickItems.Columns.Add("Take", 45);
-            lstPickItems.Columns.Add("Take Guild", 75);
+            lstPickItems.Columns.Add("No", 45);
+            lstPickItems.Columns.Add("Resim", 45);
+            lstPickItems.Columns.Add("Adı", 210);
+            lstPickItems.Columns.Add("Seviye", 45);
+            lstPickItems.Columns.Add("Topla", 45);
+            lstPickItems.Columns.Add("Pet", 45);
+            lstPickItems.Columns.Add("Sat", 45);
+            lstPickItems.Columns.Add("Depola", 50);
+            lstPickItems.Columns.Add("Guilde aktar", 75);
+            lstPickItems.Columns.Add("Depoya Al", 70);
 
             var ctx = new ContextMenuStrip();
             var miYes = new ToolStripMenuItem("Yes");
@@ -292,70 +263,85 @@ namespace xBot.App
                 }
             };
 
-            int fy = 204;
-            cmbPickGroup = new ComboBox { Location = new Point(8, fy), Size = new Size(115, 22), DropDownStyle = ComboBoxStyle.DropDownList };
+            lstPickItems.Dock = DockStyle.Fill;
+
+            var footer = new Panel
+            {
+                Name = "XBotPickSearch",
+                Dock = DockStyle.Bottom,
+                Height = 70,
+                BackColor = Color.White
+            };
+
+            cmbPickGroup = new ComboBox { Location = new Point(6, 6), Size = new Size(95, 22), DropDownStyle = ComboBoxStyle.DropDownList };
             cmbPickGroup.Items.AddRange(PickGroups);
             cmbPickGroup.SelectedIndex = 0;
             cmbPickGroup.SelectedIndexChanged += (s, e) => RefreshPickList();
 
-            cmbPickRace = new ComboBox { Location = new Point(127, fy), Size = new Size(75, 22), DropDownStyle = ComboBoxStyle.DropDownList };
-            cmbPickRace.Items.AddRange(new string[] { "All", "Chinese", "European" });
+            cmbPickRace = new ComboBox { Location = new Point(105, 6), Size = new Size(70, 22), DropDownStyle = ComboBoxStyle.DropDownList };
+            cmbPickRace.Items.AddRange(new string[] { "--", isTR ? "Çin" : "Chinese", isTR ? "Avrupa" : "European" });
             cmbPickRace.SelectedIndex = 0;
             cmbPickRace.SelectedIndexChanged += (s, e) => RefreshPickList();
 
-            cmbPickGender = new ComboBox { Location = new Point(206, fy), Size = new Size(65, 22), DropDownStyle = ComboBoxStyle.DropDownList };
-            cmbPickGender.Items.AddRange(new string[] { "Any", "Male", "Female" });
-            cmbPickGender.SelectedIndex = 0;
-            cmbPickGender.SelectedIndexChanged += (s, e) => RefreshPickList();
-
-            cmbPickDegree = new ComboBox { Location = new Point(275, fy), Size = new Size(55, 22), DropDownStyle = ComboBoxStyle.DropDownList };
-            cmbPickDegree.Items.Add("Any");
+            cmbPickDegree = new ComboBox { Location = new Point(179, 6), Size = new Size(75, 22), DropDownStyle = ComboBoxStyle.DropDownList };
+            cmbPickDegree.Items.Add(isTR ? "Herhangi" : "Any");
             for (int d = 1; d <= 12; d++) cmbPickDegree.Items.Add(d.ToString());
             cmbPickDegree.SelectedIndex = 0;
             cmbPickDegree.SelectedIndexChanged += (s, e) => RefreshPickList();
 
-            txtPickSearch = new TextBox { Location = new Point(334, fy), Size = new Size(307, 22), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
+            cmbPickGender = new ComboBox { Location = new Point(258, 6), Size = new Size(75, 22), DropDownStyle = ComboBoxStyle.DropDownList };
+            cmbPickGender.Items.AddRange(new string[] { isTR ? "Herhangi" : "Any", isTR ? "Erkek" : "Male", isTR ? "Kadın" : "Female" });
+            cmbPickGender.SelectedIndex = 0;
+            cmbPickGender.SelectedIndexChanged += (s, e) => RefreshPickList();
+
+            txtPickSearch = new TextBox
+            {
+                Location = new Point(338, 6),
+                Size = new Size(295, 22),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+            };
             txtPickSearch.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) { RefreshPickList(); e.Handled = true; e.SuppressKeyPress = true; } };
 
-            lblPickCount = new Label { Location = new Point(513, fy + 3), Size = new Size(128, 18), ForeColor = SystemColors.GrayText, Text = "", Visible = false };
+            lblPickCount = new Label { Location = new Point(513, 9), Size = new Size(128, 18), ForeColor = SystemColors.GrayText, Text = "", Visible = false };
 
-            var btnClear = new Button { Text = "Clear", Location = new Point(415, fy + 28), Size = new Size(70, 26), UseVisualStyleBackColor = true, Anchor = AnchorStyles.Top | AnchorStyles.Right };
-            var btnUpdate = new Button { Text = "Update", Location = new Point(491, fy + 28), Size = new Size(70, 26), UseVisualStyleBackColor = true, Anchor = AnchorStyles.Top | AnchorStyles.Right };
-            var btnReset = new Button { Text = "Reset", Location = new Point(567, fy + 28), Size = new Size(70, 26), UseVisualStyleBackColor = true, Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            var btnClear = new Button { Text = isTR ? "Temizle" : "Clear", Location = new Point(408, 33), Size = new Size(72, 26), UseVisualStyleBackColor = true, Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            var btnUpdate = new Button { Text = isTR ? "Güncelle" : "Update", Location = new Point(484, 33), Size = new Size(72, 26), UseVisualStyleBackColor = true, Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            var btnReset = new Button { Text = isTR ? "Sıfırla" : "Reset", Location = new Point(560, 33), Size = new Size(72, 26), UseVisualStyleBackColor = true, Anchor = AnchorStyles.Top | AnchorStyles.Right };
             btnClear.Click += (s, e) => { try { ClearPickList(); } catch { } };
             btnUpdate.Click += (s, e) => SavePickFilter();
             btnReset.Click += (s, e) => ResetPickFilter();
 
             var lblNote = new Label
             {
-                Location = new Point(8, fy + 32),
-                Size = new Size(400, 24),
-                ForeColor = SystemColors.GrayText,
-                Text = "* SOX items will not be sold, and your primary/secondary weapon will not be sold/stored",
-                Anchor = AnchorStyles.Top | AnchorStyles.Left
+                Location = new Point(6, 36),
+                Size = new Size(396, 24),
+                ForeColor = Color.DimGray,
+                Font = PhBotFont(),
+                Text = "* SOX eşyalar satılmayacak, ve birincil/ikincil silahlar satılmayacak/depolanmayacak",
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
 
-            tab.Controls.AddRange(new Control[] {
-                lstPickItems, cmbPickGroup, cmbPickRace, cmbPickGender, cmbPickDegree,
-                txtPickSearch, lblPickCount, btnClear, btnUpdate, btnReset, lblNote });
-        }
-
-        /// <summary>
-        /// Bayrak değişikliği ANINDA motora işlenir (Update beklenmez).
-        /// </summary>
-        private void SaveAllPickFilterLive()
-        {
-            try
+            footer.Resize += (s, e) =>
             {
-                if (loadingPickFilterUi)
-                    return;
-                SavePickOptionsFromUi();
-                SaveGoldFromUi();
-                SaveDismantleFromUi();
-                SaveBluesFromUi();
-                try { Settings.SaveCharacterSettings(); } catch { }
-            }
-            catch { }
+                try
+                {
+                    if (txtPickSearch != null)
+                        txtPickSearch.Width = Math.Max(100, footer.Width - 344);
+                    btnClear.Location = new Point(footer.Width - 228, 33);
+                    btnUpdate.Location = new Point(footer.Width - 152, 33);
+                    btnReset.Location = new Point(footer.Width - 76, 33);
+                    lblNote.Width = Math.Max(180, footer.Width - 235);
+                }
+                catch { }
+            };
+
+            footer.Controls.AddRange(new Control[] {
+                cmbPickGroup, cmbPickRace, cmbPickDegree, cmbPickGender,
+                txtPickSearch, lblPickCount, btnClear, btnUpdate, btnReset, lblNote });
+
+            tab.Controls.Add(lstPickItems);
+            tab.Controls.Add(footer);
+            lstPickItems.BringToFront();
         }
 
         private void ApplyPickFlag(string value)
@@ -370,7 +356,7 @@ namespace xBot.App
                         continue;
                     if (value == "Reset")
                     {
-                        for (int c = 4; c <= 10 && c < item.SubItems.Count; c++)
+                        for (int c = 4; c < item.SubItems.Count; c++)
                             item.SubItems[c].Text = "No";
                     }
                     else
@@ -392,13 +378,33 @@ namespace xBot.App
                 if (string.IsNullOrEmpty(servername)) return;
                 bool pick = GetFlag(item, 4), pet = GetFlag(item, 5), sell = GetFlag(item, 6);
                 bool store = GetFlag(item, 7), guild = GetFlag(item, 8);
-                bool take = GetFlag(item, 9), takeGuild = GetFlag(item, 10);
-                if (pick || pet || sell || store || guild || take || takeGuild)
-                    ItemFilterManager.SetRuleFull(servername, pick, pet, sell, store, guild, take, takeGuild);
+                bool take = GetFlag(item, 9);
+                if (pick || pet || sell || store || guild || take)
+                    ItemFilterManager.SetRuleFull(servername, pick, pet, sell, store, guild, take, false);
                 else
                     ItemFilterManager.RemoveRule(servername);
             }
             catch { }
+        }
+
+        private static string MapTurkishGroupToDb(string g)
+        {
+            if (string.IsNullOrEmpty(g) || g == "--") return "All";
+            switch (g)
+            {
+                case "Silahlar": return "Weapon";
+                case "Kalkan": return "Shield";
+                case "Aksesuar": return "Accessory";
+                case "Potlar": return "Potion";
+                case "Ok/Mermi": return "Ammo";
+                case "Altın": return "Gold";
+                case "Kervan": return "TradeGoods";
+                case "Görev": return "Quest";
+                case "Simya": return "AlchemyMaterial";
+                case "Taşıma/Pet": return "CosTransport";
+                case "Diğer": return "Other";
+                default: return g;
+            }
         }
 
         private void RefreshPickList()
@@ -411,9 +417,9 @@ namespace xBot.App
                 string search = "";
                 try
                 {
-                    if (cmbPickGroup != null && cmbPickGroup.SelectedItem != null) group = cmbPickGroup.SelectedItem.ToString();
-                    if (cmbPickRace != null && cmbPickRace.SelectedItem != null) race = cmbPickRace.SelectedItem.ToString();
-                    if (cmbPickGender != null && cmbPickGender.SelectedItem != null) gender = cmbPickGender.SelectedItem.ToString();
+                    if (cmbPickGroup != null && cmbPickGroup.SelectedItem != null) group = MapTurkishGroupToDb(cmbPickGroup.SelectedItem.ToString());
+                    if (cmbPickRace != null && cmbPickRace.SelectedIndex > 0) race = cmbPickRace.SelectedIndex == 1 ? "Chinese" : "European";
+                    if (cmbPickGender != null && cmbPickGender.SelectedIndex > 0) gender = cmbPickGender.SelectedIndex == 1 ? "Male" : "Female";
                     if (cmbPickDegree != null && cmbPickDegree.SelectedIndex > 0) degree = cmbPickDegree.SelectedIndex;
                     if (txtPickSearch != null) search = (txtPickSearch.Text ?? "").Trim();
                 }
@@ -424,26 +430,16 @@ namespace xBot.App
                     || !string.Equals(gender, "Any", StringComparison.Ordinal)
                     || degree > 0
                     || search.Length >= 2;
-                // Daraltma yoksa DB'ye gitme: 2000 satırlık liste RAM'de kalırdı.
-                // Temizle sonrası da liste boş kalır.
+
                 if (!narrowed)
                 {
                     lstPickItems.BeginUpdate();
                     lstPickItems.Items.Clear();
                     lstPickItems.EndUpdate();
-                    try
-                    {
-                        if (search.Length == 1)
-                            lblPickCount.Text = "En az 2 karakter yazın...";
-                        else
-                            lblPickCount.Text = "Kategori seçin veya arayın...";
-                    }
-                    catch { }
                     return;
                 }
 
                 List<NameValueCollection> rows = DataManager.QueryItems(group, race, gender, degree, search);
-                bool truncated = rows.Count >= 500;
                 lstPickItems.BeginUpdate();
                 lstPickItems.Items.Clear();
                 foreach (var row in rows)
@@ -455,7 +451,7 @@ namespace xBot.App
                         string servername = row["servername"] ?? "";
                         string level = row["level"] ?? "0";
                         var rule = ItemFilterManager.GetRule(name) ?? ItemFilterManager.GetRule(servername);
-                        string pick = "No", pet = "No", sell = "No", store = "No", guild = "No", take = "No", takeGuild = "No";
+                        string pick = "No", pet = "No", sell = "No", store = "No", guild = "No", take = "No";
                         if (rule != null)
                         {
                             pick = rule.Pickup ? "Yes" : "No";
@@ -464,34 +460,19 @@ namespace xBot.App
                             store = rule.Store ? "Yes" : "No";
                             guild = rule.StoreGuild ? "Yes" : "No";
                             take = rule.TakeStorage ? "Yes" : "No";
-                            takeGuild = rule.TakeGuildStorage ? "Yes" : "No";
                         }
-                        var item = new ListViewItem(new string[] { id, "", name, level, pick, pet, sell, store, guild, take, takeGuild });
+                        var item = new ListViewItem(new string[] { id, "", name, level, pick, pet, sell, store, guild, take });
                         item.Tag = servername;
                         lstPickItems.Items.Add(item);
                     }
                     catch { }
                 }
                 lstPickItems.EndUpdate();
-                try
-                {
-                    lblPickCount.Text = lstPickItems.Items.Count + " items"
-                        + (truncated ? " (ilk 500 — daraltın)" : "");
-                }
-                catch { }
-                // Geçici DB satırlarını bırak (ListView kendi kopyasını tutar).
                 try { rows.Clear(); } catch { }
             }
-            catch (Exception ex)
-            {
-                try { lblPickCount.Text = "DB yok: " + ex.Message; } catch { }
-            }
+            catch { }
         }
 
-        /// <summary>
-        /// Listeyi boşaltır, arama kutusunu temizler ve referansları bırakır.
-        /// Temizle'ye basınca liste kaybolur, RAM şişmez.
-        /// </summary>
         public void ClearPickList()
         {
             try
@@ -503,7 +484,6 @@ namespace xBot.App
                     lstPickItems.Items.Clear();
                     lstPickItems.EndUpdate();
                 }
-                if (lblPickCount != null) lblPickCount.Text = "Kategori seçin veya isim arayın...";
             }
             catch { }
         }
@@ -521,10 +501,10 @@ namespace xBot.App
                         if (string.IsNullOrEmpty(servername)) continue;
                         bool pick = GetFlag(item, 4), pet = GetFlag(item, 5), sell = GetFlag(item, 6);
                         bool store = GetFlag(item, 7), guild = GetFlag(item, 8);
-                        bool take = GetFlag(item, 9), takeGuild = GetFlag(item, 10);
-                        if (pick || pet || sell || store || guild || take || takeGuild)
+                        bool take = GetFlag(item, 9);
+                        if (pick || pet || sell || store || guild || take)
                         {
-                            ItemFilterManager.SetRuleFull(servername, pick, pet, sell, store, guild, take, takeGuild);
+                            ItemFilterManager.SetRuleFull(servername, pick, pet, sell, store, guild, take, false);
                             saved++;
                         }
                         else
@@ -539,12 +519,22 @@ namespace xBot.App
                 SaveDismantleFromUi();
                 SaveBluesFromUi();
                 try { Settings.SaveCharacterSettings(); } catch { }
-                Log($"[Pick Filter] {saved} kural kaydedildi.");
+                Log($"[Toplama Filtresi] {saved} kural kaydedildi.");
             }
-            catch (Exception ex)
+            catch { }
+        }
+
+        private void ResetPickFilter()
+        {
+            try
             {
-                try { Log("[Pick Filter] Kayıt hatası: " + ex.Message); } catch { }
+                ItemFilterManager.Reset();
+                try { ClearPickList(); } catch { }
+                LoadPickFilterSettingsToUi();
+                try { Settings.SaveCharacterSettings(); } catch { }
+                Log("[Toplama Filtresi] Yapılandırma sıfırlandı.");
             }
+            catch { }
         }
 
         private static bool GetFlag(ListViewItem item, int col)
@@ -558,108 +548,201 @@ namespace xBot.App
             return false;
         }
 
-        private void ResetPickFilter()
+        #endregion
+
+        #region Tab 2: Ez Filter
+
+        private static readonly (EzFilterCategory Cat, string Display)[] EzCategories = new[]
+        {
+            (EzFilterCategory.Armor, "Armor"),
+            (EzFilterCategory.Weapons, "Silahlar"),
+            (EzFilterCategory.HP, "HP"),
+            (EzFilterCategory.MP, "MP"),
+            (EzFilterCategory.Vigor, "Vigorlar"),
+            (EzFilterCategory.Universal, "Universal"),
+            (EzFilterCategory.Purification, "Purification"),
+            (EzFilterCategory.Elixirs, "Elixirler"),
+            (EzFilterCategory.Materials, "Materyaller"),
+            (EzFilterCategory.Elements, "Elementler"),
+            (EzFilterCategory.Tablets, "Tabletler"),
+            (EzFilterCategory.Stones, "Stoneler"),
+            (EzFilterCategory.Quest, "Görev")
+        };
+
+        private void BuildEzFilterTab(TabPage tab)
+        {
+            bool isTR = LocalizationManager.CurrentLanguage == "TR";
+
+            int colX0 = 15;
+            int colX1 = 145; // Topla
+            int colX2 = 255; // pet pick
+            int colX3 = 365; // Sat
+            int colX4 = 475; // Depola
+            int colX5 = 585; // Guild Deposu
+
+            // Column Header Labels
+            var lblH1 = new Label { Text = "Topla", Location = new Point(colX1 - 10, 12), AutoSize = true, Font = PhBotFont(), ForeColor = Color.Black };
+            var lblH2 = new Label { Text = "pet pick", Location = new Point(colX2 - 12, 12), AutoSize = true, Font = PhBotFont(), ForeColor = Color.Black };
+            var lblH3 = new Label { Text = "Sat", Location = new Point(colX3 - 5, 12), AutoSize = true, Font = PhBotFont(), ForeColor = Color.Black };
+            var lblH4 = new Label { Text = "Depola", Location = new Point(colX4 - 10, 12), AutoSize = true, Font = PhBotFont(), ForeColor = Color.Black };
+            var lblH5 = new Label { Text = "Guild Deposu", Location = new Point(colX5 - 20, 12), AutoSize = true, Font = PhBotFont(), ForeColor = Color.Black };
+            tab.Controls.AddRange(new Control[] { lblH1, lblH2, lblH3, lblH4, lblH5 });
+
+            int y = 36;
+            ezChecks.Clear();
+
+            foreach (var (cat, display) in EzCategories)
+            {
+                var lblRow = new Label
+                {
+                    Text = display,
+                    Location = new Point(colX0, y + 2),
+                    Size = new Size(120, 20),
+                    Font = PhBotFont(),
+                    ForeColor = Color.Black,
+                    TextAlign = ContentAlignment.MiddleLeft
+                };
+
+                var cbPick = CreateEzCheckBox(colX1, y);
+                var cbPet = CreateEzCheckBox(colX2, y);
+                var cbSell = CreateEzCheckBox(colX3, y);
+                var cbStore = CreateEzCheckBox(colX4, y);
+                var cbGuild = CreateEzCheckBox(colX5, y);
+
+                ezChecks[cat] = (cbPick, cbPet, cbSell, cbStore, cbGuild);
+
+                tab.Controls.AddRange(new Control[] { lblRow, cbPick, cbPet, cbSell, cbStore, cbGuild });
+                y += 24;
+            }
+
+            var btnClear = new Button { Text = isTR ? "Temizle" : "Clear", Location = new Point(515, y + 8), Size = new Size(75, 26), UseVisualStyleBackColor = true };
+            var btnApply = new Button { Text = isTR ? "Onayla" : "Apply", Location = new Point(598, y + 8), Size = new Size(75, 26), UseVisualStyleBackColor = true };
+
+            btnClear.Click += (s, e) =>
+            {
+                try
+                {
+                    foreach (var tuple in ezChecks.Values)
+                    {
+                        tuple.Pick.Checked = false;
+                        tuple.PetPick.Checked = false;
+                        tuple.Sell.Checked = false;
+                        tuple.Store.Checked = false;
+                        tuple.GuildStore.Checked = false;
+                    }
+                    EzFilterManager.Reset();
+                    Settings.SaveCharacterSettings();
+                    Log("[Ez Filter] Tüm filtreler temizlendi.");
+                }
+                catch { }
+            };
+
+            btnApply.Click += (s, e) =>
+            {
+                try
+                {
+                    SaveEzFilterFromUi();
+                    Settings.SaveCharacterSettings();
+                    Log("[Ez Filter] Ayarlar uygulandı ve kaydedildi.");
+                }
+                catch { }
+            };
+
+            tab.Controls.AddRange(new Control[] { btnClear, btnApply });
+        }
+
+        private CheckBox CreateEzCheckBox(int x, int y)
+        {
+            var cb = new CheckBox
+            {
+                Text = "",
+                Location = new Point(x, y),
+                Size = new Size(20, 20),
+                UseVisualStyleBackColor = true
+            };
+            cb.CheckedChanged += (s, e) => SaveAllPickFilterLive();
+            return cb;
+        }
+
+        private void LoadEzFilterToUi()
         {
             try
             {
-                ItemFilterManager.Reset();
-                try { ClearPickList(); } catch { }
-                LoadPickFilterSettingsToUi();
-                try { Settings.SaveCharacterSettings(); } catch { }
-                Log("[Pick Filter] Yapılandırma sıfırlandı.");
+                foreach (var (cat, _) in EzCategories)
+                {
+                    if (ezChecks.TryGetValue(cat, out var tuple))
+                    {
+                        var rule = EzFilterManager.GetRule(cat);
+                        tuple.Pick.Checked = rule.Pick;
+                        tuple.PetPick.Checked = rule.PetPick;
+                        tuple.Sell.Checked = rule.Sell;
+                        tuple.Store.Checked = rule.Store;
+                        tuple.GuildStore.Checked = rule.GuildStore;
+                    }
+                }
+            }
+            catch { }
+        }
+
+        private void SaveEzFilterFromUi()
+        {
+            try
+            {
+                foreach (var (cat, _) in EzCategories)
+                {
+                    if (ezChecks.TryGetValue(cat, out var tuple))
+                    {
+                        EzFilterManager.SetRule(cat, tuple.Pick.Checked, tuple.PetPick.Checked, tuple.Sell.Checked, tuple.Store.Checked, tuple.GuildStore.Checked);
+                    }
+                }
             }
             catch { }
         }
 
         #endregion
 
-        #region Tab: Options
-
-        private void LoadPickFilterSettingsToUi()
-        {
-            if (loadingPickFilterUi)
-                return;
-
-            loadingPickFilterUi = true;
-            try
-            {
-                LoadPickOptionsToUi();
-                LoadGoldToUi();
-                LoadDismantleToUi();
-                RefreshBluesList();
-                RefreshDegreeList();
-                if (lstPickItems != null && lstPickItems.Items.Count > 0)
-                    RefreshPickList();
-            }
-            finally
-            {
-                loadingPickFilterUi = false;
-            }
-        }
-
-        /// <summary>
-        /// Tema checkbox yazısını owner-draw ile beyaza boyadığı için başlık
-        /// ayrı Label'dadır (tema onu ezemez) — kutu sadece kutudur.
-        /// </summary>
-        private CheckBox AddOptCheck(Control parent, string text, int x, int y, int width)
-        {
-            var cbx = new CheckBox
-            {
-                Text = "",
-                Location = new Point(x, y),
-                Size = new Size(20, 19),
-                AutoSize = false,
-                UseVisualStyleBackColor = true
-            };
-            var lbl = new Label
-            {
-                Text = text,
-                Location = new Point(x + 22, y),
-                Size = new Size(Math.Max(40, width - 22), 19),
-                ForeColor = Color.Black,
-                BackColor = Color.Transparent,
-                TextAlign = ContentAlignment.MiddleLeft
-            };
-            lbl.Click += (s, e) => { try { cbx.Checked = !cbx.Checked; } catch { } };
-            cbx.CheckedChanged += (s, e) => SaveAllPickFilterLive();
-            parent.Controls.Add(cbx);
-            parent.Controls.Add(lbl);
-            return cbx;
-        }
+        #region Tab 3: Ayarlar (Options)
 
         private void BuildPickOptionsTab(TabPage tab)
         {
-            int x = 12, y = 12, w = 310, step = 22;
-            optPickItemsFirst = AddOptCheck(tab, "Pick items first", x, y, w); y += step;
-            optUsePickPet = AddOptCheck(tab, "Use pick pet", x, y, w); y += step;
-            optPickOthers = AddOptCheck(tab, "Pick other player's items", x, y, w); y += step;
-            optPickParty = AddOptCheck(tab, "Pick party items", x, y, w); y += step;
-            optDontPickItems = AddOptCheck(tab, "Don't pick items", x, y, w); y += step;
-            optAllowSellAll = AddOptCheck(tab, "Allow selling of all item types", x, y, w); y += step;
-            optOnlyPickRareBlue = AddOptCheck(tab, "Only pick rare or blue items", x, y, w); y += step;
-            optOnlyStoreRareBlue = AddOptCheck(tab, "Only store rare or blue items", x, y, w); y += step;
+            int x = 12, y = 14, w = 310, step = 22;
+            optPickItemsFirst = AddOptCheck(tab, "Önce eşyaları topla", x, y, w); y += step;
+            optUsePickPet = AddOptCheck(tab, "Toplama peti kullan", x, y, w); y += step;
+            optPickOthers = AddOptCheck(tab, "Diğer oyuncuların eşyalarını topla", x, y, w); y += step;
+            optPickParty = AddOptCheck(tab, "Parti eşyalarını topla", x, y, w); y += step;
+            optDontPickItems = AddOptCheck(tab, "Eşya toplamayı durdur", x, y, w); y += step;
+            optAllowSellAll = AddOptCheck(tab, "Tüm eşya türlerini satmaya izin ver", x, y, w); y += step;
+            optOnlyPickRareBlue = AddOptCheck(tab, "Sadece SOX ya da Blue eşyaları topla", x, y, w); y += step;
+            optOnlyStoreRareBlue = AddOptCheck(tab, "Sadece SOX ya da Blue eşyaları depola", x, y, w); y += step;
 
-            optOnlyStorePlus = AddOptCheck(tab, "Only store items with plus >=", x, y, 220);
-            nudOnlyStorePlus = new NumericUpDown { Location = new Point(x + 225, y - 1), Size = new Size(50, 22), Minimum = 0, Maximum = 15, Value = 0 };
+            optOnlyStorePlus = AddOptCheck(tab, "Yalnızca artı içeren eşyaları depola >=", x, y, 230);
+            nudOnlyStorePlus = new NumericUpDown { Location = new Point(x + 235, y - 1), Size = new Size(48, 22), Minimum = 0, Maximum = 15, Value = 0, Font = PhBotFont() };
             nudOnlyStorePlus.ValueChanged += (s, e) => SaveAllPickFilterLive();
             tab.Controls.Add(nudOnlyStorePlus);
             y += step;
 
-            optPickEvenWhenFull = AddOptCheck(tab, "Pick even when inventory is full", x, y, w); y += step;
-            optPickCharIfPetFull = AddOptCheck(tab, "Pick with character if pet is unsummoned or full", x, y, 320); y += step;
-            optDontMovePetItems = AddOptCheck(tab, "Do not move pet items except for storing/selling", x, y, 320); y += step;
+            optPickEvenWhenFull = AddOptCheck(tab, "Ã‡anta dolu olsa bile topla", x, y, w); y += step;
+            optPickCharIfPetFull = AddOptCheck(tab, "Pet çağırılmamış veya dolu ise karakter ile topla", x, y, 320); y += step;
+            optDontMovePetItems = AddOptCheck(tab, "Pet eşyalarını depolamak veya satmak dışında taşımayın", x, y, 320); y += step;
 
-            optNoSellPlus = AddOptCheck(tab, "Do not sell items with plus >=", x, y, 220);
-            nudNoSellPlus = new NumericUpDown { Location = new Point(x + 225, y - 1), Size = new Size(50, 22), Minimum = 0, Maximum = 15, Value = 0 };
+            optNoSellPlus = AddOptCheck(tab, "Artı >= ile ürün satmayın", x, y, 200);
+            nudNoSellPlus = new NumericUpDown { Location = new Point(x + 205, y - 1), Size = new Size(48, 22), Minimum = 0, Maximum = 15, Value = 0, Font = PhBotFont() };
             nudNoSellPlus.ValueChanged += (s, e) => SaveAllPickFilterLive();
             tab.Controls.Add(nudNoSellPlus);
+            y += step;
 
-            int gbH = Math.Max(305, tab.Height - 16);
+            optSellSelectedBlues = AddOptCheck(tab, "Seçili blue'lu eşyaları sat", x, y, w);
+
+            // Gri barda eşyaları toplama (üst ortada)
+            optDontPickGreyBar = AddOptCheck(tab, "Gri barda eşyaları toplama", 270, 14, 200);
+
+            // Right Box: Bluelar
+            int gbH = Math.Max(305, tab.Height - 20);
             var gbxBlues = new GroupBox
             {
-                Text = "Blues",
-                Location = new Point(345, 8),
-                Size = new Size(280, gbH),
+                Text = "Bluelar",
+                Location = new Point(410, 8),
+                Size = new Size(265, gbH),
                 Font = PhBotFont(),
                 ForeColor = Color.Black
             };
@@ -672,11 +755,13 @@ namespace xBot.App
                 BackColor = SystemColors.Window,
                 ForeColor = SystemColors.WindowText,
                 Location = new Point(8, 20),
-                Size = new Size(264, gbH - 28),
+                Size = new Size(249, gbH - 28),
                 Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
             };
-            lstBlues.Columns.Add("Name", 175);
-            lstBlues.Columns.Add("Store", 80);
+            lstBlues.Columns.Add("Adı", 135);
+            lstBlues.Columns.Add("Depola", 55);
+            lstBlues.Columns.Add("Sat", 55);
+
             var ctx = new ContextMenuStrip();
             var miYes = new ToolStripMenuItem("Yes");
             var miNo = new ToolStripMenuItem("No");
@@ -702,11 +787,11 @@ namespace xBot.App
         {
             try
             {
-                if (lstBlues.SelectedItems.Count == 0) return;
+                if (lstBlues.SelectedItems.Count == 0 || bluesCtxColumn < 1) return;
                 foreach (ListViewItem item in lstBlues.SelectedItems)
                 {
-                    if (item.SubItems.Count > 1)
-                        item.SubItems[1].Text = value == "Reset" ? "No" : value;
+                    if (bluesCtxColumn < item.SubItems.Count)
+                        item.SubItems[bluesCtxColumn].Text = value == "Reset" ? "No" : value;
                 }
                 SaveAllPickFilterLive();
             }
@@ -739,11 +824,14 @@ namespace xBot.App
                 {
                     try
                     {
-                        string store = "No";
+                        string store = "No", sell = "No";
                         BlueAttributeRule rule;
-                        if (saved != null && saved.TryGetValue(entry.Key, out rule) && rule != null && rule.Store)
-                            store = "Yes";
-                        var item = new ListViewItem(new string[] { entry.Value, store });
+                        if (saved != null && saved.TryGetValue(entry.Key, out rule) && rule != null)
+                        {
+                            if (rule.Store) store = "Yes";
+                            if (rule.Sell) sell = "Yes";
+                        }
+                        var item = new ListViewItem(new string[] { entry.Value, store, sell });
                         item.Tag = entry.Key;
                         lstBlues.Items.Add(item);
                     }
@@ -754,8 +842,6 @@ namespace xBot.App
             }
             catch { }
         }
-
-        private bool bluesLoaded = false;
 
         private void SaveBluesFromUi()
         {
@@ -771,8 +857,9 @@ namespace xBot.App
                         if (string.IsNullOrEmpty(sn)) continue;
                         string display = item.SubItems.Count > 0 ? item.SubItems[0].Text : sn;
                         bool store = item.SubItems.Count > 1 && string.Equals(item.SubItems[1].Text, "Yes", StringComparison.OrdinalIgnoreCase);
-                        if (store)
-                            ItemFilterManager.SetBlue(sn, display, true);
+                        bool sell = item.SubItems.Count > 2 && string.Equals(item.SubItems[2].Text, "Yes", StringComparison.OrdinalIgnoreCase);
+                        if (store || sell)
+                            ItemFilterManager.SetBlue(sn, display, store, sell);
                     }
                     catch { }
                 }
@@ -801,6 +888,8 @@ namespace xBot.App
                 optNoSellPlus.Checked = o.NoSellPlusEnabled;
                 try { nudNoSellPlus.Value = Math.Max(0, Math.Min(15, o.NoSellPlus)); } catch { }
                 optPickEvenWhenFull.Checked = o.PickEvenWhenFull;
+                if (optSellSelectedBlues != null) optSellSelectedBlues.Checked = o.SellSelectedBlues;
+                if (optDontPickGreyBar != null) optDontPickGreyBar.Checked = o.DontPickGreyBar;
             }
             catch { }
         }
@@ -830,45 +919,40 @@ namespace xBot.App
                 o.NoSellPlusEnabled = optNoSellPlus.Checked;
                 try { o.NoSellPlus = (int)nudNoSellPlus.Value; } catch { }
                 o.PickEvenWhenFull = optPickEvenWhenFull.Checked;
+                if (optSellSelectedBlues != null) o.SellSelectedBlues = optSellSelectedBlues.Checked;
+                if (optDontPickGreyBar != null) o.DontPickGreyBar = optDontPickGreyBar.Checked;
             }
             catch { }
         }
 
         #endregion
 
-        #region Tab: Store Gold
+        #region Tab 4: Altın Aktarımı (Store Gold)
 
         private void BuildStoreGoldTab(TabPage tab)
         {
-            int x = 12, y = 16;
-            optGoldEnabled = AddOptCheck(tab, "Gold keep amount", x, y, 390);
-            txtGoldKeep = new TextBox { Location = new Point(420, y), Size = new Size(150, 22), Text = "1000000" };
+            int x = 14, y = 16;
+            optGoldEnabled = AddOptCheck(tab, "Envanterinde altın tut (miktar)", x, y, 320);
+            txtGoldKeep = new TextBox { Location = new Point(400, y), Size = new Size(130, 22), Text = "1000000", Font = PhBotFont() };
             txtGoldKeep.TextChanged += (s, e) => SaveAllPickFilterLive();
             y += 32;
-            optGoldTakeStorage = AddOptCheck(tab, "Take gold from storage", x, y, 300);
+
+            optGoldTakeStorage = AddOptCheck(tab, "Depodan altın al", x, y, 300);
             y += 32;
-            optGoldTakeGuild = AddOptCheck(tab, "Take gold from guild storage", x, y, 300);
+
+            optGoldTakeGuild = AddOptCheck(tab, "Guild deposundan altın al", x, y, 300);
             y += 32;
-            optGoldStoreStorage = AddOptCheck(tab, "Store gold in storage (maximum amount, 0 = no limit)", x, y, 400);
-            txtGoldStoreMax = new TextBox { Location = new Point(420, y), Size = new Size(150, 22), Text = "0" };
+
+            optGoldStoreStorage = AddOptCheck(tab, "Depoya altın aktar (0 = sınır yok)", x, y, 350);
+            txtGoldStoreMax = new TextBox { Location = new Point(400, y), Size = new Size(130, 22), Text = "0", Font = PhBotFont() };
             txtGoldStoreMax.TextChanged += (s, e) => SaveAllPickFilterLive();
             y += 32;
-            optGoldStoreGuild = AddOptCheck(tab, "Store gold in guild storage (maximum amount, 0 = no limit)", x, y, 400);
-            txtGoldStoreGuildMax = new TextBox { Location = new Point(420, y), Size = new Size(150, 22), Text = "0" };
-            txtGoldStoreGuildMax.TextChanged += (s, e) => SaveAllPickFilterLive();
-            tab.Controls.AddRange(new Control[] { txtGoldKeep, txtGoldStoreMax, txtGoldStoreGuildMax });
-        }
 
-        private static ulong ParseGold(string text, ulong def)
-        {
-            try
-            {
-                ulong v;
-                if (ulong.TryParse((text ?? "").Trim(), out v))
-                    return v;
-            }
-            catch { }
-            return def;
+            optGoldStoreGuild = AddOptCheck(tab, "Guild deposuna altın aktar (0 = sınır yok)", x, y, 350);
+            txtGoldStoreGuildMax = new TextBox { Location = new Point(400, y), Size = new Size(130, 22), Text = "0", Font = PhBotFont() };
+            txtGoldStoreGuildMax.TextChanged += (s, e) => SaveAllPickFilterLive();
+
+            tab.Controls.AddRange(new Control[] { txtGoldKeep, txtGoldStoreMax, txtGoldStoreGuildMax });
         }
 
         private void LoadGoldToUi()
@@ -907,18 +991,30 @@ namespace xBot.App
             catch { }
         }
 
+        private static ulong ParseGold(string text, ulong def)
+        {
+            try
+            {
+                ulong v;
+                if (ulong.TryParse((text ?? "").Trim(), out v))
+                    return v;
+            }
+            catch { }
+            return def;
+        }
+
         #endregion
 
-        #region Tab: Dismantle
+        #region Tab 5: Kırdırma (Dismantle)
 
         private void BuildDismantleTab(TabPage tab)
         {
             int H = Math.Max(305, tab.Height - 16);
 
-            // GroupBox 1: Degree
+            // GroupBox 1: Derece
             var gbDegree = new GroupBox
             {
-                Text = "Degree",
+                Text = "Derece",
                 Location = new Point(8, 8),
                 Size = new Size(185, H),
                 Font = PhBotFont(),
@@ -936,8 +1032,9 @@ namespace xBot.App
                 Size = new Size(169, H - 28),
                 Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
             };
-            lstDegrees.Columns.Add("Degree", 80);
-            lstDegrees.Columns.Add("Dismantle", 80);
+            lstDegrees.Columns.Add("Derece", 80);
+            lstDegrees.Columns.Add("Kırdırma", 80);
+
             var ctx = new ContextMenuStrip();
             var miYes = new ToolStripMenuItem("Yes");
             var miNo = new ToolStripMenuItem("No");
@@ -957,37 +1054,37 @@ namespace xBot.App
             };
             gbDegree.Controls.Add(lstDegrees);
 
-            // GroupBox 2: Dismantle
+            // GroupBox 2: Kırdırma
             var gbDis = new GroupBox
             {
-                Text = "Dismantle",
+                Text = "Kırdırma",
                 Location = new Point(201, 8),
                 Size = new Size(205, H),
                 Font = PhBotFont(),
                 ForeColor = Color.Black
             };
-            optDisWhite = AddOptCheck(gbDis, "White items", 12, 24, 180);
-            optDisPlussed = AddOptCheck(gbDis, "Plussed items <", 12, 54, 120);
-            nudDisPlussed = new NumericUpDown { Location = new Point(136, 52), Size = new Size(55, 22), Minimum = 0, Maximum = 15, Value = 3 };
+            optDisWhite = AddOptCheck(gbDis, "Clean eşyalar", 12, 24, 180);
+            optDisPlussed = AddOptCheck(gbDis, "Plussed öğeler <", 12, 54, 120);
+            nudDisPlussed = new NumericUpDown { Location = new Point(136, 52), Size = new Size(55, 22), Minimum = 0, Maximum = 15, Value = 3, Font = PhBotFont() };
             nudDisPlussed.ValueChanged += (s, e) => SaveAllPickFilterLive();
             gbDis.Controls.Add(nudDisPlussed);
-            optDisBlue = AddOptCheck(gbDis, "Blue items", 12, 84, 180);
-            optDisRare = AddOptCheck(gbDis, "Rare items", 12, 114, 180);
+            optDisBlue = AddOptCheck(gbDis, "Blue'lu eşyalar", 12, 84, 180);
+            optDisRare = AddOptCheck(gbDis, "Sox Eşyalar", 12, 114, 180);
 
-            // GroupBox 3: Auto dismantle before...
+            // GroupBox 3: NPC'den önce otomatik kırdır...
             var gbAuto = new GroupBox
             {
-                Text = "Auto dismantle before...",
+                Text = "NPC'den önce otomatik kırdır...",
                 Location = new Point(414, 8),
                 Size = new Size(210, H),
                 Font = PhBotFont(),
                 ForeColor = Color.Black
             };
-            optDisBeforeSmith = AddOptCheck(gbAuto, "Blacksmith", 12, 24, 180);
-            optDisBeforeGrocery = AddOptCheck(gbAuto, "Grocery trader", 12, 54, 180);
-            optDisBeforeHerbalist = AddOptCheck(gbAuto, "Herbalist", 12, 84, 180);
-            optDisBeforeStorage = AddOptCheck(gbAuto, "Storage", 12, 114, 180);
-            optDisBeforeGuild = AddOptCheck(gbAuto, "Guild storage", 12, 144, 180);
+            optDisBeforeSmith = AddOptCheck(gbAuto, "Demirci", 12, 24, 180);
+            optDisBeforeGrocery = AddOptCheck(gbAuto, "Yüzükcü", 12, 54, 180);
+            optDisBeforeHerbalist = AddOptCheck(gbAuto, "Şifacı", 12, 84, 180);
+            optDisBeforeStorage = AddOptCheck(gbAuto, "Depo", 12, 114, 180);
+            optDisBeforeGuild = AddOptCheck(gbAuto, "Guild deposu", 12, 144, 180);
 
             tab.Controls.AddRange(new Control[] { gbDegree, gbDis, gbAuto });
         }
@@ -1074,6 +1171,76 @@ namespace xBot.App
                 d.BeforeHerbalist = optDisBeforeHerbalist.Checked;
                 d.BeforeStorage = optDisBeforeStorage.Checked;
                 d.BeforeGuildStorage = optDisBeforeGuild.Checked;
+            }
+            catch { }
+        }
+
+        #endregion
+
+        #region Common Helpers & Sync
+
+        private CheckBox AddOptCheck(Control parent, string text, int x, int y, int width)
+        {
+            var cbx = new CheckBox
+            {
+                Text = "",
+                Location = new Point(x, y),
+                Size = new Size(20, 19),
+                AutoSize = false,
+                UseVisualStyleBackColor = true
+            };
+            var lbl = new Label
+            {
+                Text = text,
+                Location = new Point(x + 22, y),
+                Size = new Size(Math.Max(40, width - 22), 19),
+                ForeColor = Color.Black,
+                BackColor = Color.Transparent,
+                Font = PhBotFont(),
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            lbl.Click += (s, e) => { try { cbx.Checked = !cbx.Checked; } catch { } };
+            cbx.CheckedChanged += (s, e) => SaveAllPickFilterLive();
+            parent.Controls.Add(cbx);
+            parent.Controls.Add(lbl);
+            return cbx;
+        }
+
+        private void LoadPickFilterSettingsToUi()
+        {
+            if (loadingPickFilterUi)
+                return;
+
+            loadingPickFilterUi = true;
+            try
+            {
+                LoadPickOptionsToUi();
+                LoadEzFilterToUi();
+                LoadGoldToUi();
+                LoadDismantleToUi();
+                RefreshBluesList();
+                RefreshDegreeList();
+                if (lstPickItems != null && lstPickItems.Items.Count > 0)
+                    RefreshPickList();
+            }
+            finally
+            {
+                loadingPickFilterUi = false;
+            }
+        }
+
+        private void SaveAllPickFilterLive()
+        {
+            try
+            {
+                if (loadingPickFilterUi)
+                    return;
+                SavePickOptionsFromUi();
+                SaveEzFilterFromUi();
+                SaveGoldFromUi();
+                SaveDismantleFromUi();
+                SaveBluesFromUi();
+                try { Settings.SaveCharacterSettings(); } catch { }
             }
             catch { }
         }

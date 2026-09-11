@@ -7,7 +7,7 @@ namespace xBot.App
     /// </summary>
     public sealed class PickFilterOptions
     {
-        public bool Enabled { get; set; } = false;
+        public bool Enabled { get; set; } = true;
         public bool PickItemsFirst { get; set; } = false;
         public bool UsePickPet { get; set; } = true;
         public bool PickOthersItems { get; set; } = false;
@@ -27,17 +27,20 @@ namespace xBot.App
         public bool NoSellPlusEnabled { get; set; } = false;
         public int NoSellPlus { get; set; } = 0;
         public bool PickEvenWhenFull { get; set; } = false;
+        public bool DontPickGreyBar { get; set; } = false;
+        public bool SellSelectedBlues { get; set; } = false;
         public int StorageTakeKeepEmptySlots { get; set; } = 3;
     }
 
     /// <summary>
-    /// Blues listesindeki tek satır: mavi özellik + store bayrağı.
+    /// Blues listesindeki tek satır: mavi özellik + depola ve sat bayrakları.
     /// </summary>
     public sealed class BlueAttributeRule
     {
         public string ServerName { get; set; } = "";
         public string Name { get; set; } = "";
         public bool Store { get; set; } = false;
+        public bool Sell { get; set; } = false;
     }
 
     /// <summary>
