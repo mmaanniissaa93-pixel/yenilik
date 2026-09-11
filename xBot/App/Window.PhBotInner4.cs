@@ -123,6 +123,7 @@ namespace xBot.App
                 HookInnerByName("TabPageV_Control01_Pet_Panel", LayoutPetInner);
                 HookInnerByName("TabPageV_Control01_UnionParty_Panel", LayoutUnionInner);
                 HookInnerByName("TabPageV_Control01_Masteries_Panel", LayoutMasteryInner);
+                HookInnerByName("TabPageV_Control01_AutoConfigure_Panel", LayoutAutoCfgInner);
                 try
                 {
                     if (TabPageV_Control01_Stall_Panel != null)
@@ -781,7 +782,8 @@ namespace xBot.App
         }
 
         // ---------------------------------------------------------------
-        // AUTO CONFIGURE — phbot_auto-configure_01.png birebir yerleşim
+        // ---------------------------------------------------------------
+        // AUTO CONFIGURE — media_1789139284615.png birebir yerleşim
         // ---------------------------------------------------------------
         private void LayoutAutoCfgInner()
         {
@@ -790,83 +792,194 @@ namespace xBot.App
             try
             {
                 Panel host = PlaceholderHost("Auto Configure");
-                if (host == null || host.Controls["PhBot_AutoDone"] != null) return;
+                if (host == null) return;
+                bool isTR = LocalizationManager.CurrentLanguage == "TR";
+                string langTag = isTR ? "TR" : "EN";
+
+                int hostW = host.ClientSize.Width >= 500 ? host.ClientSize.Width : 744;
+                if (host.Controls["PhBot_AutoDone"] is Label doneLbl && (string)doneLbl.Tag == langTag && doneLbl.Width == hostW) return;
                 host.Controls.Clear();
+                try { host.AutoScroll = false; } catch { }
+
+                int pad = 12;
+                int gap = 14;
+                int colW = (hostW - (pad * 2) - gap) / 2;
+                int col1X = pad;
+                int col2X = pad + colW + gap;
 
                 PhBotLabel(host, "PhBot_AutoInfo",
-                    "Auto configuration allows you to easily setup a new character with little effort.", 10, 8);
+                    isTR ? "Kolay bir yöntem ile yeni bir karakter kurulumu için otomatik yapılandırma sağlar."
+                         : "Auto configuration allows you to easily setup a new character with little effort.",
+                    col1X, 10);
 
-                // GroupBox Chinese
-                GroupBox gbCn = new GroupBox { Text = "Chinese", Location = new Point(10, 30), Size = new Size(255, 82), Font = PhBotFont(), BackColor = Color.White };
-                PhBotLabel(gbCn, "PhBot_AutoTypeLbl", "Type", 12, 22);
-                ComboBox cbBuild = new ComboBox { Name = "PhBot_AutoBuild", DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(78, 18), Size = new Size(165, 24) };
+                // GroupBox Chinese / Çince
+                GroupBox gbCn = new GroupBox
+                {
+                    Text = isTR ? "Çince" : "Chinese",
+                    Location = new Point(col1X, 32),
+                    Size = new Size(colW, 82),
+                    Font = PhBotFont(),
+                    BackColor = Color.White
+                };
+                PhBotLabel(gbCn, "PhBot_AutoTypeLbl", isTR ? "Tipi" : "Type", 12, 22);
+                ComboBox cbBuild = new ComboBox
+                {
+                    Name = "PhBot_AutoBuild",
+                    DropDownStyle = ComboBoxStyle.DropDownList,
+                    Location = new Point(65, 19),
+                    Size = new Size(colW - 77, 24)
+                };
                 cbBuild.Items.AddRange(new object[] { "Str", "Int", "Hybrid 1:1", "Hybrid 1:2" });
                 try { cbBuild.SelectedIndex = 0; } catch { }
                 GrayCombo(cbBuild);
                 gbCn.Controls.Add(cbBuild);
 
-                PhBotLabel(gbCn, "PhBot_AutoWpnLbl", "Weapon", 12, 50);
-                ComboBox cbWpn = new ComboBox { Name = "PhBot_AutoWeapon", DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(78, 46), Size = new Size(165, 24) };
+                PhBotLabel(gbCn, "PhBot_AutoWpnLbl", isTR ? "Silah" : "Weapon", 12, 50);
+                ComboBox cbWpn = new ComboBox
+                {
+                    Name = "PhBot_AutoWeapon",
+                    DropDownStyle = ComboBoxStyle.DropDownList,
+                    Location = new Point(65, 47),
+                    Size = new Size(colW - 77, 24)
+                };
                 cbWpn.Items.AddRange(new object[] { "Bicheon", "Heuksal", "Pacheon" });
                 try { cbWpn.SelectedIndex = 0; } catch { }
                 GrayCombo(cbWpn);
                 gbCn.Controls.Add(cbWpn);
                 host.Controls.Add(gbCn);
 
-                // GroupBox European
-                GroupBox gbEu = new GroupBox { Text = "European", Location = new Point(10, 116), Size = new Size(255, 82), Font = PhBotFont(), BackColor = Color.White };
-                PhBotLabel(gbEu, "PhBot_AutoPrimLbl", "Primary", 12, 22);
-                ComboBox cbPrim = new ComboBox { Name = "PhBot_AutoPrimary", DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(78, 18), Size = new Size(165, 24) };
-                cbPrim.Items.AddRange(new object[] { "Warrior", "Wizard", "Rogue", "Warlock", "Bard", "Cleric" });
+                // GroupBox European / Avrupalı
+                GroupBox gbEu = new GroupBox
+                {
+                    Text = isTR ? "Avrupalı" : "European",
+                    Location = new Point(col1X, 120),
+                    Size = new Size(colW, 82),
+                    Font = PhBotFont(),
+                    BackColor = Color.White
+                };
+                PhBotLabel(gbEu, "PhBot_AutoPrimLbl", isTR ? "Birincil" : "Primary", 12, 22);
+                ComboBox cbPrim = new ComboBox
+                {
+                    Name = "PhBot_AutoPrimary",
+                    DropDownStyle = ComboBoxStyle.DropDownList,
+                    Location = new Point(65, 19),
+                    Size = new Size(colW - 77, 24)
+                };
+                cbPrim.Items.AddRange(new object[] { "Dagger", "Warrior", "Wizard", "Rogue", "Warlock", "Bard", "Cleric", "Crossbow", "Two-handed sword", "One-handed sword", "Dual axe" });
                 try { cbPrim.SelectedIndex = 0; } catch { }
                 GrayCombo(cbPrim);
                 gbEu.Controls.Add(cbPrim);
 
-                PhBotLabel(gbEu, "PhBot_AutoSecLbl", "Secondary", 12, 50);
-                ComboBox cbSec = new ComboBox { Name = "PhBot_AutoSecondary", DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(78, 46), Size = new Size(165, 24) };
-                cbSec.Items.AddRange(new object[] { "Cleric", "Bard", "Warlock", "None" });
+                PhBotLabel(gbEu, "PhBot_AutoSecLbl", isTR ? "İkincil" : "Secondary", 12, 50);
+                ComboBox cbSec = new ComboBox
+                {
+                    Name = "PhBot_AutoSecondary",
+                    DropDownStyle = ComboBoxStyle.DropDownList,
+                    Location = new Point(65, 47),
+                    Size = new Size(colW - 77, 24)
+                };
+                cbSec.Items.AddRange(new object[] { "Dagger", "Warrior", "Wizard", "Rogue", "Warlock", "Bard", "Cleric", "Crossbow", "Two-handed sword", "One-handed sword", "Dual axe", "None" });
                 try { cbSec.SelectedIndex = 0; } catch { }
                 GrayCombo(cbSec);
                 gbEu.Controls.Add(cbSec);
                 host.Controls.Add(gbEu);
 
-                // GroupBox Profile
-                GroupBox gbProf = new GroupBox { Text = "Profile", Location = new Point(10, 202), Size = new Size(255, 92), Font = PhBotFont(), BackColor = Color.White };
-                ComboBox cbProf = new ComboBox { Name = "PhBot_AutoProfile", DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(12, 20), Size = new Size(231, 24) };
-                cbProf.Items.Add("Default");
+                // GroupBox Profile / Profil
+                GroupBox gbProf = new GroupBox
+                {
+                    Text = isTR ? "Profil" : "Profile",
+                    Location = new Point(col1X, 208),
+                    Size = new Size(colW, 92),
+                    Font = PhBotFont(),
+                    BackColor = Color.White
+                };
+                ComboBox cbProf = new ComboBox
+                {
+                    Name = "PhBot_AutoProfile",
+                    DropDownStyle = ComboBoxStyle.DropDownList,
+                    Location = new Point(12, 20),
+                    Size = new Size(colW - 24, 24)
+                };
+                cbProf.Items.Add(isTR ? "Varsayılan" : "Default");
                 try { cbProf.SelectedIndex = 0; } catch { }
                 GrayCombo(cbProf);
                 gbProf.Controls.Add(cbProf);
 
-                PhBotButton(gbProf, "PhBot_AutoNew", "New", 12, 52, 70);
-                PhBotButton(gbProf, "PhBot_AutoRename", "Rename", 88, 52, 75);
-                PhBotButton(gbProf, "PhBot_AutoDelete", "Delete", 168, 52, 75);
+                int btnGap = 8;
+                int totalBtnW = colW - 24;
+                int btnW = (totalBtnW - (btnGap * 2)) / 3;
+                PhBotButton(gbProf, "PhBot_AutoNew", isTR ? "Yeni" : "New", 12, 52, btnW);
+                PhBotButton(gbProf, "PhBot_AutoRename", isTR ? "Adlandır" : "Rename", 12 + btnW + btnGap, 52, btnW);
+                PhBotButton(gbProf, "PhBot_AutoDelete", isTR ? "Sil" : "Delete", 12 + (btnW + btnGap) * 2, 52, totalBtnW - ((btnW + btnGap) * 2));
                 host.Controls.Add(gbProf);
 
-                // Horizontally aligned with Delete button as in phbot_auto-configure_01.png
-                PhBotTodoCheck(host, "PhBot_AutoBeforeLoop", "Auto configure before each town loop", 275, 258, false);
+                // Right Column CheckBoxes
+                PhBotTodoCheck(host, "PhBot_AutoBeforeLoop",
+                    isTR ? "Her şehir döngüsünden önce otomatik yapılandırma" : "Auto configure before each town loop",
+                    col2X, 36, false);
+                PhBotTodoCheck(host, "PhBot_AutoSharedPick",
+                    isTR ? "Paylaşılan pick filter kullan (locale)" : "Use shared pick filter (locale)",
+                    col2X, 62, false);
 
-                // Configure Button (Big Right Button)
+                // Configure Button (Big Middle Button)
                 Button btnConfigure = new Button
                 {
                     Name = "PhBot_AutoConfigureBigBtn",
-                    Text = "Configure",
-                    Location = new Point(275, 36),
-                    Size = new Size(260, 162),
+                    Text = isTR ? "Yapılandır" : "Configure",
+                    Location = new Point(col2X, 94),
+                    Size = new Size(colW, 108),
                     FlatStyle = FlatStyle.Flat,
-                    BackColor = Color.FromArgb(225, 225, 225),
-                    ForeColor = Color.Black,
-                    Font = new Font("Tahoma", 9.5f, FontStyle.Regular)
+                    BackColor = Color.FromArgb(246, 247, 248),
+                    ForeColor = Color.FromArgb(50, 50, 50),
+                    Font = new Font("Tahoma", 9f, FontStyle.Regular)
                 };
                 btnConfigure.FlatAppearance.BorderColor = Color.FromArgb(210, 212, 216);
                 btnConfigure.FlatAppearance.BorderSize = 1;
                 btnConfigure.Click += (s, e) =>
                 {
-                    MessageBox.Show("Auto configuration applied sane defaults for " + (cbBuild.SelectedItem ?? "character") + "!", "phBot", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show(
+                        isTR ? ("Otomatik yapılandırma " + (cbBuild.SelectedItem ?? "karakter") + " için başarıyla uygulandı!")
+                             : ("Auto configuration applied sane defaults for " + (cbBuild.SelectedItem ?? "character") + "!"),
+                        "phBot", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 };
                 host.Controls.Add(btnConfigure);
 
-                Label done = new Label { Name = "PhBot_AutoDone", Text = "", Visible = false };
+                // GroupBox Restore / Yapılandırmayı geri yükle
+                GroupBox gbRestore = new GroupBox
+                {
+                    Text = isTR ? "Yapılandırmayı geri yükle" : "Restore configuration",
+                    Location = new Point(col2X, 208),
+                    Size = new Size(colW, 92),
+                    Font = PhBotFont(),
+                    BackColor = Color.White
+                };
+                ComboBox cbRestore = new ComboBox
+                {
+                    Name = "PhBot_AutoRestoreCombo",
+                    DropDownStyle = ComboBoxStyle.DropDownList,
+                    Location = new Point(12, 20),
+                    Size = new Size(colW - 24, 24)
+                };
+                GrayCombo(cbRestore);
+                gbRestore.Controls.Add(cbRestore);
+
+                Button btnRestore = new Button
+                {
+                    Name = "PhBot_AutoRestoreBtn",
+                    Text = isTR ? "Geri Yükleme" : "Restore",
+                    Location = new Point(12, 52),
+                    Size = new Size(95, 25),
+                    FlatStyle = FlatStyle.Flat,
+                    BackColor = Color.FromArgb(246, 247, 248),
+                    ForeColor = Color.FromArgb(50, 50, 50),
+                    Font = PhBotFont()
+                };
+                btnRestore.FlatAppearance.BorderColor = Color.FromArgb(210, 212, 216);
+                btnRestore.FlatAppearance.BorderSize = 1;
+                gbRestore.Controls.Add(btnRestore);
+                host.Controls.Add(gbRestore);
+
+                Label done = new Label { Name = "PhBot_AutoDone", Text = "", Tag = langTag, Width = hostW, Visible = false };
                 host.Controls.Add(done);
             }
             catch (Exception ex) { PhBotDebug("autocfg inner: " + ex.Message); }

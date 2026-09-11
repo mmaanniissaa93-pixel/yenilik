@@ -1361,18 +1361,6 @@ namespace xBot.App
 
         private Panel BuildPhBotAutoConfigurePanel(Panel panel)
         {
-            var lbl = new Label();
-            lbl.Text = "Tek tıkla saldırı/buff/kasılma ayarlarını otomatik kurar. Sonrasında Training Area, Town ve Pick Filter'ı kontrol edin.";
-            lbl.Font = PhBotFont(); lbl.AutoSize = true; lbl.Location = new Point(10, 10);
-            panel.Controls.Add(lbl);
-            var btn = new Button();
-            btn.Text = "Auto Configure"; btn.Size = new Size(160, 28); btn.Location = new Point(10, 50);
-            btn.Click += (s, e) =>
-            {
-                try { MessageBox.Show(this, "Auto Configure yakında: varsayılan saldırı/buff listesi kurulacak.", ProductName); }
-                catch { }
-            };
-            panel.Controls.Add(btn);
             return panel;
         }
 
