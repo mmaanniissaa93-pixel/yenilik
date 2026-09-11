@@ -69,15 +69,6 @@ namespace xBot.App
                 pnlWindow.BorderStyle = BorderStyle.None;
                 pnlHeader.Visible = false;
                 btnBotStart.Visible = btnClientOptions.Visible = btnAnalyzer.Visible = false;
-                // Modern temanın yüzen alt şeridi klasik görünümde içeriğin üstüne biner.
-                try
-                {
-                    foreach (Control c in pnlWindow.Controls)
-                    {
-                        if (c is Theme.ModernStatusStrip) c.Visible = false;
-                    }
-                }
-                catch { }
                 if (lblBotState != null)
                 {
                     lblBotState.Visible = false;
@@ -759,7 +750,7 @@ namespace xBot.App
 
         private void FlowReferenceGroups(Panel host)
         {
-            var groups = host.Controls.Cast<Control>().Where(c => c is GroupBox || c is Theme.ModernCard)
+            var groups = host.Controls.Cast<Control>().Where(c => c is GroupBox)
                 .OrderBy(c => c.Top).ThenBy(c => c.Left).ToArray();
             if (groups.Length == 0) return;
             var flow = new FlowLayoutPanel { Name = host.Name + "_Groups", Dock = DockStyle.Fill,

@@ -28,10 +28,16 @@ namespace xBot.App
         public bool MPLow { get; set; }
         public bool DurabilityLow { get; set; }
         public bool LevelUpPending { get; set; }
+        public bool OutOfPetRecoveryKits { get; set; }
+        public bool OutOfPetRevive { get; set; }
+        public bool OutOfPetFeed { get; set; }
+        public bool OutOfPetAbnormalPill { get; set; }
+        public bool OutOfTransportRecoveryKits { get; set; }
     }
 
     public sealed class ProtectionPolicyOptions
     {
+        public bool UseReturnScrolls { get; set; } = true;
         public bool ReturnDeadWithDelay { get; set; }
         public bool StopBotInTown { get; set; }
         public bool ReturnNoArrows { get; set; }
@@ -41,6 +47,11 @@ namespace xBot.App
         public bool ReturnMPLow { get; set; }
         public bool ReturnDurabilityLow { get; set; }
         public bool ReturnLevelUp { get; set; }
+        public bool ReturnOutOfPetRecoveryKits { get; set; }
+        public bool ReturnOutOfPetRevive { get; set; }
+        public bool ReturnOutOfPetFeed { get; set; }
+        public bool ReturnOutOfPetAbnormalPill { get; set; }
+        public bool ReturnOutOfTransportRecoveryKits { get; set; }
     }
 
     public static class ProtectionPolicy
@@ -56,7 +67,12 @@ namespace xBot.App
                 || (options.ReturnHPLow && input.HPLow)
                 || (options.ReturnMPLow && input.MPLow)
                 || (options.ReturnDurabilityLow && input.DurabilityLow)
-                || (options.ReturnLevelUp && input.LevelUpPending);
+                || (options.ReturnLevelUp && input.LevelUpPending)
+                || (options.ReturnOutOfPetRecoveryKits && input.OutOfPetRecoveryKits)
+                || (options.ReturnOutOfPetRevive && input.OutOfPetRevive)
+                || (options.ReturnOutOfPetFeed && input.OutOfPetFeed)
+                || (options.ReturnOutOfPetAbnormalPill && input.OutOfPetAbnormalPill)
+                || (options.ReturnOutOfTransportRecoveryKits && input.OutOfTransportRecoveryKits);
         }
 
         public static ProtectionDecision Evaluate(ProtectionPolicyInput input, ProtectionPolicyOptions options)
@@ -66,7 +82,7 @@ namespace xBot.App
 
             if (!input.IsAlive)
             {
-                if (options.ReturnDeadWithDelay && input.DeadDelayElapsed && input.HasReturnScroll)
+                if (options.ReturnDeadWithDelay && input.DeadDelayElapsed && input.HasReturnScroll && options.UseReturnScrolls)
                     return ProtectionDecision.ReturnToTown;
 
                 return ProtectionDecision.None;
@@ -75,7 +91,7 @@ namespace xBot.App
             if (options.StopBotInTown && input.IsInTown && input.StopAfterReturn)
                 return ProtectionDecision.StopBotInTown;
 
-            if (HasReturnTrigger(input, options) && input.HasReturnScroll)
+            if (HasReturnTrigger(input, options) && input.HasReturnScroll && options.UseReturnScrolls)
                 return ProtectionDecision.ReturnToTown;
 
             return ProtectionDecision.None;

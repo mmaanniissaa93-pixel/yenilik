@@ -168,8 +168,6 @@
     <Compile Include="App\TargetAssistManager.cs" />
     <Compile Include="App\QuestAutomationPolicy.cs" />
     <Compile Include="App\QuestAutomationRuntime.cs" />
-    <Compile Include="App\Theme\ModernStatusStrip.cs" />
-    <Compile Include="App\Theme\ModernTabStrip.cs" />
     <Compile Include="App\QuestPanel.cs" />
     <Compile Include="App\Window.Quest.cs" />
     <Compile Include="App\QuestAutomationManager.cs" />
@@ -184,14 +182,7 @@
     <Compile Include="App\Window.PhBotInner3.cs" />
     <Compile Include="App\Window.PhBotInner4.cs" />
     <Compile Include="App\Window.PhBotInner5.cs" />
-    <Compile Include="App\Window.ModernTheme.cs" />
     <Compile Include="App\Theme\DarkTheme.cs" />
-    <Compile Include="App\Theme\ModernCard.cs" />
-    <Compile Include="App\Theme\ModernButton.cs" />
-    <Compile Include="App\Theme\ModernToggle.cs" />
-    <Compile Include="App\Theme\ModernTextBox.cs" />
-    <Compile Include="App\Theme\ModernStatusBar.cs" />
-    <Compile Include="App\Theme\ModernSidebar.cs" />
     <Compile Include="App\Theme\ModernLogger.cs" />
     <Compile Include="Game\Objects\Common\SRCollectionBook.cs" />
     <Compile Include="Game\Objects\Common\SRMastery.cs" />

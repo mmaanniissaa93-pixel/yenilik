@@ -27,7 +27,20 @@ namespace xBot.App
         public static bool Enabled
         {
             get => _settings.Enabled;
-            set => _settings.Enabled = value;
+            set
+            {
+                _settings.Enabled = value;
+                if (!value)
+                {
+                    _keyWasDown = false;
+                    _lastSelectedTargetId = 0;
+                    try { _tickTimer?.Stop(); } catch { }
+                }
+                else
+                {
+                    try { _tickTimer?.Start(); } catch { }
+                }
+            }
         }
 
         public static double MaxRange
@@ -83,7 +96,8 @@ namespace xBot.App
             _tickTimer = new Timer();
             _tickTimer.Interval = 100; // 10Hz hotkey polling yeterli (40ms CPU israfıydı)
             _tickTimer.Tick += (s, e) => RunTick();
-            _tickTimer.Start();
+            if (_settings.Enabled)
+                _tickTimer.Start();
         }
 
         public static void RunTick()
@@ -167,6 +181,9 @@ namespace xBot.App
         public static List<TargetCandidateData> CollectCandidates()
         {
             var list = new List<TargetCandidateData>();
+            if (!_settings.Enabled)
+                return list;
+
             if (InfoManager.Character == null || InfoManager.Players == null)
                 return list;
 
@@ -229,6 +246,9 @@ namespace xBot.App
 
         public static (int count, string nearestName, double nearestDistance) GetStatusInfo()
         {
+            if (!_settings.Enabled)
+                return (0, string.Empty, -1);
+
             var candidates = CollectCandidates();
             if (candidates.Count == 0)
                 return (0, string.Empty, -1);
@@ -279,7 +299,7 @@ namespace xBot.App
             if (obj == null) return;
 
             if (obj.TryGetValue("Enabled", out JToken enabledToken))
-                _settings.Enabled = enabledToken.Value<bool>();
+                Enabled = enabledToken.Value<bool>();
 
             if (obj.TryGetValue("MaxRange", out JToken maxRangeToken))
                 _settings.MaxRange = Math.Max(5.0, Math.Min(400.0, maxRangeToken.Value<double>()));

@@ -575,7 +575,12 @@ namespace xBot.App
                         pg.BackColor = Color.White;
                         ListView lv = NewPhBotListView(10, 10, 480, 260, "Item|300", "Value|170");
                         pg.Controls.Add(lv);
-                        PhBotButton(pg, "PhBot_PetUn_" + pg.Text, "Unsummon", 10, 280, 120);
+                        Button bUnOther = PhBotButton(pg, "PhBot_PetUn_" + pg.Text, "Unsummon", 10, 280, 120);
+                        if (bUnOther != null)
+                        {
+                            try { bUnOther.Click -= PetUnsummonClick; } catch { }
+                            bUnOther.Click += PetUnsummonClick;
+                        }
                         Label dd = new Label();
                         dd.Name = "PhBot_PetInfoDone";
                         dd.Location = new Point(10, 312);
@@ -591,10 +596,40 @@ namespace xBot.App
         {
             try
             {
-                // TODO backend: unsummon paketi.
-                Log("Pet unsummon istendi (TODO backend).");
+                if (InfoManager.MyPets == null || InfoManager.MyPets.Count == 0)
+                {
+                    Log("Pet: Aktif çağrılmış pet bulunamadı.");
+                    return;
+                }
+
+                string btnName = (sender as Control)?.Name ?? "";
+                SRCoService targetPet = null;
+                if (btnName.Contains("Attack") || btnName == "PhBot_PetUnsummon")
+                {
+                    targetPet = InfoManager.MyPets.Find(p => p != null && p.isAttackPet());
+                }
+                else if (btnName.Contains("Pick"))
+                {
+                    targetPet = InfoManager.MyPets.Find(p => p != null && p.isPickPet());
+                }
+                else if (btnName.Contains("Transport"))
+                {
+                    targetPet = InfoManager.MyPets.Find(p => p != null && (p.isTransport() || p.isHorse()));
+                }
+
+                if (targetPet == null)
+                    targetPet = InfoManager.MyPets.GetAt(0);
+
+                if (targetPet != null)
+                {
+                    PacketBuilder.UnsummonPet(targetPet.UniqueID);
+                    Log(string.Format("Pet unsummon gönderildi: {0} (ID: {1})", targetPet.Name ?? "Pet", targetPet.UniqueID));
+                }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Log("Pet unsummon hatası: " + ex.Message);
+            }
         }
 
         // ---------------------------------------------------------------

@@ -80,6 +80,30 @@ namespace xBot.App
             catch { }
         }
 
+        private void DumpViewState(string view) { }
+
+        private void AutoFitListView(ListView lv)
+        {
+            if (lv == null || lv.Columns.Count == 0) return;
+            try
+            {
+                int totalWidth = lv.ClientSize.Width;
+                if (totalWidth <= 0) return;
+                if (lv.Columns.Count == 1)
+                {
+                    lv.Columns[0].Width = Math.Max(50, totalWidth - 4);
+                    return;
+                }
+                int otherColumnsWidth = 0;
+                for (int i = 0; i < lv.Columns.Count - 1; i++)
+                    otherColumnsWidth += lv.Columns[i].Width;
+                int remaining = totalWidth - otherColumnsWidth - 4;
+                if (remaining > 50)
+                    lv.Columns[lv.Columns.Count - 1].Width = remaining;
+            }
+            catch { }
+        }
+
         /// <summary>
         /// Constructor sırasında çalışmış olabilecek ModernTheme etkilerini geri alır:
         /// modern sidebar gizlenir, GroupBox'lara eklenen koyu kart Paint hook'ları
@@ -88,412 +112,7 @@ namespace xBot.App
         /// </summary>
         private void NeutralizeModernTheme()
         {
-            try
-            {
-                if (modernSidebar != null)
-                {
-                    try { pnlWindow.Controls.Remove(modernSidebar); } catch { }
-                    modernSidebar.Visible = false;
-                }
-            }
-            catch { }
-            try { if (modernHeaderHP != null) modernHeaderHP.Visible = false; } catch { }
-            try { if (modernHeaderMP != null) modernHeaderMP.Visible = false; } catch { }
-            try { if (modernHeaderLevel != null) modernHeaderLevel.Visible = false; } catch { }
             try { if (TabPageV_Control01 != null) TabPageV_Control01.Visible = true; } catch { }
-
-            try { PhBotDiagCounts("before"); } catch { }
-            try { StripGroupBoxPaints(pnlWindow); } catch (Exception ex) { PhBotDebug("strip: " + ex.Message); }
-            try { ConvertModernControls(pnlWindow); } catch (Exception ex) { PhBotDebug("convert: " + ex.Message); }
-            try { StripPaintHooksFromStandardControls(); } catch (Exception ex) { PhBotDebug("stripall: " + ex.Message); }
-            try { PhBotDiagCounts("after-neutralize"); } catch { }
-            try { DumpTownStrip(); } catch (Exception ex) { PhBotDebug("dump: " + ex.Message); }
-        }
-
-        /// <summary>
-        /// StyleCheckBox/StyleRadioButton gibi koyu özel boyaları etkisizleştirir.
-        /// SADECE birebir System.Windows.Forms tiplerine dokunur (xGraphics/özel
-        /// alt sınıflar ve işlevsel hook'lar korunur).
-        /// </summary>
-        private void StripPaintHooksFromStandardControls()
-        {
-            try
-            {
-                var evProp = typeof(System.ComponentModel.Component).GetProperty("Events",
-                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                var kf = typeof(Control).GetField("EventPaint",
-                    System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.FlattenHierarchy);
-                if (evProp == null || kf == null) return;
-                object key = kf.GetValue(null);
-                Type[] std = new Type[]
-                {
-                    typeof(CheckBox), typeof(RadioButton), typeof(GroupBox),
-                    typeof(Button), typeof(Label), typeof(Panel),
-                    typeof(TextBox), typeof(ComboBox), typeof(ListBox),
-                    typeof(NumericUpDown), typeof(TabControl), typeof(TabPage)
-                };
-                int n = 0;
-                ForEachControl(pnlWindow, delegate(Control c)
-                {
-                    try
-                    {
-                        Type t = c.GetType();
-                        bool exact = false;
-                        foreach (Type s in std) { if (t == s) { exact = true; break; } }
-                        if (!exact) return;
-                        var list = evProp.GetValue(c, null) as System.ComponentModel.EventHandlerList;
-                        Delegate d = list != null ? list[key] : null;
-                        if (d != null) { list.RemoveHandler(key, d); n++; }
-                    }
-                    catch { }
-                });
-                PhBotDebug("paint stripped: " + n);
-            }
-            catch { }
-        }
-
-        private void DumpTownStrip()
-        {
-            try
-            {
-                if (TabPageV_Control01_Town_Panel == null) return;
-                foreach (Control c in TabPageV_Control01_Town_Panel.Controls)
-                {
-                    PhBotDebug("town child: " + c.GetType().Name + " " + c.Name +
-                        " vis=" + c.Visible + " bg=" + c.BackColor.ToArgb().ToString("X8") +
-                        " loc=" + c.Location + " size=" + c.Size);
-                }
-            }
-            catch { }
-        }
-
-        private void DumpViewState(string view)
-        {
-            try
-            {
-                Panel panel = null;
-                try
-                {
-                    foreach (Control c in pnlWindow.Controls)
-                    {
-                        Panel p = c as Panel;
-                        if (p != null && p.Name == "TabPageV_Control01_" + view + "_Panel")
-                            panel = p;
-                    }
-                }
-                catch { }
-                PhBotDebug("view " + view + ": panel=" + (panel == null ? "null" :
-                    ("vis=" + panel.Visible + " loc=" + panel.Location + " size=" + panel.Size +
-                    " hash=" + panel.GetHashCode() + " kids=" + panel.Controls.Count)));
-                if (panel != null)
-                {
-                    foreach (Control c in panel.Controls)
-                    {
-                        string extra = "";
-                        try
-                        {
-                            GroupBox g = c as GroupBox;
-                            if (g != null) extra = " text=[" + g.Text + "]";
-                            Button b = c as Button;
-                            if (b != null) extra = " text=[" + b.Text + "]";
-                            if (c is Panel) extra = " kids=" + c.Controls.Count;
-                        }
-                        catch { }
-                        PhBotDebug("  kid: " + c.GetType().Name + " " + c.Name +
-                            " vis=" + c.Visible + " bg=" + c.BackColor.ToArgb().ToString("X8") + extra);
-                    }
-                }
-                // Login grubundaki kutuların gerçek renkleri
-                if (view == "SilkroadLogin" && panel != null)
-                {
-                    ForEachControl(panel, delegate(Control c)
-                    {
-                        if (c is GroupBox || c is RadioButton || c is CheckBox)
-                        {
-                            PhBotDebug("  loginctl: " + c.GetType().Name + " " + c.Name +
-                                " bg=" + c.BackColor.ToArgb().ToString("X8") +
-                                " parent=" + (c.Parent != null ? c.Parent.Name + "/" + c.Parent.BackColor.ToArgb().ToString("X8") : "?"));
-                        }
-                    });
-                }
-            }
-            catch (Exception ex) { PhBotDebug("dumpview: " + ex.Message); }
-        }
-
-        private void StripGroupBoxPaints(Control parent)
-        {
-            if (parent == null) return;
-            try
-            {
-                System.Collections.IDictionary titles = null;
-                try
-                {
-                    var f = typeof(Window).GetField("_originalGroupBoxTitles",
-                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-                    titles = f != null ? f.GetValue(null) as System.Collections.IDictionary : null;
-                }
-                catch { }
-                StripGroupBoxPaintsInner(parent, titles);
-            }
-            catch { }
-        }
-
-        /// <summary>
-        /// Control.Visible ebeveyn zincirini de hesaba katar; gizli panellerdeki
-        /// kontroller taşınırken KENDİ görünürlük bayrağı korunmalıdır.
-        /// </summary>
-        private static bool OwnVisible(Control c)
-        {
-            try
-            {
-                var m = typeof(Control).GetMethod("GetVisibleCore",
-                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                if (m != null)
-                    return (bool)m.Invoke(c, null);
-            }
-            catch { }
-            return c.Visible;
-        }
-
-        private void StripGroupBoxPaintsInner(Control parent, System.Collections.IDictionary titles)
-        {
-            if (parent == null) return;
-            for (int i = parent.Controls.Count - 1; i >= 0; i--)
-            {
-                Control c = null;
-                try { c = parent.Controls[i]; } catch { continue; }
-                GroupBox gbx = c as GroupBox;
-                if (gbx != null)
-                {
-                    try
-                    {
-                        string title = gbx.Text;
-                        if (string.IsNullOrEmpty(title) && titles != null && titles.Contains(gbx))
-                            title = titles[gbx] as string;
-                        var ng = new GroupBox();
-                        ng.Name = gbx.Name;
-                        ng.Text = title ?? "";
-                        ng.Location = gbx.Location; ng.Size = gbx.Size;
-                        ng.Anchor = gbx.Anchor; ng.Dock = gbx.Dock;
-                        ng.Enabled = gbx.Enabled; try { ng.Visible = OwnVisible(gbx); } catch { ng.Visible = true; }
-                        try { ng.TabIndex = gbx.TabIndex; } catch { }
-                        try { ng.Tag = gbx.Tag; } catch { }
-                        ng.Font = PhBotFont();
-                        ng.ForeColor = Color.Black;
-                        ng.BackColor = PhBotBg;
-                        // Eski Town otomasyon kutuları BuildPickFilterTabs ile sekmeyle
-                        // birlikte gizli kalmıştı; phBot Town/Buy görünümü için geri aç
-                        try
-                        {
-                            if (ng.Name == "Town_gbxLogistics" || ng.Name == "Town_gbxAutoBuy")
-                                ng.Visible = true;
-                        }
-                        catch { }
-                        // Gizli panellerdeki kutularda Visible birleşimi yanlış okunabildiği
-                        // için bilerek gizlenenler hariç hepsini görünür yap (seçim mantığı
-                        // paneller üzerinden yürür, kutular her zaman görünür olmalı)
-                        try
-                        {
-                            if (ng.Name != "Login_gbxAdvertising" && ng.Name != "Login_gbxCharacters")
-                                ng.Visible = true;
-                        }
-                        catch { }
-                        var kids = new List<Control>();
-                        foreach (Control k in gbx.Controls) kids.Add(k);
-                        foreach (Control k in kids)
-                        {
-                            gbx.Controls.Remove(k);
-                            ng.Controls.Add(k);
-                        }
-                        parent.Controls.RemoveAt(i);
-                        parent.Controls.Add(ng);
-                        try { parent.Controls.SetChildIndex(ng, i); } catch { }
-                        StripGroupBoxPaintsInner(ng, titles);
-                    }
-                    catch (Exception ex) { PhBotDebug("gbx fail: " + ex.Message); }
-                }
-                else if (c.Controls.Count > 0 && !(c is QuestPanel))
-                {
-                    StripGroupBoxPaintsInner(c, titles);
-                }
-            }
-        }
-
-        private static void CopyControlEvent(Control src, Control dst, string keyFieldName, string sourceFieldOwner = null)
-        {
-            try
-            {
-                var evProp = typeof(System.ComponentModel.Component).GetProperty("Events",
-                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                var srcList = evProp.GetValue(src, null) as System.ComponentModel.EventHandlerList;
-                var dstList = evProp.GetValue(dst, null) as System.ComponentModel.EventHandlerList;
-                Type owner = string.IsNullOrEmpty(sourceFieldOwner) ? typeof(Control) : Type.GetType(sourceFieldOwner);
-                if (owner == null) owner = typeof(Control);
-                var kf = owner.GetField(keyFieldName,
-                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.FlattenHierarchy);
-                if (kf == null) return;
-                object k = kf.GetValue(null);
-                Delegate d = srcList[k];
-                if (d != null) dstList.AddHandler(k, d);
-            }
-            catch { }
-        }
-
-        private static void CopyFieldLikeEvent(object src, string eventField, Control dst, string dstEvent)
-        {
-            try
-            {
-                var f = src.GetType().GetField(eventField,
-                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-                if (f == null) return;
-                var d = f.GetValue(src) as Delegate;
-                if (d == null) return;
-                var ev = dst.GetType().GetEvent(dstEvent);
-                if (ev == null) return;
-                foreach (var h in d.GetInvocationList())
-                {
-                    try { ev.AddEventHandler(dst, h); } catch { }
-                }
-            }
-            catch { }
-        }
-
-        private void ConvertModernControls(Control parent)
-        {
-            if (parent == null) return;
-            for (int i = parent.Controls.Count - 1; i >= 0; i--)
-            {
-                Control c;
-                try { c = parent.Controls[i]; } catch { continue; }
-                if (c == null) continue;
-                string full = "";
-                try { full = c.GetType().FullName; } catch { }
-                try
-                {
-                    if (full == "xBot.App.Theme.ModernCard")
-                    {
-                        var gb = new GroupBox();
-                        gb.Name = c.Name;
-                        gb.Location = c.Location; gb.Size = c.Size;
-                        gb.Anchor = c.Anchor; gb.Dock = c.Dock;
-                        gb.Enabled = c.Enabled;
-                        try
-                        {
-                            if (gb.Name != "Login_gbxAdvertising" && gb.Name != "Login_gbxCharacters")
-                                gb.Visible = true;
-                            else
-                                gb.Visible = OwnVisible(c);
-                        }
-                        catch { try { gb.Visible = true; } catch { } }
-                        try { gb.TabIndex = c.TabIndex; } catch { }
-                        try { gb.Tag = c.Tag; } catch { }
-                        try
-                        {
-                            var tp = c.GetType().GetProperty("TitleText");
-                            string t = tp != null ? tp.GetValue(c, null) as string : null;
-                            gb.Text = t ?? "";
-                            var hp = c.GetType().GetProperty("HeaderHeight");
-                            int hh = hp != null ? (int)hp.GetValue(c, null) : 30;
-                            int shift = Math.Max(0, hh - 26);
-                            var kids = new List<Control>();
-                            foreach (Control k in c.Controls) kids.Add(k);
-                            foreach (Control k in kids)
-                            {
-                                c.Controls.Remove(k);
-                                k.Location = new Point(k.Location.X, Math.Max(14, k.Location.Y - shift));
-                                gb.Controls.Add(k);
-                            }
-                        }
-                        catch { }
-                        gb.ForeColor = Color.Black; gb.BackColor = PhBotBg;
-                        gb.Font = PhBotFont();
-                        int idx = parent.Controls.IndexOf(c);
-                        parent.Controls.RemoveAt(i);
-                        parent.Controls.Add(gb);
-                        try { parent.Controls.SetChildIndex(gb, Math.Max(0, idx)); } catch { }
-                        ConvertModernControls(gb);
-                    }
-                    else if (full == "xBot.App.Theme.ModernToggle")
-                    {
-                        var cb = new CheckBox();
-                        cb.Name = c.Name;
-                        cb.Location = c.Location; cb.Size = new Size(Math.Max(c.Width, 180), Math.Max(c.Height, 18));
-                        cb.Anchor = c.Anchor; cb.Enabled = c.Enabled; try { cb.Visible = OwnVisible(c); } catch { cb.Visible = true; }
-                        try { cb.Tag = c.Tag; } catch { }
-                        try
-                        {
-                            var pp = c.GetType().GetProperty("Checked");
-                            if (pp != null) cb.Checked = (bool)pp.GetValue(c, null);
-                            var tx = c.GetType().GetProperty("Text");
-                            string t = tx != null ? tx.GetValue(c, null) as string : null;
-                            if (!string.IsNullOrEmpty(t)) cb.Text = t;
-                        }
-                        catch { }
-                        cb.Font = PhBotFont(); cb.ForeColor = Color.Black;
-                        CopyFieldLikeEvent(c, "CheckedChanged", cb, "CheckedChanged");
-                        CopyControlEvent(c, cb, "EventClick");
-                        int idx = parent.Controls.IndexOf(c);
-                        parent.Controls.RemoveAt(i);
-                        parent.Controls.Add(cb);
-                        try { parent.Controls.SetChildIndex(cb, Math.Max(0, idx)); } catch { }
-                    }
-                    else if (full == "xBot.App.Theme.ModernButton")
-                    {
-                        var b = new Button();
-                        b.Name = c.Name; b.Text = c.Text;
-                        b.Location = c.Location; b.Size = c.Size;
-                        b.Anchor = c.Anchor; b.Dock = c.Dock;
-                        b.Enabled = c.Enabled; try { b.Visible = OwnVisible(c); } catch { b.Visible = true; }
-                        try { b.Tag = c.Tag; } catch { }
-                        b.FlatStyle = FlatStyle.Standard;
-                        b.UseVisualStyleBackColor = true;
-                        b.Font = PhBotFont(); b.ForeColor = Color.Black;
-                        CopyControlEvent(c, b, "EventClick");
-                        int idx = parent.Controls.IndexOf(c);
-                        parent.Controls.RemoveAt(i);
-                        parent.Controls.Add(b);
-                        try { parent.Controls.SetChildIndex(b, Math.Max(0, idx)); } catch { }
-                    }
-                    else if (full == "xBot.App.Theme.ModernTextBox")
-                    {
-                        var tb = new TextBox();
-                        tb.Name = c.Name;
-                        tb.Location = c.Location; tb.Size = c.Size;
-                        tb.Anchor = c.Anchor;                         tb.Enabled = c.Enabled; try { tb.Visible = OwnVisible(c); } catch { tb.Visible = true; }
-                        try { tb.Tag = c.Tag; } catch { }
-                        try
-                        {
-                            var tp = c.GetType().GetProperty("Text");
-                            if (tp != null) tb.Text = (tp.GetValue(c, null) as string) ?? "";
-                            var mp = c.GetType().GetProperty("Multiline");
-                            if (mp != null) tb.Multiline = (bool)mp.GetValue(c, null);
-                            var rp = c.GetType().GetProperty("ReadOnly");
-                            if (rp != null) tb.ReadOnly = (bool)rp.GetValue(c, null);
-                            var pc = c.GetType().GetProperty("PasswordChar");
-                            if (pc != null)
-                            {
-                                char ch = (char)pc.GetValue(c, null);
-                                if (ch != '\0') tb.PasswordChar = ch;
-                            }
-                        }
-                        catch { }
-                        tb.Font = PhBotFont();
-                        tb.BackColor = Color.White; tb.ForeColor = Color.Black;
-                        CopyFieldLikeEvent(c, "TextChanged", tb, "TextChanged");
-                        CopyControlEvent(c, tb, "EventClick");
-                        int idx = parent.Controls.IndexOf(c);
-                        parent.Controls.RemoveAt(i);
-                        parent.Controls.Add(tb);
-                        try { parent.Controls.SetChildIndex(tb, Math.Max(0, idx)); } catch { }
-                    }
-                    else
-                    {
-                        if (c.Controls.Count > 0 && !(c is QuestPanel))
-                            ConvertModernControls(c);
-                    }
-                }
-                catch { }
-            }
         }
 
         public void ApplyPhBotClassicTheme()
@@ -1021,8 +640,7 @@ namespace xBot.App
                 });
                 PhBotDebug(stage + " gbx=" + gbx + " cards=" + cards + " toggles=" + toggles +
                     " mbtns=" + mbtns + " mtxt=" + mtxt + " lv=" + lvTotal + "/" + lvOwner +
-                    " darkPanels=" + darkPanels +
-                    " modernSidebar=" + (modernSidebar == null ? "null" : "visible=" + modernSidebar.Visible));
+                    " darkPanels=" + darkPanels);
             }
             catch { }
         }
@@ -1906,7 +1524,7 @@ namespace xBot.App
                 _phBotBtnHide = NewPhBotActionButton("PhBotHide", isTR ? "Clienti Gizle" : "Hide Client");
                 _phBotBtnReturn = NewPhBotActionButton("PhBotReturn", isTR ? "Şehre Dön" : "Return Scroll");
 
-                _phBotBtnLaunch.Click += (s, e) => { try { Control_Click(Login_btnLauncher, e); } catch { try { Control_Click(Login_btnStart, e); } catch { } } };
+                _phBotBtnLaunch.Click += (s, e) => { LaunchClientWithLoader(); };
                 _phBotBtnStart.Click += (s, e) => { try { if (!Bot.Get.isBotting) Bot.Get.Start(); } catch { } try { UpdatePhBotTitle(); } catch { } };
                 _phBotBtnStop.Click += (s, e) => { try { if (Bot.Get.isBotting) Bot.Get.Stop(); } catch { } try { UpdatePhBotTitle(); } catch { } };
                 _phBotBtnClientless.Click += (s, e) => { try { if (Menu_btnClientOptions_GoClientless != null) Menu_btnClientOptions_GoClientless.PerformClick(); } catch { } };
@@ -2193,7 +1811,7 @@ namespace xBot.App
             return c;
         }
 
-        private static void AddPhBotLabeledNumber(Control parent, string label, int x, int y, int value)
+        private static NumericUpDown AddPhBotLabeledNumber(Control parent, string label, int x, int y, int value)
         {
             var l = new Label();
             l.Text = label;
@@ -2209,6 +1827,7 @@ namespace xBot.App
             n.Location = new Point(x + Math.Max(180, TextRenderer.MeasureText(label, l.Font).Width + 10), y);
             n.Size = new Size(70, 22);
             parent.Controls.Add(n);
+            return n;
         }
     }
 }

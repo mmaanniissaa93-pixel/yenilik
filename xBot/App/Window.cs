@@ -1345,6 +1345,40 @@ namespace xBot.App
 			});
 			return result;
 		}
+		public int TrainingArea_GetPickRadius()
+		{
+			int result = 35;
+			this.InvokeIfRequired(() => {
+				try
+				{
+					Control[] found = this.Controls.Find("PhBot_PickRadius", true);
+					if (found != null && found.Length > 0 && found[0] is TextBox tb)
+					{
+						if (int.TryParse(tb.Text.Trim(), out int val) && val > 0)
+							result = val;
+					}
+				}
+				catch { }
+			});
+			return result;
+		}
+		public int GetPotionDelay(string cbxName, int fallback = 1000)
+		{
+			int result = fallback;
+			this.InvokeIfRequired(() => {
+				try
+				{
+					Control[] found = this.Controls.Find("PhBot_Delay_" + cbxName, true);
+					if (found != null && found.Length > 0 && found[0] is TextBox tb)
+					{
+						if (int.TryParse(tb.Text.Trim(), out int val) && val >= 0)
+							result = val;
+					}
+				}
+				catch { }
+			});
+			return result;
+		}
 		public string TrainingArea_GetScript()
 		{
 			string result = "";
@@ -2167,14 +2201,7 @@ namespace xBot.App
 			rtbxLogs.AppendText(string.Format("{0} Welcome to {1} v{2} | Made by Engels \"JellyBitz\" Quintero{3}{0} Discord : JellyBitz#7643 | FaceBook : @ImJellyBitz", WinAPI.GetDate(), base.ProductName, base.ProductVersion, Environment.NewLine));
 			LogProcess();
 			Settings.LoadBotSettings();
-			if (UsePhBotClassic)
-			{
-				try { ApplyPhBotClassicTheme(); } catch { try { ApplyModernTheme(); } catch { } }
-			}
-			else
-			{
-				ApplyModernTheme();
-			}
+			try { ApplyPhBotClassicTheme(); } catch { }
 			try { ApplyPickFilterLightTheme(); } catch { }
 			PopulateSavedAccounts();
 			// Load basic
@@ -2201,6 +2228,134 @@ namespace xBot.App
 			if(tAdsWindow != null && tAdsWindow.ThreadState == System.Threading.ThreadState.Running)
 				try { tAdsWindow.Interrupt(); } catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[Window.Window_Closing] " + ex.Message); }
 		}
+
+		/// <summary>
+		/// Launches the game client (sro_client.exe) with xBot loader hook (Detours &amp; Client.Library.dll).
+		/// Ensures the bot intercepts client packets and controls the game session.
+		/// </summary>
+		public void LaunchClientWithLoader()
+		{
+			bool isTR = LocalizationManager.CurrentLanguage == "TR";
+
+			try
+			{
+				// 1. If client is already running and active, restore and focus it
+				if (Bot.Get.Proxy != null && Bot.Get.Proxy.SRO_Client != null && !Bot.Get.Proxy.SRO_Client.HasExited)
+				{
+					try
+					{
+						ClientManager.ShowClient();
+						IntPtr[] clientWindows = WinAPI.GetProcessWindows(Bot.Get.Proxy.SRO_Client.Id);
+						foreach (IntPtr p in clientWindows)
+						{
+							WinAPI.ShowWindow(p, WinAPI.SW_SHOW);
+							WinAPI.SetForegroundWindow(p);
+						}
+					}
+					catch { }
+
+					LogProcess(isTR ? "Client zaten çalışıyor." : "Client is already running.");
+					return;
+				}
+
+				// 2. If proxy is currently running in clientless mode, warn the user
+				if (Bot.Get.Proxy != null && Bot.Get.Proxy.isRunning)
+				{
+					LogProcess(isTR
+						? "Bot şu anda clientless modunda çalışıyor. Client ile başlatmak için önce botu durdurun."
+						: "Bot is running in clientless mode. Stop the bot first before launching with client.",
+						ProcessState.Warning);
+					return;
+				}
+
+				// 3. Ensure a Silkroad profile is selected
+				if (string.IsNullOrWhiteSpace(Login_cmbxSilkroad.Text))
+				{
+					if (Login_cmbxSilkroad.Items.Count > 0)
+					{
+						Login_cmbxSilkroad.SelectedIndex = 0;
+					}
+					else if (Settings_lstvSilkroads.Items.Count > 0)
+					{
+						Login_cmbxSilkroad.Text = Settings_lstvSilkroads.Items[0].Text;
+					}
+				}
+
+				if (string.IsNullOrWhiteSpace(Login_cmbxSilkroad.Text))
+				{
+					MessageBox.Show(this,
+						isTR ? "Lütfen önce Ayarlar bölümünden bir Silkroad profili ekleyin ve seçin."
+						     : "Please add and select a Silkroad profile in Settings first.",
+						"xBot", MessageBoxButtons.OK, MessageBoxIcon.Information);
+					TabPageV_Option_Click(TabPageV_Control01_Settings, null);
+					TabPageH_Option_Click(TabPageH_Settings_Option01, null);
+					return;
+				}
+
+				if (!Settings_lstvSilkroads.Items.ContainsKey(Login_cmbxSilkroad.Text))
+				{
+					MessageBox.Show(this,
+						isTR ? $"'{Login_cmbxSilkroad.Text}' profili Silkroad listesinde bulunamadı."
+						     : $"Profile '{Login_cmbxSilkroad.Text}' not found in Silkroad list.",
+						"xBot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+					return;
+				}
+
+				ListViewItem silkroad = Settings_lstvSilkroads.Items[Login_cmbxSilkroad.Text];
+
+				// 4. Validate SRO_Client path
+				string clientPath = silkroad.SubItems.Count > 7 ? (string)silkroad.SubItems[7].Tag : null;
+				if (string.IsNullOrWhiteSpace(clientPath) || !File.Exists(clientPath))
+				{
+					MessageBox.Show(this,
+						isTR ? "SRO_Client.exe yolu tanımlı değil veya dosya bulunamadı!\nLütfen Ayarlar > Silkroad bölümünden sro_client.exe dosyasını seçin."
+						     : "SRO_Client.exe path is not configured or file was not found!\nPlease select sro_client.exe in Settings.",
+						"xBot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+					TabPageV_Option_Click(TabPageV_Control01_Settings, null);
+					TabPageH_Option_Click(TabPageH_Settings_Option01, null);
+					return;
+				}
+
+				// 5. Ensure Client.Library.dll exists for hooking
+				string dllPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Client.Library.dll");
+				if (!File.Exists(dllPath))
+				{
+					string asmDir = Path.GetDirectoryName(typeof(ClientManager).Assembly.Location);
+					if (!string.IsNullOrEmpty(asmDir) && File.Exists(Path.Combine(asmDir, "Client.Library.dll")))
+					{
+						dllPath = Path.Combine(asmDir, "Client.Library.dll");
+					}
+				}
+				if (!File.Exists(dllPath))
+				{
+					MessageBox.Show(this,
+						isTR ? "Client.Library.dll dosyası uygulama klasöründe bulunamadı!\nBotun clienti yakalayabilmesi için Client.Library.dll dosyası xBot klasöründe bulunmalıdır."
+						     : "Client.Library.dll not found in application directory!\nRequired for client hook and packet interception.",
+						"xBot Loader", MessageBoxButtons.OK, MessageBoxIcon.Error);
+					return;
+				}
+
+				// 6. Ensure Client mode is selected (disable Clientless)
+				if (Login_rbnClientless != null) Login_rbnClientless.Checked = false;
+				if (Login_rbnClient != null) Login_rbnClient.Checked = true;
+
+				// 7. Start connection & client via Login_btnStart
+				if (Login_btnStart != null && Login_btnStart.Text == "START" && Login_btnStart.Enabled)
+				{
+					LogProcess(isTR ? "Client loader ile başlatılıyor..." : "Launching client with loader...");
+					Control_Click(Login_btnStart, EventArgs.Empty);
+				}
+				else
+				{
+					LogProcess(isTR ? "Bağlantı başlatılamadı (Durum hazır değil)." : "Could not start connection (Not ready).", ProcessState.Warning);
+				}
+			}
+			catch (Exception ex)
+			{
+				LogProcess(isTR ? $"Client başlatma hatası: {ex.Message}" : $"Client launch error: {ex.Message}", ProcessState.Error);
+			}
+		}
+
 		/// <summary>
 		/// Control OnClick event.
 		/// </summary>
@@ -2319,20 +2474,7 @@ namespace xBot.App
 					}
 					break;
 				case "Login_btnLauncher":
-					if (Login_cmbxSilkroad.Text != "")
-					{
-						ListViewItem sro = Settings_lstvSilkroads.Items[Login_cmbxSilkroad.Text];
-						if ((string)sro.SubItems[6].Tag == "")
-						{
-							MessageBox.Show(this, "You need to select the Launcher path first.", "xBot", MessageBoxButtons.OK);
-							TabPageV_Option_Click(TabPageV_Control01_Settings, null);
-							TabPageH_Option_Click(TabPageH_Settings_Option01, null);
-						}
-						else
-						{
-							Process.Start((string)sro.SubItems[6].Tag);
-						}
-					}
+					LaunchClientWithLoader();
 					break;
 				case "Login_pbxAds":
 					ShowAdvertising();

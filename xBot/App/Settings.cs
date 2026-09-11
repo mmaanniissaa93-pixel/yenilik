@@ -595,6 +595,13 @@ namespace xBot.App
 						Trace["TraceDistance"] = w.Training_tbxTraceDistance.Text;
 
 						Training["ReturnToArea"] = ReturnToAreaPolicy.ToJson();
+						try
+						{
+							Control[] prFound = w.Controls.Find("PhBot_PickRadius", true);
+							if (prFound != null && prFound.Length > 0 && prFound[0] is TextBox prTb)
+								Training["PickRadius"] = prTb.Text;
+						}
+						catch { }
 					}
 					#endregion
 
@@ -635,6 +642,8 @@ namespace xBot.App
 					// Custom character managers
 					root["SkillManager"] = SkillManager.ToJson();
 					root["ProtectionManager"] = ProtectionManager.ToJson();
+					root["CombatAIEngine"] = CombatAIEngine.ToJson();
+					root["ReturnToAreaPolicy"] = ReturnToAreaPolicy.ToJson();
 					root["StatPointManager"] = StatPointManager.ToJson();
 					root["ItemFilterManager"] = ItemFilterManager.ToJson();
 
@@ -1188,6 +1197,18 @@ Window w = Window.Get;
 
 					if (Training.ContainsKey("ReturnToArea"))
 						ReturnToAreaPolicy.FromJson((JObject)Training["ReturnToArea"]);
+
+					if (Training.ContainsKey("PickRadius"))
+					{
+						try
+						{
+							string prVal = (string)Training["PickRadius"];
+							Control[] prFound = w.Controls.Find("PhBot_PickRadius", true);
+							if (prFound != null && prFound.Length > 0 && prFound[0] is TextBox prTb)
+								prTb.Text = prVal;
+						}
+						catch { }
+					}
 				}
 				#endregion
 
@@ -1233,6 +1254,10 @@ Window w = Window.Get;
 					SkillManager.FromJson((Newtonsoft.Json.Linq.JObject)root["SkillManager"]);
 				if (root.ContainsKey("ProtectionManager"))
 					ProtectionManager.FromJson((Newtonsoft.Json.Linq.JObject)root["ProtectionManager"]);
+				if (root.ContainsKey("CombatAIEngine"))
+					CombatAIEngine.FromJson((Newtonsoft.Json.Linq.JObject)root["CombatAIEngine"]);
+				if (root.ContainsKey("ReturnToAreaPolicy"))
+					ReturnToAreaPolicy.FromJson((Newtonsoft.Json.Linq.JObject)root["ReturnToAreaPolicy"]);
 				if (root.ContainsKey("StatPointManager"))
 					StatPointManager.FromJson((Newtonsoft.Json.Linq.JObject)root["StatPointManager"]);
 				ItemFilterManager.FromJson(root.ContainsKey("ItemFilterManager")

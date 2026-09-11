@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
+using xBot.Game.Objects.Entity;
 
 namespace xBot.App
 {
@@ -368,25 +369,47 @@ namespace xBot.App
         {
             if (p == null || p.Controls.Count > 0) return;
             // phbot/protection.md -> Pet Return 1..6
-            AddPhBotCheck(p, "Return when out of pet recovery kits (fellow)", 10, 10, false);
-            AddPhBotCheck(p, "Return when out of pet revive items", 10, 34, false);
-            AddPhBotCheck(p, "Return when out of pet feed items", 10, 58, false);
-            AddPhBotCheck(p, "Return when out of pet abnormal state potions", 10, 82, false);
-            AddPhBotCheck(p, "Return when out of transport recovery kits (wolf)", 10, 106, false);
-            AddPhBotCheck(p, "Return when the pick pet is full", 10, 130, false);
-            NewPhBotNote(p, "TODO backend: ProtectionManager'a pet dönüş koşulları eklenecek.", 10, 158);
+            var c1 = AddPhBotCheck(p, "Return when out of pet recovery kits (fellow)", 10, 10, ProtectionManager.ReturnOutOfPetRecoveryKits);
+            c1.CheckedChanged += (s, e) => ProtectionManager.ReturnOutOfPetRecoveryKits = c1.Checked;
+
+            var c2 = AddPhBotCheck(p, "Return when out of pet revive items", 10, 34, ProtectionManager.ReturnOutOfPetRevive);
+            c2.CheckedChanged += (s, e) => ProtectionManager.ReturnOutOfPetRevive = c2.Checked;
+
+            var c3 = AddPhBotCheck(p, "Return when out of pet feed items", 10, 58, ProtectionManager.ReturnOutOfPetFeed);
+            c3.CheckedChanged += (s, e) => ProtectionManager.ReturnOutOfPetFeed = c3.Checked;
+
+            var c4 = AddPhBotCheck(p, "Return when out of pet abnormal state potions", 10, 82, ProtectionManager.ReturnOutOfPetAbnormalPill);
+            c4.CheckedChanged += (s, e) => ProtectionManager.ReturnOutOfPetAbnormalPill = c4.Checked;
+
+            var c5 = AddPhBotCheck(p, "Return when out of transport recovery kits (wolf)", 10, 106, ProtectionManager.ReturnOutOfTransportRecoveryKits);
+            c5.CheckedChanged += (s, e) => ProtectionManager.ReturnOutOfTransportRecoveryKits = c5.Checked;
+
+            var c6 = AddPhBotCheck(p, "Return when the pick pet is full", 10, 130, ProtectionManager.ReturnFullPetInventory);
+            c6.CheckedChanged += (s, e) => ProtectionManager.ReturnFullPetInventory = c6.Checked;
         }
 
         private void BuildProtectionBerserk(Panel p)
         {
             if (p == null || p.Controls.Count > 0) return;
-            AddPhBotCheck(p, "Use berserk against preferred monster types", 10, 10, false);
-            AddPhBotLabeledNumber(p, "Minimum attackers to trigger berserk", 10, 38, 3);
-            AddPhBotCheck(p, "Use berserk while executing the script", 10, 66, false);
-            AddPhBotCheck(p, "Use berserker regeneration potion", 10, 90, false);
-            AddPhBotCheck(p, "Use Energy of Life potions", 10, 114, false);
+            var c1 = AddPhBotCheck(p, "Use berserk against preferred monster types", 10, 10, CombatAIEngine.ZerkRarityBased);
+            c1.CheckedChanged += (s, e) => CombatAIEngine.ZerkRarityBased = c1.Checked;
+
+            var n1 = AddPhBotLabeledNumber(p, "Minimum attackers to trigger berserk", 10, 38, CombatAIEngine.ZerkMonsterCount);
+            n1.ValueChanged += (s, e) => {
+                CombatAIEngine.ZerkMonsterCount = (int)n1.Value;
+                CombatAIEngine.ZerkMonsterCountEnabled = n1.Value > 0;
+            };
+
+            var c2 = AddPhBotCheck(p, "Use berserk while executing the script", 10, 66, CombatAIEngine.ZerkInScript);
+            c2.CheckedChanged += (s, e) => CombatAIEngine.ZerkInScript = c2.Checked;
+
+            var c3 = AddPhBotCheck(p, "Use berserker regeneration potion", 10, 90, CombatAIEngine.UseZerkPotion);
+            c3.CheckedChanged += (s, e) => CombatAIEngine.UseZerkPotion = c3.Checked;
+
+            var c4 = AddPhBotCheck(p, "Use Energy of Life potions", 10, 114, CombatAIEngine.UseEnergyOfLife);
+            c4.CheckedChanged += (s, e) => CombatAIEngine.UseEnergyOfLife = c4.Checked;
+
             AddPhBotCheck(p, "Use Energy of Life berserk regeneration", 10, 138, false);
-            NewPhBotNote(p, "TODO backend: Training > Savaş panelindeki berserk ayarlarıyla birleştirilecek.", 10, 166);
         }
 
         private void BuildProtectionMonsterPrefs(Panel p)
@@ -394,43 +417,114 @@ namespace xBot.App
             if (p == null || p.Controls.Count > 0) return;
             var lv = NewPhBotListView(10, 10, 460, 220, "Preference|250", "Priority|100");
             p.Controls.Add(lv);
+
+            Action refreshList = () => {
+                lv.Items.Clear();
+                foreach (SRMob.Mob mobType in Enum.GetValues(typeof(SRMob.Mob)))
+                {
+                    var rule = CombatAIEngine.GetRule(mobType);
+                    string state = rule.Prefer ? "Prefer" : (rule.Avoid ? "Avoid" : (rule.Berserk ? "Berserk" : "Normal"));
+                    var lvi = new ListViewItem(mobType.ToString());
+                    lvi.SubItems.Add(state);
+                    lvi.Tag = mobType;
+                    lv.Items.Add(lvi);
+                }
+            };
+            refreshList();
+
             var btnUp = new Button();
-            btnUp.Text = "Up"; btnUp.Font = PhBotFont(); btnUp.Size = new Size(80, 26);
+            btnUp.Text = "Prefer"; btnUp.Font = PhBotFont(); btnUp.Size = new Size(80, 26);
             btnUp.Location = new Point(480, 10); btnUp.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnUp.Click += (s, e) => {
+                if (lv.SelectedItems.Count > 0 && lv.SelectedItems[0].Tag is SRMob.Mob type)
+                {
+                    CombatAIEngine.SetRule(type, false, true, false);
+                    refreshList();
+                }
+            };
+
             var btnDown = new Button();
-            btnDown.Text = "Down"; btnDown.Font = PhBotFont(); btnDown.Size = new Size(80, 26);
+            btnDown.Text = "Avoid"; btnDown.Font = PhBotFont(); btnDown.Size = new Size(80, 26);
             btnDown.Location = new Point(480, 42); btnDown.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            var btnAddType = new Button();
-            btnAddType.Text = "Add type"; btnAddType.Font = PhBotFont(); btnAddType.Size = new Size(80, 26);
-            btnAddType.Location = new Point(480, 74); btnAddType.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            var btnAddName = new Button();
-            btnAddName.Text = "Add name"; btnAddName.Font = PhBotFont(); btnAddName.Size = new Size(80, 26);
-            btnAddName.Location = new Point(480, 106); btnAddName.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            p.Controls.Add(btnUp); p.Controls.Add(btnDown); p.Controls.Add(btnAddType); p.Controls.Add(btnAddName);
+            btnDown.Click += (s, e) => {
+                if (lv.SelectedItems.Count > 0 && lv.SelectedItems[0].Tag is SRMob.Mob type)
+                {
+                    CombatAIEngine.SetRule(type, true, false, false);
+                    refreshList();
+                }
+            };
+
+            var btnZerk = new Button();
+            btnZerk.Text = "Berserk"; btnZerk.Font = PhBotFont(); btnZerk.Size = new Size(80, 26);
+            btnZerk.Location = new Point(480, 74); btnZerk.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnZerk.Click += (s, e) => {
+                if (lv.SelectedItems.Count > 0 && lv.SelectedItems[0].Tag is SRMob.Mob type)
+                {
+                    CombatAIEngine.SetRule(type, false, false, true);
+                    refreshList();
+                }
+            };
+
+            var btnReset = new Button();
+            btnReset.Text = "Normal"; btnReset.Font = PhBotFont(); btnReset.Size = new Size(80, 26);
+            btnReset.Location = new Point(480, 106); btnReset.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnReset.Click += (s, e) => {
+                if (lv.SelectedItems.Count > 0 && lv.SelectedItems[0].Tag is SRMob.Mob type)
+                {
+                    CombatAIEngine.SetRule(type, false, false, false);
+                    refreshList();
+                }
+            };
+
+            p.Controls.Add(btnUp); p.Controls.Add(btnDown); p.Controls.Add(btnZerk); p.Controls.Add(btnReset);
             AddPhBotCheck(p, "Switch monster based on position in the list", 10, 240, false);
-            NewPhBotNote(p, "TODO backend: liste CombatAIEngine tercih kuralına bağlanacak.", 10, 268);
         }
 
         private void BuildProtectionDevilSpirit(Panel p)
         {
             if (p == null || p.Controls.Count > 0) return;
-            AddPhBotCheck(p, "Use Devil's Spirit", 10, 10, false);
-            AddPhBotCheck(p, "Use Angel's Spirit", 10, 34, false);
-            AddPhBotLabeledNumber(p, "Use below HP %", 10, 62, 50);
-            AddPhBotLabeledNumber(p, "Re-cast delay (s)", 10, 90, 5);
-            NewPhBotNote(p, "TODO backend: mevcut Devil Spirit desteği buraya bağlanacak.", 10, 118);
+            var c1 = AddPhBotCheck(p, "Use Devil's Spirit", 10, 10, SkillManager.UseDevilSpirit);
+            c1.CheckedChanged += (s, e) => {
+                SkillManager.UseDevilSpirit = c1.Checked;
+                if (c1.Checked) SkillManager.CheckDevilSpirit();
+            };
+
+            var c2 = AddPhBotCheck(p, "Use Angel's Spirit", 10, 34, SkillManager.UseDevilSpirit);
+            c2.CheckedChanged += (s, e) => {
+                SkillManager.UseDevilSpirit = c2.Checked;
+                if (c2.Checked) SkillManager.CheckDevilSpirit();
+            };
+
+            var n1 = AddPhBotLabeledNumber(p, "Use below HP %", 10, 62, SkillManager.DevilSpiritHPPercent);
+            n1.ValueChanged += (s, e) => SkillManager.DevilSpiritHPPercent = (byte)n1.Value;
+
+            var n2 = AddPhBotLabeledNumber(p, "Re-cast delay (s)", 10, 90, SkillManager.DevilSpiritDelaySeconds);
+            n2.ValueChanged += (s, e) => SkillManager.DevilSpiritDelaySeconds = (int)n2.Value;
         }
 
         private void BuildProtectionScrolls(Panel p)
         {
             if (p == null || p.Controls.Count > 0) return;
-            AddPhBotCheck(p, "Use return scrolls", 10, 10, true);
-            AddPhBotCheck(p, "Use a reverse return scroll when you die", 10, 34, false);
-            AddPhBotCheck(p, "Use a reverse return scroll after returning to town", 10, 58, false);
-            AddPhBotCheck(p, "Use movement speed drugs", 10, 82, false);
-            AddPhBotCheck(p, "Only use speed drugs in the script", 10, 106, false);
-            AddPhBotCheck(p, "Use a repair hammer instead of returning", 10, 130, false);
-            NewPhBotNote(p, "TODO backend: Training > Settings ile ortak scroll politikasına bağlanacak.", 10, 158);
+            var c1 = AddPhBotCheck(p, "Use return scrolls", 10, 10, ProtectionManager.UseReturnScrolls);
+            c1.CheckedChanged += (s, e) => ProtectionManager.UseReturnScrolls = c1.Checked;
+
+            var c2 = AddPhBotCheck(p, "Use a reverse return scroll when you die", 10, 34, ProtectionManager.UseReverseOnDeath);
+            c2.CheckedChanged += (s, e) => ProtectionManager.UseReverseOnDeath = c2.Checked;
+
+            var c3 = AddPhBotCheck(p, "Use a reverse return scroll after returning to town", 10, 58, ProtectionManager.UseReverseAfterTown);
+            c3.CheckedChanged += (s, e) => ProtectionManager.UseReverseAfterTown = c3.Checked;
+
+            var c4 = AddPhBotCheck(p, "Use movement speed drugs", 10, 82, ProtectionManager.UseSpeedDrugs || ReturnToAreaPolicy.UseSpeedDrug);
+            c4.CheckedChanged += (s, e) => {
+                ProtectionManager.UseSpeedDrugs = c4.Checked;
+                ReturnToAreaPolicy.UseSpeedDrug = c4.Checked;
+            };
+
+            var c5 = AddPhBotCheck(p, "Only use speed drugs in the script", 10, 106, ProtectionManager.SpeedDrugsOnlyInScript);
+            c5.CheckedChanged += (s, e) => ProtectionManager.SpeedDrugsOnlyInScript = c5.Checked;
+
+            var c6 = AddPhBotCheck(p, "Use a repair hammer instead of returning", 10, 130, ProtectionManager.UseRepairHammer);
+            c6.CheckedChanged += (s, e) => ProtectionManager.UseRepairHammer = c6.Checked;
         }
 
         private void BuildProtectionStats(Panel p)
@@ -543,24 +637,49 @@ namespace xBot.App
         {
             if (p == null || p.Controls.Count > 0) return;
             // phbot/training-area.md -> Settings 1..15 + Script 1..11
-            AddPhBotCheck(p, "Don't walk around in the training area", 10, 10, false);
+            var c1 = AddPhBotCheck(p, "Don't walk around in the training area", 10, 10, ReturnToAreaPolicy.DontWalkAroundTrainingArea);
+            c1.CheckedChanged += (s, e) => ReturnToAreaPolicy.DontWalkAroundTrainingArea = c1.Checked;
+
             AddPhBotCheck(p, "Use Treasure Boxes (Jangan cave)", 10, 34, false);
             AddPhBotCheck(p, "Use Easter Egg event NPCs", 10, 58, false);
             AddPhBotCheck(p, "Equip better items (low level only!)", 10, 82, false);
             AddPhBotCheck(p, "Summon flowers in the training area", 10, 106, false);
-            AddPhBotCheck(p, "Use a repair hammer", 10, 130, false);
-            AddPhBotCheck(p, "Use berserker regeneration potions", 10, 154, false);
-            AddPhBotCheck(p, "Use Energy of Life potions", 10, 178, false);
+
+            var cHammer = AddPhBotCheck(p, "Use a repair hammer", 10, 130, ProtectionManager.UseRepairHammer);
+            cHammer.CheckedChanged += (s, e) => ProtectionManager.UseRepairHammer = cHammer.Checked;
+
+            var cZerkPot = AddPhBotCheck(p, "Use berserker regeneration potions", 10, 154, CombatAIEngine.UseZerkPotion);
+            cZerkPot.CheckedChanged += (s, e) => CombatAIEngine.UseZerkPotion = cZerkPot.Checked;
+
+            var cEol = AddPhBotCheck(p, "Use Energy of Life potions", 10, 178, CombatAIEngine.UseEnergyOfLife);
+            cEol.CheckedChanged += (s, e) => CombatAIEngine.UseEnergyOfLife = cEol.Checked;
+
             AddPhBotCheck(p, "Use monster summon scrolls & Pandora's Box", 10, 202, false);
             AddPhBotCheck(p, "Wait for strong monsters before next summon", 10, 226, false);
-            AddPhBotCheck(p, "Skip town script entirely", 10, 250, false);
-            AddPhBotCheck(p, "Continue town scripts after reconnect", 10, 274, true);
-            AddPhBotCheck(p, "Return when can't continue script", 10, 298, false);
-            AddPhBotCheck(p, "Avoid Statue of Justice in the script", 10, 322, false);
-            AddPhBotLabeledNumber(p, "Script walk delay (ms)", 10, 350, 0);
-            AddPhBotLabeledNumber(p, "Go back if stuck after (s)", 10, 378, 0);
-            AddPhBotLabeledNumber(p, "Return if stuck in script after (s)", 10, 406, 0);
-            NewPhBotNote(p, "TODO backend: ReturnToAreaPolicy + Script motoruna bağlanacak.", 10, 434);
+
+            var cSkipTown = AddPhBotCheck(p, "Skip town script entirely", 10, 250, ReturnToAreaPolicy.SkipTownScript);
+            cSkipTown.CheckedChanged += (s, e) => ReturnToAreaPolicy.SkipTownScript = cSkipTown.Checked;
+
+            var cContTown = AddPhBotCheck(p, "Continue town scripts after reconnect", 10, 274, ReturnToAreaPolicy.ContinueTownScript);
+            cContTown.CheckedChanged += (s, e) => ReturnToAreaPolicy.ContinueTownScript = cContTown.Checked;
+
+            var cRetStuck = AddPhBotCheck(p, "Return when can't continue script", 10, 298, ReturnToAreaPolicy.ReturnIfScriptStuck);
+            cRetStuck.CheckedChanged += (s, e) => ReturnToAreaPolicy.ReturnIfScriptStuck = cRetStuck.Checked;
+
+            var cAvoidStatue = AddPhBotCheck(p, "Avoid Statue of Justice in the script", 10, 322, ReturnToAreaPolicy.AvoidStatueOfJustice);
+            cAvoidStatue.CheckedChanged += (s, e) => ReturnToAreaPolicy.AvoidStatueOfJustice = cAvoidStatue.Checked;
+
+            var nWalkDelay = AddPhBotLabeledNumber(p, "Script walk delay (ms)", 10, 350, ReturnToAreaPolicy.ScriptWalkDelay);
+            nWalkDelay.Maximum = 10000;
+            nWalkDelay.ValueChanged += (s, e) => ReturnToAreaPolicy.ScriptWalkDelay = (int)nWalkDelay.Value;
+
+            var nGoBack = AddPhBotLabeledNumber(p, "Go back if stuck after (s)", 10, 378, ReturnToAreaPolicy.StuckGoBackSeconds);
+            nGoBack.Maximum = 600;
+            nGoBack.ValueChanged += (s, e) => ReturnToAreaPolicy.StuckGoBackSeconds = (int)nGoBack.Value;
+
+            var nReturnStuck = AddPhBotLabeledNumber(p, "Return if stuck in script after (s)", 10, 406, ReturnToAreaPolicy.StuckReturnSeconds);
+            nReturnStuck.Maximum = 600;
+            nReturnStuck.ValueChanged += (s, e) => ReturnToAreaPolicy.StuckReturnSeconds = (int)nReturnStuck.Value;
         }
 
         // ---------------------------------------------------------------

@@ -162,10 +162,13 @@ namespace xBot.App
             return key.Trim();
         }
 
-        public static string FormatCandidateStatus(int count, string nearestName, double nearestDistance)
+        public static string FormatCandidateStatus(int count, string nearestName, double nearestDistance, bool enabled = true)
         {
+            if (!enabled)
+                return LocalizationManager.CurrentLanguage == "TR" ? "Devre dışı" : "Disabled";
+
             if (count <= 0)
-                return "No target candidates in range.";
+                return LocalizationManager.CurrentLanguage == "TR" ? "Menzilde hedef adayı yok." : "No target candidates in range.";
 
             string distStr = nearestDistance >= 0
                 ? string.Format(System.Globalization.CultureInfo.InvariantCulture, " ({0:0.0}m)", nearestDistance)

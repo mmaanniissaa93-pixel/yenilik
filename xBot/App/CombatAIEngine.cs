@@ -22,6 +22,9 @@ namespace xBot.App
         public static int ZerkMonsterCount { get; set; } = 4;
         public static bool ZerkAvoidanceBased { get; set; } = true;
         public static bool ZerkRarityBased { get; set; } = true;
+        public static bool ZerkInScript { get; set; } = false;
+        public static bool UseZerkPotion { get; set; } = false;
+        public static bool UseEnergyOfLife { get; set; } = false;
 
         // Advanced Target Options
         public static bool IgnoreDimensionPillars { get; set; } = true;
@@ -134,6 +137,9 @@ namespace xBot.App
             json["ZerkMonsterCount"] = ZerkMonsterCount;
             json["ZerkAvoidanceBased"] = ZerkAvoidanceBased;
             json["ZerkRarityBased"] = ZerkRarityBased;
+            json["ZerkInScript"] = ZerkInScript;
+            json["UseZerkPotion"] = UseZerkPotion;
+            json["UseEnergyOfLife"] = UseEnergyOfLife;
             json["IgnoreDimensionPillars"] = IgnoreDimensionPillars;
             json["AttackWeakerFirst"] = AttackWeakerFirst;
             json["DoNotFollowMobs"] = DoNotFollowMobs;
@@ -162,6 +168,9 @@ namespace xBot.App
             if (json.ContainsKey("ZerkMonsterCount")) ZerkMonsterCount = (int)json["ZerkMonsterCount"];
             if (json.ContainsKey("ZerkAvoidanceBased")) ZerkAvoidanceBased = (bool)json["ZerkAvoidanceBased"];
             if (json.ContainsKey("ZerkRarityBased")) ZerkRarityBased = (bool)json["ZerkRarityBased"];
+            if (json.ContainsKey("ZerkInScript")) ZerkInScript = (bool)json["ZerkInScript"];
+            if (json.ContainsKey("UseZerkPotion")) UseZerkPotion = (bool)json["UseZerkPotion"];
+            if (json.ContainsKey("UseEnergyOfLife")) UseEnergyOfLife = (bool)json["UseEnergyOfLife"];
             if (json.ContainsKey("IgnoreDimensionPillars")) IgnoreDimensionPillars = (bool)json["IgnoreDimensionPillars"];
             if (json.ContainsKey("AttackWeakerFirst")) AttackWeakerFirst = (bool)json["AttackWeakerFirst"];
             if (json.ContainsKey("DoNotFollowMobs")) DoNotFollowMobs = (bool)json["DoNotFollowMobs"];

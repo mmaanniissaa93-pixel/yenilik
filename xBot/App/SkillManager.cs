@@ -16,6 +16,8 @@ namespace xBot.App
         public static string SelectedImbue { get; set; } = "None";
         public static uint SelectedImbueSkillId { get; set; }
         public static bool UseDevilSpirit { get; set; } = false;
+        public static byte DevilSpiritHPPercent { get; set; } = 100;
+        public static int DevilSpiritDelaySeconds { get; set; } = 5;
         public static bool InOrderCombo { get; set; } = true;
 
         public static string LastCastStatus { get; private set; } = "Hazır";
@@ -164,9 +166,12 @@ namespace xBot.App
         {
             if (!UseDevilSpirit || InfoManager.Character == null)
                 return;
+            if (DevilSpiritHPPercent < 100 && InfoManager.Character.GetHPPercent() > DevilSpiritHPPercent)
+                return;
             if (HasDevilBuff() || IsDevilEquipped())
                 return;
-            if ((DateTime.UtcNow - s_lastDevilAttemptUtc).TotalSeconds < 10)
+            int delaySec = Math.Max(1, DevilSpiritDelaySeconds);
+            if ((DateTime.UtcNow - s_lastDevilAttemptUtc).TotalSeconds < delaySec)
                 return;
 
             // 1) Envanterdeki devil eşyasını kuşan (avatar slot 4).
@@ -377,6 +382,8 @@ namespace xBot.App
             json["SelectedImbue"] = SelectedImbue;
             json["SelectedImbueSkillId"] = SelectedImbueSkillId;
             json["UseDevilSpirit"] = UseDevilSpirit;
+            json["DevilSpiritHPPercent"] = DevilSpiritHPPercent;
+            json["DevilSpiritDelaySeconds"] = DevilSpiritDelaySeconds;
             json["InOrderCombo"] = InOrderCombo;
             return json;
         }
@@ -390,6 +397,8 @@ namespace xBot.App
             if (json.ContainsKey("SelectedImbue")) SelectedImbue = NormalizeImbueSelection((string)json["SelectedImbue"]);
             if (json.ContainsKey("SelectedImbueSkillId")) SelectedImbueSkillId = (uint)json["SelectedImbueSkillId"];
             if (json.ContainsKey("UseDevilSpirit")) UseDevilSpirit = (bool)json["UseDevilSpirit"];
+            if (json.ContainsKey("DevilSpiritHPPercent")) DevilSpiritHPPercent = (byte)json["DevilSpiritHPPercent"];
+            if (json.ContainsKey("DevilSpiritDelaySeconds")) DevilSpiritDelaySeconds = (int)json["DevilSpiritDelaySeconds"];
             if (json.ContainsKey("InOrderCombo")) InOrderCombo = (bool)json["InOrderCombo"];
         }
     }

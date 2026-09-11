@@ -415,7 +415,9 @@ namespace xBot.App
                         if (w.Character_cbxUseHPGrain.Checked && FindBestItem(3, 1, 1, ref slot, "_SPOTION_")
                             || w.Character_cbxUseHP.Checked && FindBestItem(3, 1, 1, ref slot))
                         {
-                            int requiredInterval = (InfoManager.Character != null && InfoManager.Character.IsEuropean()) ? 15000 : 1000;
+                            int baseInterval = (InfoManager.Character != null && InfoManager.Character.IsEuropean()) ? 15000 : 1000;
+                            int userDelay = w.GetPotionDelay(w.Character_cbxUseHP.Name, 1000);
+                            int requiredInterval = Math.Max(baseInterval, userDelay);
                             if (tUsingHP.Interval != requiredInterval)
                                 tUsingHP.Interval = requiredInterval;
                             PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot);
@@ -457,7 +459,9 @@ namespace xBot.App
                         if (w.Character_cbxUseMPGrain.Checked && FindBestItem(3, 1, 2, ref slot, "_SPOTION_")
                             || w.Character_cbxUseMP.Checked && FindBestItem(3, 1, 2, ref slot))
                         {
-                            int requiredInterval = (InfoManager.Character != null && InfoManager.Character.IsEuropean()) ? 15000 : 1000;
+                            int baseInterval = (InfoManager.Character != null && InfoManager.Character.IsEuropean()) ? 15000 : 1000;
+                            int userDelay = w.GetPotionDelay(w.Character_cbxUseMP.Name, 1000);
+                            int requiredInterval = Math.Max(baseInterval, userDelay);
                             if (tUsingMP.Interval != requiredInterval)
                                 tUsingMP.Interval = requiredInterval;
                             PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot);
@@ -488,8 +492,10 @@ namespace xBot.App
                 Window w = Window.Get;
                 if (w.Character_cbxUseHPVigor.Checked || w.Character_cbxUseMPVigor.Checked)
                 {
-                    if (tUsingVigor.Interval != 15000)
-                        tUsingVigor.Interval = 15000;
+                    int userDelay = w.GetPotionDelay(w.Character_cbxUseHPVigor.Name, 1000);
+                    int requiredInterval = Math.Max(15000, userDelay);
+                    if (tUsingVigor.Interval != requiredInterval)
+                        tUsingVigor.Interval = requiredInterval;
                     byte usePercent = 0;
                     WinAPI.InvokeIfRequired(w.Character_tbxUseHPVigor, () => {
                         usePercent = ParsePercentSafe(w.Character_tbxUseHPVigor.Text);
@@ -545,6 +551,10 @@ namespace xBot.App
                         byte slot = 0;
                         if (FindItem(3, 2, 6, ref slot))
                         {
+                            int userDelay = w.GetPotionDelay(w.Character_cbxUsePillUniversal.Name, 1000);
+                            int requiredInterval = Math.Max(12000, userDelay);
+                            if (tUsingUniversal.Interval != requiredInterval)
+                                tUsingUniversal.Interval = requiredInterval;
                             if (PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot))
                                 tUsingUniversal.Start();
                         }
@@ -583,6 +593,10 @@ namespace xBot.App
                         byte slot = 0;
                         if (FindItem(3, 2, 1, ref slot))
                         {
+                            int userDelay = w.GetPotionDelay(w.Character_cbxUsePillPurification.Name, 1000);
+                            int requiredInterval = Math.Max(12000, userDelay);
+                            if (tUsingPurification.Interval != requiredInterval)
+                                tUsingPurification.Interval = requiredInterval;
                             if (PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot))
                                 tUsingPurification.Start();
                         }

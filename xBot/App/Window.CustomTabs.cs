@@ -42,8 +42,8 @@ namespace xBot.App
 
         // Alchemy controls
         public Panel TabPageV_Control01_Alchemy_Panel;
-        private Theme.ModernCard gbxAlchemySettings;
-        private Theme.ModernCard gbxAlchemyActions;
+        private GroupBox gbxAlchemySettings;
+        private GroupBox gbxAlchemyActions;
         private ComboBox cmbxAlchemyItems;
         private Button btnAlchemyRefreshItems;
         private NumericUpDown nudAlchemyTargetSlot;
@@ -65,19 +65,19 @@ namespace xBot.App
 
         // Target Assist controls
         public Panel TabPageV_Control01_TargetAssist_Panel;
-        private Theme.ModernCard gbxTargetAssistSettings;
-        private Theme.ModernCard gbxTargetAssistFilters;
-        private Theme.ModernCard gbxTargetAssistLists;
+        private GroupBox gbxTargetAssistSettings;
+        private GroupBox gbxTargetAssistFilters;
+        private GroupBox gbxTargetAssistLists;
         private Label lblTargetAssistRuntimeStatus;
-        private Theme.ModernToggle togTargetAssistEnabled;
+        private CheckBox togTargetAssistEnabled;
         private NumericUpDown nudTargetAssistMaxRange;
         private ComboBox cmbxTargetAssistRoleMode;
         private TextBox tbxTargetAssistCycleKey;
         private Button btnTargetAssistCaptureKey;
-        private Theme.ModernToggle togTargetAssistIncludeDead;
-        private Theme.ModernToggle togTargetAssistIgnoreSnow;
-        private Theme.ModernToggle togTargetAssistIgnoreBloody;
-        private Theme.ModernToggle togTargetAssistOnlyCustom;
+        private CheckBox togTargetAssistIncludeDead;
+        private CheckBox togTargetAssistIgnoreSnow;
+        private CheckBox togTargetAssistIgnoreBloody;
+        private CheckBox togTargetAssistOnlyCustom;
         private TextBox tbxTargetAssistIgnoredGuildInput;
         private Button btnTargetAssistAddGuild;
         private ListBox lbxTargetAssistIgnoredGuilds;
@@ -106,7 +106,7 @@ namespace xBot.App
         private NumericUpDown nudGeneralWaitAfterDC;
         private RadioButton rbnGeneralFirstFound;
         private RadioButton rbnGeneralHighestLevel;
-        private Theme.ModernCard gbxStrategy;
+        private GroupBox gbxStrategy;
         private Label lblGeneralLoginDelay;
         private Label lblLoginDelaySec;
         private Label lblGeneralWaitDC;
@@ -282,8 +282,7 @@ namespace xBot.App
                 StartGameInfoLiveTimer();
                 StartCombatUiSyncTimer();
                 ApplyLanguageToWindow();
-                if (!UsePhBotClassic) ApplyModernTheme();
-                  ApplyPickFilterLightTheme();
+                ApplyPickFilterLightTheme();
             }
             catch (Exception ex)
             {
@@ -499,11 +498,10 @@ namespace xBot.App
             if (Login_gbxAdvertising != null)
                 Login_gbxAdvertising.Visible = false;
 
-            gbxStrategy = new Theme.ModernCard();
-            gbxStrategy.TitleText = LocalizationManager.Get("UI_StrategyCard_Title", "GİRİŞ STRATEJİSİ VE OTOMASYON");
+            gbxStrategy = new GroupBox();
+            gbxStrategy.Text = LocalizationManager.Get("UI_StrategyCard_Title", "GİRİŞ STRATEJİSİ VE OTOMASYON");
             gbxStrategy.Location = new Point(432, 344);
             gbxStrategy.Size = new Size(772, 338);
-            gbxStrategy.Font = Theme.DarkTheme.FontBody;
 
             cbxGeneralAutoLogin = new CheckBox { Text = LocalizationManager.Get("UI_AutoLogin", "Otomatik Giriş Yap"), Location = new Point(16, 36), AutoSize = true, Checked = LoginStrategyManager.AutomatedLogin, ForeColor = Theme.DarkTheme.TextPrimary };
             cbxGeneralAutoLogin.CheckedChanged += (s, e) =>
@@ -936,15 +934,12 @@ namespace xBot.App
             // -------------------------------------------------------------
             // Card 1: Simya Ayarları (Left)
             // -------------------------------------------------------------
-            gbxAlchemySettings = new Theme.ModernCard
+            gbxAlchemySettings = new GroupBox
             {
                 Name = "gbxAlchemySettings",
-                TitleText = "SİMYA (+ BASMA) AYARLARI",
+                Text = "SİMYA (+ BASMA) AYARLARI",
                 Location = new Point(4, 4),
-                Size = new Size(cardW, cardH),
-                CardColor = Theme.DarkTheme.BgCard,
-                BorderColor = Theme.DarkTheme.BorderSubtle,
-                BorderRadius = 8
+                Size = new Size(cardW, cardH)
             };
 
             lblAlchemySelect = new Label
@@ -1137,15 +1132,12 @@ namespace xBot.App
             // -------------------------------------------------------------
             // Card 2: Aksiyonlar ve Canlı Durum (Right)
             // -------------------------------------------------------------
-            gbxAlchemyActions = new Theme.ModernCard
+            gbxAlchemyActions = new GroupBox
             {
                 Name = "gbxAlchemyActions",
-                TitleText = "İŞLEMLER VE CANLI DURUM",
+                Text = "İŞLEMLER VE CANLI DURUM",
                 Location = new Point(cardW + 14, 4),
-                Size = new Size(cardW, cardH),
-                CardColor = Theme.DarkTheme.BgCard,
-                BorderColor = Theme.DarkTheme.BorderSubtle,
-                BorderRadius = 8
+                Size = new Size(cardW, cardH)
             };
 
             btnAlchemyStart = new Button
@@ -1418,15 +1410,12 @@ namespace xBot.App
             // -------------------------------------------------------------
             // Card 1: Core Settings (Top-Left)
             // -------------------------------------------------------------
-            gbxTargetAssistSettings = new Theme.ModernCard
+            gbxTargetAssistSettings = new GroupBox
             {
                 Name = "gbxTargetAssistSettings",
-                TitleText = "CORE SETTINGS",
+                Text = "CORE SETTINGS",
                 Location = new Point(4, 38),
-                Size = new Size(370, 172),
-                CardColor = Theme.DarkTheme.BgCard,
-                BorderColor = Theme.DarkTheme.BorderSubtle,
-                BorderRadius = 8
+                Size = new Size(370, 172)
             };
 
             lblTargetAssistRuntimeStatus = new Label
@@ -1446,7 +1435,7 @@ namespace xBot.App
                 ForeColor = Theme.DarkTheme.TextPrimary,
                 Font = Theme.DarkTheme.FontBody
             };
-            togTargetAssistEnabled = new Theme.ModernToggle
+            togTargetAssistEnabled = new CheckBox
             {
                 Location = new Point(140, 54),
                 Size = new Size(50, 22),
@@ -1544,51 +1533,44 @@ namespace xBot.App
             // -------------------------------------------------------------
             // Card 2: Target Filters (Top-Right)
             // -------------------------------------------------------------
-            gbxTargetAssistFilters = new Theme.ModernCard
+            gbxTargetAssistFilters = new GroupBox
             {
                 Name = "gbxTargetAssistFilters",
-                TitleText = "TARGET FILTERS",
+                Text = "TARGET FILTERS",
                 Location = new Point(382, 38),
-                Size = new Size(358, 172),
-                CardColor = Theme.DarkTheme.BgCard,
-                BorderColor = Theme.DarkTheme.BorderSubtle,
-                BorderRadius = 8
+                Size = new Size(358, 172)
             };
 
-            togTargetAssistIncludeDead = new Theme.ModernToggle
+            togTargetAssistIncludeDead = new CheckBox
             {
                 Text = "Include dead targets",
                 Location = new Point(14, 46),
                 Size = new Size(160, 24),
-                Checked = TargetAssistManager.IncludeDeadTargets,
-                Font = Theme.DarkTheme.FontBody
+                Checked = TargetAssistManager.IncludeDeadTargets
             };
 
-            togTargetAssistIgnoreBloody = new Theme.ModernToggle
+            togTargetAssistIgnoreBloody = new CheckBox
             {
                 Text = "Ignore bloody storm targets",
                 Location = new Point(180, 46),
                 Size = new Size(170, 24),
-                Checked = TargetAssistManager.IgnoreBloodyStormTargets,
-                Font = Theme.DarkTheme.FontBody
+                Checked = TargetAssistManager.IgnoreBloodyStormTargets
             };
 
-            togTargetAssistIgnoreSnow = new Theme.ModernToggle
+            togTargetAssistIgnoreSnow = new CheckBox
             {
                 Text = "Ignore snow shield targets",
                 Location = new Point(14, 98),
                 Size = new Size(160, 24),
-                Checked = TargetAssistManager.IgnoreSnowShieldTargets,
-                Font = Theme.DarkTheme.FontBody
+                Checked = TargetAssistManager.IgnoreSnowShieldTargets
             };
 
-            togTargetAssistOnlyCustom = new Theme.ModernToggle
+            togTargetAssistOnlyCustom = new CheckBox
             {
                 Text = "Only custom players",
                 Location = new Point(180, 98),
                 Size = new Size(170, 24),
-                Checked = TargetAssistManager.OnlyCustomPlayers,
-                Font = Theme.DarkTheme.FontBody
+                Checked = TargetAssistManager.OnlyCustomPlayers
             };
 
             gbxTargetAssistFilters.Controls.Add(togTargetAssistIncludeDead);
@@ -1600,15 +1582,12 @@ namespace xBot.App
             // -------------------------------------------------------------
             // Card 3: Custom Target Lists (Bottom)
             // -------------------------------------------------------------
-            gbxTargetAssistLists = new Theme.ModernCard
+            gbxTargetAssistLists = new GroupBox
             {
                 Name = "gbxTargetAssistLists",
-                TitleText = "CUSTOM TARGET LISTS",
+                Text = "CUSTOM TARGET LISTS",
                 Location = new Point(4, 216),
-                Size = new Size(736, 162),
-                CardColor = Theme.DarkTheme.BgCard,
-                BorderColor = Theme.DarkTheme.BorderSubtle,
-                BorderRadius = 8
+                Size = new Size(736, 162)
             };
 
             // Left: Ignored Guilds
@@ -1788,7 +1767,11 @@ namespace xBot.App
 
         private void HookTargetAssistEvents()
         {
-            togTargetAssistEnabled.CheckedChanged += (s, e) => TargetAssistManager.Enabled = togTargetAssistEnabled.Checked;
+            togTargetAssistEnabled.CheckedChanged += (s, e) =>
+            {
+                TargetAssistManager.Enabled = togTargetAssistEnabled.Checked;
+                UpdateTargetAssistStatusLabel();
+            };
             nudTargetAssistMaxRange.ValueChanged += (s, e) => TargetAssistManager.MaxRange = (double)nudTargetAssistMaxRange.Value;
             cmbxTargetAssistRoleMode.SelectedIndexChanged += (s, e) =>
             {
@@ -1885,7 +1868,10 @@ namespace xBot.App
                 TargetAssistManager.OnlyCustomPlayers = togTargetAssistOnlyCustom.Checked;
 
                 Settings.SaveBotSettings();
-                LogProcess("[Target Assist] Ayarlar başarıyla kaydedildi.");
+                UpdateTargetAssistStatusLabel();
+                LogProcess(LocalizationManager.CurrentLanguage == "TR"
+                    ? "[Yardımcı] Ayarlar başarıyla kaydedildi."
+                    : "[Target Assist] Ayarlar başarıyla kaydedildi.");
             };
 
             // Live status update timer
@@ -1932,8 +1918,16 @@ namespace xBot.App
 
             try
             {
+                if (!TargetAssistManager.Enabled)
+                {
+                    string disabledText = LocalizationManager.CurrentLanguage == "TR" ? "Devre dışı" : "Disabled";
+                    if (lblTargetAssistRuntimeStatus.Text != disabledText)
+                        lblTargetAssistRuntimeStatus.Text = disabledText;
+                    return;
+                }
+
                 var info = TargetAssistManager.GetStatusInfo();
-                string status = TargetAssistPolicy.FormatCandidateStatus(info.count, info.nearestName, info.nearestDistance);
+                string status = TargetAssistPolicy.FormatCandidateStatus(info.count, info.nearestName, info.nearestDistance, true);
                 if (lblTargetAssistRuntimeStatus.Text != status)
                     lblTargetAssistRuntimeStatus.Text = status;
             }
@@ -2108,8 +2102,9 @@ namespace xBot.App
             cbxZerkRarity.Location = new Point(12, 122);
             gbxCombatBerserk.Controls.AddRange(new Control[] { lblBerserkDesc, cbxZerkHpFull, cbxZerkCount, nudZerkCount, lblZerkMobUnit, cbxZerkAvoidance, cbxZerkRarity });
             pnlTrainingCombat.Controls.Add(gbxCombatBerserk);
-            SkinControlHierarchy(gbxCombatBerserk);
         }
+
+        private void SkinControlHierarchy(Control c) { }
 
         private void BuildCombatAdvancedCard()
         {
@@ -4076,7 +4071,6 @@ namespace xBot.App
                 }
 
                 UpdateProtectionStatus();
-                UpdateModernStatusBars();
             }
             catch { }
         }
@@ -4116,36 +4110,6 @@ namespace xBot.App
                         if (ToolTips != null) ToolTips.SetToolTip(btnCommandCenter, LocalizationManager.Get("UI_CommandCenter", "Command Center"));
                     }
 
-                    // Modern Sidebar Categories and Items
-                    if (modernSidebar != null)
-                    {
-                        string catBot = LocalizationManager.Get("UI_Cat_BotSettings", "BOT SETTINGS");
-                        string catCom = LocalizationManager.Get("UI_Cat_Community", "COMMUNITY");
-                        string catSys = LocalizationManager.Get("UI_Cat_System", "SYSTEM");
-
-                        modernSidebar.UpdateItemText("Login", LocalizationManager.Get("UI_Tab_Login", "General / Login"), catBot);
-                        modernSidebar.UpdateItemText("Training", LocalizationManager.Get("UI_Tab_Training", "Training"), catBot);
-                        modernSidebar.UpdateItemText("Skills", LocalizationManager.Get("UI_Tab_Skills", "Skills"), catBot);
-                        modernSidebar.UpdateItemText("Character", LocalizationManager.Get("UI_Tab_Character", "Protection"), catBot);
-                        modernSidebar.UpdateItemText("Town", LocalizationManager.Get("UI_Tab_Town", "Town & Items"), catBot);
-                        modernSidebar.UpdateItemText("Trade", "Trade", catBot);
-                        modernSidebar.UpdateItemText("Quest", isTR ? "Görevler" : "Quests", catBot);
-                        modernSidebar.UpdateItemText("Alchemy", LocalizationManager.Get("UI_Tab_Alchemy", "Alchemy (+ Fuse)"), catBot);
-                        modernSidebar.UpdateItemText("TargetAssist", LocalizationManager.Get("UI_Tab_TargetAssist", "Target Assist"), catBot);
-
-                        modernSidebar.UpdateItemText("Inventory", LocalizationManager.Get("UI_Tab_Inventory", "Inventory"), catCom);
-                        modernSidebar.UpdateItemText("Party", LocalizationManager.Get("UI_Tab_Party", "Party"), catCom);
-                        modernSidebar.UpdateItemText("Guild", LocalizationManager.Get("UI_Tab_Guild", "Guild"), catCom);
-                        modernSidebar.UpdateItemText("Academy", LocalizationManager.Get("UI_Tab_Academy", "Academy"), catCom);
-                        modernSidebar.UpdateItemText("Players", LocalizationManager.Get("UI_Tab_Players", "Players"), catCom);
-                        modernSidebar.UpdateItemText("Chat", LocalizationManager.Get("UI_Tab_Chat", "Chat"), catCom);
-                        modernSidebar.UpdateItemText("Stall", LocalizationManager.Get("UI_Tab_Stall", "Stall"), catCom);
-
-                        modernSidebar.UpdateItemText("Minimap", LocalizationManager.Get("UI_Tab_Minimap", "Minimap"), catSys);
-                        modernSidebar.UpdateItemText("GameInfo", LocalizationManager.Get("UI_Tab_GameInfo", "Game Info"), catSys);
-                        modernSidebar.UpdateItemText("Settings", LocalizationManager.Get("UI_Tab_Settings", "Settings"), catSys);
-                    }
-
                     // Classic TabPages (fallback)
                     if (this.TabPageV_Control01_Login != null) this.TabPageV_Control01_Login.Text = LocalizationManager.Get("UI_General", "General");
                     if (this.TabPageV_Control01_Training != null) this.TabPageV_Control01_Training.Text = LocalizationManager.Get("UI_Training", "Training");
@@ -4163,7 +4127,7 @@ namespace xBot.App
                         this.TabPageH_Town_Option03.Text = LocalizationManager.Get("UI_ItemFilter", "Item Filter");
 
                     // General & Login Strategy
-                    if (gbxStrategy != null) gbxStrategy.TitleText = LocalizationManager.Get("UI_StrategyCard_Title", "LOGIN STRATEGY & AUTOMATION");
+                    if (gbxStrategy != null) gbxStrategy.Text = LocalizationManager.Get("UI_StrategyCard_Title", "LOGIN STRATEGY & AUTOMATION");
                     if (cbxGeneralAutoLogin != null) cbxGeneralAutoLogin.Text = LocalizationManager.Get("UI_AutomatedLogin", "Automated Login");
                     if (cbxGeneralAutoStart != null) cbxGeneralAutoStart.Text = LocalizationManager.Get("UI_AutoStartBot", "Auto Start Bot on In-Game");
                     if (cbxGeneralAutoHide != null) cbxGeneralAutoHide.Text = LocalizationManager.Get("UI_AutoHideClient", "Auto Hide Silkroad Client");
@@ -4331,8 +4295,8 @@ namespace xBot.App
                     if (cbxItemRuleStore != null) cbxItemRuleStore.Text = LocalizationManager.Get("UI_AddStore", "Store");
 
                     // Alchemy (+ Fuse)
-                    if (gbxAlchemySettings != null) gbxAlchemySettings.TitleText = LocalizationManager.Get("UI_Alchemy_CardSettings", "ALCHEMY (+ FUSE) SETTINGS");
-                    if (gbxAlchemyActions != null) gbxAlchemyActions.TitleText = LocalizationManager.Get("UI_Alchemy_CardActions", "ALCHEMY ACTIONS & LIVE STATUS");
+                    if (gbxAlchemySettings != null) gbxAlchemySettings.Text = LocalizationManager.Get("UI_Alchemy_CardSettings", "ALCHEMY (+ FUSE) SETTINGS");
+                    if (gbxAlchemyActions != null) gbxAlchemyActions.Text = LocalizationManager.Get("UI_Alchemy_CardActions", "ALCHEMY ACTIONS & LIVE STATUS");
                     if (lblAlchemySelect != null) lblAlchemySelect.Text = LocalizationManager.Get("UI_Alchemy_TargetItem", "Target Equipment (Inventory):");
                     if (lblAlchemySlot != null) lblAlchemySlot.Text = LocalizationManager.Get("UI_Alchemy_TargetSlot", "Inventory Slot (13-76):");
                     if (lblAlchemyPlus != null) lblAlchemyPlus.Text = LocalizationManager.Get("UI_Alchemy_TargetPlus", "Target Plus (+1 to +15):");
@@ -4353,9 +4317,9 @@ namespace xBot.App
                         lblAlchemyFailed.Text = LocalizationManager.Get("UI_Alchemy_FailedPrefix", "Failed: ") + AlchemyManager.FailCount;
 
                     // Target Assist
-                    if (gbxTargetAssistSettings != null) gbxTargetAssistSettings.TitleText = LocalizationManager.Get("UI_TA_CardSettings", "CORE SETTINGS");
-                    if (gbxTargetAssistFilters != null) gbxTargetAssistFilters.TitleText = LocalizationManager.Get("UI_TA_CardFilters", "TARGET FILTERS");
-                    if (gbxTargetAssistLists != null) gbxTargetAssistLists.TitleText = LocalizationManager.Get("UI_TA_CardLists", "CUSTOM TARGET LISTS");
+                    if (gbxTargetAssistSettings != null) gbxTargetAssistSettings.Text = LocalizationManager.Get("UI_TA_CardSettings", "CORE SETTINGS");
+                    if (gbxTargetAssistFilters != null) gbxTargetAssistFilters.Text = LocalizationManager.Get("UI_TA_CardFilters", "TARGET FILTERS");
+                    if (gbxTargetAssistLists != null) gbxTargetAssistLists.Text = LocalizationManager.Get("UI_TA_CardLists", "CUSTOM TARGET LISTS");
                     if (lblTargetAssistEnabled != null) lblTargetAssistEnabled.Text = LocalizationManager.Get("UI_TA_Enabled", "Enabled");
                     if (lblTargetAssistMaxRange != null) lblTargetAssistMaxRange.Text = LocalizationManager.Get("UI_TA_MaxRange", "Max range");
                     if (lblTargetAssistRoleMode != null) lblTargetAssistRoleMode.Text = LocalizationManager.Get("UI_TA_RoleMode", "Role mode");

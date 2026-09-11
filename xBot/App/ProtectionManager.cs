@@ -23,6 +23,21 @@ namespace xBot.App
         public static bool RevivePet { get; set; } = true;
         public static bool AutoSummonPet { get; set; } = true;
 
+        // Scroll & Return Protection
+        public static bool UseReturnScrolls { get; set; } = true;
+        public static bool UseReverseOnDeath { get; set; } = false;
+        public static bool UseReverseAfterTown { get; set; } = false;
+        public static bool UseSpeedDrugs { get; set; } = false;
+        public static bool SpeedDrugsOnlyInScript { get; set; } = false;
+        public static bool UseRepairHammer { get; set; } = false;
+
+        // Pet Return Triggers
+        public static bool ReturnOutOfPetRecoveryKits { get; set; } = false;
+        public static bool ReturnOutOfPetRevive { get; set; } = false;
+        public static bool ReturnOutOfPetFeed { get; set; } = false;
+        public static bool ReturnOutOfPetAbnormalPill { get; set; } = false;
+        public static bool ReturnOutOfTransportRecoveryKits { get; set; } = false;
+
         // Back to Town Triggers
         public static bool ReturnDeadWithDelay { get; set; } = false;
         public static int DeadDelaySeconds { get; set; } = 10;
@@ -319,6 +334,7 @@ namespace xBot.App
         {
             return new ProtectionPolicyOptions
             {
+                UseReturnScrolls = UseReturnScrolls,
                 ReturnDeadWithDelay = ReturnDeadWithDelay,
                 StopBotInTown = StopBotInTown,
                 ReturnNoArrows = ReturnNoArrows,
@@ -327,7 +343,12 @@ namespace xBot.App
                 ReturnHPLow = ReturnHPLow,
                 ReturnMPLow = ReturnMPLow,
                 ReturnDurabilityLow = ReturnDurabilityLow,
-                ReturnLevelUp = ReturnLevelUp
+                ReturnLevelUp = ReturnLevelUp,
+                ReturnOutOfPetRecoveryKits = ReturnOutOfPetRecoveryKits,
+                ReturnOutOfPetRevive = ReturnOutOfPetRevive,
+                ReturnOutOfPetFeed = ReturnOutOfPetFeed,
+                ReturnOutOfPetAbnormalPill = ReturnOutOfPetAbnormalPill,
+                ReturnOutOfTransportRecoveryKits = ReturnOutOfTransportRecoveryKits
             };
         }
 
@@ -350,7 +371,12 @@ namespace xBot.App
                 HPLow = CountInventoryQuantity(inventory, 3, 1, 1) <= HPLowThreshold,
                 MPLow = CountInventoryQuantity(inventory, 3, 1, 2) <= MPLowThreshold,
                 DurabilityLow = HasLowDurability(inventory),
-                LevelUpPending = levelUpPending
+                LevelUpPending = levelUpPending,
+                OutOfPetRecoveryKits = ReturnOutOfPetRecoveryKits && HasNoPetItem(inventory, "RECOVERY"),
+                OutOfPetRevive = ReturnOutOfPetRevive && HasNoPetItem(inventory, "REVIVAL", "GRASS"),
+                OutOfPetFeed = ReturnOutOfPetFeed && HasNoPetItem(inventory, "FEED", "FOOD"),
+                OutOfPetAbnormalPill = ReturnOutOfPetAbnormalPill && HasNoPetItem(inventory, "PILL", "CURE"),
+                OutOfTransportRecoveryKits = ReturnOutOfTransportRecoveryKits && HasNoPetItem(inventory, "TRANSPORT", "RECOVERY")
             };
         }
 
@@ -377,6 +403,16 @@ namespace xBot.App
                 return "MP potions are low (" + MPLowThreshold + " threshold).";
             if (ReturnDurabilityLow && input.DurabilityLow)
                 return "Equipment durability is low.";
+            if (ReturnOutOfPetRecoveryKits && input.OutOfPetRecoveryKits)
+                return "Out of pet recovery kits.";
+            if (ReturnOutOfPetRevive && input.OutOfPetRevive)
+                return "Out of pet revival items.";
+            if (ReturnOutOfPetFeed && input.OutOfPetFeed)
+                return "Out of pet feed items.";
+            if (ReturnOutOfPetAbnormalPill && input.OutOfPetAbnormalPill)
+                return "Out of pet abnormal state potions.";
+            if (ReturnOutOfTransportRecoveryKits && input.OutOfTransportRecoveryKits)
+                return "Out of transport recovery kits.";
             return "A protection condition was met.";
         }
 
@@ -396,7 +432,7 @@ namespace xBot.App
 
         private static bool HasReturnScroll(xList<SRItem> inventory)
         {
-            if (inventory == null)
+            if (!UseReturnScrolls || inventory == null)
                 return false;
 
             for (byte i = 13; i < inventory.Capacity; i++)
@@ -419,6 +455,23 @@ namespace xBot.App
             }
 
             return false;
+        }
+
+        private static bool HasNoPetItem(xList<SRItem> inventory, params string[] keywords)
+        {
+            if (inventory == null) return true;
+            for (byte i = 13; i < inventory.Capacity; i++)
+            {
+                var item = inventory[i];
+                if (item == null || item.ID2 != 3) continue;
+                string sName = item.ServerName ?? "";
+                for (int k = 0; k < keywords.Length; k++)
+                {
+                    if (sName.IndexOf(keywords[k], StringComparison.OrdinalIgnoreCase) >= 0)
+                        return false;
+                }
+            }
+            return true;
         }
 
         private static bool HasNoArrows(xList<SRItem> inventory)
@@ -531,8 +584,17 @@ namespace xBot.App
             json["HPLowThreshold"] = HPLowThreshold;
             json["ReturnMPLow"] = ReturnMPLow;
             json["MPLowThreshold"] = MPLowThreshold;
-            json["ReturnDurabilityLow"] = ReturnDurabilityLow;
-            json["DurabilityLowThreshold"] = DurabilityLowThreshold;
+            json["UseReturnScrolls"] = UseReturnScrolls;
+            json["UseReverseOnDeath"] = UseReverseOnDeath;
+            json["UseReverseAfterTown"] = UseReverseAfterTown;
+            json["UseSpeedDrugs"] = UseSpeedDrugs;
+            json["SpeedDrugsOnlyInScript"] = SpeedDrugsOnlyInScript;
+            json["UseRepairHammer"] = UseRepairHammer;
+            json["ReturnOutOfPetRecoveryKits"] = ReturnOutOfPetRecoveryKits;
+            json["ReturnOutOfPetRevive"] = ReturnOutOfPetRevive;
+            json["ReturnOutOfPetFeed"] = ReturnOutOfPetFeed;
+            json["ReturnOutOfPetAbnormalPill"] = ReturnOutOfPetAbnormalPill;
+            json["ReturnOutOfTransportRecoveryKits"] = ReturnOutOfTransportRecoveryKits;
             json["ReturnLevelUp"] = ReturnLevelUp;
             return json;
         }
@@ -549,6 +611,17 @@ namespace xBot.App
             if (json.ContainsKey("UseSkillBadStatus")) UseSkillBadStatus = (bool)json["UseSkillBadStatus"];
             if (json.ContainsKey("RevivePet")) RevivePet = (bool)json["RevivePet"];
             if (json.ContainsKey("AutoSummonPet")) AutoSummonPet = (bool)json["AutoSummonPet"];
+            if (json.ContainsKey("UseReturnScrolls")) UseReturnScrolls = (bool)json["UseReturnScrolls"];
+            if (json.ContainsKey("UseReverseOnDeath")) UseReverseOnDeath = (bool)json["UseReverseOnDeath"];
+            if (json.ContainsKey("UseReverseAfterTown")) UseReverseAfterTown = (bool)json["UseReverseAfterTown"];
+            if (json.ContainsKey("UseSpeedDrugs")) UseSpeedDrugs = (bool)json["UseSpeedDrugs"];
+            if (json.ContainsKey("SpeedDrugsOnlyInScript")) SpeedDrugsOnlyInScript = (bool)json["SpeedDrugsOnlyInScript"];
+            if (json.ContainsKey("UseRepairHammer")) UseRepairHammer = (bool)json["UseRepairHammer"];
+            if (json.ContainsKey("ReturnOutOfPetRecoveryKits")) ReturnOutOfPetRecoveryKits = (bool)json["ReturnOutOfPetRecoveryKits"];
+            if (json.ContainsKey("ReturnOutOfPetRevive")) ReturnOutOfPetRevive = (bool)json["ReturnOutOfPetRevive"];
+            if (json.ContainsKey("ReturnOutOfPetFeed")) ReturnOutOfPetFeed = (bool)json["ReturnOutOfPetFeed"];
+            if (json.ContainsKey("ReturnOutOfPetAbnormalPill")) ReturnOutOfPetAbnormalPill = (bool)json["ReturnOutOfPetAbnormalPill"];
+            if (json.ContainsKey("ReturnOutOfTransportRecoveryKits")) ReturnOutOfTransportRecoveryKits = (bool)json["ReturnOutOfTransportRecoveryKits"];
             if (json.ContainsKey("ReturnDeadWithDelay")) ReturnDeadWithDelay = (bool)json["ReturnDeadWithDelay"];
             if (json.ContainsKey("DeadDelaySeconds")) DeadDelaySeconds = (int)json["DeadDelaySeconds"];
             if (json.ContainsKey("StopBotInTown")) StopBotInTown = (bool)json["StopBotInTown"];

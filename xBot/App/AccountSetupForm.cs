@@ -13,8 +13,8 @@ namespace xBot.App
     {
         private Label lblTitle;
         private Label lblSubtitle;
-        private ModernCard pnlLeftCard;
-        private ModernCard pnlRightCard;
+        private Panel pnlLeftCard;
+        private Panel pnlRightCard;
 
         // Left Card Controls
         private Label lblUsername;
@@ -74,13 +74,11 @@ namespace xBot.App
             };
 
             // Left Card
-            pnlLeftCard = new ModernCard
+            pnlLeftCard = new Panel
             {
                 Location = new Point(24, 72),
                 Size = new Size(340, 320),
-                CardColor = DarkTheme.BgCard,
-                BorderColor = DarkTheme.BorderSubtle,
-                BorderRadius = 8
+                BackColor = DarkTheme.BgCard
             };
 
             lblUsername = new Label
@@ -196,13 +194,11 @@ namespace xBot.App
             pnlLeftCard.Controls.Add(lblCount);
 
             // Right Card
-            pnlRightCard = new ModernCard
+            pnlRightCard = new Panel
             {
                 Location = new Point(380, 72),
                 Size = new Size(356, 320),
-                CardColor = DarkTheme.BgCard,
-                BorderColor = DarkTheme.BorderSubtle,
-                BorderRadius = 8
+                BackColor = DarkTheme.BgCard
             };
 
             lstvAccounts = new ListView

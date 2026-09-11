@@ -1936,6 +1936,7 @@ namespace xBot.App
                 catch { petFull = false; }
             }
 
+            int pickRadius = Window.Get != null ? Window.Get.TrainingArea_GetPickRadius() : 35;
             List<SRDrop> drops = new List<SRDrop>();
 
             for (int i = 0; i < InfoManager.Entities.Count; i++)
@@ -1944,7 +1945,7 @@ namespace xBot.App
                 if (entity is SRDrop drop)
                 {
                     double dist = drop.GetRealtimePosition().DistanceTo(myPos);
-                    if (dist <= 35.0)
+                    if (dist <= pickRadius)
                     {
 						// Karakter listesi (Pick) VEYA pet listesi (Pet): ikisi de
 						// bağımsızdır, biri tutsa damla listeye girer.
