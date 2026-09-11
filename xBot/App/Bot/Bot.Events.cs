@@ -860,13 +860,13 @@ namespace xBot.App
 						{
 							SRCoord PQUnit = new SRCoord((Q.PosX - P.PosX) / PQMod, (Q.PosY - P.PosY) / PQMod);
 
-							SRCoord NewPositon;
+							SRCoord NewPosition;
 							if (P.inDungeon())
-								NewPositon = new SRCoord((PQMod - distance) * PQUnit.PosX + P.PosX, (PQMod - distance) * PQUnit.PosY + P.PosY, P.Region, P.Z);
+								NewPosition = new SRCoord((PQMod - distance) * PQUnit.PosX + P.PosX, (PQMod - distance) * PQUnit.PosY + P.PosY, P.Region, P.Z);
 							else
-								NewPositon = new SRCoord((PQMod - distance) * PQUnit.PosX + P.PosX, (PQMod - distance) * PQUnit.PosY + P.PosY);
+								NewPosition = new SRCoord((PQMod - distance) * PQUnit.PosX + P.PosX, (PQMod - distance) * PQUnit.PosY + P.PosY);
 
-							MoveTo(NewPositon);
+							MoveTo(NewPosition);
 							w.LogProcess("Tracing to [" + player.Name + "] ...");
 						}
 					}

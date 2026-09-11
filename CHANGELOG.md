@@ -1,5 +1,9 @@
 # Changelog
 
+- phBot görünümünde Client başlatma düzeltmesi: `Bağlan`/`Connect` yazan başlat butonu durum makinesinde `START` ile eşdeğer sayıldı, bağlantı-boşta kontrolü yazıdan bağımsız (`Proxy.isRunning`) hale getirildi. Kaynak: `App/Window.cs`, `App/Window.CustomTabs.cs`, `App/Window.PhBotInner5.cs`.
+
+- Otomatik yapılandırma motoru eklendi (phBot davranışı bazlı clean-room): Çin Str/Int + Bicheon/Heuksal/Pacheon ve Avrupa primary/secondary seçiminden mastery/skill/STR-INT uygular; profil Yeni/Adlandır/Sil, town-öncesi ve shared-pick bayrakları karakter profiline kaydedilir. Kaynak: `App/AutoConfigureManager.cs`, `App/AutoConfigurePolicy.cs`.
+
 - Login sekmesi phBot dizilimine çevrildi (Gateway/SOCKS/Switch/JCP/Client/Queue/Hide/Captcha/XTrap/Reduce Memory/Server Capacity/Characters); StartBot kutusu standart taşıma yoluna alındı, çakışma bekçisi eklendi.
 
 - Login ekranı kusurları: modern alt şerit klasikte gizlendi (içeriğin üstündeki siyah bar gitti), hesap kombo/kısaltma metinleri dile bağlandı, dil değişiminde sidebar başlıkları phBot isimlerine sabitlendi.

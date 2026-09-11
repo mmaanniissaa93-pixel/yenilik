@@ -937,10 +937,40 @@ namespace xBot.App
                 btnConfigure.FlatAppearance.BorderSize = 1;
                 btnConfigure.Click += (s, e) =>
                 {
-                    MessageBox.Show(
-                        isTR ? ("Otomatik yapılandırma " + (cbBuild.SelectedItem ?? "karakter") + " için başarıyla uygulandı!")
-                             : ("Auto configuration applied sane defaults for " + (cbBuild.SelectedItem ?? "character") + "!"),
-                        "phBot", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    try
+                    {
+                        string build = "Str";
+                        try { build = (cbBuild.SelectedItem ?? "Str").ToString(); } catch { }
+                        string weapon = "Bicheon";
+                        try { weapon = (cbWpn.SelectedItem ?? "Bicheon").ToString(); } catch { }
+                        string primary = "Wizard";
+                        try { primary = (cbPrim.SelectedItem ?? "Wizard").ToString(); } catch { }
+                        string secondary = "None";
+                        try { secondary = (cbSec.SelectedItem ?? "None").ToString(); } catch { }
+                        bool useEuro = !string.IsNullOrEmpty(primary) && !string.Equals(primary, "Dagger", System.StringComparison.OrdinalIgnoreCase);
+                        string summary = useEuro
+                            ? AutoConfigureManager.ApplyEuropean(primary, secondary)
+                            : AutoConfigureManager.ApplyChinese(build, weapon);
+                        try
+                        {
+                            var before = host.Controls.Find("PhBot_AutoBeforeLoop", true);
+                            if (before != null && before.Length > 0 && before[0] is CheckBox cbBefore)
+                                AutoConfigureManager.AutoConfigureBeforeTownLoop = cbBefore.Checked;
+                            var shared = host.Controls.Find("PhBot_AutoSharedPick", true);
+                            if (shared != null && shared.Length > 0 && shared[0] is CheckBox cbShared)
+                                AutoConfigureManager.UseSharedPickFilter = cbShared.Checked;
+                        }
+                        catch { }
+                        try { Settings.SaveCharacterSettings(); } catch { }
+                        MessageBox.Show(
+                            isTR ? ("Otomatik yapılandırma uygulandı: " + summary)
+                                 : ("Auto configuration applied: " + summary),
+                            "phBot", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    catch (System.Exception ex)
+                    {
+                        MessageBox.Show(ex.Message, "phBot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    }
                 };
                 host.Controls.Add(btnConfigure);
 

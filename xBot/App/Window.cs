@@ -2247,6 +2247,26 @@ namespace xBot.App
 		/// Launches the game client (sro_client.exe) with xBot loader hook (Detours &amp; Client.Library.dll).
 		/// Ensures the bot intercepts client packets and controls the game session.
 		/// </summary>
+		private static bool IsIdleStartText(string text)
+		{
+			return string.Equals(text, "START", StringComparison.Ordinal)
+				|| string.Equals(text, "Bağlan", StringComparison.Ordinal)
+				|| string.Equals(text, "Connect", StringComparison.Ordinal);
+		}
+
+		private bool IsConnectionIdle()
+		{
+			try
+			{
+				if (Login_btnStart == null || !Login_btnStart.Enabled)
+					return false;
+				if (!IsIdleStartText(Login_btnStart.Text))
+					return false;
+				return Bot.Get.Proxy == null || !Bot.Get.Proxy.isRunning;
+			}
+			catch { return false; }
+		}
+
 		public void LaunchClientWithLoader()
 		{
 			bool isTR = LocalizationManager.CurrentLanguage == "TR";
@@ -2354,7 +2374,7 @@ namespace xBot.App
 				if (Login_rbnClient != null) Login_rbnClient.Checked = true;
 
 				// 7. Start connection & client via Login_btnStart
-				if (Login_btnStart != null && Login_btnStart.Text == "START" && Login_btnStart.Enabled)
+				if (Login_btnStart != null && IsConnectionIdle())
 				{
 					LogProcess(isTR ? "Client loader ile başlatılıyor..." : "Launching client with loader...");
 					Control_Click(Login_btnStart, EventArgs.Empty);
@@ -2409,6 +2429,8 @@ namespace xBot.App
 					switch (c.Text)
 					{
 						case "START":
+						case "Bağlan":
+						case "Connect":
 							if (Login_cmbxSilkroad.Text == ""){
 								MessageBox.Show(this, "Select your Silkroad at first!", "xBot", MessageBoxButtons.OK);
 								return;

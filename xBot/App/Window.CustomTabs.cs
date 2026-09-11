@@ -881,7 +881,7 @@ namespace xBot.App
             if (!Bot.Get.hasAutoLoginMode
                 || InfoManager.inGame
                 || Login_btnStart == null
-                || Login_btnStart.Text != "START"
+                || (Login_btnStart.Text != "START" && Login_btnStart.Text != "Bağlan" && Login_btnStart.Text != "Connect")
                 || !Login_btnStart.Enabled
                 || Login_cmbxSilkroad == null
                 || string.IsNullOrWhiteSpace(Login_cmbxSilkroad.Text)
@@ -901,7 +901,7 @@ namespace xBot.App
                 automatedLoginTimer.Tick += (s, e) =>
                 {
                     automatedLoginTimer.Stop();
-                    if (Bot.Get.hasAutoLoginMode && Login_btnStart.Text == "START")
+                    if (Bot.Get.hasAutoLoginMode && (Login_btnStart.Text == "START" || Login_btnStart.Text == "Bağlan" || Login_btnStart.Text == "Connect"))
                     {
                         Bot.Get.LoggedFromBot = true;
                         Log("Otomatik komut satırı girişi başlatılıyor...");

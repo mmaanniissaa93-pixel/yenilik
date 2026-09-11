@@ -145,6 +145,8 @@
     <Compile Include="App\ReturnToAreaPolicy.cs" />
     <Compile Include="App\SkillManager.cs" />
     <Compile Include="App\SkillPolicy.cs" />
+    <Compile Include="App\AutoConfigureManager.cs" />
+    <Compile Include="App\AutoConfigurePolicy.cs" />
     <Compile Include="App\ImbuePolicy.cs" />
     <Compile Include="App\ProtectionManager.cs" />
     <Compile Include="App\StatPointManager.cs" />
@@ -276,7 +278,7 @@
     <Compile Include="SecurityAPI\PacketWriter.cs" />
     <Compile Include="SecurityAPI\Security.cs" />
     <Compile Include="SecurityAPI\TransferBuffer.cs" />
-    <Compile Include="SecurityAPI\Ultility.cs" />
+    <Compile Include="SecurityAPI\Utility.cs" />
     <Compile Include="App\Window.cs">
       <SubType>Form</SubType>
     </Compile>

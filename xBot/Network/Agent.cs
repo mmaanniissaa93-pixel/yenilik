@@ -164,9 +164,14 @@ namespace xBot.Network
 				SERVER_PLAYER_PETITION_REQUEST = 0x3080,
 				SERVER_MAIL_SEND_RESPONSE = 0xB309,
 				SERVER_NOTICE_UPDATE = 0x300C,
-				SERVER_ENVIROMENT_CELESTIAL_POSITION = 0x3020,
-				SERVER_ENVIROMENT_CELESTIAL_UPDATE = 0x3027,
-				SERVER_ENVIROMENT_WHEATER_UPDATE = 0x3809,
+				SERVER_ENVIRONMENT_CELESTIAL_POSITION = 0x3020,
+				SERVER_ENVIRONMENT_CELESTIAL_UPDATE = 0x3027,
+				SERVER_ENVIRONMENT_WEATHER_UPDATE = 0x3809,
+#pragma warning disable CS0618 // Typo uyumluluğu için eski isimler saklanıyor
+				SERVER_ENVIROMENT_CELESTIAL_POSITION = SERVER_ENVIRONMENT_CELESTIAL_POSITION,
+				SERVER_ENVIROMENT_CELESTIAL_UPDATE = SERVER_ENVIRONMENT_CELESTIAL_UPDATE,
+				SERVER_ENVIROMENT_WHEATER_UPDATE = SERVER_ENVIRONMENT_WEATHER_UPDATE,
+#pragma warning restore CS0618
 				SERVER_PARTY_INVITATION_RESPONSE = 0xB060,
 				SERVER_PARTY_DATA = 0x3065,
 				SERVER_PARTY_UPDATE = 0x3864,
@@ -588,14 +593,14 @@ namespace xBot.Network
 				case Opcode.SERVER_ENTITY_SKILL_BUFF_REMOVED:
 					PacketParser.EntitySkillBuffRemoved(packet);
 					break;
-				case Opcode.SERVER_ENVIROMENT_CELESTIAL_POSITION:
-					PacketParser.EnviromentCelestialPosition(packet);
+				case Opcode.SERVER_ENVIRONMENT_CELESTIAL_POSITION:
+					PacketParser.EnvironmentCelestialPosition(packet);
 					break;
-				case Opcode.SERVER_ENVIROMENT_CELESTIAL_UPDATE:
-					PacketParser.EnviromentCelestialUpdate(packet);
+				case Opcode.SERVER_ENVIRONMENT_CELESTIAL_UPDATE:
+					PacketParser.EnvironmentCelestialUpdate(packet);
 					break;
-				case Opcode.SERVER_ENVIROMENT_WHEATER_UPDATE:
-					PacketParser.EnviromentWheaterUpdate(packet);
+				case Opcode.SERVER_ENVIRONMENT_WEATHER_UPDATE:
+					PacketParser.EnvironmentWeatherUpdate(packet);
 					break;
 				case Opcode.SERVER_CHAT_UPDATE:
 					PacketParser.ChatUpdate(packet);
@@ -714,10 +719,10 @@ namespace xBot.Network
 					PacketParser.StorageDataEnd(packet);
 					break;
 				case Opcode.SERVER_CONSIGNMENT_REGISTER_RESPONSE:
-					PacketParser.ConsigmentRegisterResponse(packet);
+					PacketParser.ConsignmentRegisterResponse(packet);
 					break;
 				case Opcode.SERVER_CONSIGNMENT_UNREGISTER_RESPONSE:
-					PacketParser.ConsigmentUnregisterResponse(packet);
+					PacketParser.ConsignmentUnregisterResponse(packet);
 					break;
 				case Opcode.SERVER_CONSIGNMENT_LIST_RESPONSE:
 					PacketParser.ConsignmentListResponse(packet);

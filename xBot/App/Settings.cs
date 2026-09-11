@@ -639,13 +639,14 @@ namespace xBot.App
 				}
 				#endregion
 
-					// Custom character managers
-					root["SkillManager"] = SkillManager.ToJson();
-					root["ProtectionManager"] = ProtectionManager.ToJson();
-					root["CombatAIEngine"] = CombatAIEngine.ToJson();
-					root["ReturnToAreaPolicy"] = ReturnToAreaPolicy.ToJson();
-					root["StatPointManager"] = StatPointManager.ToJson();
-					root["ItemFilterManager"] = ItemFilterManager.ToJson();
+				// Custom character managers
+				root["SkillManager"] = SkillManager.ToJson();
+				root["ProtectionManager"] = ProtectionManager.ToJson();
+				root["CombatAIEngine"] = CombatAIEngine.ToJson();
+				root["ReturnToAreaPolicy"] = ReturnToAreaPolicy.ToJson();
+				root["StatPointManager"] = StatPointManager.ToJson();
+				root["ItemFilterManager"] = ItemFilterManager.ToJson();
+				root["AutoConfigureManager"] = AutoConfigureManager.ToJson();
 
 					// Saving (atomic)
 					string safeSilkroad = string.IsNullOrEmpty(DataManager.SilkroadName) ? "UnknownSilkroad" : DataManager.SilkroadName;
@@ -1258,8 +1259,10 @@ Window w = Window.Get;
 					CombatAIEngine.FromJson((Newtonsoft.Json.Linq.JObject)root["CombatAIEngine"]);
 				if (root.ContainsKey("ReturnToAreaPolicy"))
 					ReturnToAreaPolicy.FromJson((Newtonsoft.Json.Linq.JObject)root["ReturnToAreaPolicy"]);
-				if (root.ContainsKey("StatPointManager"))
-					StatPointManager.FromJson((Newtonsoft.Json.Linq.JObject)root["StatPointManager"]);
+			if (root.ContainsKey("StatPointManager"))
+				StatPointManager.FromJson((Newtonsoft.Json.Linq.JObject)root["StatPointManager"]);
+			if (root.ContainsKey("AutoConfigureManager"))
+				AutoConfigureManager.FromJson((Newtonsoft.Json.Linq.JObject)root["AutoConfigureManager"]);
 				ItemFilterManager.FromJson(root.ContainsKey("ItemFilterManager")
 					? (Newtonsoft.Json.Linq.JObject)root["ItemFilterManager"]
 					: new Newtonsoft.Json.Linq.JObject());

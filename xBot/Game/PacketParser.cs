@@ -2047,7 +2047,7 @@ namespace xBot.Game
 			if (entity == null) return;
 			entity.Angle = packet.ReadUShort();
 		}
-		public static void EnviromentCelestialPosition(Packet packet)
+		public static void EnvironmentCelestialPosition(Packet packet)
 		{
 			// srodevs-docs agent_environment_celestial_position (0x3020)
 			uint uid = packet.ReadUInt();
@@ -2056,6 +2056,11 @@ namespace xBot.Game
 			if (packet.RemainingRead() >= 4)
 				InfoManager.OnEnvironmentCelestial(packet.ReadUShort(), packet.ReadByte(), packet.ReadByte());
 			// End of Packet
+		}
+		[System.Obsolete("Typo uyumluluğu için bırakıldı, EnvironmentCelestialPosition kullanın.")]
+		public static void EnviromentCelestialPosition(Packet packet)
+		{
+			EnvironmentCelestialPosition(packet);
 		}
 		public static void ChatUpdate(Packet packet)
 		{
@@ -2091,12 +2096,17 @@ namespace xBot.Game
 			// End of Packet
 			InfoManager.OnChatReceived(updateType, player, message);
 		}
-		public static void EnviromentCelestialUpdate(Packet packet)
+		public static void EnvironmentCelestialUpdate(Packet packet)
 		{
 			// srodevs-docs agent_environment_celestial_update (0x3027)
 			if (packet.RemainingRead() >= 4)
 				InfoManager.OnEnvironmentCelestial(packet.ReadUShort(), packet.ReadByte(), packet.ReadByte());
 			// End of Packet
+		}
+		[System.Obsolete("Typo uyumluluğu için bırakıldı, EnvironmentCelestialUpdate kullanın.")]
+		public static void EnviromentCelestialUpdate(Packet packet)
+		{
+			EnvironmentCelestialUpdate(packet);
 		}
 		public static void EntityLevelUp(Packet packet)
 		{
@@ -2135,11 +2145,16 @@ namespace xBot.Game
 			// End of Packet
 			InfoManager.OnEntityStatusUpdated(updateType, entity);
 		}
-		public static void EnviromentWheaterUpdate(Packet packet)
+		public static void EnvironmentWeatherUpdate(Packet packet)
 		{
 			// srodevs-docs agent_environment_weather_update (0x3809): type + intensity
 			if (packet.RemainingRead() >= 2)
 				InfoManager.OnEnvironmentWeather(packet.ReadByte(), packet.ReadByte());
+		}
+		[System.Obsolete("Typo uyumluluğu için bırakıldı, EnvironmentWeatherUpdate kullanın.")]
+		public static void EnviromentWheaterUpdate(Packet packet)
+		{
+			EnvironmentWeatherUpdate(packet);
 		}
 		public static void NoticeUniqueUpdate(Packet packet)
 		{
@@ -3395,7 +3410,7 @@ namespace xBot.Game
 				InfoManager.Character?.Inventory?.Resize(newCapacity);
 			}
 		}
-		public static void ConsigmentRegisterResponse(Packet packet)
+		public static void ConsignmentRegisterResponse(Packet packet)
 		{
 			bool success = false;
 			ushort error = 0;
@@ -3414,7 +3429,7 @@ namespace xBot.Game
 				{
 					byte slotInventory = packet.ReadByte();
 					byte saleStatus = packet.ReadByte();
-					uint slotConsigment = packet.ReadUInt();
+					uint slotConsignment = packet.ReadUInt();
 					uint itemID = packet.ReadUInt();
 					ulong goldDeposited = packet.ReadULong();
 					ulong goldSellingFee = packet.ReadULong();
@@ -3437,7 +3452,12 @@ namespace xBot.Game
 					: $"CONSIGNMENT: item kaydı reddedildi (0x{error:X4}).");
 			}
 		}
-		public static void ConsigmentUnregisterResponse(Packet packet)
+		[System.Obsolete("Typo uyumluluğu için bırakıldı, ConsignmentRegisterResponse kullanın.")]
+		public static void ConsigmentRegisterResponse(Packet packet)
+		{
+			ConsignmentRegisterResponse(packet);
+		}
+		public static void ConsignmentUnregisterResponse(Packet packet)
 		{
 			bool success = false;
 			try
@@ -3456,7 +3476,7 @@ namespace xBot.Game
 				byte itemCount = packet.ReadByte();
 				for (byte j = 0; j < itemCount; j++)
 				{
-					uint slotConsigment = packet.ReadUInt();
+					uint slotConsignment = packet.ReadUInt();
 					byte slotInventory = packet.ReadByte();
 					// Add to inventory
 					inventory[slotInventory] = ItemParsing(packet);
@@ -3468,6 +3488,11 @@ namespace xBot.Game
 				Window.Get?.Log("CONSIGNMENT retrieve cevabı ayrıştırılamadı: " + ex.Message, xBot.App.Theme.LogLevel.Warning);
 			}
 			finally { InfoManager.OnConsignmentUnregister(success); }
+		}
+		[System.Obsolete("Typo uyumluluğu için bırakıldı, ConsignmentUnregisterResponse kullanın.")]
+		public static void ConsigmentUnregisterResponse(Packet packet)
+		{
+			ConsignmentUnregisterResponse(packet);
 		}
 		public static void ConsignmentListResponse(Packet packet)
 		{

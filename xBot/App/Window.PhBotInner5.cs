@@ -243,7 +243,12 @@ namespace xBot.App
                     Login_btnStart.ForeColor = Color.Black;
                     Login_btnStart.FlatAppearance.BorderColor = Color.FromArgb(210, 212, 216);
                     Login_btnStart.SetBounds(ix + 120, y - 1, 60, 24);
-                    Login_btnStart.Text = isTR ? "Bağlan" : "Connect";
+                    bool connectionIdle = true;
+                    try { connectionIdle = Bot.Get.Proxy == null || !Bot.Get.Proxy.isRunning; } catch { }
+                    if (connectionIdle)
+                    {
+                        Login_btnStart.Text = isTR ? "Bağlan" : "Connect";
+                    }
                     Login_btnStart.Visible = true;
                 }
 
@@ -253,7 +258,7 @@ namespace xBot.App
                     btnLogout = new Button { Name = "btnPhBotLogout", Enabled = false, FlatStyle = FlatStyle.Flat };
                     btnLogout.Click += (s, e) => {
                         try {
-                            if (Login_btnStart != null && Login_btnStart.Text == "STOP")
+                            if (Bot.Get.Proxy != null && Bot.Get.Proxy.isRunning && Login_btnStart != null)
                                 Control_Click(Login_btnStart, EventArgs.Empty);
                         } catch { }
                     };
