@@ -7,6 +7,22 @@ using xBot.Game.Objects.Entity;
 
 namespace xBot.App
 {
+    public enum MonsterPreferenceType
+    {
+        None,
+        Ignore,
+        Avoid,
+        Prefer
+    }
+
+    public class MonsterPreferenceEntry
+    {
+        public SRMob.Mob? MobType { get; set; }
+        public uint MonsterId { get; set; }
+        public string Name { get; set; }
+        public MonsterPreferenceType Preference { get; set; }
+    }
+
     public class MobTargetRule
     {
         public bool Avoid { get; set; }
@@ -16,13 +32,25 @@ namespace xBot.App
 
     public static class CombatAIEngine
     {
+        // Canavar Tercihleri (Boş başlar, kullanıcı sağ tık ile ekler)
+        public static List<MonsterPreferenceEntry> MonsterPreferences { get; } = new List<MonsterPreferenceEntry>();
+        public static bool SwitchTargetByPosition { get; set; } = false;
+        public static bool AllowAttackingQuestMobs { get; set; } = false;
+
         // Berserk Triggers
-        public static bool ZerkWhenHPFull { get; set; } = false;
-        public static bool ZerkMonsterCountEnabled { get; set; } = true;
-        public static int ZerkMonsterCount { get; set; } = 4;
-        public static bool ZerkAvoidanceBased { get; set; } = true;
-        public static bool ZerkRarityBased { get; set; } = true;
+        public static bool ZerkWhenFull { get; set; } = false; // "Doldukça"
+        public static bool ZerkEvenIfNotAttacking { get; set; } = false; // "Canavar saldırmasa bile"
+        public static bool ZerkMonsterCountEnabled { get; set; } = false;
+        public static int ZerkMonsterCount { get; set; } = 3;
+        public static HashSet<SRMob.Mob> ZerkMobTypes { get; } = new HashSet<SRMob.Mob>();
+        public static bool ZerkPillars { get; set; } = false;
         public static bool ZerkInScript { get; set; } = false;
+        public static bool IsBerserkEnabled => ZerkWhenFull || ZerkMonsterCountEnabled || (ZerkMobTypes != null && ZerkMobTypes.Count > 0) || ZerkPillars || ZerkInScript;
+
+        // Eski uyumluluk bayrakları
+        public static bool ZerkWhenHPFull { get; set; } = false;
+        public static bool ZerkAvoidanceBased { get; set; } = false;
+        public static bool ZerkRarityBased { get; set; } = false;
         public static bool UseZerkPotion { get; set; } = false;
         public static bool UseEnergyOfLife { get; set; } = false;
 
@@ -31,7 +59,7 @@ namespace xBot.App
         public static bool AttackWeakerFirst { get; set; } = false;
         public static bool DoNotFollowMobs { get; set; } = true;
 
-        // Avoidance & Preference Table per Rarity (thread-safe: UI + botting thread)
+        // Avoidance & Preference Table per Rarity (thread-safe)
         private static readonly ConcurrentDictionary<SRMob.Mob, MobTargetRule> TargetRules = new ConcurrentDictionary<SRMob.Mob, MobTargetRule>();
 
         static CombatAIEngine()
@@ -61,8 +89,8 @@ namespace xBot.App
                     TargetRules[type] = new MobTargetRule
                     {
                         Avoid = false,
-                        Prefer = (type == SRMob.Mob.Giant || type == SRMob.Mob.PartyGiant || type == SRMob.Mob.Unique || type == SRMob.Mob.Elite),
-                        Berserk = (type == SRMob.Mob.Giant || type == SRMob.Mob.PartyGiant || type == SRMob.Mob.Unique)
+                        Prefer = false,
+                        Berserk = false
                     };
                 }
             }
@@ -98,7 +126,7 @@ namespace xBot.App
 
         public static bool ShouldZerkOnMob(SRMob.Mob mobType)
         {
-            return GetRule(mobType).Berserk;
+            return ZerkMobTypes.Contains(mobType) || GetRule(mobType).Berserk;
         }
 
         public static bool IsDimensionPillar(SRMob mob)
@@ -110,50 +138,141 @@ namespace xBot.App
             return name.Contains("DIMENSION_PILLAR") || name.Contains("DIMENSIONPILLAR") || name.Contains("PILLAR");
         }
 
+        public static MonsterPreferenceEntry FindPreference(SRMob mob)
+        {
+            if (mob == null) return null;
+            lock (MonsterPreferences)
+            {
+                if (MonsterPreferences.Count == 0) return null;
+                for (int i = 0; i < MonsterPreferences.Count; i++)
+                {
+                    var entry = MonsterPreferences[i];
+                    if (entry.MonsterId > 0 && entry.MonsterId == mob.ID)
+                        return entry;
+                    if (entry.MobType.HasValue && entry.MobType.Value == mob.MobType)
+                        return entry;
+                }
+            }
+            return null;
+        }
+
+        public static int GetPreferenceIndex(SRMob mob)
+        {
+            if (mob == null) return -1;
+            lock (MonsterPreferences)
+            {
+                if (MonsterPreferences.Count == 0) return -1;
+                for (int i = 0; i < MonsterPreferences.Count; i++)
+                {
+                    var entry = MonsterPreferences[i];
+                    if (entry.MonsterId > 0 && entry.MonsterId == mob.ID)
+                        return i;
+                    if (entry.MobType.HasValue && entry.MobType.Value == mob.MobType)
+                        return i;
+                }
+            }
+            return -1;
+        }
+
         public static bool CheckBerserkTrigger(List<SRMob> nearbyMobs, double currentHPPercent)
         {
             if (xBot.Game.InfoManager.Character == null)
                 return false;
 
-            bool hasMobRuleTrigger = (ZerkAvoidanceBased || ZerkRarityBased)
-                && nearbyMobs != null
-                && nearbyMobs.Any(m => ShouldZerkOnMob(m.MobType));
+            // Berserk barı 5 puan (tam dolu) olmalı
+            if (xBot.Game.InfoManager.Character.BerserkPoints < 5)
+                return false;
 
-            return CombatPolicy.ShouldBerserk(
-                xBot.Game.InfoManager.Character.BerserkPoints >= 5,
-                xBot.Game.InfoManager.Character.SpeedBerserk > 0,
-                ZerkWhenHPFull && currentHPPercent >= 99.0,
-                nearbyMobs == null ? 0 : nearbyMobs.Count,
-                ZerkMonsterCountEnabled,
-                ZerkMonsterCount,
-                hasMobRuleTrigger);
+            // Zaten Berserk modundaysa tetikleme
+            if (xBot.Game.InfoManager.Character.GameStateType == SRModel.GameState.Berserk)
+                return false;
+
+            // 1) "Doldukça" (ZerkWhenFull): Berserk barı dolar dolmaz tetikle!
+            if (ZerkWhenFull)
+            {
+                if (ZerkEvenIfNotAttacking)
+                    return true;
+                if (nearbyMobs != null && nearbyMobs.Count > 0)
+                    return true;
+            }
+
+            if (nearbyMobs == null || nearbyMobs.Count == 0)
+                return false;
+
+            // 2) "Saldıran canavar sayısı >" X (ZerkMonsterCountEnabled)
+            uint myId = xBot.Game.InfoManager.Character.UniqueID;
+            var myPos = xBot.Game.InfoManager.Character.GetRealtimePosition();
+            if (ZerkMonsterCountEnabled)
+            {
+                int count = 0;
+                for (int i = 0; i < nearbyMobs.Count; i++)
+                {
+                    var m = nearbyMobs[i];
+                    if (m == null) continue;
+                    bool isAttackingMe = (m.TargetUniqueID == myId)
+                        || (myPos != null && m.Position != null && myPos.DistanceTo(m.GetRealtimePosition()) <= 4.5);
+                    if (ZerkEvenIfNotAttacking || isAttackingMe)
+                        count++;
+                }
+                if (count > ZerkMonsterCount)
+                    return true;
+            }
+
+            // 3) Canavar türü kontrolleri (Giant, Genel Parti, Şampiyon Parti, Giant Parti, Titan, Elit, Güçlü, Etkinlik, Unique, Pillar)
+            for (int i = 0; i < nearbyMobs.Count; i++)
+            {
+                var m = nearbyMobs[i];
+                if (m == null) continue;
+
+                bool typeMatch = ZerkMobTypes.Contains(m.MobType) || GetRule(m.MobType).Berserk;
+                if (!typeMatch && ZerkPillars && IsDimensionPillar(m))
+                    typeMatch = true;
+
+                if (typeMatch)
+                {
+                    bool isAttackingMe = (m.TargetUniqueID == myId)
+                        || (myPos != null && m.Position != null && myPos.DistanceTo(m.GetRealtimePosition()) <= 15.0);
+                    if (ZerkEvenIfNotAttacking || isAttackingMe)
+                        return true;
+                }
+            }
+
+            return false;
         }
 
         public static JObject ToJson()
         {
             JObject json = new JObject();
-            json["ZerkWhenHPFull"] = ZerkWhenHPFull;
+            json["ZerkWhenFull"] = ZerkWhenFull;
+            json["ZerkEvenIfNotAttacking"] = ZerkEvenIfNotAttacking;
             json["ZerkMonsterCountEnabled"] = ZerkMonsterCountEnabled;
             json["ZerkMonsterCount"] = ZerkMonsterCount;
-            json["ZerkAvoidanceBased"] = ZerkAvoidanceBased;
-            json["ZerkRarityBased"] = ZerkRarityBased;
             json["ZerkInScript"] = ZerkInScript;
-            json["UseZerkPotion"] = UseZerkPotion;
-            json["UseEnergyOfLife"] = UseEnergyOfLife;
+            json["ZerkPillars"] = ZerkPillars;
+            json["SwitchTargetByPosition"] = SwitchTargetByPosition;
+            json["AllowAttackingQuestMobs"] = AllowAttackingQuestMobs;
             json["IgnoreDimensionPillars"] = IgnoreDimensionPillars;
             json["AttackWeakerFirst"] = AttackWeakerFirst;
             json["DoNotFollowMobs"] = DoNotFollowMobs;
 
-            JObject rulesJson = new JObject();
-            foreach (var kvp in TargetRules)
+            JArray zerkMobs = new JArray();
+            foreach (var t in ZerkMobTypes) zerkMobs.Add(t.ToString());
+            json["ZerkMobTypes"] = zerkMobs;
+
+            JArray prefsArray = new JArray();
+            lock (MonsterPreferences)
             {
-                JObject r = new JObject();
-                r["Avoid"] = kvp.Value.Avoid;
-                r["Prefer"] = kvp.Value.Prefer;
-                r["Berserk"] = kvp.Value.Berserk;
-                rulesJson[kvp.Key.ToString()] = r;
+                foreach (var p in MonsterPreferences)
+                {
+                    JObject po = new JObject();
+                    po["MobType"] = p.MobType.HasValue ? p.MobType.Value.ToString() : null;
+                    po["MonsterId"] = p.MonsterId;
+                    po["Name"] = p.Name ?? "";
+                    po["Preference"] = p.Preference.ToString();
+                    prefsArray.Add(po);
+                }
             }
-            json["TargetRules"] = rulesJson;
+            json["MonsterPreferences"] = prefsArray;
 
             return json;
         }
@@ -163,31 +282,51 @@ namespace xBot.App
             if (json == null)
                 return;
 
-            if (json.ContainsKey("ZerkWhenHPFull")) ZerkWhenHPFull = (bool)json["ZerkWhenHPFull"];
+            if (json.ContainsKey("ZerkWhenFull")) ZerkWhenFull = (bool)json["ZerkWhenFull"];
+            if (json.ContainsKey("ZerkEvenIfNotAttacking")) ZerkEvenIfNotAttacking = (bool)json["ZerkEvenIfNotAttacking"];
             if (json.ContainsKey("ZerkMonsterCountEnabled")) ZerkMonsterCountEnabled = (bool)json["ZerkMonsterCountEnabled"];
             if (json.ContainsKey("ZerkMonsterCount")) ZerkMonsterCount = (int)json["ZerkMonsterCount"];
-            if (json.ContainsKey("ZerkAvoidanceBased")) ZerkAvoidanceBased = (bool)json["ZerkAvoidanceBased"];
-            if (json.ContainsKey("ZerkRarityBased")) ZerkRarityBased = (bool)json["ZerkRarityBased"];
             if (json.ContainsKey("ZerkInScript")) ZerkInScript = (bool)json["ZerkInScript"];
-            if (json.ContainsKey("UseZerkPotion")) UseZerkPotion = (bool)json["UseZerkPotion"];
-            if (json.ContainsKey("UseEnergyOfLife")) UseEnergyOfLife = (bool)json["UseEnergyOfLife"];
+            if (json.ContainsKey("ZerkPillars")) ZerkPillars = (bool)json["ZerkPillars"];
+            if (json.ContainsKey("SwitchTargetByPosition")) SwitchTargetByPosition = (bool)json["SwitchTargetByPosition"];
+            if (json.ContainsKey("AllowAttackingQuestMobs")) AllowAttackingQuestMobs = (bool)json["AllowAttackingQuestMobs"];
             if (json.ContainsKey("IgnoreDimensionPillars")) IgnoreDimensionPillars = (bool)json["IgnoreDimensionPillars"];
             if (json.ContainsKey("AttackWeakerFirst")) AttackWeakerFirst = (bool)json["AttackWeakerFirst"];
             if (json.ContainsKey("DoNotFollowMobs")) DoNotFollowMobs = (bool)json["DoNotFollowMobs"];
 
-            if (json.ContainsKey("TargetRules"))
+            if (json.ContainsKey("ZerkMobTypes") && json["ZerkMobTypes"] is JArray arr)
             {
-                JObject rulesJson = (JObject)json["TargetRules"];
-                foreach (var prop in rulesJson.Properties())
+                ZerkMobTypes.Clear();
+                foreach (var token in arr)
                 {
-                    if (Enum.TryParse(prop.Name, out SRMob.Mob type))
+                    if (Enum.TryParse<SRMob.Mob>(token.ToString(), out var mt))
+                        ZerkMobTypes.Add(mt);
+                }
+            }
+
+            if (json.ContainsKey("MonsterPreferences") && json["MonsterPreferences"] is JArray pArr)
+            {
+                lock (MonsterPreferences)
+                {
+                    MonsterPreferences.Clear();
+                    foreach (var token in pArr)
                     {
-                        JObject r = (JObject)prop.Value;
-                        SetRule(type,
-                            r.ContainsKey("Avoid") && (bool)r["Avoid"],
-                            r.ContainsKey("Prefer") && (bool)r["Prefer"],
-                            r.ContainsKey("Berserk") && (bool)r["Berserk"]
-                        );
+                        if (token is JObject po)
+                        {
+                            var entry = new MonsterPreferenceEntry();
+                            if (po.ContainsKey("MobType") && po["MobType"]?.Type == JTokenType.String &&
+                                Enum.TryParse<SRMob.Mob>(po["MobType"].ToString(), out var mt))
+                            {
+                                entry.MobType = mt;
+                            }
+                            if (po.ContainsKey("MonsterId")) entry.MonsterId = (uint)po["MonsterId"];
+                            if (po.ContainsKey("Name")) entry.Name = (string)po["Name"];
+                            if (po.ContainsKey("Preference") && Enum.TryParse<MonsterPreferenceType>(po["Preference"].ToString(), out var pr))
+                            {
+                                entry.Preference = pr;
+                            }
+                            MonsterPreferences.Add(entry);
+                        }
                     }
                 }
             }

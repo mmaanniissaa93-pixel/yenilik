@@ -590,9 +590,8 @@ namespace xBot.App
                         continue;
                     }
 
-                    // Ensure Imbue & Devil Spirit are active before combat
+                    // Ensure Imbue is active before combat
                     SkillManager.EnsureImbueActive();
-                    SkillManager.CheckDevilSpirit();
 
                     // Attacking
                     // Update cached mob list if training area changed or cache is dirty
@@ -612,8 +611,11 @@ namespace xBot.App
                     }
                     List<SRMob> mobs = m_cachedMobsInRange;
 
+                    // Devil Spirit: Check activation conditions
+                    SkillManager.CheckDevilSpirit(mobs);
+
                     // Combat AI: Check Berserker activation
-                    if (w.Combat_cbxAutoBerserk == null || w.Combat_cbxAutoBerserk.Checked)
+                    if (w.Combat_cbxAutoBerserk == null || w.Combat_cbxAutoBerserk.Checked || CombatAIEngine.IsBerserkEnabled)
                     {
                         CheckBerserker(mobs);
                     }
@@ -1043,10 +1045,19 @@ namespace xBot.App
                 bool withinTrainingArea = trainingPosition == null || trainingRadius <= 0
                     || trainingPosition.DistanceTo(mobPosition) <= trainingRadius;
 
+                // Canavar Tercihleri: Yoksay (Ignore) kontrolü
+                var prefEntry = CombatAIEngine.FindPreference(m);
+                if (prefEntry != null && prefEntry.Preference == MonsterPreferenceType.Ignore)
+                {
+                    bool isQuestAttack = CombatAIEngine.AllowAttackingQuestMobs && m.TargetUniqueID == InfoManager.Character.UniqueID;
+                    if (!isQuestAttack)
+                        continue;
+                }
+
                 if (!CombatPolicy.CanTarget(new CombatTargetInput
                 {
                     AllowedByType = allowed,
-                    Avoided = CombatAIEngine.ShouldAvoid(m.MobType),
+                    Avoided = (prefEntry != null && prefEntry.Preference == MonsterPreferenceType.Avoid) || CombatAIEngine.ShouldAvoid(m.MobType),
                     IsDimensionPillar = CombatAIEngine.IsDimensionPillar(m),
                     IgnoreDimensionPillars = CombatAIEngine.IgnoreDimensionPillars,
                     DoNotFollowMobs = CombatAIEngine.DoNotFollowMobs,
@@ -1056,8 +1067,9 @@ namespace xBot.App
 
                 double dist = mobPosition.DistanceTo(myPosition);
 
-                // If priority is disabled, strictly choose the nearest mob
-                if (!enablePriority)
+                // If priority is disabled and user has no custom Monster Preferences, strictly choose the nearest mob (karakter ayırt etmez)
+                bool hasCustomPreferences = CombatAIEngine.MonsterPreferences != null && CombatAIEngine.MonsterPreferences.Count > 0;
+                if (!enablePriority && !hasCustomPreferences)
                 {
                     double distScore = -dist;
                     if (distScore > bestScore)
@@ -1070,37 +1082,55 @@ namespace xBot.App
 
                 // Base priority score based on Silkroad mob danger
                 double score = 10.0;
-                switch (m.MobType)
+                if (enablePriority)
                 {
-                    case SRMob.Mob.Unique:
-                        score = 250.0;
-                        break;
-                    case SRMob.Mob.Elite:
-                        score = 180.0;
-                        break;
-                    case SRMob.Mob.PartyGiant:
-                        score = 140.0;
-                        break;
-                    case SRMob.Mob.Giant:
-                        score = 100.0;
-                        break;
-                    case SRMob.Mob.PartyChampion:
-                        score = 75.0;
-                        break;
-                    case SRMob.Mob.Champion:
-                        score = 50.0;
-                        break;
-                    case SRMob.Mob.PartyGeneral:
-                        score = 30.0;
-                        break;
-                    default:
-                        score = 10.0;
-                        break;
+                    switch (m.MobType)
+                    {
+                        case SRMob.Mob.Unique:
+                            score = 250.0;
+                            break;
+                        case SRMob.Mob.Elite:
+                            score = 180.0;
+                            break;
+                        case SRMob.Mob.PartyGiant:
+                            score = 140.0;
+                            break;
+                        case SRMob.Mob.Giant:
+                            score = 100.0;
+                            break;
+                        case SRMob.Mob.PartyChampion:
+                            score = 75.0;
+                            break;
+                        case SRMob.Mob.Champion:
+                            score = 50.0;
+                            break;
+                        case SRMob.Mob.PartyGeneral:
+                            score = 30.0;
+                            break;
+                        default:
+                            score = 10.0;
+                            break;
+                    }
                 }
 
-                // CombatAI: Bonus for preferred mob types
-                if (CombatAIEngine.IsPreferred(m.MobType))
+                // Canavar Tercihleri: Tercih Et (öncelik listenin başına göre) & Uzak Dur
+                if (prefEntry != null)
+                {
+                    if (prefEntry.Preference == MonsterPreferenceType.Prefer)
+                    {
+                        int prefIdx = CombatAIEngine.GetPreferenceIndex(m);
+                        int listBonus = (prefIdx >= 0) ? (CombatAIEngine.MonsterPreferences.Count - prefIdx) * 1000 : 500;
+                        score += 2000.0 + listBonus;
+                    }
+                    else if (prefEntry.Preference == MonsterPreferenceType.Avoid)
+                    {
+                        score -= 5000.0;
+                    }
+                }
+                else if (CombatAIEngine.IsPreferred(m.MobType))
+                {
                     score += 200.0;
+                }
 
                 // CombatAI: AttackWeakerFirst — boost mobs with lower HP ratio
                 if (CombatAIEngine.AttackWeakerFirst && m.HPMax > 0)
@@ -1128,6 +1158,8 @@ namespace xBot.App
             return bestMob;
         }
 
+        private static DateTime s_lastBerserkAttemptUtc = DateTime.MinValue;
+
         private void CheckBerserker(List<SRMob> nearbyMobs)
         {
             if (InfoManager.Character == null)
@@ -1137,8 +1169,11 @@ namespace xBot.App
             if (InfoManager.Character.BerserkPoints < 5)
                 return;
 
-            // Don't trigger if already in Berserk mode
-            if (InfoManager.Character.SpeedBerserk > 0)
+            // Don't trigger if already in Berserk mode (0x30BF sets GameStateType to Berserk = 1)
+            if (InfoManager.Character.GameStateType == SRModel.GameState.Berserk)
+                return;
+
+            if ((DateTime.UtcNow - s_lastBerserkAttemptUtc).TotalSeconds < 3.0)
                 return;
 
             double hpPercent = InfoManager.Character.HPMax > 0
@@ -1154,6 +1189,7 @@ namespace xBot.App
 
             if (shouldActivate)
             {
+                s_lastBerserkAttemptUtc = DateTime.UtcNow;
                 Window.Get?.Log("Combat AI: Berserker trigger! Activating Berserk mode!");
                 PacketBuilder.ActivateBerserk();
                 Thread.Sleep(400);
@@ -1842,6 +1878,12 @@ namespace xBot.App
 
             // Revert back to primary attack weapon if weapon was switched for buffs
             EnsureMainWeapon();
+
+            // Devil Spirit: Check activation conditions during buff cycle
+            if (SkillManager.IsDevilSpiritEnabled)
+            {
+                SkillManager.CheckDevilSpirit(m_cachedMobsInRange);
+            }
         }
 
         /// <summary>

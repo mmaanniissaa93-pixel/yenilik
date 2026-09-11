@@ -648,75 +648,100 @@ namespace xBot.App
                 }
 
                 try { p.AutoScroll = false; } catch { }
-                int y = 6;
-                const int step = 20;
-                const int cx = 8, cw = 215;     // checkbox
-                const int px = 232, pw = 52;    // yüzde kutusu
-                const int pctX = 290;           // % etiketi
-                const int dx = 322, dw = 72;    // gecikme kutusu
+                bool isTR = LocalizationManager.CurrentLanguage == "TR";
+                int y = 10;
+                const int step = 23;
+                const int leftX = 14;
+                const int rightX = 360;
 
-                // 1: Auto use HP
-                y = PotionRow(p, Character_cbxUseHP, "Auto use HP", Character_tbxUseHP, 1000, y, step, cx, cw, px, pw, pctX, dx, dw);
-                
-                // 2: Use HP grains + Prefer HP grains (yan yana)
-                PotionRow(p, Character_cbxUseHPGrain, "Use HP grains", null, -1, y, step, cx, 150, px, pw, pctX, dx, dw);
-                PhBotTodoCheck(p, "PhBot_PreferHPGrain", "Prefer HP grains", dx, y, false);
+                // --- SOL SÜTUN (Karakter Potları) ---
+                // 1: Oto HP [ 0 ] % [ 1000 ]
+                PlacePotionRowFixed(p, Character_cbxUseHP, isTR ? "Oto HP" : "Auto use HP", 122, Character_tbxUseHP, 140, 52, 196, 1000, 216, 52, leftX, y);
                 y += step;
 
-                // 3: Auto use MP
-                y = PotionRow(p, Character_cbxUseMP, "Auto use MP", Character_tbxUseMP, 1000, y, step, cx, cw, px, pw, pctX, dx, dw);
-
-                // 4: Use MP grains + Prefer MP grains (yan yana)
-                PotionRow(p, Character_cbxUseMPGrain, "Use MP grains", null, -1, y, step, cx, 150, px, pw, pctX, dx, dw);
-                PhBotTodoCheck(p, "PhBot_PreferMPGrain", "Prefer MP grains", dx, y, false);
+                // 2: HP grain kullan [ ] HP grain tercih et
+                PlacePotionCheck(p, Character_cbxUseHPGrain, isTR ? "HP grain kullan" : "Use HP grains", leftX, y, 108);
+                PhBotTodoCheck(p, "PhBot_PreferHPGrain", isTR ? "HP grain tercih et" : "Prefer HP grains", 125, y, false);
                 y += step;
 
-                // 5: Auto sit HP
-                PhBotTodoCheck(p, "PhBot_SitHP", "Auto sit HP", cx, y, false);
-                PhBotTodoNumber(p, "PhBot_SitHPN", px, y - 2, pw, "0");
-                PhBotLabel(p, "PhBot_SitHPL", "%", pctX, y + 2);
+                // 3: Oto MP [ 0 ] % [ 1000 ]
+                PlacePotionRowFixed(p, Character_cbxUseMP, isTR ? "Oto MP" : "Auto use MP", 122, Character_tbxUseMP, 140, 52, 196, 1000, 216, 52, leftX, y);
                 y += step;
 
-                // 6: Auto sit MP
-                PhBotTodoCheck(p, "PhBot_SitMP", "Auto sit MP", cx, y, false);
-                PhBotTodoNumber(p, "PhBot_SitMPN", px, y - 2, pw, "0");
-                PhBotLabel(p, "PhBot_SitMPL", "%", pctX, y + 2);
+                // 4: MP grain kullan [ ] MP grain tercih et
+                PlacePotionCheck(p, Character_cbxUseMPGrain, isTR ? "MP grain kullan" : "Use MP grains", leftX, y, 108);
+                PhBotTodoCheck(p, "PhBot_PreferMPGrain", isTR ? "MP grain tercih et" : "Prefer MP grains", 125, y, false);
                 y += step;
 
-                // 7: Auto vigor HP
-                y = PotionRow(p, Character_cbxUseHPVigor, "Auto vigor HP", Character_tbxUseHPVigor, 1000, y, step, cx, cw, px, pw, pctX, dx, dw);
-
-                // 8: Auto vigor MP
-                y = PotionRow(p, Character_cbxUseMPVigor, "Auto vigor MP", Character_tbxUseMPVigor, 1000, y, step, cx, cw, px, pw, pctX, dx, dw);
-
-                // 9: Auto heal transport
-                y = PotionRow(p, Character_cbxUseTransportHP, "Auto heal transport", Character_tbxUseTransportHP, -1, y, step, cx, 250, 270, pw, 328, dx, dw);
-
-                // 10: Auto heal attack pet
-                y = PotionRow(p, Character_cbxUsePetHP, "Auto heal attack pet", Character_tbxUsePetHP, -1, y, step, cx, 250, 270, pw, 328, dx, dw);
-
-                // 11: Auto use universal pills
-                y = PotionRow(p, Character_cbxUsePillUniversal, "Auto use universal pills", null, 1000, y, step, cx, 290, px, pw, pctX, dx, dw);
-
-                // 12: Auto use purification pills
-                y = PotionRow(p, Character_cbxUsePillPurification, "Auto use purification pills", null, 1000, y, step, cx, 290, px, pw, pctX, dx, dw);
-
-                // 13: Auto use cure potions on pet/transport
-                y = PotionRow(p, Character_cbxUsePetsPill, "Auto use cure potions on pet/transport", null, -1, y, step, cx, 360, px, pw, pctX, dx, dw);
-
-                // 14: Auto use HGP potions
-                y = PotionRow(p, Character_cbxUsePetHGP, "Auto use HGP potions", Character_tbxUsePetHGP, -1, y, step, cx, 250, 270, pw, 328, dx, dw);
-
-                // 15: Auto use Invisibility Detection
-                PhBotTodoCheck(p, "PhBot_InvisDetect", "Auto use Invisibility Detection", cx, y, false);
+                // 5: HP Otur [ 0 ] %
+                CheckBox cbSitHP = PhBotTodoCheck(p, "PhBot_SitHP", isTR ? "HP Otur" : "Auto sit HP", leftX, y, false);
+                cbSitHP.Size = new Size(120, 20);
+                PhBotTodoNumber(p, "PhBot_SitHPN", 140, y - 1, 52, "0");
+                PhBotLabel(p, "PhBot_SitHPL", "%", 196, y + 2);
                 y += step;
+
+                // 6: MP Otur [ 0 ] %
+                CheckBox cbSitMP = PhBotTodoCheck(p, "PhBot_SitMP", isTR ? "MP Otur" : "Auto sit MP", leftX, y, false);
+                cbSitMP.Size = new Size(120, 20);
+                PhBotTodoNumber(p, "PhBot_SitMPN", 140, y - 1, 52, "0");
+                PhBotLabel(p, "PhBot_SitMPL", "%", 196, y + 2);
+                y += step;
+
+                // 7: Oto Vigor HP [ 0 ] % [ 1000 ]
+                PlacePotionRowFixed(p, Character_cbxUseHPVigor, isTR ? "Oto Vigor HP" : "Auto vigor HP", 122, Character_tbxUseHPVigor, 140, 52, 196, 1000, 216, 52, leftX, y);
+                y += step;
+
+                // 8: Oto Vigor MP [ 0 ] % [ 1000 ]
+                PlacePotionRowFixed(p, Character_cbxUseMPVigor, isTR ? "Oto Vigor MP" : "Auto vigor MP", 122, Character_tbxUseMPVigor, 140, 52, 196, 1000, 216, 52, leftX, y);
+                y += step;
+
+                // 9: Universal pill kullan [ 1000 ]
+                PlacePotionRowFixed(p, Character_cbxUsePillUniversal, isTR ? "Universal pill kullan" : "Auto use universal pills", 200, null, -1, 0, -1, 1000, 216, 52, leftX, y);
+                y += step;
+
+                // 10: Purification pill kullan [ 1000 ]
+                PlacePotionRowFixed(p, Character_cbxUsePillPurification, isTR ? "Purification pill kullan" : "Auto use purification pills", 200, null, -1, 0, -1, 1000, 216, 52, leftX, y);
+                y += step;
+
+                // 11: Invisibility Detection kullan
+                PlacePotionCheck(p, PhBotTodoCheck(p, "PhBot_InvisDetect", isTR ? "Invisibility Detection kullan" : "Auto use Invisibility Detection", leftX, y, false), isTR ? "Invisibility Detection kullan" : "Auto use Invisibility Detection", leftX, y, 220);
+
+                // --- SAĞ SÜTUN (Pet / Kervan Potları) ---
+                int ry = 10;
+                // 1: Pet için HP kullan [ 0 ] %
+                PlacePotionRowFixed(p, Character_cbxUsePetHP, isTR ? "Pet için HP kullan" : "Auto heal attack pet", 132, Character_tbxUsePetHP, 495, 52, 551, -1, -1, 0, rightX, ry);
+                ry += step;
+
+                // 2: Kervan için HP kullan [ 0 ] %
+                PlacePotionRowFixed(p, Character_cbxUseTransportHP, isTR ? "Kervan için HP kullan" : "Auto heal transport", 132, Character_tbxUseTransportHP, 495, 52, 551, -1, -1, 0, rightX, ry);
+                ry += step;
+
+                // 3: Pet/Kervan için kötü durum potu kullan
+                PlacePotionCheck(p, Character_cbxUsePetsPill, isTR ? "Pet/Kervan için kötü durum potu kullan" : "Auto use cure potions on pet/transport", rightX, ry, 260);
+                ry += step;
+
+                // 4: Otomatik HGP kullan [ 80 ] %
+                if (Character_tbxUsePetHGP != null && (string.IsNullOrEmpty(Character_tbxUsePetHGP.Text) || Character_tbxUsePetHGP.Text == "0"))
+                    Character_tbxUsePetHGP.Text = "80";
+                PlacePotionRowFixed(p, Character_cbxUsePetHGP, isTR ? "Otomatik HGP kullan" : "Auto use HGP potions", 132, Character_tbxUsePetHGP, 495, 52, 551, -1, -1, 0, rightX, ry);
             }
             catch (Exception ex) { PhBotDebug("potions inner: " + ex.Message); }
             finally { _innerLayout = false; }
         }
 
-        private int PotionRow(Panel p, CheckBox cbx, string text, TextBox percent, int delay,
-            int y, int step, int cx, int cw, int px, int pw, int pctX, int dx, int dw)
+        private void PlacePotionCheck(Panel p, CheckBox cbx, string text, int x, int y, int width)
+        {
+            if (cbx == null) return;
+            cbx.Text = text;
+            Classicize(cbx);
+            cbx.Font = PhBotFont();
+            cbx.AutoSize = false;
+            cbx.Location = new Point(x, y);
+            cbx.Size = new Size(width, 20);
+            cbx.Visible = true;
+        }
+
+        private void PlacePotionRowFixed(Panel p, CheckBox cbx, string text, int cbWidth, TextBox percent, int pctX, int pctWidth, int pctLblX, int delay, int delayX, int delayWidth, int x, int y)
         {
             try
             {
@@ -724,30 +749,32 @@ namespace xBot.App
                 {
                     cbx.Text = text;
                     Classicize(cbx);
+                    cbx.Font = PhBotFont();
                     cbx.AutoSize = false;
-                    cbx.Location = new Point(cx, y);
-                    // Yüzde kutusu olmayan satırlar (cure vb.) tek satıra sığar.
-                    cbx.Size = new Size((percent == null && delay < 0) ? 400 : (percent == null ? 300 : cw), 20);
+                    cbx.Location = new Point(x, y);
+                    cbx.Size = new Size(cbWidth, 20);
                     cbx.Visible = true;
                 }
-                string pn = "PhBot_Pct_" + (cbx != null ? cbx.Name : y.ToString());
+
+                string pn = "PhBot_Pct_" + (cbx != null ? cbx.Name : x.ToString());
                 Control pl = p.Controls[pn];
-                if (percent != null)
+                if (percent != null && pctX >= 0)
                 {
                     Classicize(percent);
+                    percent.Font = PhBotFont();
                     percent.TextAlign = HorizontalAlignment.Center;
                     try { percent.MaxLength = 3; } catch { }
-                    Place(percent, px, y, pw, 20);
-                    PhBotLabel(p, pn, "%", pctX, y + 2);
+                    Place(percent, pctX, y - 1, pctWidth, 20);
+                    PhBotLabel(p, pn, "%", pctLblX, y + 2);
                 }
                 else if (pl != null)
                 {
                     pl.Visible = false;
                 }
 
-                string dn = "PhBot_Delay_" + (cbx != null ? cbx.Name : y.ToString());
+                string dn = "PhBot_Delay_" + (cbx != null ? cbx.Name : x.ToString());
                 TextBox d = p.Controls[dn] as TextBox;
-                if (delay >= 0)
+                if (delay >= 0 && delayX >= 0)
                 {
                     if (d == null)
                     {
@@ -757,12 +784,12 @@ namespace xBot.App
                         d.BackColor = Color.White;
                         d.ForeColor = Color.Black;
                         d.BorderStyle = BorderStyle.FixedSingle;
+                        d.TextAlign = HorizontalAlignment.Center;
                         try { p.Controls.Add(d); } catch { }
                     }
-                    d.Location = new Point(dx, y);
-                    d.Size = new Size(dw, 20);
+                    d.Location = new Point(delayX, y - 1);
+                    d.Size = new Size(delayWidth, 20);
                     d.Visible = true;
-                    // TODO backend: gecikme değeri PotionPolicy'e bağlanacak.
                     if (string.IsNullOrEmpty(d.Text)) d.Text = delay.ToString();
                 }
                 else if (d != null)
@@ -771,7 +798,6 @@ namespace xBot.App
                 }
             }
             catch { }
-            return y + step;
         }
     }
 }

@@ -40,6 +40,7 @@ namespace xBot.Game.Objects.Entity
 			}
 		}
 		public Stopwatch PositionUpdateTimer { get; set; }
+		public uint TargetUniqueID { get; set; }
         #endregion
 
         #region (Constructor)

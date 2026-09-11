@@ -1838,7 +1838,10 @@ namespace xBot.Game
 			{
 				SREntity entity = GetEntity(sourceUniqueID);
 				if (entity is SRModel model)
+				{
+					model.TargetUniqueID = targetUniqueID;
 					model.GetRealtimePosition(); // Force update the position
+				}
 			}
 			catch { }
 

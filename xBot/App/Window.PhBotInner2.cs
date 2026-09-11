@@ -630,175 +630,216 @@ namespace xBot.App
                 try { if (gbxProtectionSummary != null) gbxProtectionSummary.Visible = false; } catch { }
 
                 if (p.Controls.ContainsKey("PhBot_ProtRet_GbxPotions")) return;
+                bool isTR = LocalizationManager.CurrentLanguage == "TR";
 
-                // 1. Potions / Inventory
+                // 1. Pot / Envanter
                 var gbxPot = new GroupBox
                 {
                     Name = "PhBot_ProtRet_GbxPotions",
-                    Text = "Potions / Inventory",
+                    Text = isTR ? "Pot / Envanter" : "Potions / Inventory",
                     Font = PhBotFont(),
                     ForeColor = Color.Black,
                     BackColor = Color.White,
                     Location = new Point(10, 8),
-                    Size = new Size(185, 292)
+                    Size = new Size(185, 305)
                 };
                 p.Controls.Add(gbxPot);
 
                 int py = 16;
-                var cHP = AddPhBotCheck(gbxPot, "HP potions <=", 10, py, ProtectionManager.ReturnHPLow);
-                var nHP = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(120, py - 2), Size = new Size(50, 22), Value = ProtectionManager.HPLowThreshold };
+                var cHP = AddPhBotCheck(gbxPot, isTR ? "HP potu <=" : "HP potions <=", 10, py, ProtectionManager.ReturnHPLow);
+                var nHP = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(115, py - 2), Size = new Size(50, 22), Value = ProtectionManager.HPLowThreshold };
                 nHP.ValueChanged += (s, e) => { ProtectionManager.HPLowThreshold = (int)nHP.Value; Settings.SaveCharacterSettings(); };
                 cHP.CheckedChanged += (s, e) => { ProtectionManager.ReturnHPLow = cHP.Checked; Settings.SaveCharacterSettings(); };
                 gbxPot.Controls.Add(nHP);
-                py += 22;
+                py += 23;
 
-                var cMP = AddPhBotCheck(gbxPot, "<= 5 MP potions left", 10, py, ProtectionManager.ReturnMPLow);
+                var cMP = AddPhBotCheck(gbxPot, isTR ? "<= 5 MP kalınca" : "<= 5 MP potions left", 10, py, ProtectionManager.ReturnMPLow);
                 cMP.CheckedChanged += (s, e) => { ProtectionManager.ReturnMPLow = cMP.Checked; Settings.SaveCharacterSettings(); };
-                py += 22;
+                py += 23;
 
-                var cUniv = AddPhBotCheck(gbxPot, "Out of universal pills", 10, py, false);
-                py += 22;
+                var cUniv = AddPhBotCheck(gbxPot, isTR ? "Universal Pill bitince" : "Out of universal pills", 10, py, false);
+                py += 23;
 
-                var cVig = AddPhBotCheck(gbxPot, "Out of vigors", 10, py, false);
-                py += 22;
+                var cVig = AddPhBotCheck(gbxPot, isTR ? "Vigor bitince" : "Out of vigors", 10, py, false);
+                py += 23;
 
-                var cArr = AddPhBotCheck(gbxPot, "Out of arrows/bolts", 10, py, ProtectionManager.ReturnNoArrows);
+                var cArr = AddPhBotCheck(gbxPot, isTR ? "Arrows/bolts bitince" : "Out of arrows/bolts", 10, py, ProtectionManager.ReturnNoArrows);
                 cArr.CheckedChanged += (s, e) => { ProtectionManager.ReturnNoArrows = cArr.Checked; Settings.SaveCharacterSettings(); };
-                py += 22;
+                py += 23;
 
-                var cSpd = AddPhBotCheck(gbxPot, "Out of speed scrolls", 10, py, false);
-                py += 22;
+                var cSpd = AddPhBotCheck(gbxPot, isTR ? "Speed drug bitince" : "Out of speed scrolls", 10, py, false);
+                py += 23;
 
-                var cFull = AddPhBotCheck(gbxPot, "Inventory is full", 10, py, ProtectionManager.ReturnFullInventory);
+                var cFull = AddPhBotCheck(gbxPot, isTR ? "Envanter dolunca" : "Inventory is full", 10, py, ProtectionManager.ReturnFullInventory);
                 cFull.CheckedChanged += (s, e) => { ProtectionManager.ReturnFullInventory = cFull.Checked; Settings.SaveCharacterSettings(); };
-                py += 22;
+                py += 23;
 
-                var cWpn = AddPhBotCheck(gbxPot, "Weapon durability", 10, py, ProtectionManager.ReturnDurabilityLow);
+                var cWpn = AddPhBotCheck(gbxPot, isTR ? "Silah Dayanıklılığı" : "Weapon durability", 10, py, ProtectionManager.ReturnDurabilityLow);
                 cWpn.CheckedChanged += (s, e) => { ProtectionManager.ReturnDurabilityLow = cWpn.Checked; Settings.SaveCharacterSettings(); };
-                py += 22;
+                py += 23;
 
-                var cShld = AddPhBotCheck(gbxPot, "Shield durability", 10, py, false);
-                py += 22;
+                var cShld = AddPhBotCheck(gbxPot, isTR ? "Kalkan dayanıklılığı" : "Shield durability", 10, py, false);
+                py += 23;
 
-                var cArmr = AddPhBotCheck(gbxPot, "Armor durability", 10, py, false);
-                py += 22;
+                var cArmr = AddPhBotCheck(gbxPot, isTR ? "Zırh Dayanıklılığı" : "Armor durability", 10, py, false);
+                py += 23;
 
-                AddPhBotCheck(gbxPot, "Union Party Tickets", 10, py, false);
-                py += 22;
+                AddPhBotCheck(gbxPot, isTR ? "Birlik Parti Ticketı" : "Union Party Tickets", 10, py, false);
+                py += 23;
 
                 AddPhBotCheck(gbxPot, "Energy of Life", 10, py, false);
 
-                // 2. Time
+                // 2. Zaman
                 var gbxTime = new GroupBox
                 {
                     Name = "PhBot_ProtRet_GbxTime",
-                    Text = "Time",
+                    Text = isTR ? "Zaman" : "Time",
                     Font = PhBotFont(),
                     ForeColor = Color.Black,
                     BackColor = Color.White,
                     Location = new Point(202, 8),
-                    Size = new Size(250, 292)
+                    Size = new Size(260, 305)
                 };
                 p.Controls.Add(gbxTime);
 
                 int ty = 16;
-                AddPhBotCheck(gbxTime, "Return before next hour", 10, ty, false);
-                var nHour = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(180, ty - 2), Size = new Size(50, 22), Value = 10 };
+                var cNextHour = AddPhBotCheck(gbxTime, isTR ? "Bir sonraki saatte" : "Return before next hour", 10, ty, ProtectionManager.ReturnNextHourEnabled);
+                var nHour = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(165, ty - 2), Size = new Size(50, 22), Value = Math.Max(1, ProtectionManager.ReturnNextHourMinutes) };
+                cNextHour.CheckedChanged += (s, e) => { ProtectionManager.ReturnNextHourEnabled = cNextHour.Checked; Settings.SaveCharacterSettings(); };
+                nHour.ValueChanged += (s, e) => { ProtectionManager.ReturnNextHourMinutes = (int)nHour.Value; Settings.SaveCharacterSettings(); };
                 gbxTime.Controls.Add(nHour);
                 ty += 24;
 
-                AddPhBotCheck(gbxTime, "Return every", 10, ty, false);
-                var nEvery = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(115, ty - 2), Size = new Size(55, 22), Maximum = 99999, Value = 1440 };
-                var lEvery = new Label { Text = "minutes", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(175, ty + 2) };
+                var cEvery = AddPhBotCheck(gbxTime, isTR ? "Sürekli Işınlan" : "Return every", 10, ty, ProtectionManager.ReturnEveryEnabled);
+                var nEvery = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(115, ty - 2), Size = new Size(55, 22), Maximum = 99999, Value = Math.Max(1, ProtectionManager.ReturnEveryMinutes) };
+                var lEvery = new Label { Text = isTR ? "dakika" : "minutes", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(175, ty + 2) };
+                cEvery.CheckedChanged += (s, e) => { ProtectionManager.ReturnEveryEnabled = cEvery.Checked; Settings.SaveCharacterSettings(); };
+                nEvery.ValueChanged += (s, e) => { ProtectionManager.ReturnEveryMinutes = (int)nEvery.Value; Settings.SaveCharacterSettings(); };
                 gbxTime.Controls.AddRange(new Control[] { nEvery, lEvery });
                 ty += 24;
 
-                AddPhBotCheck(gbxTime, "Return at", 10, ty, false);
-                var dtAt = new DateTimePicker { Font = PhBotFont(), Format = DateTimePickerFormat.Time, ShowUpDown = true, Location = new Point(105, ty - 2), Size = new Size(80, 22) };
-                var cbStop = AddPhBotCheck(gbxTime, "stop", 192, ty, false);
+                var cAt = AddPhBotCheck(gbxTime, isTR ? "Işınlan" : "Return at", 10, ty, ProtectionManager.ReturnAtTimeEnabled);
+                var dtAt = new DateTimePicker {
+                    Font = PhBotFont(),
+                    Format = DateTimePickerFormat.Custom,
+                    CustomFormat = "HH:mm",
+                    ShowUpDown = true,
+                    Location = new Point(72, ty - 2),
+                    Size = new Size(65, 22)
+                };
+                if (!string.IsNullOrEmpty(ProtectionManager.ReturnAtTimeValue) &&
+                    DateTime.TryParseExact(ProtectionManager.ReturnAtTimeValue, "HH:mm", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var parsedAt))
+                {
+                    dtAt.Value = parsedAt;
+                }
+                else
+                {
+                    dtAt.Value = DateTime.Today; // Statik 00:00 - işlemciyi yoran timer yok!
+                }
+                dtAt.ValueChanged += (s, e) => {
+                    ProtectionManager.ReturnAtTimeValue = dtAt.Value.ToString("HH:mm");
+                    Settings.SaveCharacterSettings();
+                };
+                cAt.CheckedChanged += (s, e) => {
+                    ProtectionManager.ReturnAtTimeEnabled = cAt.Checked;
+                    Settings.SaveCharacterSettings();
+                };
+                var cbStop = AddPhBotCheck(gbxTime, isTR ? "Botu durdur" : "stop", 145, ty, ProtectionManager.ReturnAtTimeStopBot);
+                cbStop.CheckedChanged += (s, e) => {
+                    ProtectionManager.ReturnAtTimeStopBot = cbStop.Checked;
+                    Settings.SaveCharacterSettings();
+                };
                 gbxTime.Controls.Add(dtAt);
                 ty += 24;
 
-                AddPhBotCheck(gbxTime, "Return/disconnect", 10, ty, false);
-                var nRetDisc = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(135, ty - 2), Size = new Size(48, 22), Maximum = 99999, Value = 300 };
-                var lRetDisc = new Label { Text = "minutes", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(188, ty + 2) };
+                var cRetDisc = AddPhBotCheck(gbxTime, isTR ? "Şehre dön/Bağla" : "Return/disconnect", 10, ty, ProtectionManager.ReturnDisconnectMinutesEnabled);
+                var nRetDisc = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(135, ty - 2), Size = new Size(48, 22), Maximum = 99999, Value = Math.Max(1, ProtectionManager.ReturnDisconnectMinutes) };
+                var lRetDisc = new Label { Text = isTR ? "dakika" : "minutes", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(188, ty + 2) };
+                cRetDisc.CheckedChanged += (s, e) => { ProtectionManager.ReturnDisconnectMinutesEnabled = cRetDisc.Checked; Settings.SaveCharacterSettings(); };
+                nRetDisc.ValueChanged += (s, e) => { ProtectionManager.ReturnDisconnectMinutes = (int)nRetDisc.Value; Settings.SaveCharacterSettings(); };
                 gbxTime.Controls.AddRange(new Control[] { nRetDisc, lRetDisc });
                 ty += 24;
 
                 AddPhBotCheck(gbxTime, "Styria (iSRO)", 10, ty, false);
                 ty += 24;
 
-                AddPhBotCheck(gbxTime, "Return if less than", 10, ty, false);
-                var nPty = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(145, ty - 2), Size = new Size(45, 22), Value = 0 };
-                var lPty = new Label { Text = "players are in the party", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(100, ty + 20) };
+                var cPty = AddPhBotCheck(gbxTime, isTR ? "Parti üyesi <" : "Return if less than", 10, ty, false);
+                cPty.AutoSize = false;
+                cPty.Size = new Size(115, 20);
+                var nPty = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(130, ty - 2), Size = new Size(42, 22), Value = 0 };
+                var lPty = new Label { Text = isTR ? "oyuncudan azsa" : "players in party", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(176, ty + 2) };
                 gbxTime.Controls.AddRange(new Control[] { nPty, lPty });
-                ty += 40;
+                ty += 24;
 
-                AddPhBotCheck(gbxTime, "Disconnect every", 10, ty, false);
-                var nDisc = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(135, ty - 2), Size = new Size(48, 22), Maximum = 99999, Value = 300 };
-                var lDisc = new Label { Text = "minutes", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(188, ty + 2) };
+                var cDisc = AddPhBotCheck(gbxTime, isTR ? "Bağlantıyı kes her" : "Disconnect every", 10, ty, false);
+                cDisc.AutoSize = false;
+                cDisc.Size = new Size(130, 20);
+                var nDisc = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(145, ty - 2), Size = new Size(48, 22), Maximum = 99999, Value = 300 };
+                var lDisc = new Label { Text = isTR ? "dakika" : "minutes", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(198, ty + 2) };
                 gbxTime.Controls.AddRange(new Control[] { nDisc, lDisc });
                 ty += 24;
 
-                AddPhBotCheck(gbxTime, "Reset play time (VTC)", 10, ty, false);
-                var nReset = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(135, ty - 2), Size = new Size(45, 22), Value = 50 };
-                var lReset = new Label { Text = "EXP %", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(186, ty + 2) };
+                var cReset = AddPhBotCheck(gbxTime, isTR ? "Süre sıfırla (VTC)" : "Reset play time (VTC)", 10, ty, false);
+                cReset.AutoSize = false;
+                cReset.Size = new Size(125, 20);
+                var nReset = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(140, ty - 2), Size = new Size(45, 22), Value = 50 };
+                var lReset = new Label { Text = isTR ? "EXP Oranı %" : "EXP %", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(190, ty + 2) };
                 gbxTime.Controls.AddRange(new Control[] { nReset, lReset });
 
-                // 3. Training
+                // 3. Kasılma
                 var gbxTr = new GroupBox
                 {
                     Name = "PhBot_ProtRet_GbxTraining",
-                    Text = "Training",
+                    Text = isTR ? "Kasılma" : "Training",
                     Font = PhBotFont(),
                     ForeColor = Color.Black,
                     BackColor = Color.White,
-                    Location = new Point(458, 8),
-                    Size = new Size(260, 292)
+                    Location = new Point(470, 8),
+                    Size = new Size(270, 305)
                 };
                 p.Controls.Add(gbxTr);
 
                 int ry = 16;
-                var cDead = AddPhBotCheck(gbxTr, "Dead", 10, ry, ProtectionManager.ReturnDeadWithDelay);
+                var cDead = AddPhBotCheck(gbxTr, isTR ? "Ölürsen" : "Dead", 10, ry, ProtectionManager.ReturnDeadWithDelay);
                 cDead.CheckedChanged += (s, e) => { ProtectionManager.ReturnDeadWithDelay = cDead.Checked; Settings.SaveCharacterSettings(); };
                 ry += 22;
 
-                AddPhBotCheck(gbxTr, "Not resurrected", 10, ry, false);
-                var nRess = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(135, ry - 2), Size = new Size(45, 22), Value = 1 };
-                var lRess = new Label { Text = "minutes", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(185, ry + 2) };
+                AddPhBotCheck(gbxTr, isTR ? "Diriltilmediyse" : "Not resurrected", 10, ry, false);
+                var nRess = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(125, ry - 2), Size = new Size(45, 22), Value = 1 };
+                var lRess = new Label { Text = isTR ? "dakika" : "minutes", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(175, ry + 2) };
                 gbxTr.Controls.AddRange(new Control[] { nRess, lRess });
                 ry += 22;
 
-                var cOutside = AddPhBotCheck(gbxTr, "Return immediately if dead outside of\nthe training area", 10, ry, false);
+                var cOutside = AddPhBotCheck(gbxTr, isTR ? "Kasılma alanı dışında ölürsen hemen şehre dön" : "Return immediately if dead outside of\nthe training area", 10, ry, false);
                 cOutside.AutoSize = false;
-                cOutside.Size = new Size(245, 30);
+                cOutside.Size = new Size(265, 30);
                 ry += 32;
 
-                AddPhBotCheck(gbxTr, "Resurrection scroll", 10, ry, false);
-                var nRessSc = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(135, ry - 2), Size = new Size(45, 22), Value = 60 };
-                var lRessSc = new Label { Text = "seconds", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(185, ry + 2) };
+                AddPhBotCheck(gbxTr, isTR ? "Diriltme kağıdı" : "Resurrection scroll", 10, ry, false);
+                var nRessSc = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(125, ry - 2), Size = new Size(45, 22), Value = 60 };
+                var lRessSc = new Label { Text = isTR ? "saniye" : "seconds", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(175, ry + 2) };
                 gbxTr.Controls.AddRange(new Control[] { nRessSc, lRessSc });
                 ry += 22;
 
-                AddPhBotCheck(gbxTr, "Not attacked", 10, ry, false);
-                var nNotAtt = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(135, ry - 2), Size = new Size(45, 22), Value = 10 };
-                var lNotAtt = new Label { Text = "minutes", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(185, ry + 2) };
+                AddPhBotCheck(gbxTr, isTR ? "Saldırılmadıysa" : "Not attacked", 10, ry, false);
+                var nNotAtt = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(125, ry - 2), Size = new Size(45, 22), Value = 10 };
+                var lNotAtt = new Label { Text = isTR ? "dakika" : "minutes", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(175, ry + 2) };
                 gbxTr.Controls.AddRange(new Control[] { nNotAtt, lNotAtt });
                 ry += 22;
 
-                AddPhBotCheck(gbxTr, "Unique spawns near you", 10, ry, false);
+                AddPhBotCheck(gbxTr, isTR ? "Unique çıkınca ışınlan" : "Unique spawns near you", 10, ry, false);
                 ry += 22;
 
-                AddPhBotCheck(gbxTr, "Job transport dies", 10, ry, false);
+                AddPhBotCheck(gbxTr, isTR ? "Meslek binekleri ölünce" : "Job transport dies", 10, ry, false);
                 ry += 22;
 
-                AddPhBotCheck(gbxTr, "Pink status", 10, ry, false);
+                AddPhBotCheck(gbxTr, isTR ? "Pembe PK durumu" : "Pink status", 10, ry, false);
                 ry += 22;
 
-                AddPhBotCheck(gbxTr, "Murder status (disconnect)", 10, ry, false);
+                AddPhBotCheck(gbxTr, isTR ? "Katil durumundaysan (bağlantıyı kes)" : "Murder status (disconnect)", 10, ry, false);
                 ry += 22;
 
-                AddPhBotCheck(gbxTr, "Change primary weapon if broken", 10, ry, false);
+                AddPhBotCheck(gbxTr, isTR ? "Birincil silah kırılırsa değiştir" : "Change primary weapon if broken", 10, ry, false);
             }
             catch (Exception ex) { PhBotDebug("protection return inner: " + ex.Message); }
             finally { _innerLayout = false; }
@@ -828,42 +869,43 @@ namespace xBot.App
                 try { if (Character_cbxAcceptRess != null) Character_cbxAcceptRess.Visible = false; } catch { }
 
                 if (p.Controls.ContainsKey("PhBot_ProtMisc_DieStop")) return;
+                bool isTR = LocalizationManager.CurrentLanguage == "TR";
 
                 int y = 14;
-                var cDie = AddPhBotCheck(p, "Stop bot when you die >", 20, y, false);
+                var cDie = AddPhBotCheck(p, isTR ? "Ölünce botu durdur >" : "Stop bot when you die >", 20, y, false);
                 cDie.Name = "PhBot_ProtMisc_DieStop";
-                var nDie = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(205, y - 2), Size = new Size(50, 22), Value = 0 };
+                var nDie = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(isTR ? 175 : 205, y - 2), Size = new Size(50, 22), Value = 0 };
                 p.Controls.Add(nDie);
                 y += 24;
 
-                AddPhBotCheck(p, "Stop if you die by a Statue of Justice", 20, y, false);
+                AddPhBotCheck(p, isTR ? "Statue of Justice tarafından ölünce botu durdur" : "Stop if you die by a Statue of Justice", 20, y, false);
                 y += 24;
 
-                AddPhBotCheck(p, "Stop bot at 50% EXP (SilkroadR)", 20, y, false);
+                AddPhBotCheck(p, isTR ? "50% EXP'de botu durdur (SilkroadR)" : "Stop bot at 50% EXP (SilkroadR)", 20, y, false);
                 y += 24;
 
-                AddPhBotCheck(p, "Stop bot at 0% EXP (SilkroadR)", 20, y, false);
+                AddPhBotCheck(p, isTR ? "0% EXP'de botu durdur (SilkroadR)" : "Stop bot at 0% EXP (SilkroadR)", 20, y, false);
                 y += 24;
 
-                AddPhBotCheck(p, "Remove berserk from the game", 20, y, false);
+                AddPhBotCheck(p, isTR ? "Berzerk modunu kaldır" : "Remove berserk from the game", 20, y, false);
                 y += 24;
 
-                AddPhBotCheck(p, "Remove invisible from the game", 20, y, false);
+                AddPhBotCheck(p, isTR ? "Görünmez oyuncuları göster" : "Remove invisible from the game", 20, y, false);
                 y += 24;
 
-                AddPhBotCheck(p, "Re-spawn the job transport if it dies", 20, y, false);
+                AddPhBotCheck(p, isTR ? "Kervan ölünce tekrar canlandır" : "Re-spawn the job transport if it dies", 20, y, false);
                 y += 24;
 
-                AddPhBotCheck(p, "Disconnect if a GM spawns", 20, y, false);
+                AddPhBotCheck(p, isTR ? "GM belirdiği zaman bağlantıyı kes" : "Disconnect if a GM spawns", 20, y, false);
                 y += 24;
 
-                AddPhBotCheck(p, "Disconnect if a player attacks you while botting", 20, y, false);
+                AddPhBotCheck(p, isTR ? "Saldırıya uğrarsan bağlantıyı kes" : "Disconnect if a player attacks you while botting", 20, y, false);
                 y += 24;
 
-                AddPhBotCheck(p, "Stop if a thief player is found in town", 20, y, false);
+                AddPhBotCheck(p, isTR ? "Şehirde thief(hırsız) oyuncu varsa botu durdur" : "Stop if a thief player is found in town", 20, y, false);
                 y += 24;
 
-                AddPhBotCheck(p, "Only repair equipped items", 20, y, false);
+                AddPhBotCheck(p, isTR ? "Sadece donanımlı ürünleri onarın" : "Only repair equipped items", 20, y, false);
             }
             catch (Exception ex) { PhBotDebug("protection misc inner: " + ex.Message); }
             finally { _innerLayout = false; }

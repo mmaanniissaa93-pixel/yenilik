@@ -868,11 +868,37 @@ namespace xBot.App
             try
             {
                 // Protection -> Character paneli
-                // Potions | Sockets | Return | Pet Return | Berserk | Monster Preferences | Devil's Spirit | Scrolls | Stat Points | Misc.
-                RenamePhBotSubTabs(TabPageH_Character_Option01, "Info");
-                RenamePhBotSubTabs(TabPageH_Character_Option02, "Potions");
-                RenamePhBotSubTabs(TabPageH_Character_Option03, "Return");
-                RenamePhBotSubTabs(TabPageH_Character_Option04, "Misc.");
+                // Pot | Socket | Dönüş | Pet Işınlama | Berserk | Canavar Tercihleri | Devil's Spirit | Scrollar | Stat Puanları | Diğerleri.
+                bool isTR = LocalizationManager.CurrentLanguage == "TR";
+                RenamePhBotSubTabs(TabPageH_Character_Option01, isTR ? "Bilgi" : "Info");
+                RenamePhBotSubTabs(TabPageH_Character_Option02, isTR ? "Pot" : "Potions");
+                RenamePhBotSubTabs(TabPageH_Character_Option03, isTR ? "Dönüş" : "Return");
+                RenamePhBotSubTabs(TabPageH_Character_Option04, isTR ? "Diğerleri." : "Misc.");
+
+                Control strip = TabPageH_Character_Option04 != null ? TabPageH_Character_Option04.Parent : null;
+                if (strip != null)
+                {
+                    Button bSock = strip.Controls["TabPageH_Character_OptionSockets"] as Button;
+                    if (bSock != null) RenamePhBotSubTabs(bSock, isTR ? "Socket" : "Sockets");
+
+                    Button bPet = strip.Controls["TabPageH_Character_OptionPetReturn"] as Button;
+                    if (bPet != null) RenamePhBotSubTabs(bPet, isTR ? "Pet Işınlama" : "Pet Return");
+
+                    Button bZerk = strip.Controls["TabPageH_Character_OptionBerserk"] as Button;
+                    if (bZerk != null) RenamePhBotSubTabs(bZerk, "Berserk");
+
+                    Button bMobs = strip.Controls["TabPageH_Character_OptionMonsterPreferences"] as Button;
+                    if (bMobs != null) RenamePhBotSubTabs(bMobs, isTR ? "Canavar Tercihleri" : "Monster Preferences");
+
+                    Button bDev = strip.Controls["TabPageH_Character_OptionDevilsSpirit"] as Button;
+                    if (bDev != null) RenamePhBotSubTabs(bDev, "Devil's Spirit");
+
+                    Button bScr = strip.Controls["TabPageH_Character_OptionScrolls"] as Button;
+                    if (bScr != null) RenamePhBotSubTabs(bScr, isTR ? "Scrollar" : "Scrolls");
+
+                    Button bStat = strip.Controls["TabPageH_Character_OptionStatPoints"] as Button;
+                    if (bStat != null) RenamePhBotSubTabs(bStat, isTR ? "Stat Puanları" : "Stat Points");
+                }
             }
             catch { }
             try

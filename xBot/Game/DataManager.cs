@@ -357,6 +357,44 @@ namespace xBot.Game
 			}
 			catch { return new List<NameValueCollection>(); }
 		}
+
+		/// <summary>
+		/// Monster Preferences sekmesi için canavar listesi sorgusu.
+		/// </summary>
+		public static List<NameValueCollection> QueryMonsters(string search)
+		{
+			if (!IsDbReady()) return new List<NameValueCollection>();
+			try
+			{
+				var conds = new List<string>();
+				var args = new List<object>();
+				if (!string.IsNullOrWhiteSpace(search))
+				{
+					conds.Add("(name LIKE @p" + args.Count + " OR servername LIKE @p" + args.Count + ")");
+					args.Add("%" + search.Trim() + "%");
+				}
+				conds.Add("(name IS NOT NULL AND TRIM(name) <> '')");
+				conds.Add("(servername LIKE 'MOB_%' OR type=1 OR tid1=1)");
+				string sql = "SELECT id, servername, name FROM models";
+				if (conds.Count > 0)
+					sql += " WHERE " + string.Join(" AND ", conds);
+				sql += " ORDER BY id LIMIT 300";
+				return Query(sql, args.ToArray());
+			}
+			catch
+			{
+				try
+				{
+					// Basit sorgu geri dönüşü
+					string sql = "SELECT id, servername, name FROM models WHERE servername LIKE 'MOB_%' AND name IS NOT NULL AND TRIM(name) <> ''";
+					if (!string.IsNullOrWhiteSpace(search))
+						sql += " AND name LIKE '%" + search.Trim().Replace("'", "''") + "%'";
+					sql += " ORDER BY id LIMIT 300";
+					return Query(sql);
+				}
+				catch { return new List<NameValueCollection>(); }
+			}
+		}
 		/// <summary>
 		/// Get skill by id, using the current database loaded.
 		/// </summary>

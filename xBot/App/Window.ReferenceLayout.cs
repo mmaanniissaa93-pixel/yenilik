@@ -337,11 +337,34 @@ namespace xBot.App
 
             if (view == TabPageV_Control01_Character_Panel)
             {
-                string[] protOrder = { "Potions", "Sockets", "Return", "Pet Return", "Berserk", "Monster Preferences", "Devil's Spirit", "Scrolls", "Stat Points", "Misc." };
+                string[] protBtnNames = {
+                    "TabPageH_Character_Option02",
+                    "TabPageH_Character_OptionSockets",
+                    "TabPageH_Character_Option03",
+                    "TabPageH_Character_OptionPetReturn",
+                    "TabPageH_Character_OptionBerserk",
+                    "TabPageH_Character_OptionMonsterPreferences",
+                    "TabPageH_Character_OptionDevilsSpirit",
+                    "TabPageH_Character_OptionScrolls",
+                    "TabPageH_Character_OptionStatPoints",
+                    "TabPageH_Character_Option04"
+                };
+                string[] protOrder = {
+                    "Pot", "Socket", "Dönüş", "Pet Işınlama", "Berserk", "Canavar Tercihleri", "Devil's Spirit", "Scrollar", "Stat Puanları", "Diğerleri.",
+                    "Potions", "Sockets", "Return", "Pet Return", "Berserk", "Monster Preferences", "Devil's Spirit", "Scrolls", "Stat Points", "Misc."
+                };
                 buttons.Sort((a, b) => {
-                    int ai = Array.IndexOf(protOrder, a.Text);
-                    int bi = Array.IndexOf(protOrder, b.Text);
-                    return (ai < 0 ? 100 : ai).CompareTo(bi < 0 ? 100 : bi);
+                    int ai = Array.IndexOf(protBtnNames, a.Name);
+                    if (ai < 0) {
+                        int ti = Array.IndexOf(protOrder, a.Text);
+                        ai = ti >= 0 ? (ti % 10) : 100;
+                    }
+                    int bi = Array.IndexOf(protBtnNames, b.Name);
+                    if (bi < 0) {
+                        int ti = Array.IndexOf(protOrder, b.Text);
+                        bi = ti >= 0 ? (ti % 10) : 100;
+                    }
+                    return ai.CompareTo(bi);
                 });
             }
             else if (view == TabPageV_Control01_Skills_Panel)

@@ -5,6 +5,7 @@ using System.Windows.Forms;
 using Newtonsoft.Json.Linq;
 using xBot.Game;
 using xBot.Game.Objects.Common;
+using xBot.Game.Objects.Entity;
 using xBot.Game.Objects.Item;
 
 namespace xBot.App
@@ -19,6 +20,14 @@ namespace xBot.App
         public static byte DevilSpiritHPPercent { get; set; } = 100;
         public static int DevilSpiritDelaySeconds { get; set; } = 5;
         public static bool InOrderCombo { get; set; } = true;
+
+        // Devil's Spirit Triggers (phBot uyumlu)
+        public static bool DevilWhenReady { get; set; } = true; // "Hazırsa"
+        public static bool DevilEvenIfNotAttacking { get; set; } = false; // "Canavar saldırmasa bile"
+        public static bool DevilMonsterCountEnabled { get; set; } = false;
+        public static int DevilMonsterCount { get; set; } = 3;
+        public static HashSet<SRMob.Mob> DevilMobTypes { get; } = new HashSet<SRMob.Mob>();
+        public static bool DevilPillars { get; set; } = false;
 
         public static string LastCastStatus { get; private set; } = "Hazır";
         public static string LastCastSkill { get; private set; } = "-";
@@ -155,29 +164,45 @@ namespace xBot.App
 
         private static DateTime s_lastDevilAttemptUtc = DateTime.MinValue;
 
-        /// <summary>
-        /// Devil Spirit uzun süreli bir buff'tır, her atakta basılmaz:
-        /// buff zaten aktifse veya devil kuşanılıysa dokunulmaz.
-        /// Devil Spirit öğrenilen bir skill değil, kuşanılan (avatar slot 4)
-        /// veya kullanılan bir eşyadır; o yüzden önce eşya yolu denenir.
-        /// Denemeler 10sn geçiş korumalıdır (spam/kick önlenir).
-        /// </summary>
-        public static void CheckDevilSpirit()
+        public static bool IsDevilSpiritEnabled
         {
-            if (!UseDevilSpirit || InfoManager.Character == null)
+            get
+            {
+                return UseDevilSpirit || DevilWhenReady || DevilMonsterCountEnabled
+                    || (DevilMobTypes != null && DevilMobTypes.Count > 0)
+                    || DevilPillars;
+            }
+        }
+
+        /// <summary>
+        /// Devil Spirit uzun süreli bir buff'tır (10dk), her atakta basılmaz:
+        /// buff zaten aktifse veya devil hazır değilse dokunulmaz.
+        /// </summary>
+        public static void CheckDevilSpirit(List<SRMob> nearbyMobs = null)
+        {
+            if (!IsDevilSpiritEnabled || InfoManager.Character == null)
                 return;
             if (DevilSpiritHPPercent < 100 && InfoManager.Character.GetHPPercent() > DevilSpiritHPPercent)
                 return;
-            if (HasDevilBuff() || IsDevilEquipped())
+            if (HasDevilBuff())
                 return;
+
+            // phBot koşulları (Hazırsa, saldıran mob sayısı, mob türleri, saldırmasa bile)
+            if (!EvaluateDevilTriggers(nearbyMobs))
+                return;
+
             int delaySec = Math.Max(1, DevilSpiritDelaySeconds);
             if ((DateTime.UtcNow - s_lastDevilAttemptUtc).TotalSeconds < delaySec)
                 return;
 
-            // 1) Envanterdeki devil eşyasını kuşan (avatar slot 4).
-            if (TryEquipDevilItem())
-                return;
-            // 2) Öğrenilmiş devil skili varsa bas (bazı serverlar).
+            // 1) Eğer avatar slotlarında kuşanılı değilse kuşanmayı dene
+            if (!IsDevilEquipped())
+            {
+                if (TryEquipDevilItem())
+                    return;
+            }
+
+            // 2) Öğrenilmiş devil skili varsa bas
             SRSkill devilSkill = FindDevilSkill();
             if (devilSkill != null && devilSkill.isCastingEnabled)
             {
@@ -187,8 +212,75 @@ namespace xBot.App
                 Window.Get?.Log("Devil Spirit becerisi basıldı [" + (devilSkill.Name ?? devilSkill.ID.ToString()) + "].");
                 return;
             }
-            // 3) Kullanılabilir devil summon eşyası varsa kullan.
+
+            // 3) Skill listede görünmese bile kuşanılı Devil Spirit'in aktif beceri ID'sini belirle ve bas
+            uint derivedSkillId = GetEquippedDevilSkillId();
+            if (derivedSkillId != 0)
+            {
+                s_lastDevilAttemptUtc = DateTime.UtcNow;
+                PacketBuilder.CastSkill(derivedSkillId, 0);
+                Window.Get?.Log($"Devil Spirit becerisi doğrudan aktifleştirildi [Skill ID: {derivedSkillId}].");
+                return;
+            }
+
+            // 4) Kullanılabilir devil summon eşyası varsa kullan
             TryUseDevilItem();
+        }
+
+        private static bool EvaluateDevilTriggers(List<SRMob> nearbyMobs)
+        {
+            // 1) "Hazırsa" (DevilWhenReady): Devil Spirit hazır olduğunda bas!
+            if (DevilWhenReady)
+            {
+                if (DevilEvenIfNotAttacking)
+                    return true;
+                if (nearbyMobs != null && nearbyMobs.Count > 0)
+                    return true;
+            }
+
+            if (nearbyMobs == null || nearbyMobs.Count == 0)
+                return false;
+
+            uint myId = InfoManager.Character != null ? InfoManager.Character.UniqueID : 0;
+            var myPos = InfoManager.Character?.GetRealtimePosition();
+
+            // 2) "Saldıran canavar sayısı >" X (DevilMonsterCountEnabled)
+            if (DevilMonsterCountEnabled)
+            {
+                int count = 0;
+                for (int i = 0; i < nearbyMobs.Count; i++)
+                {
+                    var m = nearbyMobs[i];
+                    if (m == null) continue;
+                    bool isAttackingMe = (m.TargetUniqueID == myId)
+                        || (myPos != null && m.Position != null && myPos.DistanceTo(m.GetRealtimePosition()) <= 4.5);
+                    if (DevilEvenIfNotAttacking || isAttackingMe)
+                        count++;
+                }
+                if (count > DevilMonsterCount)
+                    return true;
+            }
+
+            // 3) Canavar türü kontrolleri (Giant, Genel Parti, Şampiyon Parti, Giant Parti, Titan, Elit, Güçlü, Etkinlik, Unique, Pillar)
+            for (int i = 0; i < nearbyMobs.Count; i++)
+            {
+                var m = nearbyMobs[i];
+                if (m == null) continue;
+
+                bool typeMatch = DevilMobTypes.Contains(m.MobType);
+                if (!typeMatch && DevilPillars && CombatAIEngine.IsDimensionPillar(m))
+                    typeMatch = true;
+
+                if (typeMatch)
+                {
+                    bool isAttackingMe = (m.TargetUniqueID == myId)
+                        || (myPos != null && m.Position != null && myPos.DistanceTo(m.GetRealtimePosition()) <= 15.0);
+                    if (DevilEvenIfNotAttacking || isAttackingMe)
+                        return true;
+                }
+            }
+
+            return false;
         }
 
         public static bool HasDevilBuff()
@@ -203,10 +295,17 @@ namespace xBot.App
                     var b = buffs.GetAt(i);
                     if (b == null)
                         continue;
-                    if ((b.ServerName ?? "").IndexOf("DEVIL", StringComparison.OrdinalIgnoreCase) >= 0)
+                    string sn = b.ServerName ?? "";
+                    string name = b.Name ?? "";
+                    if (sn.IndexOf("NASRUN", StringComparison.OrdinalIgnoreCase) >= 0
+                        || sn.IndexOf("DEVIL", StringComparison.OrdinalIgnoreCase) >= 0
+                        || sn.IndexOf("SEYTAN", StringComparison.OrdinalIgnoreCase) >= 0
+                        || name.IndexOf("Devil", StringComparison.OrdinalIgnoreCase) >= 0
+                        || name.IndexOf("Nasrun", StringComparison.OrdinalIgnoreCase) >= 0
+                        || name.IndexOf("Şeytan", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
                         return true;
-                    if ((b.Name ?? "").IndexOf("DEVIL", StringComparison.OrdinalIgnoreCase) >= 0)
-                        return true;
+                    }
                 }
             }
             catch { }
@@ -218,11 +317,61 @@ namespace xBot.App
             try
             {
                 var avatar = InfoManager.Character?.InventoryAvatar;
-                if (avatar == null || avatar.Capacity <= 4)
+                if (avatar == null)
                     return false;
-                return avatar[4] != null;
+                for (byte i = 0; i < avatar.Capacity; i++)
+                {
+                    var it = avatar[i];
+                    if (it == null) continue;
+                    string sn = it.ServerName ?? "";
+                    string name = it.Name ?? "";
+                    if (it.ID3 == (byte)SREquipable.Equipable.DevilSpirit
+                        || sn.IndexOf("NASRUN", StringComparison.OrdinalIgnoreCase) >= 0
+                        || sn.IndexOf("DEVIL", StringComparison.OrdinalIgnoreCase) >= 0
+                        || name.IndexOf("Devil", StringComparison.OrdinalIgnoreCase) >= 0
+                        || name.IndexOf("Nasrun", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        return true;
+                    }
+                }
+                return false;
             }
             catch { return false; }
+        }
+
+        public static uint GetEquippedDevilSkillId()
+        {
+            try
+            {
+                var avatar = InfoManager.Character?.InventoryAvatar;
+                if (avatar == null)
+                    return 0;
+                for (byte i = 0; i < avatar.Capacity; i++)
+                {
+                    var it = avatar[i];
+                    if (it == null) continue;
+                    string sn = it.ServerName ?? "";
+                    string name = it.Name ?? "";
+                    if (it.ID3 == (byte)SREquipable.Equipable.DevilSpirit
+                        || sn.IndexOf("NASRUN", StringComparison.OrdinalIgnoreCase) >= 0
+                        || sn.IndexOf("DEVIL", StringComparison.OrdinalIgnoreCase) >= 0
+                        || name.IndexOf("Devil", StringComparison.OrdinalIgnoreCase) >= 0
+                        || name.IndexOf("Nasrun", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        if (sn.IndexOf("UNIQUE", StringComparison.OrdinalIgnoreCase) >= 0)
+                            return 31144; // S grade
+                        if (sn.IndexOf("YELLOW", StringComparison.OrdinalIgnoreCase) >= 0)
+                            return 31145;
+                        if (sn.IndexOf("BLUE", StringComparison.OrdinalIgnoreCase) >= 0)
+                            return 31148;
+                        if (sn.IndexOf("EVENT", StringComparison.OrdinalIgnoreCase) >= 0)
+                            return 31141; // B grade
+                        return 31142; // A grade standard
+                    }
+                }
+            }
+            catch { }
+            return 0;
         }
 
         private static SRSkill FindDevilSkill()
@@ -235,9 +384,18 @@ namespace xBot.App
                 for (int i = 0; i < skills.Count; i++)
                 {
                     var s = skills.GetAt(i);
-                    if (s != null && !string.IsNullOrEmpty(s.ServerName)
-                        && s.ServerName.IndexOf("DEVIL", StringComparison.OrdinalIgnoreCase) >= 0)
+                    if (s == null) continue;
+                    string sn = s.ServerName ?? "";
+                    string name = s.Name ?? "";
+                    if (sn.IndexOf("NASRUN", StringComparison.OrdinalIgnoreCase) >= 0
+                        || sn.IndexOf("DEVIL", StringComparison.OrdinalIgnoreCase) >= 0
+                        || sn.IndexOf("SEYTAN", StringComparison.OrdinalIgnoreCase) >= 0
+                        || name.IndexOf("Devil", StringComparison.OrdinalIgnoreCase) >= 0
+                        || name.IndexOf("Nasrun", StringComparison.OrdinalIgnoreCase) >= 0
+                        || name.IndexOf("Şeytan", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
                         return s;
+                    }
                 }
             }
             catch { }
@@ -256,7 +414,12 @@ namespace xBot.App
                     var it = inv[s];
                     if (it == null || !it.isEquipable())
                         continue;
-                    if (it.ID3 != (byte)SREquipable.Equipable.DevilSpirit)
+                    string sn = it.ServerName ?? "";
+                    string name = it.Name ?? "";
+                    if (it.ID3 != (byte)SREquipable.Equipable.DevilSpirit
+                        && sn.IndexOf("NASRUN", StringComparison.OrdinalIgnoreCase) < 0
+                        && sn.IndexOf("DEVIL", StringComparison.OrdinalIgnoreCase) < 0
+                        && name.IndexOf("Devil", StringComparison.OrdinalIgnoreCase) < 0)
                         continue;
                     if (Bot.IsItemBlockedFromUse(it))
                         continue;
@@ -281,7 +444,11 @@ namespace xBot.App
                     var it = inv[s];
                     if (it == null || it.isEquipable())
                         continue;
-                    if ((it.ServerName ?? "").IndexOf("DEVIL", StringComparison.OrdinalIgnoreCase) < 0)
+                    string sn = it.ServerName ?? "";
+                    string name = it.Name ?? "";
+                    if (sn.IndexOf("DEVIL", StringComparison.OrdinalIgnoreCase) < 0
+                        && sn.IndexOf("NASRUN", StringComparison.OrdinalIgnoreCase) < 0
+                        && name.IndexOf("Devil", StringComparison.OrdinalIgnoreCase) < 0)
                         continue;
                     if (Bot.IsItemBlockedFromUse(it))
                         continue;
@@ -385,6 +552,14 @@ namespace xBot.App
             json["DevilSpiritHPPercent"] = DevilSpiritHPPercent;
             json["DevilSpiritDelaySeconds"] = DevilSpiritDelaySeconds;
             json["InOrderCombo"] = InOrderCombo;
+            json["DevilWhenReady"] = DevilWhenReady;
+            json["DevilEvenIfNotAttacking"] = DevilEvenIfNotAttacking;
+            json["DevilMonsterCountEnabled"] = DevilMonsterCountEnabled;
+            json["DevilMonsterCount"] = DevilMonsterCount;
+            json["DevilPillars"] = DevilPillars;
+            JArray devMobs = new JArray();
+            foreach (var t in DevilMobTypes) devMobs.Add(t.ToString());
+            json["DevilMobTypes"] = devMobs;
             return json;
         }
 
@@ -400,6 +575,21 @@ namespace xBot.App
             if (json.ContainsKey("DevilSpiritHPPercent")) DevilSpiritHPPercent = (byte)json["DevilSpiritHPPercent"];
             if (json.ContainsKey("DevilSpiritDelaySeconds")) DevilSpiritDelaySeconds = (int)json["DevilSpiritDelaySeconds"];
             if (json.ContainsKey("InOrderCombo")) InOrderCombo = (bool)json["InOrderCombo"];
+            if (json.ContainsKey("DevilWhenReady")) DevilWhenReady = (bool)json["DevilWhenReady"];
+            if (json.ContainsKey("DevilEvenIfNotAttacking")) DevilEvenIfNotAttacking = (bool)json["DevilEvenIfNotAttacking"];
+            if (json.ContainsKey("DevilMonsterCountEnabled")) DevilMonsterCountEnabled = (bool)json["DevilMonsterCountEnabled"];
+            if (json.ContainsKey("DevilMonsterCount")) DevilMonsterCount = (int)json["DevilMonsterCount"];
+            if (json.ContainsKey("DevilPillars")) DevilPillars = (bool)json["DevilPillars"];
+
+            if (json.ContainsKey("DevilMobTypes") && json["DevilMobTypes"] is JArray arr)
+            {
+                DevilMobTypes.Clear();
+                foreach (var token in arr)
+                {
+                    if (Enum.TryParse<SRMob.Mob>(token.ToString(), out var mt))
+                        DevilMobTypes.Add(mt);
+                }
+            }
         }
     }
 }

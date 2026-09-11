@@ -53,6 +53,20 @@ namespace xBot.App
         public static int DurabilityLowThreshold { get; set; } = 5;
         public static bool ReturnLevelUp { get; set; } = false;
 
+        // Time-based Return Triggers
+        public static bool ReturnNextHourEnabled { get; set; } = false;
+        public static int ReturnNextHourMinutes { get; set; } = 10;
+        public static bool ReturnEveryEnabled { get; set; } = false;
+        public static int ReturnEveryMinutes { get; set; } = 1440;
+        public static bool ReturnAtTimeEnabled { get; set; } = false;
+        public static string ReturnAtTimeValue { get; set; } = "00:00";
+        public static bool ReturnAtTimeStopBot { get; set; } = false;
+        public static bool ReturnDisconnectMinutesEnabled { get; set; } = false;
+        public static int ReturnDisconnectMinutes { get; set; } = 300;
+        public static bool ReturnNotAttackedEnabled { get; set; } = false;
+        public static int ReturnNotAttackedMinutes { get; set; } = 10;
+        public static bool ReturnUniqueSpawn { get; set; } = false;
+
         private static readonly object RuntimeLock = new object();
         private static DateTime lastTownReturnCheck = DateTime.MinValue;
         private static DateTime nextSkillHealingUtc = DateTime.MinValue;
@@ -61,6 +75,9 @@ namespace xBot.App
         private static DateTime nextPetProtectionUtc = DateTime.MinValue;
         private static DateTime lastPetSummonAttemptUtc = DateTime.MinValue;
         private static DateTime characterDeadSinceUtc = DateTime.MinValue;
+        private static DateTime lastReturnAtTimeUtc = DateTime.MinValue;
+        private static DateTime lastReturnEveryUtc = DateTime.MinValue;
+        private static DateTime lastReturnNextHourUtc = DateTime.MinValue;
         private static bool stopAfterReturn;
         private static bool levelUpPending;
 
@@ -315,6 +332,38 @@ namespace xBot.App
 
                 if (decision == ProtectionDecision.ReturnToTown)
                     return TryReturnToTown(GetReturnReason(input));
+
+                // Time-based return triggers
+                if (ReturnAtTimeEnabled && !string.IsNullOrEmpty(ReturnAtTimeValue))
+                {
+                    string nowStr = DateTime.Now.ToString("HH:mm");
+                    if (nowStr == ReturnAtTimeValue && (now - lastReturnAtTimeUtc).TotalSeconds > 70)
+                    {
+                        lastReturnAtTimeUtc = now;
+                        if (ReturnAtTimeStopBot) stopAfterReturn = true;
+                        return TryReturnToTown("Configured time reached (" + ReturnAtTimeValue + ").");
+                    }
+                }
+
+                if (ReturnEveryEnabled && ReturnEveryMinutes > 0)
+                {
+                    if (lastReturnEveryUtc == DateTime.MinValue) lastReturnEveryUtc = now;
+                    else if ((now - lastReturnEveryUtc).TotalMinutes >= ReturnEveryMinutes)
+                    {
+                        lastReturnEveryUtc = now;
+                        return TryReturnToTown("Periodic interval elapsed (" + ReturnEveryMinutes + " min).");
+                    }
+                }
+
+                if (ReturnNextHourEnabled && ReturnNextHourMinutes > 0)
+                {
+                    int minToHour = 60 - DateTime.Now.Minute;
+                    if (minToHour <= ReturnNextHourMinutes && (now - lastReturnNextHourUtc).TotalSeconds > 120)
+                    {
+                        lastReturnNextHourUtc = now;
+                        return TryReturnToTown("Approaching next hour (" + minToHour + " min left).");
+                    }
+                }
 
                 if (IsConfiguredTriggerActive(input, options) ||
                     (!input.IsAlive && options.ReturnDeadWithDelay && input.DeadDelayElapsed))
@@ -596,6 +645,18 @@ namespace xBot.App
             json["ReturnOutOfPetAbnormalPill"] = ReturnOutOfPetAbnormalPill;
             json["ReturnOutOfTransportRecoveryKits"] = ReturnOutOfTransportRecoveryKits;
             json["ReturnLevelUp"] = ReturnLevelUp;
+            json["ReturnNextHourEnabled"] = ReturnNextHourEnabled;
+            json["ReturnNextHourMinutes"] = ReturnNextHourMinutes;
+            json["ReturnEveryEnabled"] = ReturnEveryEnabled;
+            json["ReturnEveryMinutes"] = ReturnEveryMinutes;
+            json["ReturnAtTimeEnabled"] = ReturnAtTimeEnabled;
+            json["ReturnAtTimeValue"] = ReturnAtTimeValue;
+            json["ReturnAtTimeStopBot"] = ReturnAtTimeStopBot;
+            json["ReturnDisconnectMinutesEnabled"] = ReturnDisconnectMinutesEnabled;
+            json["ReturnDisconnectMinutes"] = ReturnDisconnectMinutes;
+            json["ReturnNotAttackedEnabled"] = ReturnNotAttackedEnabled;
+            json["ReturnNotAttackedMinutes"] = ReturnNotAttackedMinutes;
+            json["ReturnUniqueSpawn"] = ReturnUniqueSpawn;
             return json;
         }
 
@@ -635,6 +696,18 @@ namespace xBot.App
             if (json.ContainsKey("ReturnDurabilityLow")) ReturnDurabilityLow = (bool)json["ReturnDurabilityLow"];
             if (json.ContainsKey("DurabilityLowThreshold")) DurabilityLowThreshold = (int)json["DurabilityLowThreshold"];
             if (json.ContainsKey("ReturnLevelUp")) ReturnLevelUp = (bool)json["ReturnLevelUp"];
+            if (json.ContainsKey("ReturnNextHourEnabled")) ReturnNextHourEnabled = (bool)json["ReturnNextHourEnabled"];
+            if (json.ContainsKey("ReturnNextHourMinutes")) ReturnNextHourMinutes = (int)json["ReturnNextHourMinutes"];
+            if (json.ContainsKey("ReturnEveryEnabled")) ReturnEveryEnabled = (bool)json["ReturnEveryEnabled"];
+            if (json.ContainsKey("ReturnEveryMinutes")) ReturnEveryMinutes = (int)json["ReturnEveryMinutes"];
+            if (json.ContainsKey("ReturnAtTimeEnabled")) ReturnAtTimeEnabled = (bool)json["ReturnAtTimeEnabled"];
+            if (json.ContainsKey("ReturnAtTimeValue")) ReturnAtTimeValue = (string)json["ReturnAtTimeValue"];
+            if (json.ContainsKey("ReturnAtTimeStopBot")) ReturnAtTimeStopBot = (bool)json["ReturnAtTimeStopBot"];
+            if (json.ContainsKey("ReturnDisconnectMinutesEnabled")) ReturnDisconnectMinutesEnabled = (bool)json["ReturnDisconnectMinutesEnabled"];
+            if (json.ContainsKey("ReturnDisconnectMinutes")) ReturnDisconnectMinutes = (int)json["ReturnDisconnectMinutes"];
+            if (json.ContainsKey("ReturnNotAttackedEnabled")) ReturnNotAttackedEnabled = (bool)json["ReturnNotAttackedEnabled"];
+            if (json.ContainsKey("ReturnNotAttackedMinutes")) ReturnNotAttackedMinutes = (int)json["ReturnNotAttackedMinutes"];
+            if (json.ContainsKey("ReturnUniqueSpawn")) ReturnUniqueSpawn = (bool)json["ReturnUniqueSpawn"];
         }
     }
 }
