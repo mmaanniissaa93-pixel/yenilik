@@ -180,6 +180,7 @@ namespace xBot.App
 					root["LurePolicy"] = LurePolicy.ToJson();
 					root["Alchemy"] = AlchemyManager.ToJson();
 					root["TargetAssist"] = TargetAssistManager.ToJson();
+					root["PetPolicy"] = PetPolicy.ToJson();
 					CommandCenter.CommandCenterManager.SaveSettings(root);
 
 					// Saving (atomic: tmp + replace, yarım yazımı engeller)
@@ -372,6 +373,8 @@ namespace xBot.App
 					TargetAssistManager.FromJson((Newtonsoft.Json.Linq.JObject)root["TargetAssist"]);
 					w.RefreshTargetAssistControls();
 				}
+				if (root.ContainsKey("PetPolicy"))
+					PetPolicy.FromJson((Newtonsoft.Json.Linq.JObject)root["PetPolicy"]);
 			}
 		}
 		/// <summary>
@@ -675,6 +678,7 @@ namespace xBot.App
 				root["PartySupport"] = PartySupportManager.ToJson();
 				root["ResurrectPolicy"] = ResurrectPolicy.ToJson();
 				root["LurePolicy"] = LurePolicy.ToJson();
+				root["PetPolicy"] = PetPolicy.ToJson();
 
 					// Saving (atomic)
 					string safeSilkroad = string.IsNullOrEmpty(DataManager.SilkroadName) ? "UnknownSilkroad" : DataManager.SilkroadName;
@@ -1323,6 +1327,8 @@ Window w = Window.Get;
 					ResurrectPolicy.FromJson((Newtonsoft.Json.Linq.JObject)root["ResurrectPolicy"]);
 				if (root.ContainsKey("LurePolicy"))
 					LurePolicy.FromJson((Newtonsoft.Json.Linq.JObject)root["LurePolicy"]);
+				if (root.ContainsKey("PetPolicy"))
+					PetPolicy.FromJson((Newtonsoft.Json.Linq.JObject)root["PetPolicy"]);
 
 				LoadingCharacterSettings = false;
 				s_loadedCharacterProfilePath = string.IsNullOrEmpty(path) ? "" : Path.GetFullPath(path);

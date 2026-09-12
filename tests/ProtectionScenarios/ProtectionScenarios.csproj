@@ -35,6 +35,7 @@
     <Compile Include="..\..\xBot\App\EzFilterManager.cs" Link="EzFilterManager.cs" />
     <Compile Include="..\..\xBot\Game\Objects\xDictionary.cs" Link="xDictionary.cs" />
     <Compile Include="..\..\xBot\App\SecretStore.cs" Link="SecretStore.cs" />
+    <Compile Include="..\..\xBot\App\PetPolicy.cs" Link="PetPolicy.cs" />
   </ItemGroup>
 
   <ItemGroup>

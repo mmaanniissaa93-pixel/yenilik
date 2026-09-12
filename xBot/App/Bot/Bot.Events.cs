@@ -401,6 +401,7 @@ namespace xBot.App
 					CheckUsingAbnormalPill();
 					break;
 			}
+			Window.Get?.UpdatePetRuntimeStatus();
 		}
 		/// <summary>
 		/// Called when a pet has been summoned
@@ -410,6 +411,7 @@ namespace xBot.App
 		{
 			if (CoS.isAttackPet())
 				CheckUsingHGP();
+			Window.Get?.UpdatePetRuntimeStatus();
 		}
 		/// <summary>
 		/// Called when a pet has been unsummoned
@@ -419,6 +421,7 @@ namespace xBot.App
 		{
 			if(CoS.isAttackPet())
 				tUsingHGP.Stop();
+			Window.Get?.UpdatePetRuntimeStatus();
 		}
 		/// <summary>
 		/// Called when "All" message is being sent. Returns the cancel effect.

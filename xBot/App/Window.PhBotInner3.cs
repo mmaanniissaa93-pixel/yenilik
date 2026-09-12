@@ -675,113 +675,13 @@ namespace xBot.App
                     if (c is Panel && c.Name == "TabPageV_Control01_Pet_Panel") { host = (Panel)c; break; }
                 }
                 if (host == null) return;
-                TabControl tabs = null;
-                foreach (Control c in host.Controls)
+                if (host.Controls["PhBot_Pet_MainTabs"] == null)
                 {
-                    if (c is TabControl) { tabs = (TabControl)c; break; }
+                    BuildPhBotPetPanel(host);
                 }
-                if (tabs == null || tabs.TabPages.Count < 3) return;
-                try { tabs.TabPages[0].Text = "Attack Pet"; } catch { }
-                try { tabs.TabPages[1].Text = "Transport"; } catch { }
-                try { tabs.TabPages[2].Text = "Pick"; } catch { }
-                TabPage atk = tabs.TabPages[0];
-                int W = Math.Max(500, atk.Width);
-
-                if (atk.Controls["PhBot_PetUse"] == null)
+                else
                 {
-                    try { atk.Controls.Clear(); } catch { }
-                    atk.BackColor = Color.White;
-
-                    // 1. Sütun Checkbox'lar
-                    PhBotTodoCheck(atk, "PhBot_PetUse", "Use attack pet", 12, 12, false);
-                    PhBotTodoCheck(atk, "PhBot_PetSummon", "Auto summon attack pet", 12, 38, false);
-                    PhBotTodoCheck(atk, "PhBot_PetRevive", "Auto revive attack pet", 12, 64, false);
-                    PhBotTodoCheck(atk, "PhBot_PetReturn", "Return to town when the attack pet dies", 12, 90, false);
-                    PhBotTodoCheck(atk, "PhBot_PetSP", "Use fellow pet SP recall in town", 12, 116, false);
-                    PhBotTodoCheck(atk, "PhBot_PetProtect", "Protect the attack pet", 12, 142, false);
-
-                    // 2. Sütun Checkbox'lar
-                    PhBotTodoCheck(atk, "PhBot_PetPassive", "Don't attack monsters", 215, 12, false);
-                    PhBotTodoCheck(atk, "PhBot_PetTownOnly", "only in town", 215, 38, false);
-                    NumericUpDown nudTimes = new NumericUpDown
-                    {
-                        Name = "PhBot_PetMaxTimes",
-                        Location = new Point(200, 62),
-                        Size = new Size(42, 22),
-                        Minimum = 0,
-                        Maximum = 999,
-                        Value = 0,
-                        Font = PhBotFont(),
-                        BackColor = Color.White
-                    };
-                    atk.Controls.Add(nudTimes);
-                    PhBotLabel(atk, "PhBot_PetMaxTimesLbl", "max times (0 for unlimited)", 248, 64);
-                    PhBotTodoCheck(atk, "PhBot_PetNoRevive", "only if there aren't any revive items", 248, 90, false);
-
-                    // 3. Sütun Checkbox'lar
-                    PhBotTodoCheck(atk, "PhBot_PetAreaOnly", "only at training area", 415, 38, false);
-                    PhBotTodoCheck(atk, "PhBot_PetHPPotions", "only if HP potions are present", 415, 64, false);
-
-                    // Unsummon Butonu
-                    Button bUn = PhBotButton(atk, "PhBot_PetUnsummon", "Unsummon", atk.ClientSize.Width > 150 ? atk.ClientSize.Width - 85 : 520, 12, 75);
-                    if (bUn != null)
-                    {
-                        bUn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-                        try { bUn.Click -= PetUnsummonClick; } catch { }
-                        bUn.Click += PetUnsummonClick;
-                    }
-
-                    // Alt Göstergeler (phbot_pet_01.png birebir)
-                    PhBotLabel(atk, "PhBot_PetNameLbl", "Name", 12, 175);
-                    PhBotLabel(atk, "PhBot_PetNameVal", "No name", 75, 175);
-
-                    PhBotLabel(atk, "PhBot_PetLevelLbl", "Level", 12, 202);
-                    PhBotLabel(atk, "PhBot_PetLevelVal", "0", 75, 202);
-
-                    PhBotLabel(atk, "PhBot_PetHpLbl", "HP", 12, 228);
-                    ProgressBar pbHp = new ProgressBar { Name = "PhBot_PetHpBar", Location = new Point(75, 226), Size = new Size(240, 18), Minimum = 0, Maximum = 100, Value = 0 };
-                    atk.Controls.Add(pbHp);
-                    PhBotLabel(atk, "PhBot_PetHpPct", "0%", 325, 228);
-
-                    PhBotLabel(atk, "PhBot_PetHgpLbl", "HGP", 12, 254);
-                    ProgressBar pbHgp = new ProgressBar { Name = "PhBot_PetHgpBar", Location = new Point(75, 252), Size = new Size(240, 18), Minimum = 0, Maximum = 100, Value = 0 };
-                    atk.Controls.Add(pbHgp);
-                    PhBotLabel(atk, "PhBot_PetHgpPct", "0%", 325, 254);
-
-                    PhBotLabel(atk, "PhBot_PetExpLbl", "EXP", 12, 280);
-                    ProgressBar pbExp = new ProgressBar { Name = "PhBot_PetExpBar", Location = new Point(75, 278), Size = new Size(240, 18), Minimum = 0, Maximum = 100, Value = 0 };
-                    atk.Controls.Add(pbExp);
-                    PhBotLabel(atk, "PhBot_PetExpPct", "0%", 325, 280);
-
-                    Label lblNote = new Label
-                    {
-                        Name = "PhBot_PetNote",
-                        Text = "* Make sure you only have one attack pet in your inventory",
-                        Font = PhBotFont(),
-                        ForeColor = Color.FromArgb(60, 60, 60),
-                        Location = new Point(12, 308),
-                        AutoSize = true
-                    };
-                    atk.Controls.Add(lblNote);
-                }
-
-                foreach (TabPage pg in new TabPage[] { tabs.TabPages[1], tabs.TabPages[2] })
-                {
-                    if (pg.Controls["PhBot_PetInfoDone"] == null)
-                    {
-                        try { pg.Controls.Clear(); } catch { }
-                        pg.BackColor = Color.White;
-                        ListView lv = NewPhBotListView(10, 10, 480, 260, "Item|300", "Value|170");
-                        pg.Controls.Add(lv);
-                        Button bUnOther = PhBotButton(pg, "PhBot_PetUn_" + pg.Text, "Unsummon", 10, 280, 120);
-                        if (bUnOther != null)
-                        {
-                            try { bUnOther.Click -= PetUnsummonClick; } catch { }
-                            bUnOther.Click += PetUnsummonClick;
-                        }
-                        Label dd = new Label { Name = "PhBot_PetInfoDone", Visible = false };
-                        pg.Controls.Add(dd);
-                    }
+                    UpdatePetRuntimeStatus();
                 }
             }
             catch (Exception ex) { PhBotDebug("pet inner: " + ex.Message); }

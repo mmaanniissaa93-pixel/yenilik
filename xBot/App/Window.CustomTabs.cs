@@ -3951,6 +3951,9 @@ namespace xBot.App
                 // Alana Dönüş kartı
                 RefreshReturnToAreaControls();
 
+                // Pet sekmesi kontrolleri
+                RefreshPetSettingsControls();
+
                 RefreshItemRuleList();
             });
         }

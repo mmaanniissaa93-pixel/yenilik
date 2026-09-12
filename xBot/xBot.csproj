@@ -190,6 +190,8 @@
     <Compile Include="App\Window.PhBotInner4.cs" />
     <Compile Include="App\Window.PhBotInner5.cs" />
     <Compile Include="App\Window.PhBotAttackTabs.cs" />
+    <Compile Include="App\PetPolicy.cs" />
+    <Compile Include="App\Window.PhBotPetTabs.cs" />
     <Compile Include="App\TrainingAreaInfo.cs" />
     <Compile Include="App\TrainingAreaEditForm.cs">
       <SubType>Form</SubType>

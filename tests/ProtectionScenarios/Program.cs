@@ -546,6 +546,7 @@ internal static class Program
         RunDictionaryRenameScenarios();
         RunSecretStoreScenarios();
         RunScriptCommandScenarios();
+        RunPetPolicyScenarios();
 
         if (failures != 0)
         {
@@ -1371,6 +1372,83 @@ internal static class Program
     }
 
     private static void RunPotionInt(string name, int actual, int expected)
+    {
+        if (actual == expected)
+        {
+            Console.WriteLine("PASS: " + name);
+            return;
+        }
+
+        failures++;
+        Console.WriteLine("FAIL: " + name + " | beklenen=" + expected + ", gerçek=" + actual);
+    }
+
+    private static void RunPetPolicyScenarios()
+    {
+        // 1. CanSummon Tests
+        PetPolicy.AutoSummonAttackPet = true;
+        PetPolicy.LastSummonAttemptTime = DateTime.MinValue;
+        PetPolicy.OnlyInTown = true;
+        PetPolicy.OnlyAtTrainingArea = false;
+        PetPolicy.OnlyIfHpPotionPresent = false;
+        RunPetCheck("PetPolicy: OnlyInTown aktifken şehir dışındaysa çağrılmaz", PetPolicy.CanSummon(false, false, true), false);
+        RunPetCheck("PetPolicy: OnlyInTown aktifken şehir içindeyse çağrılır", PetPolicy.CanSummon(true, false, true), true);
+
+        PetPolicy.OnlyInTown = false;
+        PetPolicy.OnlyAtTrainingArea = true;
+        RunPetCheck("PetPolicy: OnlyAtTrainingArea aktifken kasılma alanı dışındaysa çağrılmaz", PetPolicy.CanSummon(false, false, true), false);
+        RunPetCheck("PetPolicy: OnlyAtTrainingArea aktifken kasılma alanındaysa çağrılır", PetPolicy.CanSummon(false, true, true), true);
+
+        PetPolicy.OnlyAtTrainingArea = false;
+        PetPolicy.OnlyIfHpPotionPresent = true;
+        RunPetCheck("PetPolicy: OnlyIfHpPotionPresent aktifken pot yoksa çağrılmaz", PetPolicy.CanSummon(false, false, false), false);
+        RunPetCheck("PetPolicy: OnlyIfHpPotionPresent aktifken pot varsa çağrılır", PetPolicy.CanSummon(false, false, true), true);
+
+        // 2. CanRevive Tests
+        PetPolicy.AutoReviveAttackPet = false;
+        RunPetCheck("PetPolicy: AutoReviveAttackPet kapalıyken diriltme yapılmaz", PetPolicy.CanRevive(), false);
+
+        PetPolicy.AutoReviveAttackPet = true;
+        PetPolicy.AutoReviveMaxCount = 2;
+        PetPolicy.CurrentReviveCount = 0;
+        RunPetCheck("PetPolicy: Diriltme hakkı varken CanRevive true döner", PetPolicy.CanRevive(), true);
+        PetPolicy.CurrentReviveCount = 2;
+        RunPetCheck("PetPolicy: Diriltme limiti dolduğunda CanRevive false döner", PetPolicy.CanRevive(), false);
+
+        PetPolicy.ResetRuntimeState();
+        RunPetCheck("PetPolicy: ResetRuntimeState sonrası CurrentReviveCount sıfırlanır", PetPolicy.CurrentReviveCount == 0, true);
+
+        // 3. JSON roundtrip Tests
+        PetPolicy.UseAttackPet = true;
+        PetPolicy.AttackRadius = 65;
+        PetPolicy.ProtectAttackPet = true;
+        PetPolicy.AutoRecallStuckAttackPet = true;
+        PetPolicy.UseFellowUniqueSkills = true;
+        PetPolicy.UsePotionOfGrowth = true;
+        PetPolicy.UseFellowSpRecallInTown = true;
+        var json = PetPolicy.ToJson();
+
+        // Reset to different values
+        PetPolicy.UseAttackPet = false;
+        PetPolicy.AttackRadius = 10;
+        PetPolicy.ProtectAttackPet = false;
+        PetPolicy.AutoRecallStuckAttackPet = false;
+        PetPolicy.UseFellowUniqueSkills = false;
+        PetPolicy.UsePotionOfGrowth = false;
+        PetPolicy.UseFellowSpRecallInTown = false;
+
+        // Restore from json
+        PetPolicy.FromJson(json);
+        RunPetCheck("PetPolicy: JSON restore UseAttackPet korunur", PetPolicy.UseAttackPet, true);
+        RunPetCheck("PetPolicy: JSON restore AttackRadius korunur", PetPolicy.AttackRadius == 65, true);
+        RunPetCheck("PetPolicy: JSON restore ProtectAttackPet korunur", PetPolicy.ProtectAttackPet, true);
+        RunPetCheck("PetPolicy: JSON restore AutoRecallStuckAttackPet korunur", PetPolicy.AutoRecallStuckAttackPet, true);
+        RunPetCheck("PetPolicy: JSON restore UseFellowUniqueSkills korunur", PetPolicy.UseFellowUniqueSkills, true);
+        RunPetCheck("PetPolicy: JSON restore UsePotionOfGrowth korunur", PetPolicy.UsePotionOfGrowth, true);
+        RunPetCheck("PetPolicy: JSON restore UseFellowSpRecallInTown korunur", PetPolicy.UseFellowSpRecallInTown, true);
+    }
+
+    private static void RunPetCheck(string name, bool actual, bool expected)
     {
         if (actual == expected)
         {

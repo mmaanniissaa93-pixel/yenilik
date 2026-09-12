@@ -807,6 +807,10 @@ namespace xBot.App
                     CheckTreasureBoxes();
                     CheckAutoEquipBetterItems();
 
+                    // Pet Motoru: Oto çağırma, canlandırma, koruma, stuck auto-recall
+                    if (CheckPetEngineTick(trainingPosition, trainingRadius))
+                        return;
+
                     if (TrainingOptionsPolicy.UseSpeedDrugs && !TrainingOptionsPolicy.SpeedDrugsOnlyInScript)
                     {
                         if (!HasSpeedBuffActive())
@@ -1659,6 +1663,16 @@ namespace xBot.App
                     }
                 }
 
+                // PetPolicy ProtectAttackPet: Saldırı petine saldıran canavara en yüksek öncelik
+                if (PetPolicy.ProtectAttackPet && m.TargetUniqueID != 0)
+                {
+                    var atkPet = InfoManager.MyPets?.Find(p => p != null && p.isAttackPet());
+                    if (atkPet != null && m.TargetUniqueID == atkPet.UniqueID)
+                    {
+                        score += 9000.0; // Peti korumak için en yüksek öncelik
+                    }
+                }
+
                 // PhBot AttackLowerFirst: düşük seviyeli canavarlara öncelik ver
                 if (CombatAIEngine.AttackLowerFirst && m.Level > 0)
                 {
@@ -2088,6 +2102,178 @@ namespace xBot.App
                 }
             }
         }
+
+        #region Pet Motoru Entegrasyonu
+        private bool CheckPetEngineTick(SRCoord trainingPosition, int trainingRadius)
+        {
+            Window w = Window.Get;
+            if (InfoManager.Character == null) return false;
+            SRCoord myPosition = InfoManager.Character.GetRealtimePosition();
+
+            // 1. Saldırı Peti Otomasyonu
+            if (PetPolicy.UseAttackPet)
+            {
+                var atkPet = InfoManager.MyPets?.Find(p => p != null && p.isAttackPet() && !Script.IsLikelyFellow(p));
+                if (atkPet == null)
+                    atkPet = InfoManager.MyPets?.Find(p => p != null && p.isAttackPet());
+
+                bool inTown = myPosition != null && TownManager.Get.IsNearTown(myPosition);
+                bool atTrainingArea = trainingPosition != null && myPosition != null && myPosition.DistanceTo(trainingPosition) <= trainingRadius;
+
+                // Pet çağrılı mı kontrol et
+                if (atkPet == null)
+                {
+                    // Otomatik çağırma
+                    bool hasHpPots = HasPetHpPotions();
+                    if (PetPolicy.CanSummon(inTown, atTrainingArea, hasHpPots))
+                    {
+                        TryAutoSummonAttackPet(w);
+                    }
+                }
+                else
+                {
+                    // Pet çağrılı ise durumunu kontrol et (Canlı / Ölü / Takılı)
+                    if (atkPet.HP == 0)
+                    {
+                        // Pet ölmüş: Canlandırma dene
+                        if (PetPolicy.CanRevive())
+                        {
+                            bool revived = TryAutoReviveAttackPet(atkPet, w);
+                            if (!revived && PetPolicy.ReturnTownWhenAttackPetDies)
+                            {
+                                w.LogProcess("Saldırı Peti öldü ve canlandırılamadı ('Saldırı peti ölünce şehre dön' aktif). Şehre dönülüyor...", Window.ProcessState.Warning);
+                                UseReturnScroll();
+                                return true;
+                            }
+                        }
+                        else if (PetPolicy.ReturnTownWhenAttackPetDies)
+                        {
+                            w.LogProcess("Saldırı Peti öldü (canlandırma limiti doldu). Şehre dönülüyor...", Window.ProcessState.Warning);
+                            UseReturnScroll();
+                            return true;
+                        }
+                    }
+                    else
+                    {
+                        // Pet canlı: Takılma (Stuck) ve Auto-Recall kontrolü
+                        if (PetPolicy.AutoRecallStuckAttackPet && myPosition != null)
+                        {
+                            SRCoord petPos = atkPet.GetRealtimePosition();
+                            if (petPos != null)
+                            {
+                                double dist = myPosition.DistanceTo(petPos);
+                                if (dist > 35.0 || (dist > 15.0 && PetPolicy.LastKnownPetPosition != null && petPos.DistanceTo(PetPolicy.LastKnownPetPosition) < 0.6))
+                                {
+                                    if ((DateTime.UtcNow - PetPolicy.LastRecallTime).TotalSeconds >= 8)
+                                    {
+                                        PetPolicy.LastRecallTime = DateTime.UtcNow;
+                                        PacketBuilder.MoveTo(myPosition, atkPet.UniqueID);
+                                        w.LogProcess($"Saldırı Peti takıldı/uzaklaştı ({dist:F1}m). Auto-recall yapılıyor...");
+                                    }
+                                }
+                                PetPolicy.LastKnownPetPosition = petPos;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 2. Fellow Pet Otomasyonu
+            var fellow = InfoManager.MyPets?.Find(p => p != null && Script.IsLikelyFellow(p));
+            if (fellow != null)
+            {
+                // Potion of Growth
+                if (PetPolicy.UsePotionOfGrowth && (DateTime.UtcNow - PetPolicy.LastGrowthPotionTime).TotalSeconds >= 30)
+                {
+                    TryUsePotionOfGrowth(fellow);
+                }
+            }
+
+            return false;
+        }
+
+        private bool TryAutoSummonAttackPet(Window w)
+        {
+            var chr = InfoManager.Character;
+            if (chr == null || chr.Inventory == null) return false;
+
+            for (byte s = 13; s < chr.Inventory.Capacity; s++)
+            {
+                var item = chr.Inventory[s];
+                if (item == null || string.IsNullOrEmpty(item.ServerName)) continue;
+                string sn = item.ServerName.ToUpperInvariant();
+
+                // Saldırı peti çağırma eşyası (WOLF, BEAR, JAGUAR, FOX, BIRD, ITEM_COS_P)
+                if ((item.ID2 == 1 && (item.ID3 == 7 || item.ID3 == 8) && !sn.Contains("GROWTH") && !sn.Contains("POTION"))
+                    || sn.Contains("COS_P_WOLF") || sn.Contains("COS_P_BEAR") || sn.Contains("COS_P_FOX")
+                    || sn.Contains("COS_P_JAGUAR") || sn.Contains("COS_P_BIRD") || sn.Contains("COS_P_TIGER")
+                    || (sn.StartsWith("ITEM_COS_P_") && !sn.Contains("GROWTH") && !sn.Contains("POTION") && !sn.Contains("RABBIT") && !sn.Contains("MONKEY") && !sn.Contains("SQUIRREL") && !sn.Contains("CAT") && !sn.Contains("PIG")))
+                {
+                    PetPolicy.LastSummonAttemptTime = DateTime.UtcNow;
+                    w.LogProcess($"Saldırı Peti: Çağrılıyor [{item.Name ?? item.ServerName}]...");
+                    return PacketBuilder.UseItem(item, s);
+                }
+            }
+            return false;
+        }
+
+        private bool TryAutoReviveAttackPet(SRCoService atkPet, Window w)
+        {
+            var chr = InfoManager.Character;
+            if (chr == null || chr.Inventory == null || atkPet == null) return false;
+
+            for (byte s = 13; s < chr.Inventory.Capacity; s++)
+            {
+                var item = chr.Inventory[s];
+                if (item == null || string.IsNullOrEmpty(item.ServerName)) continue;
+                string sn = item.ServerName.ToUpperInvariant();
+
+                if (sn.Contains("REBIRTH") || sn.Contains("REVIVE") || sn.Contains("GRASS_OF_LIFE") || sn.Contains("RESURRECT"))
+                {
+                    PetPolicy.CurrentReviveCount++;
+                    w.LogProcess($"Saldırı Peti: Canlandırılıyor [{item.Name ?? item.ServerName}] (Adet #{PetPolicy.CurrentReviveCount})...");
+                    return PacketBuilder.UseItem(item, s, atkPet.UniqueID);
+                }
+            }
+            return false;
+        }
+
+        private bool HasPetHpPotions()
+        {
+            var chr = InfoManager.Character;
+            if (chr == null || chr.Inventory == null) return false;
+
+            for (byte s = 13; s < chr.Inventory.Capacity; s++)
+            {
+                var item = chr.Inventory[s];
+                if (item == null || string.IsNullOrEmpty(item.ServerName)) continue;
+                string sn = item.ServerName.ToUpperInvariant();
+                if (sn.Contains("RECOVERY") || sn.Contains("POTION_COS") || sn.Contains("HP_RECOVERY"))
+                    return true;
+            }
+            return false;
+        }
+
+        private bool TryUsePotionOfGrowth(SRCoService fellow)
+        {
+            var chr = InfoManager.Character;
+            if (chr == null || chr.Inventory == null || fellow == null) return false;
+
+            for (byte s = 13; s < chr.Inventory.Capacity; s++)
+            {
+                var item = chr.Inventory[s];
+                if (item == null || string.IsNullOrEmpty(item.ServerName)) continue;
+                string sn = item.ServerName.ToUpperInvariant();
+                if (sn.Contains("GROWTH") || sn.Contains("EXP_POTION"))
+                {
+                    PetPolicy.LastGrowthPotionTime = DateTime.UtcNow;
+                    Window.Get?.LogProcess($"Fellow Pet: Potion of Growth kullanılıyor [{item.Name}]...");
+                    return PacketBuilder.UseItem(item, s, fellow.UniqueID);
+                }
+            }
+            return false;
+        }
+        #endregion
 
         private bool HasSpeedBuffActive()
         {

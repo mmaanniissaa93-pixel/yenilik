@@ -1277,23 +1277,7 @@ namespace xBot.App
         // ---------------------------------------------------------------
         // Placeholder paneller
         // ---------------------------------------------------------------
-        private Panel BuildPhBotPetPanel(Panel panel)
-        {
-            var tabs = new TabControl();
-            tabs.Font = PhBotFont();
-            tabs.Location = new Point(4, 4); tabs.Size = new Size(800, 300);
-            tabs.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            tabs.TabPages.Add(new TabPage("Fellow") { BackColor = PhBotBg });
-            tabs.TabPages.Add(new TabPage("Pick Pet") { BackColor = PhBotBg });
-            tabs.TabPages.Add(new TabPage("Transport") { BackColor = PhBotBg });
-            AddPhBotCheck((Control)tabs.TabPages[0], "Summon fellow pet in training area", 10, 10, true);
-            AddPhBotCheck((Control)tabs.TabPages[0], "Use pet recovery kits", 10, 34, true);
-            AddPhBotCheck((Control)tabs.TabPages[1], "Use pick pet", 10, 10, true);
-            AddPhBotCheck((Control)tabs.TabPages[1], "Pick with character if pet full", 10, 34, true);
-            AddPhBotCheck((Control)tabs.TabPages[2], "Respawn job transport if dead", 10, 10, false);
-            panel.Controls.Add(tabs);
-            return panel;
-        }
+
 
         private Panel BuildPhBotUnionPanel(Panel panel)
         {
