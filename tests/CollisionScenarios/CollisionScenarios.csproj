@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../xBot/App/LocalObstacleNavigator.cs" Link="LocalObstacleNavigator.cs" />
+    <Compile Include="../../xBot/Game/Objects/Common/SRCoord.cs" Link="SRCoord.cs" />
+  </ItemGroup>
+</Project>

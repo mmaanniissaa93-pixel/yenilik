@@ -863,17 +863,14 @@ namespace xBot.App
                             }
                         }
 
-                        // Ensure target mob is selected
-                        if (InfoManager.SelectedEntityUniqueID != mob.UniqueID)
-                        {
-                            PacketBuilder.SelectEntity(mob.UniqueID);
-                            InfoManager.MonitorEntitySelected.WaitOne(200);
-                        }
+                        if (!EnsureCombatTargetSelected(mob))
+                            continue;
 
                         int currentSkillIndex = 0;
                         int noSkillAttempts = 0;
+                        var obstacleRecovery = new CombatObstacleRecovery();
 
-                            while (isBotting && InfoManager.Mobs.ContainsKey(mob.UniqueID))
+                            while (isBotting && IsLiveCombatTarget(mob))
                             {
                                 if (SkillManager.NoAttackMode)
                                     break;
@@ -1008,7 +1005,11 @@ namespace xBot.App
                                     noSkillAttempts++;
                                     if (noSkillAttempts >= 2 && SkillPolicy.ShouldUseFallback(InfoManager.Mobs.ContainsKey(mob.UniqueID), false))
                                     {
-                                        TryFallbackAttack(mob, w);
+                                        if (TryFallbackAttack(mob, w, false))
+                                            obstacleRecovery.OnSuccess();
+                                        else if (!RecoverFailedCombatAttack(mob, obstacleRecovery,
+                                            $"Common Attack (0x{InfoManager.LastSkillCastErrorCode:X4})"))
+                                            break;
                                         noSkillAttempts = 0;
                                     }
                                     else
@@ -1025,7 +1026,7 @@ namespace xBot.App
                                     skillToCast = SkillManager.GetFallbackAttack(GetMyWeaponType());
                                 }
 
-                                if (!InfoManager.Mobs.ContainsKey(mob.UniqueID))
+                                if (!IsLiveCombatTarget(mob))
                                     break;
 
                                 // Seçilen skilin menzil kontrolü (uzak büyü 15m iken yakın dövüş skili 3.5m-4.5m isteyebilir)
@@ -1037,20 +1038,13 @@ namespace xBot.App
                                 {
                                     bool reached = ApproachTargetWithCollision(mobPosition, requiredSkillRange, mob);
                                     if (!reached)
-                                        continue;
+                                        break;
                                 }
 
                                 w.LogProcess("Casting skill " + skillToCast.Name + " (" + skillToCast.CastingTime + "ms)...");
 
-                                long hpBefore = 0;
-                                try { hpBefore = mob.HP; } catch { }
-
-                                // Canavarın seçili olduğundan emin ol (seçilmemişse sunucu Invalid Target döner)
-                                if (InfoManager.SelectedEntityUniqueID != mob.UniqueID)
-                                {
-                                    PacketBuilder.SelectEntity(mob.UniqueID);
-                                    InfoManager.MonitorEntitySelected.WaitOne(150);
-                                }
+                                if (!EnsureCombatTargetSelected(mob))
+                                    break;
 
                                 InfoManager.LastSkillCastSuccess = false;
                                 InfoManager.LastSkillCastErrorCode = 0;
@@ -1058,21 +1052,13 @@ namespace xBot.App
 
                                 PacketBuilder.AttackTarget(mob.UniqueID, skillToCast.ID);
 
-                                bool confirmed = InfoManager.MonitorSkillCast.WaitOne(250);
+                                bool confirmed = WaitForCombatCast(mob);
                                 bool treatAsSuccess = confirmed && InfoManager.LastSkillCastSuccess;
-                                if (!treatAsSuccess)
-                                {
-                                    // Geciken onay / kayıp paket: mob canı azaldıysa veya öldüyse
-                                    // cast tutmuş demektir, başarısız sayıp bekleme.
-                                    bool mobGone = !InfoManager.Mobs.ContainsKey(mob.UniqueID);
-                                    long hpAfter = 0;
-                                    try { hpAfter = mob.HP; } catch { }
-                                    if (mobGone || (hpBefore > 0 && hpAfter < hpBefore))
-                                        treatAsSuccess = true;
-                                }
+                                // Damage from another player or a DOT is not our cast acknowledgement.
 
                                 if (treatAsSuccess)
                                 {
+                                    obstacleRecovery.OnSuccess();
                                     SkillManager.RecordCastSuccess(skillToCast);
                                     try { skillToCast.StartCooldown(); } catch { }
 
@@ -1087,7 +1073,7 @@ namespace xBot.App
                                     int elapsed = 0;
                                     while (elapsed < fullWait && isBotting)
                                     {
-                                        if (!InfoManager.Mobs.ContainsKey(mob.UniqueID))
+                                        if (!IsLiveCombatTarget(mob))
                                             break;
                                         if (elapsed >= minGap && IsAnyAttackSkillReady(skillshots))
                                             break;
@@ -1113,8 +1099,10 @@ namespace xBot.App
                                     string reason = !confirmed ? "Zaman aşımı"
                                         : (InfoManager.LastSkillCastErrorCode == 0 ? "Sunucu reddetti"
                                             : $"Reddedildi (0x{InfoManager.LastSkillCastErrorCode:X4})");
+                                    if (!IsLiveCombatTarget(mob))
+                                        break;
                                     SkillManager.RecordCastFailure(skillToCast, reason);
-                                    if (!InfoManager.Mobs.ContainsKey(mob.UniqueID))
+                                    if (!RecoverFailedCombatAttack(mob, obstacleRecovery, reason))
                                         break;
                                     Thread.Sleep(60);
                                 }
@@ -1198,9 +1186,42 @@ namespace xBot.App
             return true;
         }
 
-        private bool TryFallbackAttack(SRMob mob, Window w)
+        private static bool IsLiveCombatTarget(SRMob mob)
         {
-            if (mob == null || !InfoManager.Mobs.ContainsKey(mob.UniqueID))
+            return mob != null && CombatPolicy.IsLiveTarget(
+                InfoManager.Mobs.ContainsKey(mob.UniqueID), mob.LifeStateType == SRModel.LifeState.Dead);
+        }
+
+        private void DeferCombatTarget(SRMob mob, string reason)
+        {
+            if (!IsLiveCombatTarget(mob)) return;
+            _unreachableMobs[mob.UniqueID] = DateTime.UtcNow.AddSeconds(3);
+            Window.Get.Log($"[Combat] {mob.Name} (UID {mob.UniqueID}) geçici olarak atlandı: {reason}");
+        }
+
+        private bool EnsureCombatTargetSelected(SRMob mob)
+        {
+            if (!isBotting || !IsLiveCombatTarget(mob)) return false;
+            if (InfoManager.SelectedEntityUniqueID != mob.UniqueID)
+            {
+                // A previous selection signal must not acknowledge this request.
+                InfoManager.MonitorEntitySelected.Reset();
+                PacketBuilder.SelectEntity(mob.UniqueID);
+                var wait = System.Diagnostics.Stopwatch.StartNew();
+                while (isBotting && IsLiveCombatTarget(mob)
+                    && InfoManager.SelectedEntityUniqueID != mob.UniqueID && wait.ElapsedMilliseconds < 750)
+                    InfoManager.MonitorEntitySelected.WaitOne(50);
+            }
+
+            bool ready = isBotting && CombatPolicy.CanSendAttack(IsLiveCombatTarget(mob),
+                mob.UniqueID, InfoManager.SelectedEntityUniqueID);
+            if (!ready) DeferCombatTarget(mob, "Hedef seçimi onaylanmadı");
+            return ready;
+        }
+
+        private bool TryFallbackAttack(SRMob mob, Window w, bool deferOnFailure = true)
+        {
+            if (!EnsureCombatTargetSelected(mob))
                 return false;
 
             SRSkill fallback = SkillManager.GetFallbackAttack(GetMyWeaponType());
@@ -1213,7 +1234,7 @@ namespace xBot.App
             InfoManager.MonitorSkillCast.Reset();
 
             PacketBuilder.AttackTarget(mob.UniqueID, 1u);
-            if (InfoManager.MonitorSkillCast.WaitOne(1200))
+            if (WaitForCombatCast(mob))
             {
                 if (InfoManager.LastSkillCastSuccess)
                 {
@@ -1222,7 +1243,7 @@ namespace xBot.App
                     int animTime = Math.Max(400, fallback.CastingTime);
                     while (elapsed < animTime && isBotting)
                     {
-                        if (!InfoManager.Mobs.ContainsKey(mob.UniqueID))
+                        if (!IsLiveCombatTarget(mob))
                             break;
                         Thread.Sleep(50);
                         elapsed += 50;
@@ -1231,126 +1252,98 @@ namespace xBot.App
                 }
             }
 
+            if (!IsLiveCombatTarget(mob)) return false;
             SkillManager.RecordCastFailure(fallback, "Common Attack yanıt vermedi");
+            if (deferOnFailure)
+                DeferCombatTarget(mob, $"Common Attack reddedildi/zaman aşımı (0x{InfoManager.LastSkillCastErrorCode:X4})");
             Thread.Sleep(80);
             return false;
         }
 
+        private bool WaitForCombatCast(SRMob mob)
+        {
+            var wait = System.Diagnostics.Stopwatch.StartNew();
+            do
+            {
+                if (InfoManager.MonitorSkillCast.WaitOne(50)) return true;
+            }
+            while (isBotting && IsLiveCombatTarget(mob) && wait.ElapsedMilliseconds < 1200);
+            return false;
+        }
+
+        private LocalObstacleNavigator CreateCombatNavigator(SRMob mob)
+        {
+            SRCoord center = Window.Get.TrainingArea_GetPosition();
+            int radius = Window.Get.TrainingArea_GetRadius();
+            return new LocalObstacleNavigator(
+                () => InfoManager.Character?.GetRealtimePosition(),
+                point => {
+                    if (InfoManager.inGame && InfoManager.Character != null
+                        && InfoManager.Character.LifeStateType != SRModel.LifeState.Dead)
+                        MoveTo(point);
+                },
+                Thread.Sleep,
+                () => isBotting && !m_stopBottingRequested && InfoManager.inGame
+                    && InfoManager.Character != null
+                    && InfoManager.Character.LifeStateType != SRModel.LifeState.Dead
+                    && (mob == null || IsLiveCombatTarget(mob)),
+                point => !TrainingOptionsPolicy.StayInTrainingArea || center == null || radius <= 0
+                    || center.DistanceTo(point) <= radius);
+        }
+
+        private bool RecoverFailedCombatAttack(SRMob mob, CombatObstacleRecovery recovery, string reason)
+        {
+            if (!isBotting || !IsLiveCombatTarget(mob)
+                || InfoManager.SelectedEntityUniqueID != mob.UniqueID) return false;
+            bool enabled = CollisionPolicy.EnableCollisionInTrainingArea && CollisionPolicy.NavigateAroundObstacles;
+            bool retry = recovery.OnFailure(enabled, attempt => {
+                if (!isBotting || !IsLiveCombatTarget(mob)) return false;
+                Window.Get.Log($"[Combat] {mob.Name}: saldırı ilerlemiyor ({reason}); engel için yan geçiş {attempt + 1}/{LocalObstacleNavigator.MaxDetours}.");
+                return CreateCombatNavigator(mob).TryDetour(mob.GetRealtimePosition(), attempt);
+            });
+            if (!retry)
+            {
+                DeferCombatTarget(mob, reason);
+                if (enabled && IsLiveCombatTarget(mob))
+                    _unreachableMobs[mob.UniqueID] = DateTime.UtcNow.AddSeconds(15);
+            }
+            return retry;
+        }
+
         private bool ApproachTargetWithCollision(SRCoord targetPosition, double stopRange, SRMob targetMob)
         {
-            Window w = Window.Get;
-            SRCoord myPosition = InfoManager.Character.GetRealtimePosition();
+            SRCoord myPosition = InfoManager.Character?.GetRealtimePosition();
             if (myPosition == null || targetPosition == null) return false;
+            if (myPosition.DistanceTo(targetPosition) <= stopRange) return true;
 
-            double dist = myPosition.DistanceTo(targetPosition);
-            if (dist <= stopRange) return true;
-
-            // PhBot UseTeleportSkills: hedefe uzaksa teleport / blink skili ile hızlı yaklaş
-            if (CombatAIEngine.UseTeleportSkills && dist > 12.0)
-            {
+            if (CombatAIEngine.UseTeleportSkills && myPosition.DistanceTo(targetPosition) > 12.0)
                 TryCastTeleportSkill();
-            }
 
-            bool collisionEnabled = CollisionPolicy.EnableCollisionInTrainingArea;
-            bool navigateAround = CollisionPolicy.NavigateAroundObstacles;
+            var navigator = CreateCombatNavigator(targetMob);
+            if (navigator.MoveTo(targetPosition, stopRange)) return true;
+            if (!CollisionPolicy.EnableCollisionInTrainingArea) return false;
 
-            if (!collisionEnabled)
+            if (CollisionPolicy.NavigateAroundObstacles)
             {
-                // Standart yaklaşım (engel algılama kapalıysa)
-                MoveTo(targetPosition);
-                int attempts = 0;
-                while (isBotting && (targetMob == null || InfoManager.Mobs.ContainsKey(targetMob.UniqueID)) && attempts < 20)
+                for (int attempt = 0; attempt < LocalObstacleNavigator.MaxDetours && isBotting; attempt++)
                 {
-                    Thread.Sleep(100);
-                    myPosition = InfoManager.Character.GetRealtimePosition();
-                    if (targetMob != null) targetPosition = targetMob.GetRealtimePosition();
-                    if (myPosition.DistanceTo(targetPosition) <= stopRange) return true;
-                    attempts++;
-                    if (attempts % 5 == 0) MoveTo(targetPosition);
-                }
-                return myPosition.DistanceTo(targetPosition) <= stopRange;
-            }
-
-            // Gelişmiş Çarpışma Algılama ve Engelin Etrafından Dolaşma (Collision & Obstacle Bypass)
-            SRCoord lastPos = myPosition;
-            int stuckCount = 0;
-            int bypassCount = 0;
-            bool avoidToRight = true;
-            int maxTotalSteps = 25;
-
-            for (int step = 0; step < maxTotalSteps && isBotting; step++)
-            {
-                if (targetMob != null && !InfoManager.Mobs.ContainsKey(targetMob.UniqueID))
-                    return false; // Canavar öldü veya yok oldu
-
-                myPosition = InfoManager.Character.GetRealtimePosition();
-                if (targetMob != null) targetPosition = targetMob.GetRealtimePosition();
-                dist = myPosition.DistanceTo(targetPosition);
-                if (dist <= stopRange) return true;
-
-                // Takılma / İlerleyememe kontrolü (Çarpışma algılayıcı)
-                if (lastPos != null && myPosition.DistanceTo(lastPos) < 0.5)
-                {
-                    stuckCount++;
-                    if (stuckCount >= 2)
+                    if (targetMob != null)
                     {
-                        // 2 denemedir konum değişmedi -> duvara/engelle tosladı!
-                        if (!navigateAround)
-                        {
-                            w.LogProcess($"Engel tespit edildi: {targetMob?.Name ?? "Hedef"} arkasında engel var. Alternatif hedefe geçiliyor...");
-                            if (targetMob != null)
-                                _unreachableMobs[targetMob.UniqueID] = DateTime.UtcNow.AddSeconds(15);
-                            return false;
-                        }
-
-                        bypassCount++;
-                        if (bypassCount > 3)
-                        {
-                            w.LogProcess($"Engel aşılamadı: {targetMob?.Name ?? "Hedef"} ulaşılamaz (duvar/uçurum), alternatif hedefe geçiliyor...");
-                            if (targetMob != null)
-                                _unreachableMobs[targetMob.UniqueID] = DateTime.UtcNow.AddSeconds(15);
-                            return false;
-                        }
-
-                        w.LogProcess($"Çarpışma algılandı! Engelin etrafından dolaşılıyor (Deneme {bypassCount}/3)...");
-
-                        double dx = targetPosition.PosX - myPosition.PosX;
-                        double dy = targetPosition.PosY - myPosition.PosY;
-                        double dNorm = Math.Sqrt(dx * dx + dy * dy);
-                        if (dNorm < 0.001) dNorm = 1.0;
-                        double nx = dx / dNorm;
-                        double ny = dy / dNorm;
-
-                        double perpX = avoidToRight ? -ny : ny;
-                        double perpY = avoidToRight ? nx : -nx;
-                        if (bypassCount % 2 == 0) avoidToRight = !avoidToRight;
-
-                        double avoidStep = Math.Min(10.0, 4.0 + (bypassCount - 1) * 2.5);
-                        double forwardStep = 2.5;
-                        double bx = myPosition.PosX + perpX * avoidStep + nx * forwardStep;
-                        double by = myPosition.PosY + perpY * avoidStep + ny * forwardStep;
-
-                        SRCoord bypassCoord = myPosition.inDungeon()
-                            ? new SRCoord(bx, by, myPosition.Region, myPosition.Z)
-                            : new SRCoord(bx, by);
-
-                        MoveTo(bypassCoord);
-                        Thread.Sleep(750);
-                        stuckCount = 0;
-                        lastPos = InfoManager.Character.GetRealtimePosition();
-                        continue;
+                        if (!IsLiveCombatTarget(targetMob)) return false;
+                        targetPosition = targetMob.GetRealtimePosition();
                     }
+                    Window.Get.LogProcess($"Engel için yan geçiş deneniyor ({attempt + 1}/{LocalObstacleNavigator.MaxDetours})...");
+                    if (!navigator.TryDetour(targetPosition, attempt)) continue;
+                    if (targetMob != null) targetPosition = targetMob.GetRealtimePosition();
+                    if (navigator.MoveTo(targetPosition, stopRange)) return true;
                 }
-                else
-                {
-                    stuckCount = 0;
-                }
-
-                lastPos = myPosition;
-                MoveTo(targetPosition);
-                Thread.Sleep(150);
             }
 
+            if (IsLiveCombatTarget(targetMob))
+            {
+                _unreachableMobs[targetMob.UniqueID] = DateTime.UtcNow.AddSeconds(15);
+                Window.Get.Log($"[Combat] {targetMob.Name}: engel aşılamadı, başka hedefe geçiliyor.");
+            }
             return false;
         }
 
@@ -1498,7 +1491,7 @@ namespace xBot.App
             for (int j = 0; j < mobs.Count; j++)
             {
                 SRMob m = mobs[j];
-                if (m == null) continue;
+                if (!IsLiveCombatTarget(m)) continue;
 
                 // Çarpışma / Engel nedeniyle ulaşılamayan canavarlar geçici süreyle atlanır
                 if (_unreachableMobs.ContainsKey(m.UniqueID))

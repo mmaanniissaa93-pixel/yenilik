@@ -18,6 +18,16 @@ namespace xBot.App
 
     public static class CombatPolicy
     {
+        public static bool IsLiveTarget(bool present, bool dead)
+        {
+            return present && !dead;
+        }
+
+        public static bool CanSendAttack(bool liveTarget, uint targetId, uint selectedId)
+        {
+            return liveTarget && targetId != 0 && targetId == selectedId;
+        }
+
         public static bool CanTarget(CombatTargetInput input)
         {
             if (input == null || !input.AllowedByType || input.Avoided)

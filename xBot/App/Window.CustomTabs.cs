@@ -507,6 +507,11 @@ namespace xBot.App
             cbxGeneralAutoLogin.CheckedChanged += (s, e) =>
             {
                 LoginStrategyManager.AutomatedLogin = cbxGeneralAutoLogin.Checked;
+                if (!cbxGeneralAutoLogin.Checked)
+                {
+                    Bot.Get.hasAutoLoginMode = false;
+                    if (automatedLoginTimer != null) automatedLoginTimer.Stop();
+                }
                 Settings.SaveBotSettings();
             };
 
@@ -757,7 +762,7 @@ namespace xBot.App
                 AccountManager.SelectedAccountUsername = acc.Username;
                 Settings.SaveBotSettings();
                 ApplySavedAccountToInputs(acc);
-                Log($"[Hesap] '{acc.Username}' seçildi. Client başlatıldığında otomatik giriş yapılacak.");
+                Log($"[Hesap] '{acc.Username}' seçildi.");
             }
         }
 
@@ -869,7 +874,7 @@ namespace xBot.App
         {
             // Kullanıcı START'a basmadan client açılmaz — komut satırı modunda
             // bile açık onay (Bot açılışında otomatik başlat) gerekir.
-            if (!LoginStrategyManager.AutoStartClient)
+            if (!LoginStrategyManager.AutoStartClient || !LoginStrategyManager.AutomatedLogin)
             {
                 if (automatedLoginTimer != null)
                     automatedLoginTimer.Stop();
@@ -901,7 +906,7 @@ namespace xBot.App
                 automatedLoginTimer.Tick += (s, e) =>
                 {
                     automatedLoginTimer.Stop();
-                    if (Bot.Get.hasAutoLoginMode && (Login_btnStart.Text == "START" || Login_btnStart.Text == "Bağlan" || Login_btnStart.Text == "Connect"))
+                    if (LoginStrategyManager.AutomatedLogin && Bot.Get.hasAutoLoginMode && (Login_btnStart.Text == "START" || Login_btnStart.Text == "Bağlan" || Login_btnStart.Text == "Connect"))
                     {
                         Bot.Get.LoggedFromBot = true;
                         Log("Otomatik komut satırı girişi başlatılıyor...");
@@ -3890,6 +3895,7 @@ namespace xBot.App
                 SetProtectionCheck(cbxGeneralStayConnected, LoginStrategyManager.StayConnected);
                 SetProtectionCheck(cbxGeneralAutoRelogin, LoginStrategyManager.AutoRelogin);
                 SetProtectionCheck(cbxGeneralAutoStartClient, LoginStrategyManager.AutoStartClient);
+                SyncVisibleLoginOptions();
                 if (rbnGeneralFirstFound != null)
                     rbnGeneralFirstFound.Checked = (LoginStrategyManager.Strategy == CharacterSelectionStrategy.FirstFound);
                 if (rbnGeneralHighestLevel != null)

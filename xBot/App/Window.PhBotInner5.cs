@@ -466,11 +466,12 @@ namespace xBot.App
                 PhBotTodoCheck(pageConnect, "PhBot_AllowXTrap", isTR ? "X-Tap'a İzin Ver" : "Allow X-Trap", col2X, cy2, false);
                 cy2 += cStep;
                 PhBotTodoCheck(pageConnect, "PhBot_InstantAccess", isTR ? "Anında erişim" : "Instant access", col2X, cy2, false);
+                BindVisibleLoginOptions(pageConnect);
 
                 // =======================================================
                 // TAB 2: AYARLAR (SETTINGS)
                 // =======================================================
-                int ay = 16;
+                int ay = 92;
                 const int aStep = 26;
 
                 PhBotLabel(pageSettings, "lblCharSel", isTR ? "Karakter seçimi gecikmesi" : "Character select delay", 14, ay + 3);
@@ -519,7 +520,7 @@ namespace xBot.App
                 PhBotLabel(pageSettings, "lblIdleMin", isTR ? "Dk" : "Min", 206, ay + 2);
                 ay += aStep + 16;
 
-                // Silkroad Path (kod uyumluluğu için mevcut kalır, phBot v33.6.3 görselinde yer almaz)
+                // Keep the selected profile and client executable reachable.
                 if (Login_cmbxSilkroad != null)
                 {
                     if (Login_cmbxSilkroad.Parent != pageSettings)
@@ -527,7 +528,7 @@ namespace xBot.App
                         try { Login_cmbxSilkroad.Parent?.Controls.Remove(Login_cmbxSilkroad); } catch { }
                         pageSettings.Controls.Add(Login_cmbxSilkroad);
                     }
-                    Login_cmbxSilkroad.Visible = false;
+                    Login_cmbxSilkroad.Visible = true;
                 }
                 if (Login_btnAddSilkroad != null)
                 {
@@ -536,8 +537,9 @@ namespace xBot.App
                         try { Login_btnAddSilkroad.Parent?.Controls.Remove(Login_btnAddSilkroad); } catch { }
                         pageSettings.Controls.Add(Login_btnAddSilkroad);
                     }
-                    Login_btnAddSilkroad.Visible = false;
+                    Login_btnAddSilkroad.Visible = true;
                 }
+                BuildVisibleClientPath(pageSettings);
 
                 // =======================================================
                 // TAB 3: CREDENTIALS
@@ -669,6 +671,8 @@ namespace xBot.App
                 if (cb == null || cb.SelectedIndex <= 0) return;
                 if (cb.SelectedItem is SavedAccount acc)
                 {
+                    AccountManager.SelectedAccountUsername = acc.Username;
+                    ApplySavedAccountToInputs(acc);
                     if (Login_tbxUsername != null) Login_tbxUsername.Text = acc.Username;
                     if (Login_tbxPassword != null) Login_tbxPassword.Text = acc.Password;
                     if (Login_cmbxServer != null && !string.IsNullOrWhiteSpace(acc.Server))

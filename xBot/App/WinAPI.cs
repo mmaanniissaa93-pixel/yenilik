@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -27,7 +27,10 @@ namespace xBot.App
 		[DllImport("user32.dll")]
 		public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 		public const int SW_HIDE = 0;
+		public const int SW_SHOWNORMAL = 1;
+		public const int SW_SHOWMAXIMIZED = 3;
 		public const int SW_SHOW = 5;
+		public const int SW_RESTORE = 9;
 		[DllImport("psapi.dll")]
 		public static extern bool EmptyWorkingSet(IntPtr hProcess);
 		[DllImport("user32.dll")]

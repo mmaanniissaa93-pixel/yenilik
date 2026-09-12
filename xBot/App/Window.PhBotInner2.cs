@@ -664,13 +664,13 @@ namespace xBot.App
                     Training_lstvAreas.Visible = true;
                     Classicize(Training_lstvAreas);
 
-                    if (Training_lstvAreas.Tag == null || !(Training_lstvAreas.Tag is ListViewItem))
+                    // Tag stores the active area, not whether editing was initialized.
+                    Training_lstvAreas.LabelEdit = false;
+                    Training_lstvAreas.DoubleClick -= TrainingAreaList_DoubleClick;
+                    Training_lstvAreas.DoubleClick += TrainingAreaList_DoubleClick;
+                    if (Training_lstvAreas.ContextMenuStrip == null || Training_lstvAreas.ContextMenuStrip.Name != "TrainingAreaEditMenu")
                     {
-                        // Ensure context menu & double click once
-                        Training_lstvAreas.DoubleClick -= TrainingAreaList_DoubleClick;
-                        Training_lstvAreas.DoubleClick += TrainingAreaList_DoubleClick;
-
-                        var cm = new ContextMenuStrip();
+                        var cm = new ContextMenuStrip { Name = "TrainingAreaEditMenu" };
                         var mEdit = new ToolStripMenuItem(isTR ? "Düzenle..." : "Edit...");
                         mEdit.Click += (s, e) => TrainingAreaList_DoubleClick(s, e);
 
@@ -764,16 +764,18 @@ namespace xBot.App
                         if (dlg.ShowDialog(this) == DialogResult.OK)
                         {
                             sel.Text = info.Name;
+                            sel.Name = info.Name;
                             while (sel.SubItems.Count < 5) sel.SubItems.Add("");
                             sel.SubItems[1].Text = System.IO.Path.GetFileName(info.ScriptPath);
                             sel.SubItems[2].Text = info.Radius.ToString();
                             sel.SubItems[3].Text = info.PickRadius.ToString();
                             sel.SubItems[4].Text = info.Type;
+                            Settings.SaveCharacterSettings();
                         }
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) { Log("Kasılma alanı düzenlenemedi: " + ex.Message); }
         }
 
         // ---------------------------------------------------------------

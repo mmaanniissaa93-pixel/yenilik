@@ -52,6 +52,7 @@ namespace xBot.App
 				InitializeValues();
 				try { ApplyPhBotClassicTheme(); } catch { }
 				try { ApplyPickFilterLightTheme(); } catch { }
+				InitializeDesktopBehavior();
 			}
 			catch
 			{
@@ -151,9 +152,12 @@ namespace xBot.App
 		private void LoadCommandLine()
 		{
 			string[] args = Environment.GetCommandLineArgs();
+			bool commandLineLoginRequested = false;
 			for (int i = 0; i < args.Length; i++)
 			{
 				string cmd = args[i].ToLower();
+				if (cmd.StartsWith("-silkroad=") || cmd.StartsWith("-username=") || cmd.StartsWith("-password="))
+					commandLineLoginRequested = true;
 				// Check data
 				if (cmd.StartsWith("-silkroad="))
 				{
@@ -203,7 +207,8 @@ namespace xBot.App
 				}
 			}
 			// Check if minimum neccesary is correct to start auto login
-			if (Login_cmbxSilkroad.Text != ""
+			Bot.Get.hasAutoLoginMode = false;
+			if (commandLineLoginRequested && LoginStrategyManager.AutomatedLogin && Login_cmbxSilkroad.Text != ""
 				&& Login_tbxUsername.Text != ""
 				&& Login_tbxPassword.Text != "" && Login_cmbxServer.Tag != null)
 			{
@@ -2393,13 +2398,7 @@ namespace xBot.App
 				string clientPath = silkroad.SubItems.Count > 7 ? (string)silkroad.SubItems[7].Tag : null;
 				if (string.IsNullOrWhiteSpace(clientPath) || !File.Exists(clientPath))
 				{
-					MessageBox.Show(this,
-						isTR ? "SRO_Client.exe yolu tanımlı değil veya dosya bulunamadı!\nLütfen Ayarlar > Silkroad bölümünden sro_client.exe dosyasını seçin."
-						     : "SRO_Client.exe path is not configured or file was not found!\nPlease select sro_client.exe in Settings.",
-						"xBot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-					TabPageV_Option_Click(TabPageV_Control01_Settings, null);
-					TabPageH_Option_Click(TabPageH_Settings_Option01, null);
-					return;
+					if (!ChooseClientPath(silkroad)) return;
 				}
 
 				// 5. Ensure Client.Library.dll exists for hooking
@@ -2452,7 +2451,7 @@ namespace xBot.App
 			switch (c.Name)
 			{
 				case "btnWinMinimize":
-					this.WindowState = FormWindowState.Minimized;
+					MinimizeToTray();
 					break;
 				case "btnWinRestore":
 					if (this.WindowState != FormWindowState.Normal)
@@ -2501,12 +2500,9 @@ namespace xBot.App
 							// SR_Client Path check
 							if (!Login_rbnClientless.Checked)
 							{
-								if ((string)silkroad.SubItems[7].Tag == "")
+								if (silkroad.SubItems.Count <= 7 || !File.Exists(silkroad.SubItems[7].Tag as string))
 								{
-									MessageBox.Show(this, "You need to select the SRO_Client path first.", "xBot", MessageBoxButtons.OK);
-									TabPageV_Option_Click(TabPageV_Control01_Settings, null);
-									TabPageH_Option_Click(TabPageH_Settings_Option01, null);
-									return;
+									if (!ChooseClientPath(silkroad)) return;
 								}
 								DataManager.ClientPath = (string)silkroad.SubItems[7].Tag;
 							}
@@ -2530,14 +2526,9 @@ namespace xBot.App
 
 							// Extended protocol Setup
 							Bot b = Bot.Get;
-							if (LoginStrategyManager.AutomatedLogin
+							b.LoggedFromBot = LoginStrategyManager.AutomatedLogin
 								&& !string.IsNullOrWhiteSpace(Login_tbxUsername.Text)
-								&& !string.IsNullOrWhiteSpace(Login_tbxPassword.Text))
-							{
-								// Lets the proxy authenticate the game client with the
-								// credentials entered in this window in both modes.
-								b.LoggedFromBot = true;
-							}
+								&& !string.IsNullOrWhiteSpace(Login_tbxPassword.Text);
 							b.SetExtendedProtocol();
 
 							// Creating Proxy
@@ -3144,24 +3135,8 @@ namespace xBot.App
 					}
 					break;
 				case "Settings_btnClientPath":
-					if (Settings_lstvSilkroads.SelectedItems.Count == 1)
-					{
-						using (OpenFileDialog fileDialog = new OpenFileDialog())
-						{
-							fileDialog.Multiselect = false;
-							fileDialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyComputer);
-							fileDialog.ValidateNames = true;
-							fileDialog.Title = "Select your SRO_Client.exe";
-							fileDialog.FileName = "SRO_Client.exe";
-							fileDialog.Filter = "SRO_Client.exe (sro_client.exe)|sro_client.exe|SRO_Client.exe (*.exe)|*.exe";
-							fileDialog.FilterIndex = 0;
-							if (fileDialog.ShowDialog() == DialogResult.OK)
-							{
-								Settings_lstvSilkroads.SelectedItems[0].SubItems[7].Tag = fileDialog.FileName;
-								Settings.SaveBotSettings();
-							}
-						}
-					}
+					ChooseClientPath(Settings_lstvSilkroads.SelectedItems.Count == 1
+						? Settings_lstvSilkroads.SelectedItems[0] : GetLoginProfile());
 					break;
 				case "Settings_btnAddOpcode":
 					if (Settings_tbxFilterOpcode.Text != "")
@@ -3261,6 +3236,9 @@ namespace xBot.App
 					if (l.SelectedItems.Count == 1)
 					{
 						ListViewItem area = l.SelectedItems[0];
+						// Modern rows keep coordinates/radii in their model, with only five columns.
+						if (area.Tag is TrainingAreaInfo)
+							break;
 
 						Training_tbxRegion.Text = area.SubItems[1].Tag.ToString();
 						Training_tbxX.Text = area.SubItems[2].Tag.ToString();
@@ -3686,20 +3664,10 @@ namespace xBot.App
 						MessageBox.Show(this,"Hey, You have the most recent version!", "xBot - Updates", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
 					break;
 				case "Menu_NotifyIcon_HideShow":
-					if (this.Visible)
-					{
-						this.Visible = false;
-						t.Text = "Show";
-					}
+					if (_isInTray || !Visible || WindowState == FormWindowState.Minimized)
+						RestoreFromTray();
 					else
-					{
-						this.Visible = true;
-						t.Text = "Hide";
-						// Quick window fix
-						if (this.WindowState == FormWindowState.Minimized)
-							this.WindowState = FormWindowState.Normal;
-						this.Activate();
-					}
+						MinimizeToTray();
 					break;
 				case "Menu_btnClientOptions_ShowHide":
 					if (InfoManager.inGame)
@@ -4274,7 +4242,21 @@ namespace xBot.App
 		}
 		private void NotifyIcon_MouseDoubleClick(object sender, MouseEventArgs e)
 		{
-			this.Menu_Click(this.Menu_NotifyIcon_HideShow, e);
+			if (e.Button == MouseButtons.Left)
+			{
+				if (_isInTray || !Visible || WindowState == FormWindowState.Minimized)
+				{
+					RestoreFromTray();
+				}
+				else
+				{
+					int showCmd = (WindowState == FormWindowState.Maximized) ? WinAPI.SW_SHOWMAXIMIZED : WinAPI.SW_RESTORE;
+					WinAPI.ShowWindow(Handle, showCmd);
+					WinAPI.SetForegroundWindow(Handle);
+					BringToFront();
+					Activate();
+				}
+			}
 		}
 		private void Control_KeyDown(object sender, KeyEventArgs e)
 		{

@@ -144,6 +144,7 @@
     <Compile Include="App\TeleportLinkPolicy.cs" />
     <Compile Include="App\ReturnToAreaPolicy.cs" />
     <Compile Include="App\CollisionPolicy.cs" />
+    <Compile Include="App\LocalObstacleNavigator.cs" />
     <Compile Include="App\TrainingOptionsPolicy.cs" />
     <Compile Include="App\SkillManager.cs" />
     <Compile Include="App\SkillPolicy.cs" />
@@ -302,6 +303,7 @@
     <Compile Include="App\Window.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="App\Window.LoginBehavior.cs" />
     <Compile Include="App\Window.Designer.cs">
       <DependentUpon>Window.cs</DependentUpon>
     </Compile>

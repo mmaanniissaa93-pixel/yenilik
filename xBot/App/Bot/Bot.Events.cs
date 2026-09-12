@@ -12,7 +12,7 @@ using xBot.Game.Objects.Item;
 using xBot.Game.Objects.Party;
 using xBot.Network;
 using xBot.App.Theme;
-
+        
 namespace xBot.App
 {
 	public partial class Bot
@@ -55,6 +55,8 @@ namespace xBot.App
 		public void OnCharacterListing(List<SRCharSelection> CharacterList)
 		{
 			Window w = Window.Get;
+			// The visible auto-login switch is authoritative, including saved/CLI accounts.
+			if (!LoginStrategyManager.AutomatedLogin || Proxy == null) return;
 			// Reset value
 			CreatingCharacterName = "";
 			// Delete characters that are not being deleted
@@ -76,9 +78,7 @@ namespace xBot.App
 			// Select character based on the requested target, then the configured
 			// strategy. When automated login is enabled, the proxy has already
 			// authenticated the client, so this is safe in both connection modes.
-			bool shouldAutoSelect = Proxy != null
-				&& (hasAutoLoginMode || LoginStrategyManager.AutomatedLogin
-					|| (Proxy.ClientlessMode && w.Settings_cbxSelectFirstChar.Checked));
+			bool shouldAutoSelect = LoginStrategyManager.AutomatedLogin;
 			if (shouldAutoSelect)
 			{
 				SRCharSelection character = null;
@@ -110,6 +110,7 @@ namespace xBot.App
 
 					w.Log("Selecting [" + character.Name + "] (Lvl " + character.Level + ") ...");
 					w.InvokeIfRequired(() => {
+						if (!LoginStrategyManager.AutomatedLogin) return;
 						w.Login_cmbxCharacter.Text = character.Name;
 						// Packet handlers run before the proxy relays B007 to the
 						// game client. In Client mode, wait for that relay so the

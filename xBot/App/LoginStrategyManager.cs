@@ -14,12 +14,15 @@ namespace xBot.App
 
     public static class LoginStrategyManager
     {
-        public static bool AutomatedLogin { get; set; } = true;
+        public static bool AutomatedLogin { get; set; } = false;
         public static bool StaticCaptcha { get; set; } = false;
         public static string StaticCaptchaCode { get; set; } = "";
         public static int LoginDelaySeconds { get; set; } = 5;
         public static int WaitAfterDCMinutes { get; set; } = 2;
         public static bool AutoStartBot { get; set; } = false;
+        public static bool UseClient { get; set; } = true;
+        public static bool ReturnToTownOnLogin { get; set; } = false;
+        public static bool HideLoginInfo { get; set; } = false;
         /// <summary>
         /// DC sonrası client otomatik yeniden açılsın mı? Kapalıysa kullanıcı
         /// START'a basmadan client açılmaz (varsayılan: kapalı).
@@ -66,6 +69,9 @@ namespace xBot.App
             json["LoginDelaySeconds"] = LoginDelaySeconds;
             json["WaitAfterDCMinutes"] = WaitAfterDCMinutes;
             json["AutoStartBot"] = AutoStartBot;
+            json["UseClient"] = UseClient;
+            json["ReturnToTownOnLogin"] = ReturnToTownOnLogin;
+            json["HideLoginInfo"] = HideLoginInfo;
             json["AutoRelogin"] = AutoRelogin;
             json["AutoStartClient"] = AutoStartClient;
             json["AutoHideClient"] = AutoHideClient;
@@ -87,6 +93,9 @@ namespace xBot.App
             if (json.ContainsKey("LoginDelaySeconds")) LoginDelaySeconds = (int)json["LoginDelaySeconds"];
             if (json.ContainsKey("WaitAfterDCMinutes")) WaitAfterDCMinutes = (int)json["WaitAfterDCMinutes"];
             if (json.ContainsKey("AutoStartBot")) AutoStartBot = (bool)json["AutoStartBot"];
+            if (json.ContainsKey("UseClient")) UseClient = (bool)json["UseClient"];
+            if (json.ContainsKey("ReturnToTownOnLogin")) ReturnToTownOnLogin = (bool)json["ReturnToTownOnLogin"];
+            if (json.ContainsKey("HideLoginInfo")) HideLoginInfo = (bool)json["HideLoginInfo"];
             if (json.ContainsKey("AutoRelogin")) AutoRelogin = (bool)json["AutoRelogin"];
             // else: varsayılan kapalı kalır — DC sonrası oto açılış için açık onay gerekir.
             if (json.ContainsKey("AutoStartClient")) AutoStartClient = (bool)json["AutoStartClient"];

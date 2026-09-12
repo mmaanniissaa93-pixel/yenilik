@@ -34,7 +34,7 @@ namespace xBot.App
             this.MaximizeBox = false;
             this.MinimizeBox = false;
             this.StartPosition = FormStartPosition.CenterParent;
-            this.ClientSize = new Size(340, 230);
+            this.ClientSize = new Size(340, 250);
             this.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
             this.BackColor = Color.FromArgb(245, 245, 245);
 
@@ -45,12 +45,12 @@ namespace xBot.App
             y += 32;
 
             var lblRadius = new Label { Text = "Menzil (Radius):", Location = new Point(16, y + 2), AutoSize = true };
-            numRadius = new NumericUpDown { Minimum = 5, Maximum = 1000, Value = AreaInfo.Radius > 0 ? AreaInfo.Radius : 50, Location = new Point(130, y), Size = new Size(185, 23) };
+            numRadius = new NumericUpDown { Minimum = 1, Maximum = Math.Max(1000, AreaInfo.Radius), Value = Math.Max(1, AreaInfo.Radius), Location = new Point(130, y), Size = new Size(185, 23) };
             this.Controls.AddRange(new Control[] { lblRadius, numRadius });
             y += 32;
 
             var lblPickRadius = new Label { Text = "Toplama Menzili:", Location = new Point(16, y + 2), AutoSize = true };
-            numPickRadius = new NumericUpDown { Minimum = 5, Maximum = 1000, Value = AreaInfo.PickRadius > 0 ? AreaInfo.PickRadius : 50, Location = new Point(130, y), Size = new Size(185, 23) };
+            numPickRadius = new NumericUpDown { Minimum = 1, Maximum = Math.Max(1000, AreaInfo.PickRadius), Value = Math.Max(1, AreaInfo.PickRadius), Location = new Point(130, y), Size = new Size(185, 23) };
             this.Controls.AddRange(new Control[] { lblPickRadius, numPickRadius });
             y += 32;
 

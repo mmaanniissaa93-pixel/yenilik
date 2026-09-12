@@ -111,12 +111,12 @@ namespace xBot.Game
 
 			// Automated login: select the requested server when supplied,
 			// otherwise use the first available server and continue to LOGIN.
-		bool shouldAutoLogin = Bot.Get.Proxy != null
-				&& (Bot.Get.hasAutoLoginMode || LoginStrategyManager.AutomatedLogin);
+		bool shouldAutoLogin = Bot.Get.Proxy != null && LoginStrategyManager.AutomatedLogin;
 		if (shouldAutoLogin)
 		{
 				WinAPI.InvokeIfRequired(w, () =>
 				{
+					if (!LoginStrategyManager.AutomatedLogin) return;
 					if (w.Login_cmbxServer.Items.Count == 0)
 						return;
 
