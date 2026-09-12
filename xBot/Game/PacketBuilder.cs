@@ -440,7 +440,7 @@ namespace xBot.Game
 			}
 			if (changed)
 			{
-				Window.Get?.Log($"[Item] Ogrenildi: itemId={itemId} usage=0x{usage:X4} (kalici)");
+				System.Diagnostics.Debug.WriteLine($"[Item] Ogrenildi: itemId={itemId} usage=0x{usage:X4} (kalici)");
 				SaveLearnedUsage();
 				if (s_learnedSavePending)
 				{
@@ -468,7 +468,7 @@ namespace xBot.Game
 			}
 			if (removed)
 			{
-				Window.Get?.Log($"[Item] Yanlış öğrenme silindi: itemId={itemId} (parity ile alternatif denenecek)");
+				System.Diagnostics.Debug.WriteLine($"[Item] Yanlış öğrenme silindi: itemId={itemId} (parity ile alternatif denenecek)");
 				SaveLearnedUsage();
 			}
 		}
@@ -549,7 +549,7 @@ namespace xBot.Game
 							s_learnedUsage[id] = (ushort)usage;
 					}
 					if (s_learnedUsage.Count > 0)
-						Window.Get?.Log($"[Item] Ogrenilmis usage bilgisi yuklendi ({s_learnedUsage.Count} kayit).");
+						System.Diagnostics.Debug.WriteLine($"[Item] Ogrenilmis usage bilgisi yuklendi ({s_learnedUsage.Count} kayit).");
 				}
 				catch (Exception ex)
 				{
@@ -623,7 +623,7 @@ namespace xBot.Game
 					s_lastSentItemId = cur.ID;
 					s_lastSentUsage = usage;
 				}
-				Window.Get?.Log($"[Item] Kullanildi: [{cur.Name}] slot={slot} adet={cur.Quantity} ({Packet.ToStringHexadecimal(p.GetBytes())})" + (uniqueID != 0 ? " hedef=" + uniqueID : ""));
+				System.Diagnostics.Debug.WriteLine($"[Item] Kullanildi: [{cur.Name}] slot={slot} adet={cur.Quantity} ({Packet.ToStringHexadecimal(p.GetBytes())})" + (uniqueID != 0 ? " hedef=" + uniqueID : ""));
 				return true;
 			}
 			catch (Exception ex)

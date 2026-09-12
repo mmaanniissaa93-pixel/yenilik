@@ -1272,7 +1272,7 @@ namespace xBot.Game
 						ushort stp = packet.ReadUShort();
 						if (InfoManager.Character != null)
 							InfoManager.Character.StatPoints = stp;
-						w?.Log($"[Stat] {stp} stat puanı mevcut.", LogLevel.Info);
+						System.Diagnostics.Debug.WriteLine($"[Stat] {stp} stat puanı mevcut.");
 						try { StatPointManager.CheckAndDistribute(); } catch { }
 					}
 					break;
@@ -1281,13 +1281,13 @@ namespace xBot.Game
 						InfoManager.Character.BerserkPoints = packet.ReadByte();
 						if (packet.RemainingRead() >= 4) packet.ReadUInt(); // SourceGID (particles)
 						if (InfoManager.Character.BerserkPoints >= 5)
-							w?.Log("[Berserk] Bar doldu (5/5) — zerk hazır.", LogLevel.Info);
+							System.Diagnostics.Debug.WriteLine("[Berserk] Bar doldu (5/5) — zerk hazır.");
 					}
 					break;
 				case 16: // EGYPT_AP
 					{
 						uint ap = packet.ReadUInt();
-						w?.Log($"[AP] Egypt AP: {ap}", LogLevel.Info);
+						System.Diagnostics.Debug.WriteLine($"[AP] Egypt AP: {ap}");
 					}
 					break;
 				default:
@@ -3307,7 +3307,7 @@ namespace xBot.Game
 					catch { }
 					if (errorCode == 0x185B)
 					{
-						Window.Get?.Log($"[Item] 0xB04C: Sunucu bekleme süresi aktif (Cooldown: 0x185B).{forensic}", xBot.App.Theme.LogLevel.Info);
+						System.Diagnostics.Debug.WriteLine($"[Item] 0xB04C: Sunucu bekleme süresi aktif (Cooldown: 0x185B).{forensic}");
 					}
 					else
 					{

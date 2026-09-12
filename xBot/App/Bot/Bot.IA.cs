@@ -1765,7 +1765,7 @@ namespace xBot.App
             if (shouldActivate)
             {
                 s_lastBerserkAttemptUtc = DateTime.UtcNow;
-                Window.Get?.Log("Combat AI: Berserker trigger! Activating Berserk mode!");
+                System.Diagnostics.Debug.WriteLine("Combat AI: Berserker trigger! Activating Berserk mode!");
                 PacketBuilder.ActivateBerserk();
                 Thread.Sleep(400);
             }
@@ -1793,7 +1793,7 @@ namespace xBot.App
                         name.IndexOf("Berserker regeneration", StringComparison.OrdinalIgnoreCase) >= 0 ||
                         name.IndexOf("Zerk", StringComparison.OrdinalIgnoreCase) >= 0)
                     {
-                        Window.Get?.Log($"Berserker: Zerk potu kullanılıyor [{it.Name}]...");
+                        System.Diagnostics.Debug.WriteLine($"Berserker: Zerk potu kullanılıyor [{it.Name}]...");
                         return PacketBuilder.UseItem(it, s);
                     }
                 }
@@ -1822,7 +1822,7 @@ namespace xBot.App
                     if (sn.IndexOf("ENERGY_OF_LIFE", StringComparison.OrdinalIgnoreCase) >= 0 ||
                         name.IndexOf("Energy of Life", StringComparison.OrdinalIgnoreCase) >= 0)
                     {
-                        Window.Get?.Log($"Energy of Life: {(forZerk ? "Zerk doldurmak için" : "HP için")} kullanılıyor [{it.Name}]...");
+                        System.Diagnostics.Debug.WriteLine($"Energy of Life: {(forZerk ? "Zerk doldurmak için" : "HP için")} kullanılıyor [{it.Name}]...");
                         return PacketBuilder.UseItem(it, s);
                     }
                 }
@@ -1896,7 +1896,7 @@ namespace xBot.App
             if (otherSummonSlot > 0)
             {
                 var it = chr.Inventory[otherSummonSlot];
-                Window.Get?.Log($"Kasılma Alanı: Canavar çağırma scroll'u kullanılıyor [{it.Name}]...");
+                System.Diagnostics.Debug.WriteLine($"Kasılma Alanı: Canavar çağırma scroll'u kullanılıyor [{it.Name}]...");
                 PacketBuilder.UseItem(it, otherSummonSlot);
                 Thread.Sleep(500);
                 return;
@@ -1908,7 +1908,7 @@ namespace xBot.App
                     return;
 
                 var it = chr.Inventory[pandoraSlot];
-                Window.Get?.Log($"Kasılma Alanı: Pandora's Box açılıyor [{it.Name}] (Kalan: {pandoraCount})...");
+                System.Diagnostics.Debug.WriteLine($"Kasılma Alanı: Pandora's Box açılıyor [{it.Name}] (Kalan: {pandoraCount})...");
                 PacketBuilder.UseItem(it, pandoraSlot);
                 Thread.Sleep(500);
             }
@@ -1955,7 +1955,7 @@ namespace xBot.App
                     name.IndexOf("Flower", StringComparison.OrdinalIgnoreCase) >= 0 ||
                     name.IndexOf("Çiçek", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
-                    Window.Get?.Log($"Kasılma Alanı: Çiçek kullanılıyor [{it.Name}]...");
+                    System.Diagnostics.Debug.WriteLine($"Kasılma Alanı: Çiçek kullanılıyor [{it.Name}]...");
                     PacketBuilder.UseItem(it, s);
                     Thread.Sleep(500);
                     return;
@@ -1988,7 +1988,7 @@ namespace xBot.App
                     name.IndexOf("Treasure", StringComparison.OrdinalIgnoreCase) >= 0 ||
                     name.IndexOf("Hazine", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
-                    Window.Get?.Log($"Kasılma Alanı: Treasure Box kullanılıyor [{it.Name}]...");
+                    System.Diagnostics.Debug.WriteLine($"Kasılma Alanı: Treasure Box kullanılıyor [{it.Name}]...");
                     PacketBuilder.UseItem(it, s);
                     Thread.Sleep(500);
                     return;
@@ -2095,7 +2095,7 @@ namespace xBot.App
 
                 if (isBetter)
                 {
-                    Window.Get?.Log($"Otomatik Kuşanma: Daha iyi eşya bulundu [{eq.Name}] -> Slot {targetSlot}'a kuşanılıyor...");
+                    System.Diagnostics.Debug.WriteLine($"Otomatik Kuşanma: Daha iyi eşya bulundu [{eq.Name}] -> Slot {targetSlot}'a kuşanılıyor...");
                     EquipItem(s);
                     Thread.Sleep(500);
                     return;

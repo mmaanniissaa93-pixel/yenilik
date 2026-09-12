@@ -112,7 +112,7 @@ namespace xBot.App
             }
             if (changed)
             {
-                Window.Get?.Log($"[Item] Ogrenildi: item {itemId} {(usable ? "calisiyor" : "CALISMIYOR (kara liste)")} [{why}]");
+                System.Diagnostics.Debug.WriteLine($"[Item] Ogrenildi: item {itemId} {(usable ? "calisiyor" : "CALISMIYOR (kara liste)")} [{why}]");
                 SaveLearnedItems();
             }
         }
@@ -138,7 +138,7 @@ namespace xBot.App
                             s_learnedUsable[id] = (bool)kv.Value;
                     }
                     if (s_learnedUsable.Count > 0)
-                        Window.Get?.Log($"[Item] Ogrenilmis kullanim bilgisi yuklendi ({s_learnedUsable.Count} kayit).");
+                        System.Diagnostics.Debug.WriteLine($"[Item] Ogrenilmis kullanim bilgisi yuklendi ({s_learnedUsable.Count} kayit).");
                 }
                 catch { }
             }

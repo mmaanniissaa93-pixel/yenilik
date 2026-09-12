@@ -371,7 +371,7 @@ namespace xBot.Network
 								byte useSlot = rawUse[0];
 								ushort useUsage = (ushort)(rawUse[1] | (rawUse[2] << 8));
 								Bot.Get.NotifyExternalItemUse(useSlot, useUsage);
-								Window.Get?.Log($"[Item] Client kullanimi: slot={useSlot} ({Packet.ToStringHexadecimal(rawUse)}) ({rawUse.Length}B)");
+								System.Diagnostics.Debug.WriteLine($"[Item] Client kullanimi: slot={useSlot} ({Packet.ToStringHexadecimal(rawUse)}) ({rawUse.Length}B)");
 							}
 						}
 						catch { }

@@ -288,19 +288,28 @@ namespace xBot.App
 		}
 		public void Log(string text)
 		{
-			try
-			{
-				Theme.ModernLogger.Log(rtbxLogs, text);
-			}
-			catch (Exception ex)
-			{
-				System.Diagnostics.Debug.WriteLine("[Window.Log] " + ex.Message);
-			}
+			Log(text, Theme.LogLevel.Info);
 		}
 		public void Log(string text, Theme.LogLevel level)
 		{
 			try
 			{
+				// Bot aktifken (farming/grinding sirasinda) kazanildi harici rutin loglari basma
+				if (Bot.Get != null && Bot.Get.isBotting)
+				{
+					if (!text.Contains("[Kazanıldı]"))
+					{
+						// Sadece kritik durumlar (Hata, Uyari, Kopma, Olum, Bot durdurma vb.) UI loguna gecebilir
+						if (level != Theme.LogLevel.Error && level != Theme.LogLevel.Warning &&
+						    !text.Contains("Disconnect") && !text.Contains("Bağlantı") && !text.Contains("Kopma") &&
+						    !text.Contains("Dead") && !text.Contains("Stopping bot") && !text.Contains("Starting bot"))
+						{
+							Theme.ModernLogger.LogToFile($"[{DateTime.Now:HH:mm:ss}] [SILENCED] {text}");
+							return;
+						}
+					}
+				}
+
 				Theme.ModernLogger.Log(rtbxLogs, text, level);
 			}
 			catch (Exception ex)
