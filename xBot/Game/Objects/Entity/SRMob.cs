@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -10,10 +10,26 @@ namespace xBot.Game.Objects.Entity
 	{
 		public Mob MobType { get; set; }
 		public byte Appearence { get; internal set; }
+		public byte Level { get; set; }
 
-		public SRMob(uint ID) : base(ID) { }
-		public SRMob(string ServerName) : base(ServerName) { }
-		public SRMob(SRNpc value) : base(value) { }
+		public SRMob(uint ID) : base(ID)
+		{
+			byte lvl;
+			if (m_data != null && byte.TryParse(m_data["level"], out lvl))
+				Level = lvl;
+		}
+		public SRMob(string ServerName) : base(ServerName)
+		{
+			byte lvl;
+			if (m_data != null && byte.TryParse(m_data["level"], out lvl))
+				Level = lvl;
+		}
+		public SRMob(SRNpc value) : base(value)
+		{
+			byte lvl;
+			if (m_data != null && byte.TryParse(m_data["level"], out lvl))
+				Level = lvl;
+		}
 
 
 		public enum Mob : byte

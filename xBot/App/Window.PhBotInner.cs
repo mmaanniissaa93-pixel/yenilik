@@ -185,6 +185,77 @@ namespace xBot.App
             return t;
         }
 
+        private static CheckBox BindAttackCheck(Control p, string name, string text, int x, int y, bool currentVal, Action<bool> onValChanged)
+        {
+            if (p == null) return null;
+            CheckBox c = null;
+            try
+            {
+                if (p.Controls.ContainsKey(name))
+                    c = p.Controls[name] as CheckBox;
+            }
+            catch { }
+            if (c == null)
+            {
+                c = new CheckBox();
+                c.Name = name;
+                c.Font = PhBotFont();
+                c.ForeColor = Color.Black;
+                c.AutoSize = true;
+                c.Checked = currentVal;
+                if (onValChanged != null)
+                {
+                    c.CheckedChanged += (s, e) => onValChanged(c.Checked);
+                }
+                try { p.Controls.Add(c); } catch { }
+            }
+            try
+            {
+                c.Text = text;
+                c.Location = new Point(x, y);
+                c.Visible = true;
+            }
+            catch { }
+            return c;
+        }
+
+        private static TextBox BindAttackText(Control p, string name, int x, int y, int w, string currentVal, Action<string> onValChanged)
+        {
+            if (p == null) return null;
+            TextBox t = null;
+            try
+            {
+                if (p.Controls.ContainsKey(name))
+                    t = p.Controls[name] as TextBox;
+            }
+            catch { }
+            if (t == null)
+            {
+                t = new TextBox();
+                t.Name = name;
+                t.Font = PhBotFont();
+                t.BackColor = Color.White;
+                t.ForeColor = Color.Black;
+                t.BorderStyle = BorderStyle.FixedSingle;
+                t.TextAlign = HorizontalAlignment.Left;
+                t.Text = currentVal ?? "";
+                if (onValChanged != null)
+                {
+                    t.TextChanged += (s, e) => onValChanged(t.Text);
+                }
+                try { p.Controls.Add(t); } catch { }
+            }
+            try
+            {
+                t.Location = new Point(x, y);
+                t.Size = new Size(w, 24);
+                t.Visible = true;
+            }
+            catch { }
+            return t;
+        }
+
+
         private static Label PhBotLabel(Control p, string name, string text, int x, int y)
         {
             if (p == null) return null;
@@ -324,12 +395,13 @@ namespace xBot.App
                 try { p.AutoScroll = false; } catch { }
 
                 // Sağ seçenek sütunu (phBot attack.png 7..18 sırası).
+                bool isTR = LocalizationManager.CurrentLanguage == "TR";
                 int y = 8;
                 try
                 {
                     if (Skills_cbxCastInOrder != null)
                     {
-                        Skills_cbxCastInOrder.Text = "Cast skills in order";
+                        Skills_cbxCastInOrder.Text = isTR ? "Sırayla beceri kullan" : "Cast skills in order";
                         Classicize(Skills_cbxCastInOrder);
                         Skills_cbxCastInOrder.AutoSize = true;
                         Skills_cbxCastInOrder.Location = new Point(ox, y);
@@ -338,12 +410,15 @@ namespace xBot.App
                 }
                 catch { }
                 y += 21;
-                PhBotTodoCheck(p, "PhBot_KillSteal", "Kill steal monsters", ox, y, true); y += 21;
+
+                BindAttackCheck(p, "PhBot_KillSteal", isTR ? "Canavarlara ks at" : "Kill steal monsters", ox, y, CombatAIEngine.KillSteal, v => CombatAIEngine.KillSteal = v);
+                y += 21;
+
                 try
                 {
                     if (cbxSkillNoAttack != null)
                     {
-                        cbxSkillNoAttack.Text = "Don't attack monsters";
+                        cbxSkillNoAttack.Text = isTR ? "Canavarlara saldırma" : "Don't attack monsters";
                         Classicize(cbxSkillNoAttack);
                         cbxSkillNoAttack.AutoSize = true;
                         cbxSkillNoAttack.Location = new Point(ox, y);
@@ -352,28 +427,37 @@ namespace xBot.App
                 }
                 catch { }
                 y += 21;
-                PhBotTodoCheck(p, "PhBot_ProtectParty", "Protect party members", ox, y, false);
-                PhBotTodoNumber(p, "PhBot_ProtectName", ox + 150, y - 2, 85, ""); y += 21;
-                PhBotTodoCheck(p, "PhBot_AttackLower", "Attack lower monsters first", ox, y, true); y += 21;
-                PhBotTodoCheck(p, "PhBot_SwitchDot", "Switch monster after DOT", ox, y, false);
-                PhBotTodoNumber(p, "PhBot_SwitchDotN", ox + 175, y - 2, 35, "0"); y += 21;
 
-                CheckBox cbLower = PhBotTodoCheck(p, "PhBot_LowerSkills", "Use lower skills if skills for a specific monster type do not exist", ox, y, true);
+                BindAttackCheck(p, "PhBot_ProtectParty", isTR ? "Parti üyelerini koru" : "Protect party members", ox, y, CombatAIEngine.ProtectParty, v => CombatAIEngine.ProtectParty = v);
+                BindAttackText(p, "PhBot_ProtectName", ox + 150, y - 2, 85, CombatAIEngine.ProtectPartyTarget, v => CombatAIEngine.ProtectPartyTarget = v);
+                y += 21;
+
+                BindAttackCheck(p, "PhBot_AttackLower", isTR ? "Önce düşük seviyeli canavarlara saldır" : "Attack lower monsters first", ox, y, CombatAIEngine.AttackLowerFirst, v => CombatAIEngine.AttackLowerFirst = v);
+                y += 21;
+
+                BindAttackCheck(p, "PhBot_SwitchDot", isTR ? "DOT tan sonra canavar değiştir" : "Switch monster after DOT", ox, y, CombatAIEngine.SwitchMonsterAfterDot, v => CombatAIEngine.SwitchMonsterAfterDot = v);
+                BindAttackText(p, "PhBot_SwitchDotN", ox + 185, y - 2, 35, CombatAIEngine.SwitchMonsterDotDelay.ToString(), v => { if (int.TryParse(v, out int d)) CombatAIEngine.SwitchMonsterDotDelay = d; });
+                y += 21;
+
+                CheckBox cbLower = BindAttackCheck(p, "PhBot_LowerSkills", isTR ? "Belirli bir canavar tipi için beceri yoksa daha düşük becerileri kullan" : "Use lower skills if skills for a specific monster type do not exist", ox, y, CombatAIEngine.UseLowerSkills, v => CombatAIEngine.UseLowerSkills = v);
                 if (cbLower != null) { cbLower.AutoSize = false; cbLower.Size = new Size(240, 28); }
                 y += 30;
 
-                PhBotTodoCheck(p, "PhBot_SlowerAttack", "Slower attack mode", ox, y, false); y += 21;
-                PhBotTodoCheck(p, "PhBot_Lagtastic", "Lagtastic", ox, y, false); y += 21;
+                BindAttackCheck(p, "PhBot_SlowerAttack", isTR ? "Yavaş saldırı modu" : "Slower attack mode", ox, y, CombatAIEngine.SlowerAttackMode, v => CombatAIEngine.SlowerAttackMode = v);
+                y += 21;
 
-                CheckBox cbUniq = PhBotTodoCheck(p, "PhBot_AutoUnique", "Auto select nearby uniques (must not be botting)", ox, y, false);
+                BindAttackCheck(p, "PhBot_Lagtastic", "Lagtastic", ox, y, CombatAIEngine.Lagtastic, v => CombatAIEngine.Lagtastic = v);
+                y += 21;
+
+                CheckBox cbUniq = BindAttackCheck(p, "PhBot_AutoUnique", isTR ? "Yakındaki benzersizleri otomatik seç (bot kapalı olmalı)" : "Auto select nearby uniques (must not be botting)", ox, y, CombatAIEngine.AutoSelectUniques, v => CombatAIEngine.AutoSelectUniques = v);
                 if (cbUniq != null) { cbUniq.AutoSize = false; cbUniq.Size = new Size(240, 28); }
                 y += 30;
 
-                CheckBox cbTitan = PhBotTodoCheck(p, "PhBot_AutoTitan", "Auto select nearby titans (must not be botting)", ox, y, false);
+                CheckBox cbTitan = BindAttackCheck(p, "PhBot_AutoTitan", isTR ? "Yakındaki titanları otomatik seç (bot kapalı olmalı)" : "Auto select nearby titans (must not be botting)", ox, y, CombatAIEngine.AutoSelectTitans, v => CombatAIEngine.AutoSelectTitans = v);
                 if (cbTitan != null) { cbTitan.AutoSize = false; cbTitan.Size = new Size(240, 28); }
                 y += 30;
 
-                PhBotTodoCheck(p, "PhBot_TeleportSkill", "Use teleport skills", ox, y, false);
+                BindAttackCheck(p, "PhBot_TeleportSkill", isTR ? "Işınlanma becerilerini kullan" : "Use teleport skills", ox, y, CombatAIEngine.UseTeleportSkills, v => CombatAIEngine.UseTeleportSkills = v);
 
                 // Alt: Imbue.
                 try

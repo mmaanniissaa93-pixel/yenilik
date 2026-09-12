@@ -165,6 +165,8 @@
     <Compile Include="App\TownNpcActionPolicy.cs" />
     <Compile Include="App\PartyPolicy.cs" />
     <Compile Include="App\PartySupportManager.cs" />
+    <Compile Include="App\ResurrectPolicy.cs" />
+    <Compile Include="App\LurePolicy.cs" />
     <Compile Include="App\SecondaryPasscodePolicy.cs" />
     <Compile Include="App\Socks5Policy.cs" />
     <Compile Include="App\AlchemyPolicy.cs" />
@@ -187,6 +189,7 @@
     <Compile Include="App\Window.PhBotInner3.cs" />
     <Compile Include="App\Window.PhBotInner4.cs" />
     <Compile Include="App\Window.PhBotInner5.cs" />
+    <Compile Include="App\Window.PhBotAttackTabs.cs" />
     <Compile Include="App\TrainingAreaInfo.cs" />
     <Compile Include="App\TrainingAreaEditForm.cs">
       <SubType>Form</SubType>

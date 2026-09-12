@@ -38,6 +38,11 @@ namespace xBot.App
         // In-memory Rules Map (O(1) lookup by item ServerName or Name) - thread-safe
         private static readonly ConcurrentDictionary<string, ItemFilterRule> Rules = new ConcurrentDictionary<string, ItemFilterRule>(StringComparer.OrdinalIgnoreCase);
 
+        static ItemFilterManager()
+        {
+            ItemFilterPolicy.GetBluesProvider = () => GetBlues();
+        }
+
         public static void SetRule(string itemName, bool pickup, bool sell, bool store)
         {
             SetRuleFull(itemName, pickup, false, sell, store, false);

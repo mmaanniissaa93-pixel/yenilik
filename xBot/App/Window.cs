@@ -490,6 +490,7 @@ namespace xBot.App
 				catch { }
 				finally { try { Skills_lstvSkills.EndUpdate(); } catch { } }
 			});
+			try { RefreshSkillsTabControls(); } catch { }
 		}
 		/// <summary>
 		/// Add an skill (learned) to the skill list. Pasif (kullanilamayan) skill'ler
@@ -1618,108 +1619,76 @@ namespace xBot.App
 				}
 			});
 		}
+		private readonly object m_AttackSkillsCacheLock = new object();
+		private System.Collections.Generic.Dictionary<SRMob.Mob, SRSkill[]> m_AttackSkillsCache = null;
+
+		public void InvalidateAttackSkillsCache()
+		{
+			lock (m_AttackSkillsCacheLock)
+			{
+				m_AttackSkillsCache = null;
+			}
+		}
+
+		private SRSkill[] ExtractSkillsFromListView(xGraphics.xListView lv)
+		{
+			if (lv == null) return new SRSkill[0];
+			SRSkill[] skills = null;
+			lv.InvokeIfRequired(() => {
+				skills = new SRSkill[lv.Items.Count];
+				for (int j = 0; j < lv.Items.Count; j++)
+				{
+					SRSkill s = (SRSkill)lv.Items[j].Tag;
+					if (s != null)
+						s.Enabled = true;
+					skills[j] = s;
+				}
+			});
+			return skills ?? new SRSkill[0];
+		}
+
 		/// <summary>
-		/// Get all skillshots used for an specific mob type. If it's an empty list, it will try to add from a lower mob type.
-		/// Returns null if the mob type is unknown.
+		/// Get all skillshots used for an specific mob type. If it's an empty list, it will try to add from a lower mob type or General.
 		/// </summary>
 		public SRSkill[] Skills_GetSkillShots(SRMob.Mob type)
 		{
-			SRSkill[] SkillShots = null;
-			switch (type)
+			lock (m_AttackSkillsCacheLock)
 			{
-				case SRMob.Mob.General:
-					Skills_lstvAttackMobType_General.InvokeIfRequired(() => {
-						SkillShots = new SRSkill[Skills_lstvAttackMobType_General.Items.Count];
-						for (int j = 0; j < Skills_lstvAttackMobType_General.Items.Count; j++)
-							SkillShots[j] = (SRSkill)Skills_lstvAttackMobType_General.Items[j].Tag;
-					});
-					break;
-				case SRMob.Mob.Champion:
-					Skills_lstvAttackMobType_Champion.InvokeIfRequired(() => {
-						SkillShots = new SRSkill[Skills_lstvAttackMobType_Champion.Items.Count];
-						for (int j = 0; j < Skills_lstvAttackMobType_Champion.Items.Count; j++)
-							SkillShots[j] = (SRSkill)Skills_lstvAttackMobType_Champion.Items[j].Tag;
-					});
-					if (SkillShots.Length == 0)
-						goto case SRMob.Mob.General;
-					else
-						break;
-				case SRMob.Mob.Giant:
-					Skills_lstvAttackMobType_Giant.InvokeIfRequired(() => {
-						SkillShots = new SRSkill[Skills_lstvAttackMobType_Giant.Items.Count];
-						for (int j = 0; j < Skills_lstvAttackMobType_Giant.Items.Count; j++)
-							SkillShots[j] = (SRSkill)Skills_lstvAttackMobType_Giant.Items[j].Tag;
-					});
-					if (SkillShots.Length == 0)
-						goto case SRMob.Mob.Champion;
-					else
-						break;
-				case SRMob.Mob.PartyGeneral:
-					Skills_lstvAttackMobType_PartyGeneral.InvokeIfRequired(() => {
-						SkillShots = new SRSkill[Skills_lstvAttackMobType_PartyGeneral.Items.Count];
-						for (int j = 0; j < Skills_lstvAttackMobType_PartyGeneral.Items.Count; j++)
-							SkillShots[j] = (SRSkill)Skills_lstvAttackMobType_PartyGeneral.Items[j].Tag;
-					});
-					if (SkillShots.Length == 0)
-						goto case SRMob.Mob.Giant;
-					else
-						break;
-				case SRMob.Mob.PartyChampion:
-					Skills_lstvAttackMobType_PartyChampion.InvokeIfRequired(() => {
-						SkillShots = new SRSkill[Skills_lstvAttackMobType_PartyChampion.Items.Count];
-						for (int j = 0; j < Skills_lstvAttackMobType_PartyChampion.Items.Count; j++)
-							SkillShots[j] = (SRSkill)Skills_lstvAttackMobType_PartyChampion.Items[j].Tag;
-					});
-					if (SkillShots.Length == 0)
-						goto case SRMob.Mob.PartyGeneral;
-					else
-						break;
-				case SRMob.Mob.PartyGiant:
-					Skills_lstvAttackMobType_PartyGiant.InvokeIfRequired(() => {
-						SkillShots = new SRSkill[Skills_lstvAttackMobType_PartyGiant.Items.Count];
-						for (int j = 0; j < Skills_lstvAttackMobType_PartyGiant.Items.Count; j++)
-							SkillShots[j] = (SRSkill)Skills_lstvAttackMobType_PartyGiant.Items[j].Tag;
-					});
-					if (SkillShots.Length == 0)
-						goto case SRMob.Mob.PartyChampion;
-					else
-						break;
-				case SRMob.Mob.Unique:
-				case SRMob.Mob.Titan:
-					Skills_lstvAttackMobType_Unique.InvokeIfRequired(() => {
-						SkillShots = new SRSkill[Skills_lstvAttackMobType_Unique.Items.Count];
-						for (int j = 0; j < Skills_lstvAttackMobType_Unique.Items.Count; j++)
-							SkillShots[j] = (SRSkill)Skills_lstvAttackMobType_Unique.Items[j].Tag;
-					});
-					if (SkillShots.Length == 0)
-						goto case SRMob.Mob.PartyGiant;
-					else
-						break;
-				case SRMob.Mob.Elite:
-				case SRMob.Mob.Strong:
-					Skills_lstvAttackMobType_Elite.InvokeIfRequired(() => {
-						SkillShots = new SRSkill[Skills_lstvAttackMobType_Elite.Items.Count];
-						for (int j = 0; j < Skills_lstvAttackMobType_Elite.Items.Count; j++)
-							SkillShots[j] = (SRSkill)Skills_lstvAttackMobType_Elite.Items[j].Tag;
-					});
-					if (SkillShots.Length == 0)
-						goto case SRMob.Mob.Unique;
-					else
-						break;
-				case SRMob.Mob.Event:
-					Skills_lstvAttackMobType_Event.InvokeIfRequired(() => {
-						SkillShots = new SRSkill[Skills_lstvAttackMobType_Event.Items.Count];
-						for (int j = 0; j < Skills_lstvAttackMobType_Event.Items.Count; j++)
-							SkillShots[j] = (SRSkill)Skills_lstvAttackMobType_Event.Items[j].Tag;
-					});
-					if (SkillShots.Length == 0)
-						goto case SRMob.Mob.Elite;
-					else
-						break;
-				default:
-					goto case SRMob.Mob.Event;
+				if (m_AttackSkillsCache != null && m_AttackSkillsCache.TryGetValue(type, out SRSkill[] cached))
+				{
+					if (cached != null && cached.Length > 0)
+						return cached;
+					if (type != SRMob.Mob.General && m_AttackSkillsCache.TryGetValue(SRMob.Mob.General, out SRSkill[] gen) && gen != null && gen.Length > 0)
+						return gen;
+					return cached ?? new SRSkill[0];
+				}
 			}
-			return SkillShots;
+
+			var newCache = new System.Collections.Generic.Dictionary<SRMob.Mob, SRSkill[]>();
+			newCache[SRMob.Mob.General] = ExtractSkillsFromListView(Skills_lstvAttackMobType_General);
+			newCache[SRMob.Mob.Champion] = ExtractSkillsFromListView(Skills_lstvAttackMobType_Champion);
+			newCache[SRMob.Mob.Giant] = ExtractSkillsFromListView(Skills_lstvAttackMobType_Giant);
+			newCache[SRMob.Mob.PartyGeneral] = ExtractSkillsFromListView(Skills_lstvAttackMobType_PartyGeneral);
+			newCache[SRMob.Mob.PartyChampion] = ExtractSkillsFromListView(Skills_lstvAttackMobType_PartyChampion);
+			newCache[SRMob.Mob.PartyGiant] = ExtractSkillsFromListView(Skills_lstvAttackMobType_PartyGiant);
+			newCache[SRMob.Mob.Unique] = ExtractSkillsFromListView(Skills_lstvAttackMobType_Unique);
+			newCache[SRMob.Mob.Titan] = newCache[SRMob.Mob.Unique];
+			newCache[SRMob.Mob.Elite] = ExtractSkillsFromListView(Skills_lstvAttackMobType_Elite);
+			newCache[SRMob.Mob.Strong] = newCache[SRMob.Mob.Elite];
+			newCache[SRMob.Mob.Event] = ExtractSkillsFromListView(Skills_lstvAttackMobType_Event);
+
+			lock (m_AttackSkillsCacheLock)
+			{
+				m_AttackSkillsCache = newCache;
+			}
+
+			if (newCache.TryGetValue(type, out SRSkill[] result) && result != null && result.Length > 0)
+				return result;
+
+			if (type != SRMob.Mob.General && newCache.TryGetValue(SRMob.Mob.General, out SRSkill[] genSkills) && genSkills != null && genSkills.Length > 0)
+				return genSkills;
+
+			return result ?? new SRSkill[0];
 		}
 		/// <summary>
 		/// Get all buffs used for a specific mob type. Falls back to lower mob types or General buffs.
@@ -2843,7 +2812,10 @@ namespace xBot.App
 								}
 							}
 							if (itemUpdated)
+							{
+								InvalidateAttackSkillsCache();
 								Settings.SaveCharacterSettings();
+							}
 						}
 					}
 					break;
@@ -4467,6 +4439,7 @@ namespace xBot.App
 		}
 		private void xListView_DragItemsChanged(object sender, EventArgs e)
 		{
+			InvalidateAttackSkillsCache();
 			if (InfoManager.inGame){
 				Settings.SaveCharacterSettings();
 			}

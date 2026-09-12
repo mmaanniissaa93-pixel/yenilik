@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace xBot.App
@@ -77,6 +78,9 @@ namespace xBot.App
             if (input == null)
                 return false;
 
+            if (pick != null && !pick.Enabled)
+                return false;
+
             if (pick != null && pick.DontPickItems)
                 return false;
 
@@ -84,7 +88,7 @@ namespace xBot.App
             if (pick != null && pick.DontPickGreyBar && input.OwnerKind == 3)
                 return false;
 
-            // Sahiplik: yabancÄ± oyuncunun eÅŸyasÄ± / parti eÅŸyasÄ±.
+            // Sahiplik: yabancı oyuncunun eşyası / parti eşyası.
             if (pick != null)
             {
                 if (input.OwnerKind == 3 && !pick.PickOthersItems)
@@ -93,17 +97,17 @@ namespace xBot.App
                     return false;
             }
 
-            // 1. DoÄŸrudan EÅŸya KuralÄ± (Toplama Filtresi tablosundaki kural)
+            // 1. Doğrudan Eşya Kuralı (Toplama Filtresi tablosundaki kural)
             if (rule != null)
                 return rule.Pickup;
 
-            // 2. Ez Filter Kategori KuralÄ±
+            // 2. Ez Filter Kategori Kuralı
             if (input.EzCategory.HasValue)
             {
                 var ezRule = EzFilterManager.GetRule(input.EzCategory.Value);
                 if (ezRule != null && ezRule.Pick)
                 {
-                    // Ekipman ise ve "Sadece SOX ya da Blue eÅŸyalarÄ± topla" aÃ§Ä±ksa filtrele
+                    // Ekipman ise ve "Sadece SOX ya da Blue eşyaları topla" açıksa filtrele
                     if (pick != null && pick.OnlyPickRareBlue && input.IsEquipable && !input.IsRare && !input.IsBlue && !input.IsSox)
                         return false;
 
@@ -111,15 +115,17 @@ namespace xBot.App
                 }
             }
 
-            // 3. "Sadece SOX ya da Blue eÅŸyalarÄ± topla"
+            // 3. "Sadece SOX ya da Blue eşyaları topla"
             if (pick != null && pick.OnlyPickRareBlue && (input.IsRare || input.IsBlue || input.IsSox))
                 return true;
 
-            // Mavi-Ã¶zellik modu
+            // Mavi-özellik modu
             if (pick != null && pick.OnlyPickSpecificBlues && input.IsEquipable && (input.IsRare || input.IsBlue || input.IsSox))
                 return true;
 
-            // HiÃ§bir kural veya filtre eÅŸleÅŸmiyorsa TOPLAMA (varsayÄ±lan: false)
+            if (input.IsGold || input.IsElixirOrStone)
+                return true;
+
             return false;
         }
 
@@ -135,6 +141,8 @@ namespace xBot.App
         public static bool ShouldUsePet(ItemFilterInput input, ItemFilterRule rule, PickFilterOptions pick, bool petAvailable, bool petFull)
         {
             if (!petAvailable)
+                return false;
+            if (pick != null && !pick.Enabled)
                 return false;
             if (pick != null && pick.DontPickItems)
                 return false;
@@ -179,22 +187,24 @@ namespace xBot.App
             return false;
         }
 
+        public static Func<IDictionary<string, BlueAttributeRule>> GetBluesProvider { get; set; }
+
         public static bool ShouldSell(ItemFilterInput input, ItemFilterRule rule, PickFilterOptions pick)
         {
             if (input == null)
                 return false;
-            // SOX asla satÄ±lmaz.
+            // SOX asla satılmaz.
             if (input.IsSox)
                 return false;
             if (pick != null && pick.NoSellPlusEnabled && input.Plus >= pick.NoSellPlus)
                 return false;
 
-            // 1. DoÄŸrudan EÅŸya KuralÄ±
+            // 1. Doğrudan Eşya Kuralı
             if (rule != null)
                 return rule.Sell;
 
-            // 2. SeÃ§ili blue'lu eÅŸyalarÄ± sat
-            if (pick != null && pick.SellSelectedBlues && ShouldSellByBlue(input, ItemFilterManager.GetBlues()))
+            // 2. Seçili blue'lu eşyaları sat
+            if (pick != null && pick.SellSelectedBlues && ShouldSellByBlue(input, GetBluesProvider?.Invoke()))
                 return true;
 
             // 3. Ez Filter Kategori KuralÄ±
@@ -247,7 +257,10 @@ namespace xBot.App
                     return true;
             }
 
-            // 4. SOX depola
+            // 4. Varsayılan olarak Elixir, Stone veya SOX depolanır
+            if (input.IsElixirOrStone || input.IsSox)
+                return true;
+
             if (pick != null && pick.OnlyStoreRareBlue && (input.IsSox || input.IsRare || input.IsBlue))
                 return true;
 

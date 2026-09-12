@@ -358,6 +358,7 @@ namespace xBot.App
 		/// </summary>
 		public bool UseReturnScroll()
 		{
+			try { ReturnToAreaPolicy.LastRecallPosition = InfoManager.Character.GetRealtimePosition(); } catch { }
 			xList<SRItem> inventory = InfoManager.Character.Inventory;
 			for (byte j = 13; j < inventory.Capacity; j++)
 			{

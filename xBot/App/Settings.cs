@@ -176,6 +176,8 @@ namespace xBot.App
 					root["SelectedAccount"] = AccountManager.SelectedAccountUsername;
 					root["Socks5Proxy"] = Network.Socks5Config.ToJson();
 					root["PartySupport"] = PartySupportManager.ToJson();
+					root["ResurrectPolicy"] = ResurrectPolicy.ToJson();
+					root["LurePolicy"] = LurePolicy.ToJson();
 					root["Alchemy"] = AlchemyManager.ToJson();
 					root["TargetAssist"] = TargetAssistManager.ToJson();
 					CommandCenter.CommandCenterManager.SaveSettings(root);
@@ -359,6 +361,10 @@ namespace xBot.App
 					Network.Socks5Config.FromJson((Newtonsoft.Json.Linq.JObject)root["Socks5Proxy"]);
 				if (root.ContainsKey("PartySupport"))
 					PartySupportManager.FromJson((Newtonsoft.Json.Linq.JObject)root["PartySupport"]);
+				if (root.ContainsKey("ResurrectPolicy"))
+					ResurrectPolicy.FromJson((Newtonsoft.Json.Linq.JObject)root["ResurrectPolicy"]);
+				if (root.ContainsKey("LurePolicy"))
+					LurePolicy.FromJson((Newtonsoft.Json.Linq.JObject)root["LurePolicy"]);
 				if (root.ContainsKey("Alchemy"))
 					AlchemyManager.FromJson((Newtonsoft.Json.Linq.JObject)root["Alchemy"]);
 				if (root.ContainsKey("TargetAssist"))
@@ -666,6 +672,9 @@ namespace xBot.App
 				root["ItemFilterManager"] = ItemFilterManager.ToJson();
 				root["EzFilterManager"] = EzFilterManager.ToJson();
 				root["AutoConfigureManager"] = AutoConfigureManager.ToJson();
+				root["PartySupport"] = PartySupportManager.ToJson();
+				root["ResurrectPolicy"] = ResurrectPolicy.ToJson();
+				root["LurePolicy"] = LurePolicy.ToJson();
 
 					// Saving (atomic)
 					string safeSilkroad = string.IsNullOrEmpty(DataManager.SilkroadName) ? "UnknownSilkroad" : DataManager.SilkroadName;
@@ -1038,6 +1047,7 @@ Window w = Window.Get;
 							}
 						}
 					}
+					w.InvalidateAttackSkillsCache();
 					w.Training_cbxWalkToCenter.Checked = Attack.ContainsKey("WalkToCenter") ? (bool)Attack["WalkToCenter"] : false;
 
 					JObject Buff = Skills.ContainsKey("Buff") ? (JObject)Skills["Buff"] : new JObject();
@@ -1291,6 +1301,7 @@ Window w = Window.Get;
 					CombatAIEngine.FromJson((Newtonsoft.Json.Linq.JObject)root["CombatAIEngine"]);
 				if (root.ContainsKey("ReturnToAreaPolicy"))
 					ReturnToAreaPolicy.FromJson((Newtonsoft.Json.Linq.JObject)root["ReturnToAreaPolicy"]);
+				w.RefreshTrainingScriptControls();
 				if (root.ContainsKey("CollisionPolicy"))
 					CollisionPolicy.FromJson((Newtonsoft.Json.Linq.JObject)root["CollisionPolicy"]);
 				w.RefreshCollisionControls();
@@ -1306,6 +1317,12 @@ Window w = Window.Get;
 					: new Newtonsoft.Json.Linq.JObject());
 				if (root.ContainsKey("EzFilterManager"))
 					EzFilterManager.FromJson((Newtonsoft.Json.Linq.JObject)root["EzFilterManager"]);
+				if (root.ContainsKey("PartySupport"))
+					PartySupportManager.FromJson((Newtonsoft.Json.Linq.JObject)root["PartySupport"]);
+				if (root.ContainsKey("ResurrectPolicy"))
+					ResurrectPolicy.FromJson((Newtonsoft.Json.Linq.JObject)root["ResurrectPolicy"]);
+				if (root.ContainsKey("LurePolicy"))
+					LurePolicy.FromJson((Newtonsoft.Json.Linq.JObject)root["LurePolicy"]);
 
 				LoadingCharacterSettings = false;
 				s_loadedCharacterProfilePath = string.IsNullOrEmpty(path) ? "" : Path.GetFullPath(path);

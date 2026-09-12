@@ -262,6 +262,31 @@ namespace xBot.App
 				// Trace takibi: eskiden tek seferlik MoveTo idi, oyuncu uzaklaşınca
 				// bot bekliyordu. 1sn tick ile hedefe periyodik yürünür.
 				try { UpdateTraceTick(); } catch { }
+
+				// PhBot AutoSelectUniques / AutoSelectTitans (botting yapmıyorken hedef seçme)
+				if (!isBotting && (CombatAIEngine.AutoSelectUniques || CombatAIEngine.AutoSelectTitans))
+				{
+					try
+					{
+						for (int mIdx = 0; mIdx < InfoManager.Mobs.Count; mIdx++)
+						{
+							var mob = InfoManager.Mobs.GetAt(mIdx);
+							if (mob == null) continue;
+							bool isUniq = mob.MobType == SRMob.Mob.Unique;
+							bool isTit = mob.MobType == SRMob.Mob.Titan || mob.MobType == SRMob.Mob.PartyGiant || mob.MobType == SRMob.Mob.Elite;
+							if ((CombatAIEngine.AutoSelectUniques && isUniq) || (CombatAIEngine.AutoSelectTitans && isTit))
+							{
+								if (InfoManager.Character != null && InfoManager.Character.TargetUniqueID != mob.UniqueID)
+								{
+									PacketBuilder.SelectEntity(mob.UniqueID);
+									w.LogProcess($"Auto-selected nearby {(isUniq ? "Unique" : "Titan")}: [{mob.Name}]");
+									break;
+								}
+							}
+						}
+					}
+					catch { }
+				}
 			}
 			JoinedLoopCounter++;
 		}
@@ -887,8 +912,8 @@ namespace xBot.App
 		public void OnResurrection(uint UniqueID)
 		{
 			Window w = Window.Get;
-			bool acceptRess = w != null && w.Character_cbxAcceptRess != null && w.Character_cbxAcceptRess.Checked;
-			bool partyOnly = w != null && w.Character_cbxAcceptRessPartyOnly != null && w.Character_cbxAcceptRessPartyOnly.Checked;
+			bool acceptRess = (w != null && w.Character_cbxAcceptRess != null && w.Character_cbxAcceptRess.Checked) || ResurrectPolicy.AcceptFromOthers || ResurrectPolicy.AcceptPartyOnly;
+			bool partyOnly = (w != null && w.Character_cbxAcceptRessPartyOnly != null && w.Character_cbxAcceptRessPartyOnly.Checked) || ResurrectPolicy.AcceptPartyOnly;
 
 			bool requesterInParty = false;
 			if (InfoManager.Party != null && InfoManager.Party.Members != null)

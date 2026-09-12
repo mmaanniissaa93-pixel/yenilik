@@ -306,7 +306,10 @@ namespace xBot.App
                 if (isDead)
                 {
                     if (characterDeadSinceUtc == DateTime.MinValue)
+                    {
                         characterDeadSinceUtc = now;
+                        try { ReturnToAreaPolicy.LastDeathPosition = InfoManager.Character.GetRealtimePosition(); } catch { }
+                    }
                 }
                 else
                 {

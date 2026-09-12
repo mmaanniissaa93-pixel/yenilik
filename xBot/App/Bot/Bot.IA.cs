@@ -228,6 +228,10 @@ namespace xBot.App
                     bool townCycling = true;
                     try { townCycling = ReturnToAreaPolicy.TownCycling; } catch { }
                     try { if (w.Town_cbxEnableTownLoop != null && w.Town_cbxEnableTownLoop.Checked) townCycling = true; } catch { }
+                    if (ReturnToAreaPolicy.SkipTownScript)
+                    {
+                        townCycling = false;
+                    }
                     if (!townCycling)
                     {
                         currentScript = null;
@@ -300,6 +304,36 @@ namespace xBot.App
                                 }
                             }
 
+                            // 10. Son return kullanılan yere dönmek için şehirdeki Teleport NPC'lerini kullan
+                            if (ReturnToAreaPolicy.UseTownTeleportForLastRecall && ReturnToAreaPolicy.LastRecallPosition != null && TownManager.Get.IsNearTown(myPosition))
+                            {
+                                var link = TeleportManager.Get.FindBestLink(myPosition, ReturnToAreaPolicy.LastRecallPosition);
+                                if (link != null && CollisionPolicy.IsLinkAllowed(link, (int)(InfoManager.Character?.Level ?? 0)))
+                                {
+                                    w.LogProcess($"Alana Dönüş: Son return konumuna gitmek için teleport kullanılıyor [{link.SourceName} -> {link.DestinationName}]...");
+                                    if (ExecuteTeleportTransition(link))
+                                    {
+                                        ReturnToAreaPolicy.LastRecallPosition = null;
+                                        continue;
+                                    }
+                                }
+                            }
+
+                            // 11. Öldüğün yere dönmek için şehirdeki Teleport NPC'lerini kullan
+                            if (ReturnToAreaPolicy.UseTownTeleportForLastDeath && ReturnToAreaPolicy.LastDeathPosition != null && TownManager.Get.IsNearTown(myPosition))
+                            {
+                                var link = TeleportManager.Get.FindBestLink(myPosition, ReturnToAreaPolicy.LastDeathPosition);
+                                if (link != null && CollisionPolicy.IsLinkAllowed(link, (int)(InfoManager.Character?.Level ?? 0)))
+                                {
+                                    w.LogProcess($"Alana Dönüş: Öldüğün yere gitmek için teleport kullanılıyor [{link.SourceName} -> {link.DestinationName}]...");
+                                    if (ExecuteTeleportTransition(link))
+                                    {
+                                        ReturnToAreaPolicy.LastDeathPosition = null;
+                                        continue;
+                                    }
+                                }
+                            }
+
                             // Alana Dönüş hazırlığı: buff tazele + hız eşyası + binek
                             // (45sn geçiş korumalı, spam yapmaz).
                             PrepareReturnTrip();
@@ -322,6 +356,18 @@ namespace xBot.App
                                             {
                                                 if (myPosition.DistanceTo(trainingPosition) <= trainingRadius)
                                                     break; // Arrived at training area
+
+                                                if (ReturnToAreaPolicy.RemountInCaves && (myPosition.inDungeon() || SRCoord.inDungeon(myPosition.Region)))
+                                                {
+                                                    var chr = InfoManager.Character;
+                                                    if (chr != null && !chr.isRiding)
+                                                    {
+                                                        if (ReturnToAreaPolicy.RideFellowPet)
+                                                            TryRideFellowPet();
+                                                        else if (ReturnToAreaPolicy.UseMount && !TrainingOptionsPolicy.DoNotSpawnMount)
+                                                            TrySummonMount();
+                                                    }
+                                                }
 
                                                 w.LogProcess($"NavMesh walk [{p + 1}/{segment.Waypoints.Count}]");
                                                 WaitMovement(segment.Waypoints[p], 12);
@@ -443,6 +489,11 @@ namespace xBot.App
         private void TownLoop(Script town)
         {
             Window w = Window.Get;
+            if (ReturnToAreaPolicy.SkipTownScript)
+            {
+                w.LogProcess("Town Loop: 'Şehir döngüsünü atla' aktif, şehir döngüsü atlanıyor.");
+                return;
+            }
             // Town cycling iki yerden işaretlenebilir (Town sekmesi + Alana Dönüş
             // kartı). İkisi senkron ama desenkron edge-case'de de: HERHANGİ biri
             // açıksa şehir döngüsü yapılır — bot şehirde başlayınca çalışır.
@@ -677,6 +728,12 @@ namespace xBot.App
                     // Ensure Imbue is active before combat
                     SkillManager.EnsureImbueActive();
 
+                    // Lure döngüsü kontrolü
+                    if (CheckLureTick(w, trainingPosition, trainingRadius))
+                    {
+                        continue;
+                    }
+
                     // Attacking
                     // Update cached mob list if training area changed or cache is dirty
                     if (m_mobsCacheDirty || !trainingPosition.Equals(m_lastTrainingPosition) || trainingRadius != m_lastTrainingRadius)
@@ -786,7 +843,8 @@ namespace xBot.App
 
                         // Check distance to target mob before attacking
                         SRTypes.Weapon myWeapon = GetMyWeaponType();
-                        double maxAttackRange = GetWeaponAttackRange(myWeapon);
+                        SRSkill[] initialSkillshots = w.Skills_GetSkillShots(mob.MobType);
+                        double maxAttackRange = GetEffectiveAttackRange(initialSkillshots, myWeapon);
                         SRCoord mobPosition = mob.GetRealtimePosition();
                         myPosition = InfoManager.Character.GetRealtimePosition();
                         double distanceToMob = myPosition.DistanceTo(mobPosition);
@@ -801,11 +859,11 @@ namespace xBot.App
                             }
                         }
 
-                        // Quick target selection (does not stall attack loop if confirmation is delayed)
+                        // Ensure target mob is selected
                         if (InfoManager.SelectedEntityUniqueID != mob.UniqueID)
                         {
                             PacketBuilder.SelectEntity(mob.UniqueID);
-                            InfoManager.MonitorEntitySelected.WaitOne(80);
+                            InfoManager.MonitorEntitySelected.WaitOne(200);
                         }
 
                         int currentSkillIndex = 0;
@@ -841,7 +899,8 @@ namespace xBot.App
                                 // her vuruşta tekrar taramak iç döngüde mikro-takılma yapıyordu.
                                 // Distance check to target
                                 myWeapon = GetMyWeaponType();
-                                maxAttackRange = GetWeaponAttackRange(myWeapon);
+                                SRSkill[] skillshots = w.Skills_GetSkillShots(mob.MobType);
+                                maxAttackRange = GetEffectiveAttackRange(skillshots, myWeapon);
                                 mobPosition = mob.GetRealtimePosition();
                                 myPosition = InfoManager.Character.GetRealtimePosition();
                                 distanceToMob = myPosition.DistanceTo(mobPosition);
@@ -854,9 +913,9 @@ namespace xBot.App
                                     continue;
                                 }
 
-                                SRSkill[] skillshots = w.Skills_GetSkillShots(mob.MobType);
                                 SRSkill skillToCast = null;
                                 uint currentMP = InfoManager.Character != null ? InfoManager.Character.MP : 0;
+                                bool hasConfiguredSkills = HasAnyConfiguredSkill(skillshots);
 
                                 if (skillshots != null && skillshots.Length > 0)
                                 {
@@ -877,7 +936,7 @@ namespace xBot.App
                                                         return false;
                                                     if (candidate.ID != 1)
                                                     {
-                                                        if (!candidate.Enabled)
+                                                        if (!candidate.Enabled && !candidate.isUsableSkill())
                                                             return false;
                                                         if (currentMP > 0 && candidate.MPUsage > currentMP)
                                                             return false;
@@ -901,7 +960,7 @@ namespace xBot.App
                                         for (int k = 0; k < skillshots.Length; k++)
                                         {
                                             SRSkill candidate = skillshots[k];
-                                            if (candidate != null && candidate.ID != 1 && candidate.Enabled && candidate.isCastingEnabled
+                                            if (candidate != null && candidate.ID != 1 && (candidate.Enabled || candidate.isUsableSkill()) && candidate.isCastingEnabled
                                                 && (currentMP == 0 || candidate.MPUsage <= currentMP))
                                             {
                                                 if (TryPrepareAttackSkill(candidate, w))
@@ -930,6 +989,18 @@ namespace xBot.App
 
                                 if (skillToCast == null)
                                 {
+                                    // Oyuncu listede saldırı skili belirttiyse, skiller cooldown'da diye ASLA otomatik vuruşa (Common Attack) düşme!
+                                    // Silkroad skilleri birkaç saniye içinde döner; kısa bekle ve bir sonraki turda ilk açılan skili anında bas.
+                                    if (hasConfiguredSkills)
+                                    {
+                                        if (currentMP > 0 || noSkillAttempts < 40)
+                                        {
+                                            noSkillAttempts++;
+                                            Thread.Sleep(30);
+                                            continue;
+                                        }
+                                    }
+
                                     noSkillAttempts++;
                                     if (noSkillAttempts >= 2 && SkillPolicy.ShouldUseFallback(InfoManager.Mobs.ContainsKey(mob.UniqueID), false))
                                     {
@@ -938,7 +1009,7 @@ namespace xBot.App
                                     }
                                     else
                                     {
-                                        Thread.Sleep(60);
+                                        Thread.Sleep(40);
                                     }
                                     continue;
                                 }
@@ -953,10 +1024,29 @@ namespace xBot.App
                                 if (!InfoManager.Mobs.ContainsKey(mob.UniqueID))
                                     break;
 
+                                // Seçilen skilin menzil kontrolü (uzak büyü 15m iken yakın dövüş skili 3.5m-4.5m isteyebilir)
+                                double requiredSkillRange = GetSkillAttackRange(skillToCast, myWeapon);
+                                mobPosition = mob.GetRealtimePosition();
+                                myPosition = InfoManager.Character.GetRealtimePosition();
+                                distanceToMob = myPosition.DistanceTo(mobPosition);
+                                if (distanceToMob > requiredSkillRange)
+                                {
+                                    bool reached = ApproachTargetWithCollision(mobPosition, requiredSkillRange, mob);
+                                    if (!reached)
+                                        continue;
+                                }
+
                                 w.LogProcess("Casting skill " + skillToCast.Name + " (" + skillToCast.CastingTime + "ms)...");
 
                                 long hpBefore = 0;
                                 try { hpBefore = mob.HP; } catch { }
+
+                                // Canavarın seçili olduğundan emin ol (seçilmemişse sunucu Invalid Target döner)
+                                if (InfoManager.SelectedEntityUniqueID != mob.UniqueID)
+                                {
+                                    PacketBuilder.SelectEntity(mob.UniqueID);
+                                    InfoManager.MonitorEntitySelected.WaitOne(150);
+                                }
 
                                 InfoManager.LastSkillCastSuccess = false;
                                 InfoManager.LastSkillCastErrorCode = 0;
@@ -964,7 +1054,7 @@ namespace xBot.App
 
                                 PacketBuilder.AttackTarget(mob.UniqueID, skillToCast.ID);
 
-                                bool confirmed = InfoManager.MonitorSkillCast.WaitOne(800);
+                                bool confirmed = InfoManager.MonitorSkillCast.WaitOne(250);
                                 bool treatAsSuccess = confirmed && InfoManager.LastSkillCastSuccess;
                                 if (!treatAsSuccess)
                                 {
@@ -989,7 +1079,7 @@ namespace xBot.App
                                     int fullWait = Math.Max(350, castTime);
                                     int minGap = SkillManager.ConsecutiveCastFailures >= 2
                                         ? fullWait
-                                        : Math.Max(250, (castTime * 3) / 4);
+                                        : Math.Max(200, (castTime * 2) / 3);
                                     int elapsed = 0;
                                     while (elapsed < fullWait && isBotting)
                                     {
@@ -999,6 +1089,19 @@ namespace xBot.App
                                             break;
                                         Thread.Sleep(30);
                                         elapsed += 30;
+                                    }
+
+                                    // PhBot SlowerAttackMode: vuruşlar arası ek gecikme
+                                    if (CombatAIEngine.SlowerAttackMode)
+                                    {
+                                        Thread.Sleep(300);
+                                    }
+
+                                    // PhBot SwitchMonsterAfterDot: canavara DOT (kanama/zehir/yanma) bulaştıysa diğerine geç
+                                    if (CombatAIEngine.SwitchMonsterAfterDot && mob != null && mob.BadStatusFlags != SRModel.BadStatus.None)
+                                    {
+                                        w.LogProcess($"PhBot: Switching monster after DOT on [{mob.Name}]");
+                                        break;
                                     }
                                 }
                                 else
@@ -1033,7 +1136,9 @@ namespace xBot.App
             for (int i = 0; i < skillshots.Length; i++)
             {
                 SRSkill s = skillshots[i];
-                if (s == null || !s.Enabled || !s.isCastingEnabled)
+                if (s == null || !s.isCastingEnabled)
+                    continue;
+                if (s.ID != 1 && !s.Enabled && !s.isUsableSkill())
                     continue;
                 if (s.ID != 1 && currentMP > 0 && s.MPUsage > currentMP)
                     continue;
@@ -1135,6 +1240,12 @@ namespace xBot.App
 
             double dist = myPosition.DistanceTo(targetPosition);
             if (dist <= stopRange) return true;
+
+            // PhBot UseTeleportSkills: hedefe uzaksa teleport / blink skili ile hızlı yaklaş
+            if (CombatAIEngine.UseTeleportSkills && dist > 12.0)
+            {
+                TryCastTeleportSkill();
+            }
 
             bool collisionEnabled = CollisionPolicy.EnableCollisionInTrainingArea;
             bool navigateAround = CollisionPolicy.NavigateAroundObstacles;
@@ -1239,6 +1350,123 @@ namespace xBot.App
             return false;
         }
 
+        private void TryCastTeleportSkill()
+        {
+            if (InfoManager.Character == null || InfoManager.Character.Skills == null) return;
+            for (int i = 0; i < InfoManager.Character.Skills.Count; i++)
+            {
+                var sk = InfoManager.Character.Skills.GetAt(i);
+                if (sk != null && sk.Enabled && sk.isCastingEnabled)
+                {
+                    string sName = sk.ServerName ?? "";
+                    if (sName.IndexOf("TELEPORT", StringComparison.OrdinalIgnoreCase) >= 0
+                        || sName.IndexOf("MOVING_MARCH", StringComparison.OrdinalIgnoreCase) >= 0
+                        || sName.IndexOf("PHANTOM", StringComparison.OrdinalIgnoreCase) >= 0
+                        || sName.IndexOf("GHOST_WALK", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        PacketBuilder.CastSkill(sk.ID);
+                        Thread.Sleep(200);
+                        break;
+                    }
+                }
+            }
+        }
+
+        private bool CheckLureTick(Window w, SRCoord trainingPosition, int trainingRadius)
+        {
+            if (!LurePolicy.WalkBackDistEnabled && !LurePolicy.LureSkillEnabled && !LurePolicy.UseScript)
+                return false;
+
+            // Check Stop conditions
+            int deadParty = 0;
+            if (InfoManager.Party?.Members != null)
+            {
+                for (int i = 0; i < InfoManager.Party.Members.Count; i++)
+                {
+                    var m = InfoManager.Party.Members.GetAt(i);
+                    if (m != null && m.HPPercent == 0) deadParty++;
+                }
+            }
+
+            int giantPartyCount = 0;
+            int areaMobCount = 0;
+            for (int i = 0; i < InfoManager.Mobs.Count; i++)
+            {
+                var m = InfoManager.Mobs.GetAt(i);
+                if (m == null) continue;
+                if (trainingPosition != null && trainingRadius > 0 && trainingPosition.DistanceTo(m.GetRealtimePosition()) <= trainingRadius)
+                {
+                    areaMobCount++;
+                    if (m.MobType == SRMob.Mob.PartyGiant) giantPartyCount++;
+                }
+            }
+
+            bool partyNear = true;
+            if (LurePolicy.StopIfPartyAway && InfoManager.Party?.Members != null)
+            {
+                for (int i = 0; i < InfoManager.Party.Members.Count; i++)
+                {
+                    var m = InfoManager.Party.Members.GetAt(i);
+                    if (m == null || m.Name == InfoManager.Character.Name) continue;
+                    if (LurePolicy.PartyNearWhitelist.Count > 0 && !LurePolicy.PartyNearWhitelist.Contains(m.Name)) continue;
+                    var lp = InfoManager.Players.Find(p => p != null && p.Name == m.Name);
+                    if (lp == null || lp.Position == null || (trainingPosition != null && trainingPosition.DistanceTo(lp.Position) > (trainingRadius + 45.0)))
+                    {
+                        partyNear = false;
+                        break;
+                    }
+                }
+            }
+
+            if (LurePolicy.ShouldPauseLure(deadParty, giantPartyCount, areaMobCount, partyNear))
+            {
+                w.LogProcess("Lure: Durdurma koşulu sağlandı (ölü parti / mob sayısı / parti uzak), lure bekletiliyor.");
+                Thread.Sleep(800);
+                return true;
+            }
+
+            // Cast Lure skill if enabled
+            if (LurePolicy.LureSkillEnabled && !string.IsNullOrEmpty(LurePolicy.LureSkillName))
+            {
+                SRSkill lSkill = null;
+                if (InfoManager.Character?.Skills != null)
+                {
+                    for (int i = 0; i < InfoManager.Character.Skills.Count; i++)
+                    {
+                        var s = InfoManager.Character.Skills.GetAt(i);
+                        if (s != null && s.Enabled && s.isCastingEnabled && (s.Name == LurePolicy.LureSkillName || s.ServerName == LurePolicy.LureSkillName))
+                        {
+                            lSkill = s;
+                            break;
+                        }
+                    }
+                }
+
+                if (lSkill != null)
+                {
+                    for (int i = 0; i < InfoManager.Mobs.Count; i++)
+                    {
+                        var m = InfoManager.Mobs.GetAt(i);
+                        if (m == null) continue;
+                        if (m.TargetUniqueID != InfoManager.Character.UniqueID && trainingPosition != null && trainingPosition.DistanceTo(m.GetRealtimePosition()) <= trainingRadius)
+                        {
+                            w.LogProcess($"Lure: Casting [{lSkill.Name}] on [{m.Name}]...");
+                            PacketBuilder.AttackTarget(m.UniqueID, lSkill.ID);
+                            Thread.Sleep(Math.Max(350, lSkill.CastingTime + 100));
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (LurePolicy.BuffAtLureEnd)
+            {
+                BuffLoop();
+            }
+
+            return false;
+        }
+
         private SRMob GetMobFiltered(List<SRMob> mobs, SRCoord trainingPosition, int trainingRadius)
         {
             if (mobs == null || mobs.Count == 0)
@@ -1335,6 +1563,25 @@ namespace xBot.App
                 }))
                     continue;
 
+                // PhBot KillSteal: kapalıysa başka oyuncunun saldırdığı mobları atla (parti dışı)
+                if (!CombatAIEngine.KillSteal && m.TargetUniqueID != 0 && m.TargetUniqueID != InfoManager.Character.UniqueID)
+                {
+                    bool isPartyTarget = false;
+                    if (InfoManager.Party?.Members != null)
+                    {
+                        SREntity targetEnt = InfoManager.GetEntity(m.TargetUniqueID);
+                        if (targetEnt != null)
+                        {
+                            for (int pmi = 0; pmi < InfoManager.Party.Members.Count; pmi++)
+                            {
+                                var pm = InfoManager.Party.Members.GetAt(pmi);
+                                if (pm != null && pm.Name == targetEnt.Name) { isPartyTarget = true; break; }
+                            }
+                        }
+                    }
+                    if (!isPartyTarget) continue;
+                }
+
                 double dist = mobPosition.DistanceTo(myPosition);
 
                 // If priority is disabled and user has no custom Monster Preferences, strictly choose the nearest mob (karakter ayırt etmez)
@@ -1381,6 +1628,41 @@ namespace xBot.App
                             score = 10.0;
                             break;
                     }
+                }
+
+                // PhBot ProtectParty: parti üyesine vuran canavara en yüksek öncelik
+                if (CombatAIEngine.ProtectParty && m.TargetUniqueID != 0)
+                {
+                    bool isAttackingParty = false;
+                    if (InfoManager.Party?.Members != null)
+                    {
+                        SREntity targetEnt = InfoManager.GetEntity(m.TargetUniqueID);
+                        if (targetEnt != null)
+                        {
+                            for (int pmi = 0; pmi < InfoManager.Party.Members.Count; pmi++)
+                            {
+                                var pm = InfoManager.Party.Members.GetAt(pmi);
+                                if (pm != null && pm.Name == targetEnt.Name)
+                                {
+                                    if (string.IsNullOrEmpty(CombatAIEngine.ProtectPartyTarget) || pm.Name.IndexOf(CombatAIEngine.ProtectPartyTarget, StringComparison.OrdinalIgnoreCase) >= 0)
+                                    {
+                                        isAttackingParty = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (isAttackingParty)
+                    {
+                        score += 8000.0;
+                    }
+                }
+
+                // PhBot AttackLowerFirst: düşük seviyeli canavarlara öncelik ver
+                if (CombatAIEngine.AttackLowerFirst && m.Level > 0)
+                {
+                    score += (140 - m.Level) * 4.0;
                 }
 
                 // Canavar Tercihleri: Tercih Et (öncelik listenin başına göre) & Uzak Dur
@@ -1835,10 +2117,113 @@ namespace xBot.App
                     return 14.0;
                 case SRTypes.Weapon.TwoHandStaff:
                 case SRTypes.Weapon.Warlock:
+                case SRTypes.Weapon.Harp:
+                case SRTypes.Weapon.Cleric:
                     return 14.0;
+                case SRTypes.Weapon.Spear:
+                case SRTypes.Weapon.Glaive:
+                case SRTypes.Weapon.TwoHandSword:
+                case SRTypes.Weapon.DualAxes:
+                    return 4.5;
                 default:
                     return 3.5;
             }
+        }
+
+        private static bool HasAnyConfiguredSkill(SRSkill[] skillshots)
+        {
+            if (skillshots == null || skillshots.Length == 0)
+                return false;
+            for (int i = 0; i < skillshots.Length; i++)
+            {
+                SRSkill s = skillshots[i];
+                if (s != null && s.ID > 1)
+                    return true;
+            }
+            return false;
+        }
+
+        private double GetSkillAttackRange(SRSkill skill, SRTypes.Weapon weapon)
+        {
+            if (skill == null || skill.ID == 1)
+                return GetWeaponAttackRange(weapon);
+
+            string sn = (skill.ServerName ?? "").ToUpperInvariant();
+
+            // 1. Silaha bağlı skiller: Skilin birincil silah şartı varsa, menzili o silahın menzilini aşamaz (özel menzilli skiller hariç)
+            if (skill.RequiredWeaponPrimary != SRTypes.Weapon.None)
+            {
+                // Bicheon Kılıç Dalgası (Flying Dragon) - 15m
+                if (sn.Contains("_SWORD_FLY") || sn.Contains("_SWORD_SWORD"))
+                    return 15.0;
+
+                // Bow skilleri - 15m
+                if (skill.RequiredWeaponPrimary == SRTypes.Weapon.Bow || sn.Contains("_BOW_"))
+                    return 15.0;
+
+                // Crossbow skilleri - 14m
+                if (skill.RequiredWeaponPrimary == SRTypes.Weapon.Crossbow || sn.Contains("_CROSSBOW_"))
+                    return 14.0;
+
+                // Avrupa Büyü Silahları (Staff, Warlock rod, Harp, Cleric rod) - 14m
+                if (skill.RequiredWeaponPrimary == SRTypes.Weapon.TwoHandStaff ||
+                    skill.RequiredWeaponPrimary == SRTypes.Weapon.Warlock ||
+                    skill.RequiredWeaponPrimary == SRTypes.Weapon.Harp ||
+                    skill.RequiredWeaponPrimary == SRTypes.Weapon.Cleric)
+                    return 14.0;
+
+                // Yakın dövüş silah skilleri (Spear, Glaive, Sword, Blade, TwoHand, DualAxes, Daggers)
+                return GetWeaponAttackRange(skill.RequiredWeaponPrimary);
+            }
+
+            // 2. Silah gerektirmeyen gerçek Çin Büyü Nukeleri (Cold, Lightning, Fire)
+            if (sn.Contains("_COLD_GUNG") || sn.Contains("_COLD_WAVE") || sn.Contains("_COLD_CHUN") ||
+                sn.Contains("_LIGHTNING_GUNG") || sn.Contains("_LIGHTNING_THUNDER") || sn.Contains("_LIGHTNING_SHOCK") ||
+                sn.Contains("_FIRE_GUNG") || sn.Contains("_FIRE_WAVE"))
+            {
+                return 15.0;
+            }
+
+            // Avrupa Büyü Skilleri (Wizard, Warlock, Bard, Cleric)
+            if (sn.Contains("_WIZARD_") || sn.Contains("_WARLOCK_") || sn.Contains("_BARD_") || sn.Contains("_CLERIC_"))
+            {
+                return 14.0;
+            }
+
+            // Bow & Crossbow
+            if (sn.Contains("_BOW_") || sn.Contains("_CROSSBOW_"))
+            {
+                return 15.0;
+            }
+
+            // Bicheon Sword wave
+            if (sn.Contains("_SWORD_FLY") || sn.Contains("_SWORD_SWORD"))
+            {
+                return 15.0;
+            }
+
+            return GetWeaponAttackRange(weapon);
+        }
+
+        private double GetEffectiveAttackRange(SRSkill[] skillshots, SRTypes.Weapon weapon)
+        {
+            double baseRange = GetWeaponAttackRange(weapon);
+            if (skillshots == null || skillshots.Length == 0)
+                return baseRange;
+
+            double maxRange = baseRange;
+            for (int i = 0; i < skillshots.Length; i++)
+            {
+                SRSkill s = skillshots[i];
+                if (s == null || s.ID == 1) continue;
+                if (!s.Enabled && !s.isUsableSkill()) continue;
+                if (!s.isCastingEnabled) continue;
+
+                double r = GetSkillAttackRange(s, weapon);
+                if (r > maxRange)
+                    maxRange = r;
+            }
+            return maxRange;
         }
 
         private void ExecuteKiting(SRMob mob, SRCoord myPosition)
@@ -3118,10 +3503,53 @@ namespace xBot.App
                 }
                 if (ReturnToAreaPolicy.UseSpeedDrug || TrainingOptionsPolicy.UseSpeedDrugs)
                     TryUseSpeedDrug();
-                if (ReturnToAreaPolicy.UseMount && !TrainingOptionsPolicy.DoNotSpawnMount)
+                if (ReturnToAreaPolicy.RideFellowPet)
+                    TryRideFellowPet();
+                else if (ReturnToAreaPolicy.UseMount && !TrainingOptionsPolicy.DoNotSpawnMount)
                     TrySummonMount();
             }
             catch { }
+        }
+
+        public bool TryRideFellowPet()
+        {
+            try
+            {
+                var chr = InfoManager.Character;
+                if (chr == null || chr.isRiding)
+                    return false;
+
+                var fellow = Script.FindFellowMountCandidate();
+                if (fellow != null)
+                {
+                    Window.Get?.LogProcess($"Alana Dönüş: fellow pete biniliyor [{fellow.Name}]...");
+                    PacketBuilder.SetPetMounted(fellow.UniqueID, true);
+                    return true;
+                }
+
+                if (chr.Inventory != null)
+                {
+                    for (byte s = 13; s < chr.Inventory.Capacity; s++)
+                    {
+                        var item = chr.Inventory[s];
+                        if (item != null && item.ServerName != null &&
+                            (item.ServerName.IndexOf("FELLOW", StringComparison.OrdinalIgnoreCase) >= 0
+                             || item.ServerName.IndexOf("GROWTH", StringComparison.OrdinalIgnoreCase) >= 0
+                             || item.ServerName.IndexOf("COS_P", StringComparison.OrdinalIgnoreCase) >= 0))
+                        {
+                            Window.Get?.LogProcess($"Alana Dönüş: fellow pet çağrılıyor [{item.Name}]...");
+                            return PacketBuilder.UseItem(item, s);
+                        }
+                    }
+                }
+            }
+            catch { }
+            return false;
+        }
+
+        public bool ReturnTripFellowNow()
+        {
+            try { return TryRideFellowPet(); } catch { return false; }
         }
         /// <summary>
         /// Hız eşyası kullanır: ServerName içinde SPEED geçip RETURN geçmeyen
@@ -3211,6 +3639,7 @@ namespace xBot.App
             int attemps = 0;
             SRCoord myPosition;
             SRCoord lastPosition = null;
+            DateTime? stuckSinceUtc = null;
             int stuckCounter = 0;
             bool avoidToRight = true;
             int bypassCount = 0; // Ard arda kaç kez bypass yapıldı (büyüyen adım için)
@@ -3248,6 +3677,22 @@ namespace xBot.App
                 // Çarpışma / Takılma Algılayıcı (Stuck Detection)
                 if (lastPosition != null && myPosition.DistanceTo(lastPosition) < 0.6)
                 {
+                    if (stuckSinceUtc == null) stuckSinceUtc = DateTime.UtcNow;
+                    double stuckSec = (DateTime.UtcNow - stuckSinceUtc.Value).TotalSeconds;
+
+                    if (ReturnToAreaPolicy.ReturnIfStuckAfterSecondsEnabled && ReturnToAreaPolicy.ReturnIfStuckSeconds > 0 && stuckSec >= ReturnToAreaPolicy.ReturnIfStuckSeconds)
+                    {
+                        Window.Get?.LogProcess($"WaitMovement: {ReturnToAreaPolicy.ReturnIfStuckSeconds}s takılı kalındı ('Şu süre boyunca takılı kalırsa şehre dön' aktif). Şehre dönülüyor...", Window.ProcessState.Warning);
+                        UseReturnScroll();
+                        return false;
+                    }
+
+                    if (ReturnToAreaPolicy.GoBackCoordIfStuck && ReturnToAreaPolicy.GoBackCoordSeconds > 0 && stuckSec >= ReturnToAreaPolicy.GoBackCoordSeconds)
+                    {
+                        Window.Get?.LogProcess($"WaitMovement: {ReturnToAreaPolicy.GoBackCoordSeconds}s takılı kalındı ('Karakter takılırsa bir koordinat geri dön' aktif).");
+                        return false;
+                    }
+
                     stuckCounter++;
                     if (stuckCounter >= 2)
                     {
@@ -3296,11 +3741,38 @@ namespace xBot.App
                 else
                 {
                     stuckCounter = 0;
+                    stuckSinceUtc = null;
                     // Hareket varsa bypass serisini sıfırla (yönü koru)
                     if (lastPosition != null && myPosition.DistanceTo(lastPosition) > 2.0)
                         bypassCount = 0;
                 }
                 lastPosition = myPosition;
+
+                if (ReturnToAreaPolicy.AvoidStatueOfJustice)
+                {
+                    try
+                    {
+                        var statue = InfoManager.Mobs.Snapshot().Find(m => m != null &&
+                            ((m.Name != null && (m.Name.IndexOf("Statue of Justice", StringComparison.OrdinalIgnoreCase) >= 0 || m.Name.IndexOf("Adalet", StringComparison.OrdinalIgnoreCase) >= 0))
+                            || (m.ServerName != null && m.ServerName.IndexOf("STATUE_OF_JUSTICE", StringComparison.OrdinalIgnoreCase) >= 0)));
+                        if (statue != null)
+                        {
+                            var sPos = statue.GetRealtimePosition();
+                            if (sPos != null && myPosition.DistanceTo(sPos) < 20.0)
+                            {
+                                double edx = myPosition.PosX - sPos.PosX;
+                                double edy = myPosition.PosY - sPos.PosY;
+                                double len = Math.Sqrt(edx * edx + edy * edy);
+                                if (len < 0.1) { edx = 1; len = 1; }
+                                SRCoord evade = new SRCoord(myPosition.PosX + (edx / len) * 15.0, myPosition.PosY + (edy / len) * 15.0);
+                                Window.Get?.LogProcess("WaitMovement: Statue of Justice algılandı! Güvenli mesafeye kaçılıyor...");
+                                MoveTo(evade);
+                                Thread.Sleep(600);
+                            }
+                        }
+                    }
+                    catch { }
+                }
 
                 // Hedefe doğru yürü
                 int timeWalking = myPosition.TimeTo(position, InfoManager.Character.GetSpeed());

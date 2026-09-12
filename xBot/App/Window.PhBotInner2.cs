@@ -777,7 +777,7 @@ namespace xBot.App
         }
 
         // ---------------------------------------------------------------
-        // TRAINING > SCRIPT — phbot_training-area_01.png / media_1789163208989.png
+        // TRAINING > SCRIPT — phbot_training-area_01.png / media_1789168281458.png
         // ---------------------------------------------------------------
         private void LayoutTrainingScriptInner()
         {
@@ -799,56 +799,151 @@ namespace xBot.App
                 int y = 14;
                 int step = 24;
 
+                // 1. Şehir döngüsünü atla
                 var cSkip = AddPhBotCheck(p, isTR ? "Şehir döngüsünü atla" : "Skip town script entirely", 20, y, ReturnToAreaPolicy.SkipTownScript);
                 cSkip.Name = "PhBot_TrScript_SkipTown";
-                cSkip.CheckedChanged += (s, e) => ReturnToAreaPolicy.SkipTownScript = cSkip.Checked;
+                cSkip.CheckedChanged += (s, e) => { ReturnToAreaPolicy.SkipTownScript = cSkip.Checked; Settings.SaveCharacterSettings(); };
                 y += step;
 
+                // 2. Şehir döngüsüne devam et
                 var cCont = AddPhBotCheck(p, isTR ? "Şehir döngüsüne devam et" : "Continue town scripts", 20, y, ReturnToAreaPolicy.ContinueTownScript);
-                cCont.CheckedChanged += (s, e) => ReturnToAreaPolicy.ContinueTownScript = cCont.Checked;
+                cCont.Name = "PhBot_TrScript_ContinueTown";
+                cCont.CheckedChanged += (s, e) => { ReturnToAreaPolicy.ContinueTownScript = cCont.Checked; Settings.SaveCharacterSettings(); };
                 y += step;
 
+                // 3. Yolda takılırsa şehre dön
                 var cRet = AddPhBotCheck(p, isTR ? "Yolda takılırsa şehre dön" : "Return when can't continue script", 20, y, ReturnToAreaPolicy.ReturnIfScriptStuck);
-                cRet.CheckedChanged += (s, e) => ReturnToAreaPolicy.ReturnIfScriptStuck = cRet.Checked;
+                cRet.Name = "PhBot_TrScript_ReturnIfStuck";
+                cRet.CheckedChanged += (s, e) => { ReturnToAreaPolicy.ReturnIfScriptStuck = cRet.Checked; Settings.SaveCharacterSettings(); };
                 y += step;
 
+                // 4. Komutta Statue of Justice'den kaç
                 var cAvoid = AddPhBotCheck(p, isTR ? "Komutta Statue of Justice'den kaç" : "Avoid Statue of Justice in script", 20, y, ReturnToAreaPolicy.AvoidStatueOfJustice);
-                cAvoid.CheckedChanged += (s, e) => ReturnToAreaPolicy.AvoidStatueOfJustice = cAvoid.Checked;
+                cAvoid.Name = "PhBot_TrScript_AvoidStatue";
+                cAvoid.CheckedChanged += (s, e) => { ReturnToAreaPolicy.AvoidStatueOfJustice = cAvoid.Checked; Settings.SaveCharacterSettings(); };
                 y += step;
 
-                var cWalk = AddPhBotCheck(p, isTR ? "Yürüme gecikmesi" : "Script walk delay", 20, y, ReturnToAreaPolicy.ScriptWalkDelay > 0);
-                var nWalk = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(280, y - 2), Size = new Size(60, 22), Maximum = 10000, Value = ReturnToAreaPolicy.ScriptWalkDelay > 0 ? ReturnToAreaPolicy.ScriptWalkDelay : 1000 };
-                var lWalk = new Label { Text = "ms", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(345, y + 2) };
+                // 5. Yürüme gecikmesi [1000] ms
+                var cWalk = AddPhBotCheck(p, isTR ? "Yürüme gecikmesi" : "Script walk delay", 20, y, ReturnToAreaPolicy.EnableScriptWalkDelay);
+                cWalk.Name = "PhBot_TrScript_WalkDelay";
+                var nWalk = new NumericUpDown
+                {
+                    Name = "PhBot_TrScript_WalkDelayMs",
+                    Font = PhBotFont(),
+                    BackColor = Color.White,
+                    Location = new Point(295, y - 2),
+                    Size = new Size(65, 22),
+                    Minimum = 0,
+                    Maximum = 60000,
+                    Value = Math.Max(0, Math.Min(60000, ReturnToAreaPolicy.ScriptWalkDelay > 0 ? ReturnToAreaPolicy.ScriptWalkDelay : 1000))
+                };
+                var lWalk = new Label { Text = "ms", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(365, y + 2) };
                 p.Controls.AddRange(new Control[] { nWalk, lWalk });
-                cWalk.CheckedChanged += (s, e) => ReturnToAreaPolicy.ScriptWalkDelay = cWalk.Checked ? (int)nWalk.Value : 0;
-                nWalk.ValueChanged += (s, e) => { if (cWalk.Checked) ReturnToAreaPolicy.ScriptWalkDelay = (int)nWalk.Value; };
+                cWalk.CheckedChanged += (s, e) => { ReturnToAreaPolicy.EnableScriptWalkDelay = cWalk.Checked; Settings.SaveCharacterSettings(); };
+                nWalk.ValueChanged += (s, e) => { ReturnToAreaPolicy.ScriptWalkDelay = (int)nWalk.Value; Settings.SaveCharacterSettings(); };
                 y += step;
 
-                var cStuck = AddPhBotCheck(p, isTR ? "Karakter takılırsa bir koordinat geri dön" : "Go back a coordinate if stuck after", 20, y, true);
-                var nStuck = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(280, y - 2), Size = new Size(60, 22), Value = 15 };
-                var lStuck = new Label { Text = "s", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(345, y + 2) };
+                // 6. Karakter takılırsa bir koordinat geri dön [15] s
+                var cStuck = AddPhBotCheck(p, isTR ? "Karakter takılırsa bir koordinat geri dön" : "Go back a coordinate if stuck after", 20, y, ReturnToAreaPolicy.GoBackCoordIfStuck);
+                cStuck.Name = "PhBot_TrScript_GoBackCoord";
+                var nStuck = new NumericUpDown
+                {
+                    Name = "PhBot_TrScript_GoBackCoordSec",
+                    Font = PhBotFont(),
+                    BackColor = Color.White,
+                    Location = new Point(295, y - 2),
+                    Size = new Size(65, 22),
+                    Minimum = 1,
+                    Maximum = 3600,
+                    Value = Math.Max(1, Math.Min(3600, ReturnToAreaPolicy.GoBackCoordSeconds > 0 ? ReturnToAreaPolicy.GoBackCoordSeconds : 15))
+                };
+                var lStuck = new Label { Text = "s", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(365, y + 2) };
                 p.Controls.AddRange(new Control[] { nStuck, lStuck });
+                cStuck.CheckedChanged += (s, e) => { ReturnToAreaPolicy.GoBackCoordIfStuck = cStuck.Checked; Settings.SaveCharacterSettings(); };
+                nStuck.ValueChanged += (s, e) => { ReturnToAreaPolicy.GoBackCoordSeconds = (int)nStuck.Value; Settings.SaveCharacterSettings(); };
                 y += step;
 
-                var cRetStuck = AddPhBotCheck(p, isTR ? "Şu süre boyunca takılı kalırsa şehre dön" : "Return if stuck in script after", 20, y, false);
-                var nRetStuck = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(280, y - 2), Size = new Size(60, 22), Value = 90 };
-                var lRetStuck = new Label { Text = "s", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(345, y + 2) };
+                // 7. Şu süre boyunca takılı kalırsa şehre dön [90] s
+                var cRetStuck = AddPhBotCheck(p, isTR ? "Şu süre boyunca takılı kalırsa şehre dön" : "Return if stuck in script after", 20, y, ReturnToAreaPolicy.ReturnIfStuckAfterSecondsEnabled);
+                cRetStuck.Name = "PhBot_TrScript_ReturnIfStuckAfter";
+                var nRetStuck = new NumericUpDown
+                {
+                    Name = "PhBot_TrScript_ReturnIfStuckAfterSec",
+                    Font = PhBotFont(),
+                    BackColor = Color.White,
+                    Location = new Point(295, y - 2),
+                    Size = new Size(65, 22),
+                    Minimum = 1,
+                    Maximum = 3600,
+                    Value = Math.Max(1, Math.Min(3600, ReturnToAreaPolicy.ReturnIfStuckSeconds > 0 ? ReturnToAreaPolicy.ReturnIfStuckSeconds : 90))
+                };
+                var lRetStuck = new Label { Text = "s", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(365, y + 2) };
                 p.Controls.AddRange(new Control[] { nRetStuck, lRetStuck });
+                cRetStuck.CheckedChanged += (s, e) => { ReturnToAreaPolicy.ReturnIfStuckAfterSecondsEnabled = cRetStuck.Checked; Settings.SaveCharacterSettings(); };
+                nRetStuck.ValueChanged += (s, e) => { ReturnToAreaPolicy.ReturnIfStuckSeconds = (int)nRetStuck.Value; Settings.SaveCharacterSettings(); };
                 y += step;
 
-                AddPhBotCheck(p, isTR ? "Kasma alanına giderken fellow'a bin" : "Ride fellow pet to training area", 20, y, false);
+                // 8. Kasma alanına giderken fellow'a bin
+                var cRide = AddPhBotCheck(p, isTR ? "Kasma alanına giderken fellow'a bin" : "Ride fellow pet to training area", 20, y, ReturnToAreaPolicy.RideFellowPet);
+                cRide.Name = "PhBot_TrScript_RideFellow";
+                cRide.CheckedChanged += (s, e) => { ReturnToAreaPolicy.RideFellowPet = cRide.Checked; Settings.SaveCharacterSettings(); };
                 y += step;
 
-                AddPhBotCheck(p, isTR ? "Mağaralarda yeniden bin" : "Remount in caves", 20, y, false);
+                // 9. Mağaralarda yeniden bin
+                var cRemount = AddPhBotCheck(p, isTR ? "Mağaralarda yeniden bin" : "Remount in caves", 20, y, ReturnToAreaPolicy.RemountInCaves);
+                cRemount.Name = "PhBot_TrScript_RemountInCaves";
+                cRemount.CheckedChanged += (s, e) => { ReturnToAreaPolicy.RemountInCaves = cRemount.Checked; Settings.SaveCharacterSettings(); };
                 y += step;
 
-                AddPhBotCheck(p, isTR ? "Son return kullanılan yere dönmek için şehirdeki Teleport NPC'lerini kullan" : "Use town NPC teleporter for last recall", 20, y, false);
+                // 10. Son return kullanılan yere dönmek için şehirdeki Teleport NPC'lerini kullan
+                var cRecall = AddPhBotCheck(p, isTR ? "Son return kullanılan yere dönmek için şehirdeki Teleport NPC'lerini kullan" : "Use town NPC teleporter for last recall", 20, y, ReturnToAreaPolicy.UseTownTeleportForLastRecall);
+                cRecall.Name = "PhBot_TrScript_TeleportRecall";
+                cRecall.CheckedChanged += (s, e) => { ReturnToAreaPolicy.UseTownTeleportForLastRecall = cRecall.Checked; Settings.SaveCharacterSettings(); };
                 y += step;
 
-                AddPhBotCheck(p, isTR ? "Öldüğün yere dönmek için şehirdeki Teleport NPC'lerini kullan" : "Use town NPC teleporter for last death", 20, y, false);
+                // 11. Öldüğün yere dönmek için şehirdeki Teleport NPC'lerini kullan
+                var cDeath = AddPhBotCheck(p, isTR ? "Öldüğün yere dönmek için şehirdeki Teleport NPC'lerini kullan" : "Use town NPC teleporter for last death", 20, y, ReturnToAreaPolicy.UseTownTeleportForLastDeath);
+                cDeath.Name = "PhBot_TrScript_TeleportDeath";
+                cDeath.CheckedChanged += (s, e) => { ReturnToAreaPolicy.UseTownTeleportForLastDeath = cDeath.Checked; Settings.SaveCharacterSettings(); };
             }
             catch (Exception ex) { PhBotDebug("trainscript inner: " + ex.Message); }
             finally { _innerLayout = false; }
+        }
+
+        public void RefreshTrainingScriptControls()
+        {
+            try
+            {
+                Panel p = TabPageH_Training_Option02_Panel;
+                if (p == null) return;
+
+                void SetCheck(string name, bool val)
+                {
+                    if (p.Controls.ContainsKey(name) && p.Controls[name] is CheckBox cb && cb.Checked != val)
+                        cb.Checked = val;
+                }
+                void SetNum(string name, int val)
+                {
+                    if (p.Controls.ContainsKey(name) && p.Controls[name] is NumericUpDown nud && (int)nud.Value != val)
+                        nud.Value = Math.Max(nud.Minimum, Math.Min(nud.Maximum, val));
+                }
+
+                SetCheck("PhBot_TrScript_SkipTown", ReturnToAreaPolicy.SkipTownScript);
+                SetCheck("PhBot_TrScript_ContinueTown", ReturnToAreaPolicy.ContinueTownScript);
+                SetCheck("PhBot_TrScript_ReturnIfStuck", ReturnToAreaPolicy.ReturnIfScriptStuck);
+                SetCheck("PhBot_TrScript_AvoidStatue", ReturnToAreaPolicy.AvoidStatueOfJustice);
+                SetCheck("PhBot_TrScript_WalkDelay", ReturnToAreaPolicy.EnableScriptWalkDelay);
+                SetNum("PhBot_TrScript_WalkDelayMs", ReturnToAreaPolicy.ScriptWalkDelay);
+                SetCheck("PhBot_TrScript_GoBackCoord", ReturnToAreaPolicy.GoBackCoordIfStuck);
+                SetNum("PhBot_TrScript_GoBackCoordSec", ReturnToAreaPolicy.GoBackCoordSeconds);
+                SetCheck("PhBot_TrScript_ReturnIfStuckAfter", ReturnToAreaPolicy.ReturnIfStuckAfterSecondsEnabled);
+                SetNum("PhBot_TrScript_ReturnIfStuckAfterSec", ReturnToAreaPolicy.ReturnIfStuckSeconds);
+                SetCheck("PhBot_TrScript_RideFellow", ReturnToAreaPolicy.RideFellowPet);
+                SetCheck("PhBot_TrScript_RemountInCaves", ReturnToAreaPolicy.RemountInCaves);
+                SetCheck("PhBot_TrScript_TeleportRecall", ReturnToAreaPolicy.UseTownTeleportForLastRecall);
+                SetCheck("PhBot_TrScript_TeleportDeath", ReturnToAreaPolicy.UseTownTeleportForLastDeath);
+            }
+            catch { }
         }
 
         // ---------------------------------------------------------------

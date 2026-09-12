@@ -874,14 +874,34 @@ namespace xBot.Game
 			if (skillID <= 1 || IsBaseSkillId(skillID))
 			{
 				p.WriteByte((byte)SRTypes.CharacterAction.CommonAttack);
+				p.WriteByte(1);
+				p.WriteUInt(targetUniqueID);
 			}
 			else
 			{
 				p.WriteByte((byte)SRTypes.CharacterAction.SkillCast);
 				p.WriteUInt(skillID);
+
+				bool targetRequired = true;
+				try
+				{
+					if (InfoManager.Character != null && InfoManager.Character.Skills != null && InfoManager.Character.Skills.ContainsKey(skillID))
+					{
+						targetRequired = InfoManager.Character.Skills[skillID].isTargetRequired;
+					}
+				}
+				catch { }
+
+				if (targetRequired)
+				{
+					p.WriteByte(1);
+					p.WriteUInt(targetUniqueID);
+				}
+				else
+				{
+					p.WriteByte(0);
+				}
 			}
-			p.WriteByte(1); // has target? always.
-			p.WriteUInt(targetUniqueID);
 			Bot.Get.Proxy.Agent.InjectToServer(p);
 		}
 		public static void RemoveBuff(uint skillID, uint targetUniqueID = 0)

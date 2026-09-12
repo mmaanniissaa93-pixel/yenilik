@@ -59,6 +59,20 @@ namespace xBot.App
         public static bool AttackWeakerFirst { get; set; } = false;
         public static bool DoNotFollowMobs { get; set; } = true;
 
+        // PhBot Attack Options (Saldırı Sekmesi Seçenekleri)
+        public static bool KillSteal { get; set; } = true;
+        public static bool ProtectParty { get; set; } = false;
+        public static string ProtectPartyTarget { get; set; } = "";
+        public static bool AttackLowerFirst { get; set; } = true;
+        public static bool SwitchMonsterAfterDot { get; set; } = false;
+        public static int SwitchMonsterDotDelay { get; set; } = 0;
+        public static bool UseLowerSkills { get; set; } = true;
+        public static bool SlowerAttackMode { get; set; } = false;
+        public static bool Lagtastic { get; set; } = false;
+        public static bool AutoSelectUniques { get; set; } = false;
+        public static bool AutoSelectTitans { get; set; } = false;
+        public static bool UseTeleportSkills { get; set; } = false;
+
         // Avoidance & Preference Table per Rarity (thread-safe)
         private static readonly ConcurrentDictionary<SRMob.Mob, MobTargetRule> TargetRules = new ConcurrentDictionary<SRMob.Mob, MobTargetRule>();
 
@@ -254,6 +268,18 @@ namespace xBot.App
             json["IgnoreDimensionPillars"] = IgnoreDimensionPillars;
             json["AttackWeakerFirst"] = AttackWeakerFirst;
             json["DoNotFollowMobs"] = DoNotFollowMobs;
+            json["KillSteal"] = KillSteal;
+            json["ProtectParty"] = ProtectParty;
+            json["ProtectPartyTarget"] = ProtectPartyTarget ?? "";
+            json["AttackLowerFirst"] = AttackLowerFirst;
+            json["SwitchMonsterAfterDot"] = SwitchMonsterAfterDot;
+            json["SwitchMonsterDotDelay"] = SwitchMonsterDotDelay;
+            json["UseLowerSkills"] = UseLowerSkills;
+            json["SlowerAttackMode"] = SlowerAttackMode;
+            json["Lagtastic"] = Lagtastic;
+            json["AutoSelectUniques"] = AutoSelectUniques;
+            json["AutoSelectTitans"] = AutoSelectTitans;
+            json["UseTeleportSkills"] = UseTeleportSkills;
 
             JArray zerkMobs = new JArray();
             foreach (var t in ZerkMobTypes) zerkMobs.Add(t.ToString());
@@ -293,6 +319,18 @@ namespace xBot.App
             if (json.ContainsKey("IgnoreDimensionPillars")) IgnoreDimensionPillars = (bool)json["IgnoreDimensionPillars"];
             if (json.ContainsKey("AttackWeakerFirst")) AttackWeakerFirst = (bool)json["AttackWeakerFirst"];
             if (json.ContainsKey("DoNotFollowMobs")) DoNotFollowMobs = (bool)json["DoNotFollowMobs"];
+            if (json.ContainsKey("KillSteal")) KillSteal = (bool)json["KillSteal"];
+            if (json.ContainsKey("ProtectParty")) ProtectParty = (bool)json["ProtectParty"];
+            if (json.ContainsKey("ProtectPartyTarget")) ProtectPartyTarget = (string)json["ProtectPartyTarget"];
+            if (json.ContainsKey("AttackLowerFirst")) AttackLowerFirst = (bool)json["AttackLowerFirst"];
+            if (json.ContainsKey("SwitchMonsterAfterDot")) SwitchMonsterAfterDot = (bool)json["SwitchMonsterAfterDot"];
+            if (json.ContainsKey("SwitchMonsterDotDelay")) SwitchMonsterDotDelay = (int)json["SwitchMonsterDotDelay"];
+            if (json.ContainsKey("UseLowerSkills")) UseLowerSkills = (bool)json["UseLowerSkills"];
+            if (json.ContainsKey("SlowerAttackMode")) SlowerAttackMode = (bool)json["SlowerAttackMode"];
+            if (json.ContainsKey("Lagtastic")) Lagtastic = (bool)json["Lagtastic"];
+            if (json.ContainsKey("AutoSelectUniques")) AutoSelectUniques = (bool)json["AutoSelectUniques"];
+            if (json.ContainsKey("AutoSelectTitans")) AutoSelectTitans = (bool)json["AutoSelectTitans"];
+            if (json.ContainsKey("UseTeleportSkills")) UseTeleportSkills = (bool)json["UseTeleportSkills"];
 
             if (json.ContainsKey("ZerkMobTypes") && json["ZerkMobTypes"] is JArray arr)
             {

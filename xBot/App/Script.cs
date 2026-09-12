@@ -253,17 +253,50 @@ namespace xBot.App
 			}
 			return -1;
 		}
+
+		private enum ScriptStepResult
+		{
+			Continue,
+			StepBack,
+			AbortReturn
+		}
+
 		/// <summary>
 		/// Start running script.
 		/// </summary>
 		public void Run(int startIndex = 0)
 		{
 			Bot b = Bot.Get;
+			Window w = Window.Get;
 			m_stopSignal.Reset();
 			Running = true;
+			int consecutiveStepBacks = 0;
 			// Parsing script
 			for (int j = startIndex; j < m_lines.Count && Running && b.isBotting; j++)
-				ExecuteLine(j);
+			{
+				ScriptStepResult res = ExecuteLine(j);
+				if (res == ScriptStepResult.AbortReturn)
+					break;
+				if (res == ScriptStepResult.StepBack)
+				{
+					consecutiveStepBacks++;
+					if (consecutiveStepBacks <= 2 && j > 0)
+					{
+						j = Math.Max(-1, j - 2);
+						continue;
+					}
+					else if (ReturnToAreaPolicy.ReturnIfScriptStuck)
+					{
+						w?.LogProcess("Script: Art arda takılma sonrası yola devam edilemedi. Şehre dönülüyor...", Window.ProcessState.Warning);
+						b.UseReturnScroll();
+						break;
+					}
+				}
+				else
+				{
+					consecutiveStepBacks = 0;
+				}
+			}
 			Running = false;
 		}
 		/// <summary>
@@ -274,29 +307,54 @@ namespace xBot.App
 		public void RunReversed(int startIndex = -1)
 		{
 			Bot b = Bot.Get;
+			Window w = Window.Get;
 			if (startIndex < 0 || startIndex >= m_lines.Count)
 				startIndex = m_lines.Count - 1;
 			m_stopSignal.Reset();
 			Running = true;
+			int consecutiveStepBacks = 0;
 			for (int j = startIndex; j >= 0 && Running && b.isBotting; j--)
-				ExecuteLine(j);
+			{
+				ScriptStepResult res = ExecuteLine(j);
+				if (res == ScriptStepResult.AbortReturn)
+					break;
+				if (res == ScriptStepResult.StepBack)
+				{
+					consecutiveStepBacks++;
+					if (consecutiveStepBacks <= 2 && j < m_lines.Count - 1)
+					{
+						j = Math.Min(m_lines.Count, j + 2);
+						continue;
+					}
+					else if (ReturnToAreaPolicy.ReturnIfScriptStuck)
+					{
+						w?.LogProcess("Script: Art arda takılma sonrası yola devam edilemedi. Şehre dönülüyor...", Window.ProcessState.Warning);
+						b.UseReturnScroll();
+						break;
+					}
+				}
+				else
+				{
+					consecutiveStepBacks = 0;
+				}
+			}
 			Running = false;
 		}
 		/// <summary>
 		/// Tek script satırını çalıştırır (düz ve ters koşu ortak).
 		/// </summary>
-		private void ExecuteLine(int j)
+		private ScriptStepResult ExecuteLine(int j)
 		{
 			Window w = Window.Get;
 			Bot b = Bot.Get;
 			if (m_lines[j].StartsWith("//") || string.IsNullOrWhiteSpace(m_lines[j]))
-				return;
+				return ScriptStepResult.Continue;
 			ScriptCommandInvocation invocation;
 			string parseError;
 			if (!ScriptCommandCatalog.TryParse(m_lines[j], out invocation, out parseError))
 			{
 				w.LogProcess($"Script [{j + 1}]: {parseError}", Window.ProcessState.Warning);
-				return;
+				return ScriptStepResult.Continue;
 			}
 			string[] command = invocation.ToLegacyTokens();
 
@@ -308,13 +366,43 @@ namespace xBot.App
 					SRCoord position = ParseMove(command);
 					if (position != null) {
 						w.LogProcess($"Script step [{j + 1}/{m_lines.Count}]");
+
+						if (ReturnToAreaPolicy.AvoidStatueOfJustice)
+						{
+							AvoidStatueOfJusticeIfNear(w, b);
+						}
+
+						if (ReturnToAreaPolicy.RemountInCaves)
+						{
+							CheckCaveRemount(b);
+						}
+
 						if (!b.WaitMovement(position, 10))
 						{
-							// Tek noktaya ulaşılamadı diye TÜM botu durdurma:
-							// tezgâh/duvar arkası gibi noktalar atlanır, NPC
-							// adımları (store/buy/repair) yine de çalışır.
-							w.Log($"Script step [{j + 1}] atlandı (ulaşılamadı), devam ediliyor.");
+							w.Log($"Script step [{j + 1}] atlandı (ulaşılamadı).");
+
+							if (ReturnToAreaPolicy.ReturnIfScriptStuck)
+							{
+								w.LogProcess("Script: Yolda takıldı ('Yolda takılırsa şehre dön' aktif). Şehre dönülüyor...", Window.ProcessState.Warning);
+								b.UseReturnScroll();
+								Stop();
+								return ScriptStepResult.AbortReturn;
+							}
+
+							if (ReturnToAreaPolicy.GoBackCoordIfStuck)
+							{
+								w.LogProcess($"Script: Karakter takıldı, bir önceki koordinata geri dönülüyor (adım {j})...");
+								return ScriptStepResult.StepBack;
+							}
 						}
+						else
+						{
+							if (ReturnToAreaPolicy.EnableScriptWalkDelay && ReturnToAreaPolicy.ScriptWalkDelay > 0)
+							{
+								WaitInterruptible(ReturnToAreaPolicy.ScriptWalkDelay);
+							}
+						}
+
 						if (TradeLoopManager.IsRunning)
 							b.HandleTradeWaypoint();
 					}
@@ -397,6 +485,53 @@ namespace xBot.App
 						b.Proxy.Stop();
 					break;
 			}
+			return ScriptStepResult.Continue;
+		}
+
+		private void AvoidStatueOfJusticeIfNear(Window w, Bot b)
+		{
+			try
+			{
+				var myPos = InfoManager.Character?.GetRealtimePosition();
+				if (myPos == null) return;
+				var statue = InfoManager.Mobs.Snapshot().Find(m => m != null &&
+					((m.Name != null && (m.Name.IndexOf("Statue of Justice", StringComparison.OrdinalIgnoreCase) >= 0 || m.Name.IndexOf("Adalet", StringComparison.OrdinalIgnoreCase) >= 0))
+					|| (m.ServerName != null && m.ServerName.IndexOf("STATUE_OF_JUSTICE", StringComparison.OrdinalIgnoreCase) >= 0)));
+				if (statue != null)
+				{
+					var sPos = statue.GetRealtimePosition();
+					if (sPos != null && myPos.DistanceTo(sPos) < 20.0)
+					{
+						w?.LogProcess("Script: Statue of Justice yakınında algılandı, güvenli mesafeye kaçılıyor...");
+						double edx = myPos.PosX - sPos.PosX;
+						double edy = myPos.PosY - sPos.PosY;
+						double len = Math.Sqrt(edx * edx + edy * edy);
+						if (len < 0.1) { edx = 1; len = 1; }
+						SRCoord evade = new SRCoord(myPos.PosX + (edx / len) * 15.0, myPos.PosY + (edy / len) * 15.0);
+						b.MoveTo(evade);
+						Thread.Sleep(800);
+					}
+				}
+			}
+			catch { }
+		}
+
+		private void CheckCaveRemount(Bot b)
+		{
+			try
+			{
+				var chr = InfoManager.Character;
+				if (chr == null || chr.isRiding) return;
+				var myPos = chr.GetRealtimePosition();
+				if (myPos != null && (myPos.inDungeon() || SRCoord.inDungeon(myPos.Region)))
+				{
+					if (ReturnToAreaPolicy.RideFellowPet)
+						b.TryRideFellowPet();
+					else if (ReturnToAreaPolicy.UseMount && !TrainingOptionsPolicy.DoNotSpawnMount)
+						b.ReturnTripMountNow();
+				}
+			}
+			catch { }
 		}
 
 		public void Stop()
@@ -593,7 +728,7 @@ namespace xBot.App
 				w.LogProcess("MOUNT: sunucu bindirme isteğini reddetti veya zaman aşımına uğradı.", Window.ProcessState.Warning);
 		}
 
-		private static SRCoService FindFellowMountCandidate()
+		public static SRCoService FindFellowMountCandidate()
 		{
 			SRCoService candidate = InfoManager.MyPets.Find(pet => pet != null && pet.isAttackPet()
 				&& IsLikelyFellow(pet));
@@ -602,8 +737,9 @@ namespace xBot.App
 			return candidate ?? InfoManager.MyPets.Find(pet => pet != null && pet.isAttackPet());
 		}
 
-		private static bool IsLikelyFellow(SRCoService pet)
+		public static bool IsLikelyFellow(SRCoService pet)
 		{
+			if (pet == null) return false;
 			string code = (pet.ServerName ?? "") + " " + (pet.Name ?? "");
 			return code.IndexOf("FELLOW", StringComparison.OrdinalIgnoreCase) >= 0
 				|| code.IndexOf("GROWTH", StringComparison.OrdinalIgnoreCase) >= 0

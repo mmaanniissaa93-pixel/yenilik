@@ -882,9 +882,29 @@ namespace xBot.App
             {
                 // Attack -> Skills paneli: phBot sırası
                 // Attack | Buffs | Party | Party Options | Resurrect | Healing | Lure | Attack Log
-                RenamePhBotSubTabs(TabPageH_Skills_Option01, "Attack");
-                RenamePhBotSubTabs(TabPageH_Skills_Option02, "Buffs");
-                RenamePhBotSubTabs(TabPageH_Skills_Option03, "Party");
+                bool isTR = LocalizationManager.CurrentLanguage == "TR";
+                RenamePhBotSubTabs(TabPageH_Skills_Option01, isTR ? "Saldırı" : "Attack");
+                RenamePhBotSubTabs(TabPageH_Skills_Option02, isTR ? "Bufflar" : "Buffs");
+                RenamePhBotSubTabs(TabPageH_Skills_Option03, isTR ? "Parti" : "Party");
+
+                Control stripSkills = TabPageH_Skills_Option01 != null ? TabPageH_Skills_Option01.Parent : null;
+                if (stripSkills != null)
+                {
+                    Button bOpt = stripSkills.Controls["TabPageH_Skills_OptionPartyOptions"] as Button;
+                    if (bOpt != null) RenamePhBotSubTabs(bOpt, isTR ? "Parti Ayarları" : "Party Options");
+
+                    Button bRes = stripSkills.Controls["TabPageH_Skills_OptionResurrect"] as Button;
+                    if (bRes != null) RenamePhBotSubTabs(bRes, isTR ? "Canlandır" : "Resurrect");
+
+                    Button bHeal = stripSkills.Controls["TabPageH_Skills_OptionHealing"] as Button;
+                    if (bHeal != null) RenamePhBotSubTabs(bHeal, isTR ? "İyileştirme" : "Healing");
+
+                    Button bLure = stripSkills.Controls["TabPageH_Skills_OptionLure"] as Button;
+                    if (bLure != null) RenamePhBotSubTabs(bLure, "Lure");
+
+                    Button bLog = stripSkills.Controls["TabPageH_Skills_OptionAttackLog"] as Button;
+                    if (bLog != null) RenamePhBotSubTabs(bLog, isTR ? "Saldırı Günlüğü" : "Attack Log");
+                }
             }
             catch { }
             try
@@ -995,21 +1015,29 @@ namespace xBot.App
                 }
                 catch { x = 240; }
 
+                bool isTR = LocalizationManager.CurrentLanguage == "TR";
                 foreach (string name in extra)
                 {
                     string btnName = "TabPageH_Skills_Option" + SanitizeName(name);
                     if (host.Controls.Find(btnName + "_Panel", true).Length > 0) continue;
                     if (strip.Controls.ContainsKey(btnName)) continue;
 
+                    string trText = name;
+                    if (name == "Party Options") trText = "Parti Ayarları";
+                    else if (name == "Resurrect") trText = "Canlandır";
+                    else if (name == "Healing") trText = "İyileştirme";
+                    else if (name == "Lure") trText = "Lure";
+                    else if (name == "Attack Log") trText = "Saldırı Günlüğü";
+
                     var b = new Button();
                     b.Name = btnName;
-                    b.Text = name;
+                    b.Text = isTR ? trText : name;
                     b.Font = PhBotFont();
                     b.ForeColor = Color.Black;
                     b.BackColor = PhBotTabInactive;
                     b.FlatStyle = FlatStyle.Standard;
                     b.UseVisualStyleBackColor = true;
-                    b.Size = new Size(Math.Max(80, TextRenderer.MeasureText(name, b.Font).Width + 20), 23);
+                    b.Size = new Size(Math.Max(80, TextRenderer.MeasureText(b.Text, b.Font).Width + 20), 23);
                     b.Location = new Point(x, TabPageH_Skills_Option01 != null ? TabPageH_Skills_Option01.Top : 2);
                     b.Click += TabPageH_Option_Click;
                     b.Click += PhBotHTabVisual_Click;
@@ -1039,6 +1067,12 @@ namespace xBot.App
                     catch { }
                     host.Controls.Add(p);
                     BuildPhBotAttackExtraContent(name, p);
+                }
+
+                // Tab 3: Parti sekmesi (görsel referansa birebir boşluk doldurma)
+                if (TabPageH_Skills_Option03_Panel != null && TabPageH_Skills_Option03_Panel.Controls.Count == 0)
+                {
+                    BuildPhBotPartyTab(TabPageH_Skills_Option03_Panel);
                 }
             }
             catch { }
@@ -1072,22 +1106,7 @@ namespace xBot.App
             }
             else if (name == "Resurrect")
             {
-                AddPhBotCheck(p, "Resurrect all party members", 10, 10, true);
-                AddPhBotCheck(p, "Auto accept res from other players", 10, 34, true);
-                AddPhBotCheck(p, "Only accept res from party members", 10, 58, true);
-                AddPhBotLabeledNumber(p, "Resurrect radius", 10, 84, 50);
-                AddPhBotLabeledNumber(p, "Resurrect delay (s)", 10, 112, 5);
-                AddPhBotLabeledNumber(p, "Resurrect try limit", 10, 140, 3);
-                var lv = new ListView();
-                lv.View = View.Details; lv.FullRowSelect = true; lv.GridLines = true; lv.BackColor = Color.White;
-                lv.Location = new Point(300, 10); lv.Size = new Size(300, 160);
-                lv.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-                lv.Columns.Add("Resurrect list", 180); lv.Columns.Add("Status", 110);
-                p.Controls.Add(lv);
-                var note = new Label();
-                note.Text = "Revive çalışması için resurrect skili Buffs listesinde olmalı.";
-                note.Font = PhBotFont(); note.AutoSize = true; note.Location = new Point(10, 170);
-                p.Controls.Add(note);
+                BuildPhBotResurrectTab(p);
             }
             else if (name == "Healing")
             {
@@ -1103,24 +1122,11 @@ namespace xBot.App
             }
             else if (name == "Lure")
             {
-                AddPhBotLabeledNumber(p, "Walk X spaces then back", 10, 10, 30);
-                AddPhBotCheck(p, "Buff only after lure script ends", 10, 38, false);
-                AddPhBotCheck(p, "Stop luring if party members are not near", 10, 62, true);
-                AddPhBotLabeledNumber(p, "Stop if dead party members >", 10, 88, 2);
-                AddPhBotLabeledNumber(p, "Stop if monsters in area >", 10, 116, 20);
-                AddPhBotLabeledNumber(p, "Delay at edges (ms)", 10, 144, 2000);
-                AddPhBotLabeledNumber(p, "Delay at center (ms)", 10, 172, 2000);
-                var lbl = new Label();
-                lbl.Text = "Cast: Howling Shout (önerilen)";
-                lbl.Font = PhBotFont(); lbl.AutoSize = true; lbl.Location = new Point(10, 200);
-                p.Controls.Add(lbl);
+                BuildPhBotLureTab(p);
             }
             else // Party Options
             {
-                AddPhBotLabeledNumber(p, "Party buffing radius", 10, 10, 30);
-                AddPhBotCheck(p, "Walk back to center after buffing", 10, 38, true);
-                AddPhBotCheck(p, "Buff all nearby players (önerilmez)", 10, 62, false);
-                AddPhBotCheck(p, "Start/stop party buffing if player nearby", 10, 86, false);
+                BuildPhBotPartyOptionsTab(p);
             }
         }
 

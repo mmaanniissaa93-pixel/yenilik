@@ -168,7 +168,7 @@ namespace xBot.App
                 return LocalizationManager.CurrentLanguage == "TR" ? "Devre dışı" : "Disabled";
 
             if (count <= 0)
-                return LocalizationManager.CurrentLanguage == "TR" ? "Menzilde hedef adayı yok." : "No target candidates in range.";
+                return "No target candidates in range.";
 
             string distStr = nearestDistance >= 0
                 ? string.Format(System.Globalization.CultureInfo.InvariantCulture, " ({0:0.0}m)", nearestDistance)

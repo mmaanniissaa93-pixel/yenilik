@@ -31,6 +31,8 @@
     <Compile Include="..\..\xBot\App\ScriptCommandCatalog.cs" Link="ScriptCommandCatalog.cs" />
     <Compile Include="..\..\xBot\App\StorageMovementPolicy.cs" Link="StorageMovementPolicy.cs" />
     <Compile Include="..\..\xBot\App\ConsignmentPolicy.cs" Link="ConsignmentPolicy.cs" />
+    <Compile Include="..\..\xBot\Game\Objects\Common\SRCoord.cs" Link="SRCoord.cs" />
+    <Compile Include="..\..\xBot\App\EzFilterManager.cs" Link="EzFilterManager.cs" />
     <Compile Include="..\..\xBot\Game\Objects\xDictionary.cs" Link="xDictionary.cs" />
     <Compile Include="..\..\xBot\App\SecretStore.cs" Link="SecretStore.cs" />
   </ItemGroup>

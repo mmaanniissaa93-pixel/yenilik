@@ -25,7 +25,7 @@ namespace xBot.Game.Objects.Common
         public Weapon RequiredWeaponPrimary { get; set; }
         public Weapon RequiredWeaponSecondary { get; set; }
         public List<Params_ItemRequired> RequiredItems { get; } = new List<Params_ItemRequired>();
-        public bool Enabled { get; set; }
+        public bool Enabled { get; set; } = true;
         public bool isCastingEnabled
         {
             get
