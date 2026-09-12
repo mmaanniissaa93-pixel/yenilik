@@ -194,64 +194,73 @@ namespace xGraphics
 				Point clientPoint = base.PointToClient(new Point(drgevent.X, drgevent.Y));
 				ListViewItem hoverItem = base.GetItemAt(clientPoint.X, clientPoint.Y);
 
-				Graphics g = this.CreateGraphics();
-
-				if (hoverItem == null)
+				using (Graphics g = this.CreateGraphics())
 				{
-					// no item was found, so no drop should take place
-					drgevent.Effect = DragDropEffects.Move;
-
-					if (m_previousItem != null)
+					if (hoverItem == null)
 					{
-						m_previousItem = null;
-						Invalidate();
+						// no item was found, so no drop should take place
+						drgevent.Effect = DragDropEffects.Move;
+
+						if (m_previousItem != null)
+						{
+							m_previousItem = null;
+							Invalidate();
+						}
+
+						hoverItem = base.Items[base.Items.Count - 1];
+
+						using (Pen pen = new Pen(m_lineColor, 2))
+						using (SolidBrush brush = new SolidBrush(m_lineColor))
+						{
+							if (this.View == View.Details || this.View == View.List)
+							{
+								g.DrawLine(pen, new Point(hoverItem.Bounds.X, hoverItem.Bounds.Y + hoverItem.Bounds.Height), new Point(hoverItem.Bounds.X + this.Bounds.Width, hoverItem.Bounds.Y + hoverItem.Bounds.Height));
+								g.FillPolygon(brush, new Point[] { new Point(hoverItem.Bounds.X, hoverItem.Bounds.Y + hoverItem.Bounds.Height - 5), new Point(hoverItem.Bounds.X + 5, hoverItem.Bounds.Y + hoverItem.Bounds.Height), new Point(hoverItem.Bounds.X, hoverItem.Bounds.Y + hoverItem.Bounds.Height + 5) });
+								g.FillPolygon(brush, new Point[] { new Point(this.Bounds.Width - 4, hoverItem.Bounds.Y + hoverItem.Bounds.Height - 5), new Point(this.Bounds.Width - 9, hoverItem.Bounds.Y + hoverItem.Bounds.Height), new Point(this.Bounds.Width - 4, hoverItem.Bounds.Y + hoverItem.Bounds.Height + 5) });
+							}
+							else
+							{
+								g.DrawLine(pen, new Point(hoverItem.Bounds.X + hoverItem.Bounds.Width, hoverItem.Bounds.Y), new Point(hoverItem.Bounds.X + hoverItem.Bounds.Width, hoverItem.Bounds.Y + hoverItem.Bounds.Height));
+								g.FillPolygon(brush, new Point[] { new Point(hoverItem.Bounds.X + hoverItem.Bounds.Width - 5, hoverItem.Bounds.Y), new Point(hoverItem.Bounds.X + hoverItem.Bounds.Width + 5, hoverItem.Bounds.Y), new Point(hoverItem.Bounds.X + hoverItem.Bounds.Width, hoverItem.Bounds.Y + 5) });
+								g.FillPolygon(brush, new Point[] { new Point(hoverItem.Bounds.X + hoverItem.Bounds.Width - 5, hoverItem.Bounds.Y + hoverItem.Bounds.Height), new Point(hoverItem.Bounds.X + hoverItem.Bounds.Width + 5, hoverItem.Bounds.Y + hoverItem.Bounds.Height), new Point(hoverItem.Bounds.X + hoverItem.Bounds.Width, hoverItem.Bounds.Y + hoverItem.Bounds.Height - 5) });
+							}
+						}
+
+						// call the base OnDragOver event
+						base.OnDragOver(drgevent);
+
+						return;
 					}
 
-					hoverItem = base.Items[base.Items.Count - 1];
-
-					if (this.View == View.Details || this.View == View.List)
+					// determine if the user is currently hovering over a new
+					// item. If so, set the previous item's back color back
+					// to the default color.
+					if ((m_previousItem != null && m_previousItem != hoverItem) || m_previousItem == null)
 					{
-						g.DrawLine(new Pen(m_lineColor, 2), new Point(hoverItem.Bounds.X, hoverItem.Bounds.Y + hoverItem.Bounds.Height), new Point(hoverItem.Bounds.X + this.Bounds.Width, hoverItem.Bounds.Y + hoverItem.Bounds.Height));
-						g.FillPolygon(new SolidBrush(m_lineColor), new Point[] { new Point(hoverItem.Bounds.X, hoverItem.Bounds.Y + hoverItem.Bounds.Height - 5), new Point(hoverItem.Bounds.X + 5, hoverItem.Bounds.Y + hoverItem.Bounds.Height), new Point(hoverItem.Bounds.X, hoverItem.Bounds.Y + hoverItem.Bounds.Height + 5) });
-						g.FillPolygon(new SolidBrush(m_lineColor), new Point[] { new Point(this.Bounds.Width - 4, hoverItem.Bounds.Y + hoverItem.Bounds.Height - 5), new Point(this.Bounds.Width - 9, hoverItem.Bounds.Y + hoverItem.Bounds.Height), new Point(this.Bounds.Width - 4, hoverItem.Bounds.Y + hoverItem.Bounds.Height + 5) });
-					}
-					else
-					{
-						g.DrawLine(new Pen(m_lineColor, 2), new Point(hoverItem.Bounds.X + hoverItem.Bounds.Width, hoverItem.Bounds.Y), new Point(hoverItem.Bounds.X + hoverItem.Bounds.Width, hoverItem.Bounds.Y + hoverItem.Bounds.Height));
-						g.FillPolygon(new SolidBrush(m_lineColor), new Point[] { new Point(hoverItem.Bounds.X + hoverItem.Bounds.Width - 5, hoverItem.Bounds.Y), new Point(hoverItem.Bounds.X + hoverItem.Bounds.Width + 5, hoverItem.Bounds.Y), new Point(hoverItem.Bounds.X + hoverItem.Bounds.Width, hoverItem.Bounds.Y + 5) });
-						g.FillPolygon(new SolidBrush(m_lineColor), new Point[] { new Point(hoverItem.Bounds.X + hoverItem.Bounds.Width - 5, hoverItem.Bounds.Y + hoverItem.Bounds.Height), new Point(hoverItem.Bounds.X + hoverItem.Bounds.Width + 5, hoverItem.Bounds.Y + hoverItem.Bounds.Height), new Point(hoverItem.Bounds.X + hoverItem.Bounds.Width, hoverItem.Bounds.Y + hoverItem.Bounds.Height - 5) });
+						this.Invalidate();
 					}
 
-					// call the base OnDragOver event
-					base.OnDragOver(drgevent);
+					// set the background color of the item being hovered
+					// and assign the previous item to the item being hovered
+					//hoverItem.BackColor = Color.Beige;
+					m_previousItem = hoverItem;
 
-					return;
-				}
-
-				// determine if the user is currently hovering over a new
-				// item. If so, set the previous item's back color back
-				// to the default color.
-				if ((m_previousItem != null && m_previousItem != hoverItem) || m_previousItem == null)
-				{
-					this.Invalidate();
-				}
-
-				// set the background color of the item being hovered
-				// and assign the previous item to the item being hovered
-				//hoverItem.BackColor = Color.Beige;
-				m_previousItem = hoverItem;
-
-				if (this.View == View.Details || this.View == View.List)
-				{
-					g.DrawLine(new Pen(m_lineColor, 2), new Point(hoverItem.Bounds.X, hoverItem.Bounds.Y), new Point(hoverItem.Bounds.X + this.Bounds.Width, hoverItem.Bounds.Y));
-					g.FillPolygon(new SolidBrush(m_lineColor), new Point[] { new Point(hoverItem.Bounds.X, hoverItem.Bounds.Y - 5), new Point(hoverItem.Bounds.X + 5, hoverItem.Bounds.Y), new Point(hoverItem.Bounds.X, hoverItem.Bounds.Y + 5) });
-					g.FillPolygon(new SolidBrush(m_lineColor), new Point[] { new Point(this.Bounds.Width - 4, hoverItem.Bounds.Y - 5), new Point(this.Bounds.Width - 9, hoverItem.Bounds.Y), new Point(this.Bounds.Width - 4, hoverItem.Bounds.Y + 5) });
-				}
-				else
-				{
-					g.DrawLine(new Pen(m_lineColor, 2), new Point(hoverItem.Bounds.X, hoverItem.Bounds.Y), new Point(hoverItem.Bounds.X, hoverItem.Bounds.Y + hoverItem.Bounds.Height));
-					g.FillPolygon(new SolidBrush(m_lineColor), new Point[] { new Point(hoverItem.Bounds.X - 5, hoverItem.Bounds.Y), new Point(hoverItem.Bounds.X + 5, hoverItem.Bounds.Y), new Point(hoverItem.Bounds.X, hoverItem.Bounds.Y + 5) });
-					g.FillPolygon(new SolidBrush(m_lineColor), new Point[] { new Point(hoverItem.Bounds.X - 5, hoverItem.Bounds.Y + hoverItem.Bounds.Height), new Point(hoverItem.Bounds.X + 5, hoverItem.Bounds.Y + hoverItem.Bounds.Height), new Point(hoverItem.Bounds.X, hoverItem.Bounds.Y + hoverItem.Bounds.Height - 5) });
+					using (Pen pen = new Pen(m_lineColor, 2))
+					using (SolidBrush brush = new SolidBrush(m_lineColor))
+					{
+						if (this.View == View.Details || this.View == View.List)
+						{
+							g.DrawLine(pen, new Point(hoverItem.Bounds.X, hoverItem.Bounds.Y), new Point(hoverItem.Bounds.X + this.Bounds.Width, hoverItem.Bounds.Y));
+							g.FillPolygon(brush, new Point[] { new Point(hoverItem.Bounds.X, hoverItem.Bounds.Y - 5), new Point(hoverItem.Bounds.X + 5, hoverItem.Bounds.Y), new Point(hoverItem.Bounds.X, hoverItem.Bounds.Y + 5) });
+							g.FillPolygon(brush, new Point[] { new Point(this.Bounds.Width - 4, hoverItem.Bounds.Y - 5), new Point(this.Bounds.Width - 9, hoverItem.Bounds.Y), new Point(this.Bounds.Width - 4, hoverItem.Bounds.Y + 5) });
+						}
+						else
+						{
+							g.DrawLine(pen, new Point(hoverItem.Bounds.X, hoverItem.Bounds.Y), new Point(hoverItem.Bounds.X, hoverItem.Bounds.Y + hoverItem.Bounds.Height));
+							g.FillPolygon(brush, new Point[] { new Point(hoverItem.Bounds.X - 5, hoverItem.Bounds.Y), new Point(hoverItem.Bounds.X + 5, hoverItem.Bounds.Y), new Point(hoverItem.Bounds.X, hoverItem.Bounds.Y + 5) });
+							g.FillPolygon(brush, new Point[] { new Point(hoverItem.Bounds.X - 5, hoverItem.Bounds.Y + hoverItem.Bounds.Height), new Point(hoverItem.Bounds.X + 5, hoverItem.Bounds.Y + hoverItem.Bounds.Height), new Point(hoverItem.Bounds.X, hoverItem.Bounds.Y + hoverItem.Bounds.Height - 5) });
+						}
+					}
 				}
 
 				// go through each of the selected items, and if any of the

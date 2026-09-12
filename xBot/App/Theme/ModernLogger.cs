@@ -54,28 +54,58 @@ namespace xBot.App.Theme
             return SensitiveOpcodes.Contains(opcode);
         }
 
+        private static long _currentLogBytes = -1;
+        private static int _writesSinceLastStatCheck = 0;
+
         public static void LogToFile(string line)
         {
             try
             {
                 lock (fileLock)
                 {
-                    RotateLogIfNeeded();
-                    File.AppendAllText(LogFilePath, line + Environment.NewLine);
+                    string textToWrite = line + Environment.NewLine;
+                    RotateLogIfNeeded(textToWrite.Length);
+                    File.AppendAllText(LogFilePath, textToWrite);
                 }
             }
             catch { }
         }
 
-        private static void RotateLogIfNeeded()
+        private static void RotateLogIfNeeded(int incomingLength)
         {
-            if (!File.Exists(LogFilePath) || new FileInfo(LogFilePath).Length < MaxLogFileBytes)
-                return;
+            _writesSinceLastStatCheck++;
+            if (_currentLogBytes < 0 || _writesSinceLastStatCheck >= 100)
+            {
+                _writesSinceLastStatCheck = 0;
+                if (File.Exists(LogFilePath))
+                {
+                    _currentLogBytes = new FileInfo(LogFilePath).Length;
+                }
+                else
+                {
+                    _currentLogBytes = 0;
+                }
+            }
 
-            string previousPath = LogFilePath + ".1";
-            if (File.Exists(previousPath))
-                File.Delete(previousPath);
-            File.Move(LogFilePath, previousPath);
+            if (_currentLogBytes + incomingLength < MaxLogFileBytes)
+            {
+                _currentLogBytes += incomingLength;
+                return;
+            }
+
+            try
+            {
+                string previousPath = LogFilePath + ".1";
+                if (File.Exists(previousPath))
+                    File.Delete(previousPath);
+                if (File.Exists(LogFilePath))
+                    File.Move(LogFilePath, previousPath);
+            }
+            finally
+            {
+                _currentLogBytes = incomingLength;
+                _writesSinceLastStatCheck = 0;
+            }
         }
 
         public static void TracePacket(string direction, ushort opcode, int length, string summary = "")

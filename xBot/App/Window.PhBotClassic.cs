@@ -63,10 +63,17 @@ namespace xBot.App
         private static readonly Color PhBotTabInactive = Color.FromArgb(232, 232, 232);
         private static readonly Color PhBotBorder = Color.FromArgb(215, 218, 222);
 
-        private static Font PhBotFont()
+        private static readonly Font _phBotDefaultFont = CreatePhBotFont();
+
+        private static Font CreatePhBotFont()
         {
             try { return new Font("Tahoma", 8.25f, FontStyle.Regular, GraphicsUnit.Point); }
             catch { return SystemFonts.DefaultFont; }
+        }
+
+        private static Font PhBotFont()
+        {
+            return _phBotDefaultFont;
         }
 
         private void PhBotDebug(string msg)

@@ -137,6 +137,13 @@ namespace xBot.App
 
 			// Initialize Custom UBOT Features
 			InitializeCustomUBOTFeatures();
+
+			// Initialize Analyzer Settings Sync
+			Settings_cbxShowPacketServer.CheckedChanged += (s, e) => Network.Proxy.SyncAnalyzerSettings();
+			Settings_cbxShowPacketClient.CheckedChanged += (s, e) => Network.Proxy.SyncAnalyzerSettings();
+			Settings_rbnPacketOnlyShow.CheckedChanged += (s, e) => Network.Proxy.SyncAnalyzerSettings();
+			Settings_rbnPacketNotShow.CheckedChanged += (s, e) => Network.Proxy.SyncAnalyzerSettings();
+			Network.Proxy.SyncAnalyzerSettings();
 		}
 		/// <summary>
 		/// Load command arguments to the App.
@@ -360,6 +367,19 @@ namespace xBot.App
 				sb.AppendLine(text);
 
 				Settings_rtbxPackets.InvokeIfRequired(()=>{
+					if (Settings_rtbxPackets.TextLength > 25000)
+					{
+						int cutIndex = Settings_rtbxPackets.GetFirstCharIndexFromLine(150);
+						if (cutIndex > 0)
+						{
+							Settings_rtbxPackets.Select(0, cutIndex);
+							Settings_rtbxPackets.SelectedText = string.Empty;
+						}
+						else
+						{
+							Settings_rtbxPackets.Clear();
+						}
+					}
 					Settings_rtbxPackets.AppendText(sb.ToString());
 				});
 			}
@@ -2234,7 +2254,8 @@ namespace xBot.App
 		private void Window_Load(object sender, EventArgs e)
 		{
 			// Welcome
-			rtbxLogs.AppendText(string.Format("{0} Welcome to {1} v{2} | Made by Engels \"JellyBitz\" Quintero{3}{0} Discord : JellyBitz#7643 | FaceBook : @ImJellyBitz", WinAPI.GetDate(), base.ProductName, base.ProductVersion, Environment.NewLine));
+			rtbxLogs.Clear();
+			rtbxLogs.AppendText(string.Format("[{0}] Welcome to xBot\r\n", DateTime.Now.ToString("HH:mm:ss")));
 			LogProcess();
 			Settings.LoadBotSettings();
 			try { ApplyPhBotClassicTheme(); } catch { }
@@ -3158,6 +3179,7 @@ namespace xBot.App
               Settings_lstvOpcodes.Items.Add(item);
 							Settings_tbxFilterOpcode.Text = "";
 							Settings.SaveBotSettings();
+							Network.Proxy.SyncAnalyzerSettings();
 						}
 					}
 					break;
@@ -4053,6 +4075,7 @@ namespace xBot.App
 					{
 						Settings_lstvOpcodes.SelectedItems[0].Remove();
 						Settings.SaveBotSettings();
+						Network.Proxy.SyncAnalyzerSettings();
 					}
 					break;
 				case "Menu_lstvOpcodes_RemoveAll":
@@ -4060,6 +4083,7 @@ namespace xBot.App
 					{
 						Settings_lstvOpcodes.Items.Clear();
 						Settings.SaveBotSettings();
+						Network.Proxy.SyncAnalyzerSettings();
 					}
 					break;
 				case "Menu_lstvOpcodes_Sort":

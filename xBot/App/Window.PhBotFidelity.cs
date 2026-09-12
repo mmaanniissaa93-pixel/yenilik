@@ -131,7 +131,10 @@ namespace xBot.App
                                 break;
                             case "Saldırı":
                             case "Attack": // kılıç (çapraz)
-                                g.DrawLine(new Pen(ink, 2.6f), 5, 15, 14, 6);
+                                using (Pen bladePen = new Pen(ink, 2.6f))
+                                {
+                                    g.DrawLine(bladePen, 5, 15, 14, 6);
+                                }
                                 g.DrawLine(p, 4, 13, 8, 17);
                                 g.DrawLine(p, 14, 4, 16, 6);
                                 g.DrawLine(p, 14, 6, 16, 4);

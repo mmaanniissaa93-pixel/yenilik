@@ -18,7 +18,6 @@ namespace xBot.Game
 	// and filling the GUI with the necessary
 	public static class PacketParser
 	{
-		private static Timer tSwitchWeapon = new Timer();
         public static void ShardListResponse(Packet packet)
 		{
 			Window w = Window.Get;
@@ -471,13 +470,6 @@ namespace xBot.Game
 			{
 				p = characterDataPacket;
 				if (p == null) return;
-				try
-				{
-					string dumpPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "chardata_last.bin");
-					System.IO.File.WriteAllBytes(dumpPath, p.GetBytes());
-					App.Window.Get?.Log($"[CharacterData] Ham veri kaydedildi: {dumpPath} ({p.GetBytes().Length} byte)");
-				}
-				catch { }
 				p.Lock();
 				payloadLength = p.GetBytes().Length;
 
@@ -566,7 +558,6 @@ namespace xBot.Game
 					App.Window.Get?.Log($"[CharacterData] Skill bölümü okunamadı ({skills.Count} okundu): {ex.Message}");
 				}
 				character.Skills = skills;
-				App.Window.Get?.Log($"[CharacterData] Mastery={masteries.Count}, Skill={skills.Count} (offset={p.RemainingRead()} kalan byte).");
 				// Quests
 				if (isSilkroadR)
 				{
@@ -797,7 +788,6 @@ namespace xBot.Game
 				if (TryValidateInventoryAnchor(buf, off))
 				{
 					p.SeekRead(off, System.IO.SeekOrigin.Begin);
-					App.Window.Get?.Log($"[CharacterData] Envanter sonrasi hizalama duzeltildi: {cur}->{off} (+{off - cur} fellow bayt atlandi).");
 					return;
 				}
 			}
@@ -3504,9 +3494,6 @@ namespace xBot.Game
 				bool parsed = ConsignmentPolicy.TryParseListingPayload(payload, out listings, out parseError);
 				InfoManager.OnConsignmentList(payload, parsed ? listings : null);
 				Window.Get?.UpdateConsignmentListUi(payload, parsed ? listings : null, parseError);
-				byte result = payload.Length > 0 ? payload[0] : (byte)0;
-				string hex = BitConverter.ToString(payload, 0, Math.Min(payload.Length, 160)).Replace("-", " ");
-				Window.Get?.Log($"CONSIGNMENT: ilan listesi cevabı alındı (result={result}, {payload.Length}B) [{hex}{(payload.Length > 160 ? " ..." : "")}].");
 			}
 			catch (Exception ex)
 			{

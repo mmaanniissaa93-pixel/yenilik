@@ -340,6 +340,7 @@ namespace xBot.App
 					}
 				}
 			w.Settings_rbnPacketOnlyShow.Checked = (bool)packetAnalyzer["FilterOnlyShow"];
+			Network.Proxy.SyncAnalyzerSettings();
 			if (packetAnalyzer.ContainsKey("InjectMassive"))
 				w.Settings_cbxInjectMassive.Checked = (bool)packetAnalyzer["InjectMassive"];
 			if (packetAnalyzer.ContainsKey("InjectEncrypted"))

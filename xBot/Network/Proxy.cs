@@ -44,6 +44,40 @@ namespace xBot.Network
 		/// </summary>
 		public bool LoginClientlessMode { get; }
 
+		public static volatile bool AnalyzerShowServer = false;
+		public static volatile bool AnalyzerShowClient = false;
+		public static volatile bool AnalyzerOnlyShow = false;
+		private static volatile HashSet<string> m_analyzerFilter = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+		public static HashSet<string> AnalyzerFilter { get { return m_analyzerFilter; } }
+
+		public static void SyncAnalyzerSettings()
+		{
+			try
+			{
+				Window w = Window.Get;
+				if (w == null || w.IsDisposed) return;
+				WinAPI.InvokeIfRequired(w.Settings_cbxShowPacketServer, () => {
+					AnalyzerShowServer = w.Settings_cbxShowPacketServer.Checked;
+					AnalyzerShowClient = w.Settings_cbxShowPacketClient.Checked;
+					AnalyzerOnlyShow = w.Settings_rbnPacketOnlyShow.Checked;
+					var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+					if (w.Settings_lstvOpcodes.Items.Count > 0)
+					{
+						foreach (System.Windows.Forms.ListViewItem it in w.Settings_lstvOpcodes.Items)
+						{
+							if (it != null)
+							{
+								if (!string.IsNullOrEmpty(it.Text)) set.Add(it.Text.Trim());
+								if (!string.IsNullOrEmpty(it.Name)) set.Add(it.Name.Trim());
+							}
+						}
+					}
+					m_analyzerFilter = set;
+				});
+			}
+			catch { }
+		}
+
 		private Thread ThreadProxyReconnection;
 		private int CurrentAttemptReconnections;
 		private Thread PingHandler;
@@ -233,23 +267,9 @@ namespace xBot.Network
 				while (isRunning)
 				{
 					bool didWork = false;
-					// Analyzer bayraklarını döngü başına bir kez oku (paket başına Invoke yok)
-					bool gwShowServer = false, gwOnlyShow = false;
-					System.Collections.Generic.HashSet<string> gwFilter = null;
-					try
-					{
-						WinAPI.InvokeIfRequired(w.Settings_cbxShowPacketServer, () => {
-							gwShowServer = w.Settings_cbxShowPacketServer.Checked;
-							gwOnlyShow = w.Settings_rbnPacketOnlyShow.Checked;
-							if (gwShowServer && w.Settings_lstvOpcodes.Items.Count > 0)
-							{
-								gwFilter = new System.Collections.Generic.HashSet<string>();
-								foreach (System.Windows.Forms.ListViewItem it in w.Settings_lstvOpcodes.Items)
-									gwFilter.Add(it.Text);
-							}
-						});
-					}
-					catch { }
+					bool gwShowServer = AnalyzerShowServer;
+					bool gwOnlyShow = AnalyzerOnlyShow;
+					HashSet<string> gwFilter = gwShowServer ? m_analyzerFilter : null;
 					// Network input event processing
 					foreach (Context context in gws)
 					{
@@ -284,7 +304,7 @@ namespace xBot.Network
 								// Show all incoming packets on analizer
 								if (context == Gateway.Remote && gwShowServer)
 								{
-									bool opcodeFound = gwFilter != null && gwFilter.Contains(packet.Opcode.ToString());
+									bool opcodeFound = gwFilter != null && gwFilter.Count > 0 && (gwFilter.Contains(packet.Opcode.ToString("X4")) || gwFilter.Contains(packet.Opcode.ToString()));
 									if (opcodeFound && gwOnlyShow
 										|| !opcodeFound && !gwOnlyShow)
 									{
@@ -572,24 +592,11 @@ namespace xBot.Network
 				while (isRunning)
 				{
 					bool didWork = false;
-					bool agShowServer = false, agShowClient = false, agOnlyShow = false;
-					System.Collections.Generic.HashSet<string> agFilter = null;
+					bool agShowServer = AnalyzerShowServer;
+					bool agShowClient = AnalyzerShowClient;
+					bool agOnlyShow = AnalyzerOnlyShow;
+					HashSet<string> agFilter = (agShowServer || agShowClient) ? m_analyzerFilter : null;
 					bool traceOn = xBot.App.Theme.ModernLogger.EnablePacketTrace;
-					try
-					{
-						WinAPI.InvokeIfRequired(w.Settings_cbxShowPacketServer, () => {
-							agShowServer = w.Settings_cbxShowPacketServer.Checked;
-							agShowClient = w.Settings_cbxShowPacketClient.Checked;
-							agOnlyShow = w.Settings_rbnPacketOnlyShow.Checked;
-							if ((agShowServer || agShowClient) && w.Settings_lstvOpcodes.Items.Count > 0)
-							{
-								agFilter = new System.Collections.Generic.HashSet<string>();
-								foreach (System.Windows.Forms.ListViewItem it in w.Settings_lstvOpcodes.Items)
-									agFilter.Add(it.Text);
-							}
-						});
-					}
-					catch { }
 					// Network input event processing
 					foreach (Context context in ags)
 					{
@@ -643,7 +650,7 @@ namespace xBot.Network
 								// Show all incoming packets on analizer
 								if (context == Agent.Remote && agShowServer)
 								{
-									bool opcodeFound = agFilter != null && agFilter.Contains(packet.Opcode.ToString());
+									bool opcodeFound = agFilter != null && agFilter.Count > 0 && (agFilter.Contains(packet.Opcode.ToString("X4")) || agFilter.Contains(packet.Opcode.ToString()));
 									if (opcodeFound && agOnlyShow
 										|| !opcodeFound && !agOnlyShow)
 									{
@@ -681,7 +688,7 @@ namespace xBot.Network
 									// Show outcoming packets on analizer
 									if (context == Agent.Remote && agShowClient)
 									{
-										bool opcodeFound = agFilter != null && agFilter.Contains(packet.Opcode.ToString());
+										bool opcodeFound = agFilter != null && agFilter.Count > 0 && (agFilter.Contains(packet.Opcode.ToString("X4")) || agFilter.Contains(packet.Opcode.ToString()));
 										if (opcodeFound && agOnlyShow
 											|| !opcodeFound && !agOnlyShow)
 										{

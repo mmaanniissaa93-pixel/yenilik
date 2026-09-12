@@ -179,7 +179,7 @@ namespace xBot.App
                 if (w != null)
                 {
                     w.LogProcess(msg);
-                    w.Log("[Loader] " + msg);
+                    Theme.ModernLogger.LogToFile("[Loader] " + msg);
                 }
             }
             catch { }
@@ -193,7 +193,7 @@ namespace xBot.App
                 if (w != null)
                 {
                     w.LogProcess(msg, Window.ProcessState.Warning);
-                    w.Log("[Loader Warning] " + msg);
+                    Theme.ModernLogger.LogToFile("[Loader Warning] " + msg);
                 }
             }
             catch { }

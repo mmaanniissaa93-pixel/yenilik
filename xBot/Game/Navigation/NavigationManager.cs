@@ -200,7 +200,6 @@ namespace xBot.Game.Navigation
 			}
 
 			m_initialized = true;
-			Window.Get?.Log($"NavMesh: Indexed {m_boundsIndex.Count} navigation regions from [{m_dataDirectory}].");
 
 			// Build region adjacency graph for multi-region pathfinding
 			BuildRegionGraph();
@@ -236,8 +235,6 @@ namespace xBot.Game.Navigation
 				if (connections.Count > 0)
 					m_regionGraph[entry.RegionId] = connections;
 			}
-			
-			Window.Get?.Log($"NavMesh: Built region graph with {m_regionGraph.Count} connected regions ({m_regionGraph.Values.Sum(c => c.Count)} edges).");
 		}
 
 		/// <summary>

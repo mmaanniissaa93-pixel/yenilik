@@ -443,6 +443,7 @@ namespace xBot.Game
 			m_Entities.Clear();
 			m_Players.Clear();
 			m_Mobs.Clear();
+			m_Npcs.Clear();
 			m_PetsOwned.Clear();
 			m_Buffs.Clear();
 			m_TeleportAndBuildings.Clear();
@@ -507,6 +508,7 @@ namespace xBot.Game
 			m_Entities.Clear();
 			m_Players.Clear();
 			m_Mobs.Clear();
+			m_Npcs.Clear();
 			m_Buffs.Clear();
 			m_PetsOwned.Clear();
 			m_TeleportAndBuildings.Clear();
@@ -642,8 +644,6 @@ namespace xBot.Game
 				});
 			}
 			{
-				string dbName = string.IsNullOrEmpty(DataManager.SilkroadName) ? "(DB bağlı değil)" : DataManager.SilkroadName;
-				w.Log($"[Skills] {Character.Skills.Count} skill yüklendi (DB: {dbName}). Liste boşsa: 1) PK2'den Database oluşturulmamış, 2) server özel 0x3013 dizilimi.");
 				if (Character.Skills.Count <= 1)
 					w.LogProcess("Uyarı: Sadece Common Attack görünüyor. Ayarlar'dan DB yolunu kontrol et ve PK2 Extractor ile Database üret.", Window.ProcessState.Warning);
 			}

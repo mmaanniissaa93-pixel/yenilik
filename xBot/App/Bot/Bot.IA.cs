@@ -4270,8 +4270,8 @@ namespace xBot.App
                 SRCoord dbgPos = null;
                 try { dbgPos = InfoManager.Character.GetRealtimePosition(); } catch { }
                 int tpCount = 0, npcCount = 0;
-                try { tpCount = InfoManager.TeleportAndBuildings.Snapshot().Count; } catch { }
-                try { npcCount = InfoManager.Npcs.Snapshot().Count; } catch { }
+                try { tpCount = InfoManager.TeleportAndBuildings.Count; } catch { }
+                try { npcCount = InfoManager.Npcs.Count; } catch { }
                 w.Log($"Ferry/Teleport: pos=[{(dbgPos != null ? ((int)dbgPos.PosX + "," + (int)dbgPos.PosY + " r" + dbgPos.Region) : "?")}] board=[{(link.BoardCoord != null ? ((int)link.BoardCoord.PosX + "," + (int)link.BoardCoord.PosY + " r" + link.BoardCoord.Region) : "?")}] dist=[{(dbgPos != null && link.BoardCoord != null ? dbgPos.DistanceTo(link.BoardCoord).ToString("F0") + "m" : "?")}] spawned(tp={tpCount},npc={npcCount}) NpcId={link.NpcId} DestId={link.DestinationId}");
             }
             catch { }
@@ -4379,8 +4379,8 @@ namespace xBot.App
                     try
                     {
                         int tpC = 0, npcC = 0;
-                        try { tpC = InfoManager.TeleportAndBuildings.Snapshot().Count; } catch { }
-                        try { npcC = InfoManager.Npcs.Snapshot().Count; } catch { }
+                        try { tpC = InfoManager.TeleportAndBuildings.Count; } catch { }
+                        try { npcC = InfoManager.Npcs.Count; } catch { }
                         w.LogProcess($"Gate spawn bekleniyor... ({(attempt + 1) * 300 / 1000}s, tp={tpC},npc={npcC})");
                     }
                     catch { }
