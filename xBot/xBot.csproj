@@ -157,6 +157,8 @@
     <Compile Include="App\EzFilterManager.cs" />
     <Compile Include="App\ConsignmentPolicy.cs" />
     <Compile Include="App\ConsignmentManager.cs" />
+    <Compile Include="App\Splash\LayeredWindowRenderer.cs" />
+    <Compile Include="App\Splash\TransparentSplashForm.cs" />
     <Compile Include="App\TradeLoopManager.cs" />
     <Compile Include="App\PickFilterOptions.cs" />
     <Compile Include="App\Window.PickFilter.cs" />
@@ -442,6 +444,10 @@
     <None Include="Resources\Emotes\hi.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <Content Include="..\xbot_splash_transparent_frames\*.png">
+      <Link>splash_frames\%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Globalization;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -126,6 +126,12 @@ namespace xBot
 
             Application.EnableVisualStyles();
 			Application.SetCompatibleTextRenderingDefault(false);
+
+			if (!testMode)
+			{
+				xBot.App.Splash.TransparentSplashForm.ShowSplash();
+			}
+
 			Window mainWindow = Window.Get;
 			Application.Run(mainWindow);
 			GC.KeepAlive(singleInstanceMutex);
