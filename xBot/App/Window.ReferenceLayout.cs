@@ -463,9 +463,6 @@ namespace xBot.App
 
             // Real TabPages own their contents, so both mouse and keyboard tab
             // changes show exactly one page, even while the old strip is hidden.
-            tabs.SelectedIndexChanged += (s, e) => {
-                if (view == TabPageV_Control01_Skills_Panel) LayoutXBotSkillPages();
-            };
         }
 
         private void BuildXBotReferenceTools()
@@ -491,7 +488,6 @@ namespace xBot.App
         {
             foreach (var entry in _referencePages) entry.Value.Text = entry.Key.Text;
             StyleXBotReference(pnlWindow);
-            PreparePotionCaptions();
             RefreshSidebarTitles();
             // Reapply the active row after recoloring the navigation list.
             var selected = TabPageV_Control01.Tag as List<Control>;
@@ -728,7 +724,6 @@ namespace xBot.App
                 _phBotCopyright.TextAlign = ContentAlignment.MiddleCenter;
                 _phBotCopyright.Font = new Font("Tahoma", 7.5f, FontStyle.Regular);
                 _phBotCopyright.ForeColor = Color.FromArgb(60, 60, 60);
-                LayoutXBotSkillPages();
             }
             finally { _referenceLayingOut = false; }
         }
@@ -741,8 +736,6 @@ namespace xBot.App
             // akış yerleşimi tablo ve grup düzenini bozduğu için akışa alınmaz.
             FlowReferenceGroups(TabPageH_Character_Option01_Panel);
             FlowReferenceGroups(TabPageH_Character_Option04_Panel);
-            PrepareXBotPotions();
-            PrepareXBotTraining();
             PrepareXBotPickFilter();
             TabPageV_Control01_Town_Panel.Controls[TabPageH_Town_Option03.Name + "_Panel"].Visible = false;
             foreach (var entry in _referencePages)
@@ -753,8 +746,6 @@ namespace xBot.App
                 if (lists.Length == 1 && lists[0].Width > 450)
                     lists[0].Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
             }
-            TabPageH_Skills_Option01_Panel.SizeChanged += (s, e) => LayoutXBotSkillPages();
-            TabPageH_Skills_Option02_Panel.SizeChanged += (s, e) => LayoutXBotSkillPages();
         }
 
         private void PrepareXBotLogin()
@@ -858,35 +849,6 @@ namespace xBot.App
             }
             host.Controls.Add(flow);
             flow.BringToFront();
-        }
-
-        private void PrepareXBotPotions()
-        {
-            // phBot birebir iç düzen Window.PhBotInner.LayoutPotionsInner'a taşındı
-            // (17 satır + yüzde/gecikme kutuları). Çift yerleşimi engellemek için
-            // burası bilerek boştur.
-            return;
-        }
-
-        private void PreparePotionCaptions()
-        {
-            // Bkz. PrepareXBotPotions.
-            return;
-        }
-
-        private void PrepareXBotTraining()
-        {
-            // phBot birebir iç düzen Window.PhBotInner2.LayoutTrainingAreaInner'a taşındı.
-            // Çift yerleşimi ve koordinat ezilmesini engellemek için burası bilerek boştur.
-            return;
-        }
-
-        private void LayoutXBotSkillPages()
-        {
-            // phBot birebir iç düzen Window.PhBotInner.LayoutAttackInner /
-            // LayoutBuffsInner'a taşındı (tam sağ sütun + Imbue). Çift
-            // yerleşimi engellemek için burası bilerek boştur.
-            return;
         }
     }
 }

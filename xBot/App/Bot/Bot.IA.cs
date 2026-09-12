@@ -755,8 +755,8 @@ namespace xBot.App
                     // Devil Spirit: Check activation conditions
                     SkillManager.CheckDevilSpirit(mobs);
 
-                    // Combat AI: Check Berserker activation
-                    if (w.Combat_cbxAutoBerserk == null || w.Combat_cbxAutoBerserk.Checked || CombatAIEngine.IsBerserkEnabled)
+                    // Combat AI: Check Berserker activation (canonical state: CombatAIEngine.IsBerserkEnabled)
+                    if (CombatAIEngine.IsBerserkEnabled)
                     {
                         CheckBerserker(mobs);
                     }

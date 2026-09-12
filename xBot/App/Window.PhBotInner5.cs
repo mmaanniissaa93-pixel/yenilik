@@ -404,14 +404,30 @@ namespace xBot.App
                 SetCheckText(Login_cbxUseReturnScroll, isTR ? "Giriş Yapınca Şehre Dön" : "Return to town on login");
                 cy += cStep;
 
+                MoveToLogin(pageConnect, cbxGeneralAutoLogin, col1X, cy);
+                SetCheckText(cbxGeneralAutoLogin, isTR ? "Otomatik Giriş Yap" : "Auto login");
+                cy += cStep;
+
                 MoveToLogin(pageConnect, cbxGeneralAutoStart, col1X, cy);
                 SetCheckText(cbxGeneralAutoStart, isTR ? "Giriş Yapınca Botu Başlat" : "Start bot on login");
                 cy += cStep;
 
                 MoveToLogin(pageConnect, Login_cbxRelogin, col1X, cy);
                 SetCheckText(Login_cbxRelogin, isTR ? "Tekrar Bağlan" : "Relog");
-                PhBotTodoNumber(pageConnect, "PhBot_RelogDelay", col1X + (isTR ? 104 : 64), cy, 38, "20").TextAlign = HorizontalAlignment.Center;
-                PhBotLabel(pageConnect, "lblRelogSec", "s", col1X + (isTR ? 146 : 106), cy + 2);
+                if (nudGeneralLoginDelay != null)
+                {
+                    if (nudGeneralLoginDelay.Parent != pageConnect)
+                    {
+                        try { nudGeneralLoginDelay.Parent?.Controls.Remove(nudGeneralLoginDelay); } catch { }
+                        pageConnect.Controls.Add(nudGeneralLoginDelay);
+                    }
+                    nudGeneralLoginDelay.Font = PhBotFont();
+                    nudGeneralLoginDelay.BackColor = Color.White;
+                    nudGeneralLoginDelay.ForeColor = Color.Black;
+                    nudGeneralLoginDelay.SetBounds(col1X + (isTR ? 104 : 64), cy, 42, 22);
+                    nudGeneralLoginDelay.Visible = true;
+                }
+                PhBotLabel(pageConnect, "lblRelogSec", "s", col1X + (isTR ? 150 : 110), cy + 2);
                 cy += cStep;
 
                 PhBotTodoCheck(pageConnect, "PhBot_LoginCheck", isTR ? "Giriş kontrolü" : "Login check", col1X, cy, false);
@@ -420,11 +436,21 @@ namespace xBot.App
                 PhBotTodoCheck(pageConnect, "PhBot_NoClientless", isTR ? "Clientless yok" : "No clientless", col1X, cy, false);
                 cy += cStep + 2;
 
-                PhBotLabel(pageConnect, "lblWaitDelay", isTR ? "Bekleme tekrar gecikmesi" : "Wait retry delay", col1X, cy + 2);
-                PhBotTodoNumber(pageConnect, "PhBot_WaitRetry", col1X + (isTR ? 152 : 104), cy, 38, "120").TextAlign = HorizontalAlignment.Center;
-                PhBotLabel(pageConnect, "lblWaitFor", isTR ? "için" : "for", col1X + (isTR ? 194 : 146), cy + 2);
-                PhBotTodoNumber(pageConnect, "PhBot_WaitDur", col1X + (isTR ? 218 : 170), cy, 38, "300").TextAlign = HorizontalAlignment.Center;
-                PhBotLabel(pageConnect, "lblWaitSec", "s", col1X + (isTR ? 260 : 212), cy + 2);
+                PhBotLabel(pageConnect, "lblWaitDelay", isTR ? "DC sonrası bekle" : "Wait after DC", col1X, cy + 2);
+                if (nudGeneralWaitAfterDC != null)
+                {
+                    if (nudGeneralWaitAfterDC.Parent != pageConnect)
+                    {
+                        try { nudGeneralWaitAfterDC.Parent?.Controls.Remove(nudGeneralWaitAfterDC); } catch { }
+                        pageConnect.Controls.Add(nudGeneralWaitAfterDC);
+                    }
+                    nudGeneralWaitAfterDC.Font = PhBotFont();
+                    nudGeneralWaitAfterDC.BackColor = Color.White;
+                    nudGeneralWaitAfterDC.ForeColor = Color.Black;
+                    nudGeneralWaitAfterDC.SetBounds(col1X + (isTR ? 112 : 88), cy, 42, 22);
+                    nudGeneralWaitAfterDC.Visible = true;
+                }
+                PhBotLabel(pageConnect, "lblWaitMin", isTR ? "dk" : "min", col1X + (isTR ? 158 : 134), cy + 2);
                 cy += cStep + 2;
 
                 PhBotLabel(pageConnect, "lblBlockAfter", isTR ? "Sonra engelle" : "Block after", col1X, cy + 2);

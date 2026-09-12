@@ -73,9 +73,7 @@ namespace xBot.App
         {
             try
             {
-                System.IO.File.AppendAllText(
-                    @"C:\Users\auguu\Desktop\xBot-WinForms\docs\phbot_ref\phbot_debug.txt",
-                    DateTime.Now.ToString("HH:mm:ss") + " " + msg + Environment.NewLine);
+                System.Diagnostics.Debug.WriteLine("[PhBot] " + msg);
             }
             catch { }
         }
@@ -109,170 +107,9 @@ namespace xBot.App
         /// modern sidebar gizlenir, GroupBox'lara eklenen koyu kart Paint hook'ları
         /// sökülüp başlıklar geri yüklenir, koyu özel kontroller (ModernCard/Toggle/
         /// Button/TextBox) klasik karşılıklarına çevrilir.
-        /// </summary>
-        private void NeutralizeModernTheme()
-        {
-            try { if (TabPageV_Control01 != null) TabPageV_Control01.Visible = true; } catch { }
-        }
-
         public void ApplyPhBotClassicTheme()
         {
             ApplyXBotReferenceLayout();
-        }
-
-        private Timer _phBotCapTimer;
-        private int _phBotCapStep;
-
-        private void PhBotSelfCapture_Shown(object sender, EventArgs e)
-        {
-            try { Shown -= PhBotSelfCapture_Shown; } catch { }
-            _phBotCapStep = 0;
-            _phBotCapTimer = new Timer();
-            _phBotCapTimer.Interval = 1500;
-            _phBotCapTimer.Tick += PhBotSelfCapture_Tick;
-            _phBotCapTimer.Start();
-        }
-
-        private void PhBotSelfCapture_Tick(object sender, EventArgs e)
-        {
-            try
-            {
-                string dir = @"C:\Users\auguu\Desktop\xBot-WinForms\docs\phbot_ref\";
-                string[] views = new string[] { "SilkroadLogin", "Attack", "AttackResurrect", "Protection", "Town", "TrainingArea", "Party", "Inventory", "PickFilter" };
-                if (_phBotCapStep < views.Length)
-                {
-                    string v = views[_phBotCapStep];
-                    try
-                    {
-                        if (v == "AttackResurrect")
-                        {
-                            Control atk = TabPageV_Control01.Controls["TabPageV_Control01_Attack"];
-                            if (atk != null) TabPageV_Option_Click(atk, EventArgs.Empty);
-                            Control res = null;
-                            try
-                            {
-                                foreach (Control s in TabPageH_Skills_Option01.Parent.Controls)
-                                {
-                                    if (s.Name == "TabPageH_Skills_OptionResurrect") { res = s; break; }
-                                }
-                            }
-                            catch { }
-                            if (res != null) TabPageH_Option_Click(res, EventArgs.Empty);
-                        }
-                        else
-                        {
-                            Control btn = TabPageV_Control01.Controls["TabPageV_Control01_" + v];
-                            if (btn != null) TabPageV_Option_Click(btn, EventArgs.Empty);
-                        }
-                        if (v == "Attack" && TabPageH_Skills_Option01 != null)
-                            TabPageH_Option_Click(TabPageH_Skills_Option01, EventArgs.Empty);
-                        if (v == "Town" && TabPageH_Town_Option01 != null)
-                            TabPageH_Option_Click(TabPageH_Town_Option01, EventArgs.Empty);
-                        if (v == "Protection" && TabPageH_Character_Option02 != null)
-                            TabPageH_Option_Click(TabPageH_Character_Option02, EventArgs.Empty);
-                        try
-                        {
-                            foreach (Control cc in pnlWindow.Controls)
-                            {
-                                Panel pp = cc as Panel;
-                                if (pp != null && pp.Name == "TabPageV_Control01_" + v + "_Panel")
-                                {
-                                    pp.BringToFront();
-                                    break;
-                                }
-                            }
-                        }
-                        catch { }
-                        Refresh();
-                        Application.DoEvents();
-                        try { DumpViewState(v); } catch { }
-                        try
-                        {
-                            if (v == "Town")
-                            {
-                                DumpPanelDeep("TabPageH_Town", 1);
-                                DumpPanelDeep("TabPageH_Town_Option01_Panel", 1);
-                            }
-                            if (v == "Attack") DumpPanelDeep("TabPageH_Skills", 1);
-                            if (v == "PickFilter") DumpPanelDeep("PhBot_PickFilterTabs", 2);
-                        }
-                        catch { }
-                        using (Bitmap bmp = new Bitmap(ClientSize.Width, ClientSize.Height))
-                        {
-                            DrawToBitmap(bmp, new Rectangle(Point.Empty, ClientSize));
-                            bmp.Save(dir + "self_" + v + ".png",
-                                System.Drawing.Imaging.ImageFormat.Png);
-                        }
-                        try { PhBotCaptureScreen(v, dir); } catch (Exception ex) { PhBotDebug("screen outer " + v + ": " + ex.Message); }
-                    }
-                    catch (Exception ex) { PhBotDebug("cap " + v + ": " + ex.Message); }
-                    _phBotCapStep++;
-                }
-                else
-                {
-                    _phBotCapTimer.Stop();
-                    try
-                    {
-                        Control def = TabPageV_Control01.Controls["TabPageV_Control01_SilkroadLogin"];
-                        if (def != null) TabPageV_Option_Click(def, EventArgs.Empty);
-                    }
-                    catch { }
-                    PhBotDebug("capture done");
-                    if (PhBotTestMode)
-                    {
-                        // Test örneği kendi kendine kapanır, ortalıkta kalmaz
-                        try
-                        {
-                            var exitTimer = new Timer();
-                            exitTimer.Interval = 800;
-                            exitTimer.Tick += delegate
-                            {
-                                try { exitTimer.Stop(); } catch { }
-                                try { Application.Exit(); } catch { }
-                            };
-                            exitTimer.Start();
-                        }
-                        catch { try { Application.Exit(); } catch { } }
-                    }
-                }
-            }
-            catch { }
-        }
-
-        private void PhBotCaptureScreen(string v, string dir)
-        {
-            try
-            {
-                bool wasTop = TopMost;
-                TopMost = true;
-                Activate();
-                BringToFront();
-                Refresh();
-                Application.DoEvents();
-                System.Threading.Thread.Sleep(450);
-                Rectangle r = RectangleToScreen(ClientRectangle);
-                if (r.Width > 0 && r.Height > 0)
-                {
-                    using (Bitmap bmp = new Bitmap(r.Width, r.Height))
-                    {
-                        using (Graphics g = Graphics.FromImage(bmp))
-                        {
-                            g.CopyFromScreen(r.Location, Point.Empty, r.Size);
-                        }
-                        bmp.Save(dir + "selfscreen_" + v + ".png",
-                            System.Drawing.Imaging.ImageFormat.Png);
-                    }
-                }
-                TopMost = wasTop;
-            }
-            catch (Exception ex) { PhBotDebug("screen " + v + ": " + ex.Message); }
-        }
-
-        private void WindowPhBotClassic_SizeChanged(object sender, EventArgs e)
-        {
-            if (!_phBotClassicApplied) return;
-            try { LayoutPhBotClassic(); } catch { }
-            try { LayoutTrainingAreaClassic(); } catch { }
         }
 
         private void UpdatePhBotTitle(string customStatus = null)
@@ -329,181 +166,8 @@ namespace xBot.App
         }
 
         // ---------------------------------------------------------------
-        // Sidebar
+        // Yardımcı metotlar
         // ---------------------------------------------------------------
-        private void RebuildPhBotSidebar()
-        {
-            if (TabPageV_Control01 == null || pnlWindow == null) return;
-
-            var existing = new Dictionary<string, Panel>(StringComparer.OrdinalIgnoreCase);
-            try
-            {
-                AddExisting(existing, "Statistics", TabPageV_Control01_GameInfo_Panel);
-                AddExisting(existing, "Silkroad Login", TabPageV_Control01_Login_Panel);
-                AddExisting(existing, "Protection", TabPageV_Control01_Character_Panel);
-                AddExisting(existing, "Town", TabPageV_Control01_Town_Panel);
-                AddExisting(existing, "Training Area", TabPageV_Control01_Training_Panel);
-                AddExisting(existing, "Attack", TabPageV_Control01_Skills_Panel);
-                AddExisting(existing, "Party", TabPageV_Control01_Party_Panel);
-                AddExisting(existing, "Players", TabPageV_Control01_Players_Panel);
-                AddExisting(existing, "Guild", TabPageV_Control01_Guild_Panel);
-                AddExisting(existing, "Academy", TabPageV_Control01_Academy_Panel);
-                AddExisting(existing, "Inventory", TabPageV_Control01_Inventory_Panel);
-                AddExisting(existing, "Stall", TabPageV_Control01_Stall_Panel);
-                AddExisting(existing, "Chat", TabPageV_Control01_Chat_Panel);
-                AddExisting(existing, "Map", TabPageV_Control01_Minimap_Panel);
-                AddExisting(existing, "Plugins", TabPageV_Control01_Settings_Panel);
-                try
-                {
-                    if (TabPageV_Control01_Alchemy_Panel != null)
-                        AddExisting(existing, "Alchemy", TabPageV_Control01_Alchemy_Panel);
-                }
-                catch { }
-            }
-            catch { }
-
-            // phBot sırası (ekran görüntülerinden birebir)
-            string[] order = new string[]
-            {
-                "ProjectHax", "Statistics", "Silkroad Login", "Auto Configure",
-                "Notifications", "Protection", "Town", "Training Area",
-                "Attack", "Pet", "Party", "Union Party",
-                "Pick Filter", "Quest", "Players", "Guild",
-                "Academy", "Inventory", "Stall", "Trade",
-                "Alchemy", "Masteries", "Chat", "Map",
-                "Sound", "Key Bindings", "Conditions", "Plugins"
-            };
-
-            TabPageV_Control01.SuspendLayout();
-            TabPageV_Control01.Controls.Clear();
-            TabPageV_Control01.BackColor = PhBotPanelWhite;
-            TabPageV_Control01.ForeColor = Color.Black;
-            TabPageV_Control01.BorderStyle = BorderStyle.FixedSingle;
-            TabPageV_Control01.Tag = null;
-            try { TabPageV_Control01.AutoScroll = true; } catch { }
-
-            TabPageV_ColorSelected = PhBotSelect;
-            TabPageV_ColorHover = PhBotHover;
-
-            int y = 2;
-            const int itemH = 26;
-            foreach (string key in order)
-            {
-                bool isPx = (key == "ProjectHax");
-                Panel panel = null;
-                if (!existing.TryGetValue(key, out panel) || panel == null)
-                {
-                    panel = BuildPhBotPlaceholderPanel(key);
-                }
-                // Aynı isimde eski/kör panel varsa kaldır (isim çakışması TabPageV_Option_Click'i bozar)
-                try
-                {
-                    string canon = "TabPageV_Control01_" + SanitizeName(key) + "_Panel";
-                    var dupes = new List<Control>();
-                    foreach (Control cc in pnlWindow.Controls)
-                    {
-                        if (cc is Panel && cc.Name == canon && cc != panel)
-                            dupes.Add(cc);
-                    }
-                    foreach (Control d in dupes)
-                    {
-                        try { pnlWindow.Controls.Remove(d); } catch { }
-                        d.Name = canon + "_Legacy";
-                    }
-                }
-                catch { }
-
-                panel.Visible = false;
-                panel.BackColor = PhBotBg;
-                try { panel.BorderStyle = BorderStyle.FixedSingle; } catch { }
-                if (panel.Parent != pnlWindow)
-                {
-                    try { pnlWindow.Controls.Add(panel); } catch { }
-                }
-                panel.Name = "TabPageV_Control01_" + SanitizeName(key) + "_Panel";
-
-                string baseName = "TabPageV_Control01_" + SanitizeName(key);
-
-                var lblIcon = new Label();
-                lblIcon.Name = baseName + "_Icon";
-                lblIcon.Font = new Font("Tahoma", 8.25f, FontStyle.Bold, GraphicsUnit.Point);
-                lblIcon.ForeColor = Color.FromArgb(60, 60, 60);
-                lblIcon.BackColor = PhBotPanelWhite;
-                lblIcon.TextAlign = ContentAlignment.MiddleCenter;
-                lblIcon.Location = new Point(2, y);
-                lblIcon.Size = new Size(28, itemH);
-                lblIcon.Cursor = Cursors.Hand;
-                if (isPx)
-                {
-                    lblIcon.Text = "Px";
-                }
-                else
-                {
-                    lblIcon.Text = "";
-                    try
-                    {
-                        Image glyph = PhBotIcons.Get(key);
-                        if (glyph != null)
-                        {
-                            lblIcon.Image = glyph;
-                            lblIcon.ImageAlign = ContentAlignment.MiddleCenter;
-                        }
-                        else
-                        {
-                            lblIcon.Text = "•";
-                            lblIcon.Font = new Font("Tahoma", 10f, FontStyle.Regular, GraphicsUnit.Point);
-                        }
-                    }
-                    catch { lblIcon.Text = "•"; }
-                }
-
-                var btn = new Button();
-                btn.Name = baseName;
-                btn.Text = key;
-                btn.Font = PhBotFont();
-                btn.ForeColor = Color.Black;
-                btn.BackColor = PhBotPanelWhite;
-                btn.FlatStyle = FlatStyle.Flat;
-                try { btn.FlatAppearance.BorderSize = 0; } catch { }
-                btn.TextAlign = ContentAlignment.MiddleLeft;
-                btn.Location = new Point(28, y);
-                btn.Size = new Size(134, itemH);
-                btn.Cursor = Cursors.Hand;
-                btn.UseVisualStyleBackColor = false;
-                btn.Tag = panel;
-
-                lblIcon.Click += TabPageV_Option_Click;
-                btn.Click += TabPageV_Option_Click;
-                lblIcon.MouseEnter += TabPageV_Option_MouseEnter;
-                btn.MouseEnter += TabPageV_Option_MouseEnter;
-                lblIcon.MouseLeave += TabPageV_Option_MouseLeave;
-                btn.MouseLeave += TabPageV_Option_MouseLeave;
-
-                TabPageV_Control01.Controls.Add(lblIcon);
-                TabPageV_Control01.Controls.Add(btn);
-
-                y += itemH;
-            }
-
-            // Eski referans butonlar silindi; TabPageH_Option_Click için gerekli
-            // yatay sekmeler panellerin içinde duruyor, etkilenmez.
-            TabPageV_Control01.ResumeLayout(false);
-
-            // Varsayılan seçim: Silkroad Login (eski davranışla aynı)
-            try
-            {
-                Control def = TabPageV_Control01.Controls["TabPageV_Control01_SilkroadLogin"];
-                if (def != null) TabPageV_Option_Click(def, EventArgs.Empty);
-            }
-            catch (Exception ex) { PhBotDebug("select: " + ex.Message); }
-            PhBotDebug("sidebar rebuilt: " + TabPageV_Control01.Controls.Count);
-        }
-
-        private static void AddExisting(Dictionary<string, Panel> map, string key, Panel panel)
-        {
-            if (panel != null && !map.ContainsKey(key))
-                map[key] = panel;
-        }
 
         private static string SanitizeName(string s)
         {
@@ -513,58 +177,6 @@ namespace xBot.App
             return string.IsNullOrEmpty(r) ? "Item" : r;
         }
 
-        private Panel BuildPhBotPlaceholderPanel(string key)
-        {
-            var panel = new Panel();
-            panel.Name = "TabPageV_Control01_" + SanitizeName(key) + "_Panel";
-            panel.BackColor = PhBotBg;
-            panel.BorderStyle = BorderStyle.FixedSingle;
-            panel.AutoScroll = true;
-
-            if (key == "Pick Filter")
-                return BuildPhBotPickFilterPanel(panel);
-            if (key == "Pet")
-                return BuildPhBotPetPanel(panel);
-            if (key == "Union Party")
-                return BuildPhBotUnionPanel(panel);
-            if (key == "ProjectHax")
-                return BuildPhBotProjectHaxPanel(panel);
-            if (key == "Auto Configure")
-                return BuildPhBotAutoConfigurePanel(panel);
-            if (key == "Notifications" || key == "Sound")
-                return BuildPhBotNotificationsPanel(panel, key);
-            if (key == "Quest")
-                return BuildPhBotQuestPanel(panel);
-            if (key == "Trade")
-                return BuildPhBotTradePanel(panel);
-            if (key == "Masteries")
-                return BuildPhBotMasteriesPanel(panel);
-            if (key == "Key Bindings" || key == "Conditions")
-                return BuildPhBotSimpleListPanel(panel, key);
-
-            var info = new Label();
-            info.Text = key + "  •  phBot klasik görünüm";
-            info.Font = new Font(PhBotFont(), FontStyle.Bold);
-            info.ForeColor = Color.Black;
-            info.BackColor = Color.Transparent;
-            info.AutoSize = true;
-            info.Location = new Point(10, 8);
-            panel.Controls.Add(info);
-
-            var desc = new Label();
-            desc.Text = "Bu bölüm phBot ile aynı yerleşimle gösterilir. İlgili xBot yöneticisi buraya bağlanır.";
-            desc.Font = PhBotFont();
-            desc.ForeColor = Color.FromArgb(60, 60, 60);
-            desc.AutoSize = true;
-            desc.Location = new Point(10, 30);
-            panel.Controls.Add(desc);
-            return panel;
-        }
-
-        /// <summary>
-        /// Klasik sekme görünümü: seçili H sekmesi beyaz, diğerleri açık gri.
-        /// TabPageH_Option_Click sonradan renkleri ezdiği için ayrıca Click'e takılır.
-        /// </summary>
         private void PhBotHTabVisual_Click(object sender, EventArgs e)
         {
             try
@@ -579,48 +191,6 @@ namespace xBot.App
                 }
             }
             catch { }
-        }
-
-        private void FixHTabVisuals()
-        {
-            try
-            {
-                var strips = new List<Control>();
-                ForEachControl(pnlWindow, delegate(Control c)
-                {
-                    Button b = c as Button;
-                    if (b != null && b.Name.StartsWith("TabPageH_") && !b.Name.EndsWith("_Panel"))
-                    {
-                        // Gerçek TabControl ile sarılmış şeritler native görünür; dokunma.
-                        try { if (b.Parent != null && b.Parent.Tag is TabControl) return; } catch { }
-                        try { b.Click -= PhBotHTabVisual_Click; } catch { }
-                        b.Click += PhBotHTabVisual_Click;
-                        if (b.Parent != null && !strips.Contains(b.Parent))
-                            strips.Add(b.Parent);
-                    }
-                });
-                foreach (Control strip in strips)
-                {
-                    try
-                    {
-                        Control sel = strip.Tag as Control;
-                        foreach (Control s in strip.Controls)
-                        {
-                            Button sb = s as Button;
-                            if (sb != null && sb.Name.StartsWith("TabPageH_") && !sb.Name.EndsWith("_Panel"))
-                            {
-                                // Modern tema bazı yatay sekmeleri gizlemiş olabilir; klasikte hepsi görünür
-                                // (Town>Toplama Filtresi Pick Filter'a taşındığı için gizli kalır).
-                                if (sb.Name != "TabPageH_Town_Option03")
-                                    sb.Visible = true;
-                                sb.BackColor = (sb == sel) ? Color.White : PhBotTabInactive;
-                            }
-                        }
-                    }
-                    catch { }
-                }
-            }
-            catch (Exception ex) { PhBotDebug("htab: " + ex.Message); }
         }
 
         private static void ForEachControl(Control parent, Action<Control> act)
@@ -1112,10 +682,40 @@ namespace xBot.App
             {
                 AddPhBotLabeledNumber(p, "Heal party member when HP % <", 10, 10, 70);
                 AddPhBotLabeledNumber(p, "Group heal when avg HP % <", 10, 38, 60);
-                AddPhBotLabeledNumber(p, "Heal self when HP % <", 10, 66, 50);
+                var chkSelf = new CheckBox
+                {
+                    Text = "Heal self when HP % <",
+                    Font = PhBotFont(),
+                    AutoSize = true,
+                    Location = new Point(10, 68),
+                    Checked = ProtectionManager.UseSkillHP
+                };
+                chkSelf.CheckedChanged += (s, e) => {
+                    ProtectionManager.UseSkillHP = chkSelf.Checked;
+                    if (cbxProtectionSkillHP != null && cbxProtectionSkillHP.Checked != chkSelf.Checked)
+                        cbxProtectionSkillHP.Checked = chkSelf.Checked;
+                    Settings.SaveCharacterSettings();
+                };
+                var nudSelf = new NumericUpDown
+                {
+                    Font = PhBotFont(),
+                    Location = new Point(160, 66),
+                    Size = new Size(50, 22),
+                    Minimum = 1,
+                    Maximum = 99,
+                    Value = Math.Max(1, Math.Min(99, (int)ProtectionManager.SkillHPPercent))
+                };
+                nudSelf.ValueChanged += (s, e) => {
+                    ProtectionManager.SkillHPPercent = (byte)nudSelf.Value;
+                    if (nudProtectionSkillHP != null && nudProtectionSkillHP.Value != nudSelf.Value)
+                        nudProtectionSkillHP.Value = nudSelf.Value;
+                    Settings.SaveCharacterSettings();
+                };
+                p.Controls.Add(chkSelf);
+                p.Controls.Add(nudSelf);
                 var lv = new ListView();
                 lv.View = View.Details; lv.FullRowSelect = true; lv.GridLines = true; lv.BackColor = Color.White;
-                lv.Location = new Point(10, 96); lv.Size = new Size(420, 170);
+                lv.Location = new Point(10, 100); lv.Size = new Size(420, 170);
                 lv.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
                 lv.Columns.Add("Heal skill", 250); lv.Columns.Add("Target", 150);
                 p.Controls.Add(lv);
@@ -1471,63 +1071,6 @@ namespace xBot.App
             return panel;
         }
 
-        private void LayoutTrainingAreaClassic()
-        {
-            try
-            {
-                if (TabPageH_Training_Option01_Panel == null) return;
-                Panel host = TabPageH_Training_Option01_Panel;
-                int W = host.Width;
-                int H = host.Height;
-                if (W < 100 || H < 100) return;
-                try
-                {
-                    if (Training_lstvAreas != null)
-                    {
-                        Training_lstvAreas.Location = new Point(6, 6);
-                        Training_lstvAreas.Size = new Size(300, Math.Max(200, H - 12));
-                        Training_lstvAreas.Visible = true;
-                        try
-                        {
-                            if (Training_lstvAreas.Columns.Count > 0)
-                                Training_lstvAreas.Columns[0].Width = 294;
-                        }
-                        catch { }
-                    }
-                }
-                catch { }
-                try
-                {
-                    Control details = null;
-                    foreach (Control k in host.Controls)
-                    {
-                        if (k.Name == "gbxAreaDetails") { details = k; break; }
-                    }
-                    if (details != null)
-                    {
-                        details.Location = new Point(312, 6);
-                        details.Size = new Size(Math.Max(200, W - 318), Math.Max(200, H - 12));
-                        details.Visible = true;
-                        details.BringToFront();
-                        foreach (Control k in details.Controls)
-                        {
-                            try { k.Visible = true; } catch { }
-                        }
-                        PhBotDebug("training details: vis=" + details.Visible +
-                            " loc=" + details.Location + " size=" + details.Size +
-                            " kids=" + details.Controls.Count);
-                    }
-                    else
-                    {
-                        PhBotDebug("training details: NOT FOUND");
-                    }
-                }
-                catch (Exception ex) { PhBotDebug("training details: " + ex.Message); }
-                try { host.AutoScroll = true; } catch { }
-            }
-            catch { }
-        }
-
         // ---------------------------------------------------------------
         // Alt bölüm: beyaz log + 6 buton
         // ---------------------------------------------------------------
@@ -1593,235 +1136,6 @@ namespace xBot.App
             b.UseVisualStyleBackColor = true;
             b.Size = new Size(110, 26);
             return b;
-        }
-
-        private void LayoutPhBotClassic()
-        {
-            if (pnlWindow == null) return;
-            try
-            {
-                const int margin = 4;
-                const int sidebarW = 188;
-                const int bottomH = 158;
-
-                if (TabPageV_Control01 != null)
-                {
-                    TabPageV_Control01.Location = new Point(margin, margin);
-                    // phBot'taki gibi tam boy sidebar (log yalnızca içerik alanının altındadır)
-                    TabPageV_Control01.Size = new Size(sidebarW, Math.Max(200, pnlWindow.Height - margin * 2));
-                    TabPageV_Control01.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left;
-                    // Buton genişliklerini sidebar'a uydur
-                    foreach (Control c in TabPageV_Control01.Controls)
-                    {
-                        if (c is Button)
-                            c.Width = sidebarW - 34;
-                    }
-                }
-
-                int contentX = margin + sidebarW + margin;
-                int contentW = Math.Max(300, pnlWindow.Width - contentX - margin);
-                int contentH = Math.Max(150, pnlWindow.Height - bottomH - margin * 3);
-
-                foreach (Control c in pnlWindow.Controls)
-                {
-                    if (c is Panel && c.Name.StartsWith("TabPageV_Control01_") && c.Name.EndsWith("_Panel"))
-                    {
-                        c.Location = new Point(contentX, margin);
-                        c.Size = new Size(contentW, contentH);
-                        c.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-                    }
-                }
-
-                int logY = margin + contentH + margin;
-                int logH = bottomH - 8;
-                int actionsW = 280;
-                if (rtbxLogs != null)
-                {
-                    rtbxLogs.Location = new Point(contentX, logY);
-                    rtbxLogs.Size = new Size(Math.Max(200, contentW - actionsW - margin), logH);
-                    rtbxLogs.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-                    rtbxLogs.BackColor = Color.White;
-                    rtbxLogs.ForeColor = Color.Black;
-                    rtbxLogs.BorderStyle = BorderStyle.FixedSingle;
-                    try { rtbxLogs.Font = new Font("Tahoma", 8.25f, FontStyle.Regular, GraphicsUnit.Point); } catch { }
-                }
-
-                if (_phBotActionsPanel != null)
-                {
-                    _phBotActionsPanel.Location = new Point(contentX + contentW - actionsW, logY);
-                    _phBotActionsPanel.Size = new Size(actionsW, logH);
-                    _phBotActionsPanel.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
-                    _phBotActionsPanel.BackColor = PhBotBg;
-
-                    int bw = 132, bh = 30, gap = 8;
-                    _phBotBtnLaunch.Location = new Point(0, 0); _phBotBtnLaunch.Size = new Size(bw, bh);
-                    _phBotBtnStart.Location = new Point(bw + gap, 0); _phBotBtnStart.Size = new Size(bw, bh);
-                    _phBotBtnClientless.Location = new Point(0, bh + 6); _phBotBtnClientless.Size = new Size(bw, bh);
-                    _phBotBtnStop.Location = new Point(bw + gap, bh + 6); _phBotBtnStop.Size = new Size(bw, bh);
-                    _phBotBtnHide.Location = new Point(0, (bh + 6) * 2); _phBotBtnHide.Size = new Size(bw, bh);
-                    _phBotBtnReturn.Location = new Point(bw + gap, (bh + 6) * 2); _phBotBtnReturn.Size = new Size(bw, bh);
-                    _phBotCopyright.Location = new Point(0, (bh + 6) * 3 + 2);
-                    _phBotCopyright.Size = new Size(actionsW, 18);
-                }
-            }
-            catch { }
-        }
-
-        // ---------------------------------------------------------------
-        // Klasik stil
-        // ---------------------------------------------------------------
-        private void StyleClassicRecursive(Control parent)
-        {
-            if (parent == null) return;
-            // QuestPanel gibi özel boyalı kontrollers hariç
-            if (parent is QuestPanel) return;
-            StyleClassicSingle(parent);
-            foreach (Control c in parent.Controls)
-                StyleClassicRecursive(c);
-        }
-
-        private void StyleClassicSingle(Control c)
-        {
-            if (c == null) return;
-            try
-            {
-                if (c == TabPageV_Control01 || c == _phBotActionsPanel) { /* renkler zaten verildi */ }
-                if (c is Button)
-                {
-                    var b = (Button)c;
-                    // Sidebar butonları flat-beyaz kalır (phBot liste görünümü)
-                    bool isSidebar = b.Parent == TabPageV_Control01;
-                    bool isHTab = b.Name.StartsWith("TabPageH_");
-                    if (isSidebar)
-                    {
-                        b.FlatStyle = FlatStyle.Flat;
-                        b.BackColor = PhBotPanelWhite;
-                        b.ForeColor = Color.Black;
-                        try { b.FlatAppearance.BorderSize = 0; } catch { }
-                    }
-                    else if (isHTab)
-                    {
-                        b.FlatStyle = FlatStyle.Standard;
-                        b.BackColor = PhBotTabInactive;
-                        b.ForeColor = Color.Black;
-                        b.UseVisualStyleBackColor = true;
-                    }
-                    else if (b.Name.StartsWith("PhBot"))
-                    {
-                        // aksiyon butonları klasik gri
-                    }
-                    else
-                    {
-                        b.FlatStyle = FlatStyle.Standard;
-                        b.BackColor = PhBotBg;
-                        b.ForeColor = Color.Black;
-                        b.UseVisualStyleBackColor = true;
-                    }
-                    if (b.Font == null || b.Font.Size > 10f) b.Font = PhBotFont();
-                    else
-                    {
-                        try { b.Font = PhBotFont(); } catch { }
-                    }
-                }
-                else if (c is CheckBox || c is RadioButton)
-                {
-                    c.ForeColor = Color.Black;
-                    try { c.Font = PhBotFont(); } catch { }
-                    try
-                    {
-                        Color bg = c.BackColor;
-                        if (bg.GetBrightness() < 0.35f)
-                        {
-                            Color pbg = (c.Parent != null) ? c.Parent.BackColor : PhBotBg;
-                            c.BackColor = (pbg.GetBrightness() < 0.35f) ? PhBotBg : pbg;
-                        }
-                    }
-                    catch { }
-                }
-                else if (c is Label)
-                {
-                    var l = (Label)c;
-                    if (l.Parent == TabPageV_Control01)
-                    {
-                        l.BackColor = PhBotPanelWhite;
-                        l.ForeColor = Color.Black;
-                    }
-                    else
-                    {
-                        try
-                        {
-                            Color own = l.BackColor;
-                            Color eff = (own.A == 0 || own == Color.Transparent)
-                                ? (l.Parent != null ? l.Parent.BackColor : PhBotBg)
-                                : own;
-                            if (eff.GetBrightness() > 0.5f)
-                            {
-                                if (l.ForeColor.GetBrightness() > 0.75f)
-                                    l.ForeColor = Color.Black;
-                                if (own.GetBrightness() < 0.35f && own.A != 0)
-                                    l.BackColor = Color.Transparent;
-                            }
-                        }
-                        catch { }
-                    }
-                }
-                else if (c is TextBox || c is ComboBox || c is NumericUpDown || c is RichTextBox || c is ListBox)
-                {
-                    c.BackColor = Color.White;
-                    c.ForeColor = Color.Black;
-                    try { c.Font = PhBotFont(); } catch { }
-                }
-                else if (c is ListView)
-                {
-                    var lv = (ListView)c;
-                    try { lv.OwnerDraw = false; } catch { }
-                    lv.BackColor = Color.White;
-                    lv.ForeColor = Color.Black;
-                    try { lv.Font = PhBotFont(); } catch { }
-                    lv.FullRowSelect = true;
-                    lv.GridLines = true;
-                    try { lv.BorderStyle = BorderStyle.FixedSingle; } catch { }
-                }
-                else if (c is GroupBox)
-                {
-                    c.ForeColor = Color.Black;
-                    c.BackColor = PhBotBg;
-                    try { c.Font = PhBotFont(); } catch { }
-                }
-                else if (c is TabControl)
-                {
-                    c.BackColor = PhBotBg;
-                    c.ForeColor = Color.Black;
-                }
-                else if (c is TabPage)
-                {
-                    c.BackColor = PhBotBg;
-                    c.ForeColor = Color.Black;
-                }
-                else if (c is Panel)
-                {
-                    var p = (Panel)c;
-                    if (p == pnlWindow || p == _phBotActionsPanel) return;
-                    if (p.Parent == TabPageV_Control01) return;
-                    try
-                    {
-                        // Yatay sekme şeritleri her zaman açık gri (mavi seçim rengi kalmasın)
-                        if (p.Name.StartsWith("TabPageH_") && !p.Name.Contains("_Option"))
-                        {
-                            p.BackColor = PhBotBg;
-                            return;
-                        }
-                        if (p.BackColor.GetBrightness() < 0.35f)
-                            p.BackColor = PhBotBg;
-                    }
-                    catch { }
-                }
-                else if (c is ProgressBar)
-                {
-                    // klasik kalır
-                }
-            }
-            catch { }
         }
 
         private static CheckBox AddPhBotCheck(Control parent, string text, int x, int y, bool check)

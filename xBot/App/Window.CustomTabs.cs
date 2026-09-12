@@ -2019,8 +2019,8 @@ namespace xBot.App
                 Combat_gbxAI.Visible = false;
             if (Combat_gbxMobFilter != null)
                 Combat_gbxMobFilter.Visible = false;
-            // Motorun okuduğu eski kutular: hepsi saldır/koru tarafında sabit.
-            if (Combat_cbxAutoBerserk != null) Combat_cbxAutoBerserk.Checked = true;
+            // Motorun okuduğu eski kutular: CombatAIEngine state'i ile senkron tutulur.
+            if (Combat_cbxAutoBerserk != null) Combat_cbxAutoBerserk.Checked = CombatAIEngine.IsBerserkEnabled;
             if (Combat_cbxMobPriority != null) Combat_cbxMobPriority.Checked = true;
             if (Combat_cbxKiting != null) Combat_cbxKiting.Checked = false;
             if (Combat_cbxPanicEscape != null) Combat_cbxPanicEscape.Checked = true;
@@ -4072,15 +4072,8 @@ namespace xBot.App
                     }
 
                     // Classic TabPages (fallback)
-                    if (this.TabPageV_Control01_Login != null) this.TabPageV_Control01_Login.Text = LocalizationManager.Get("UI_General", "General");
-                    if (this.TabPageV_Control01_Training != null) this.TabPageV_Control01_Training.Text = LocalizationManager.Get("UI_Training", "Training");
-                    if (this.TabPageV_Control01_Skills != null) this.TabPageV_Control01_Skills.Text = LocalizationManager.Get("UI_Skills", "Skills");
-                    if (this.TabPageV_Control01_Character != null) this.TabPageV_Control01_Character.Text = LocalizationManager.Get("UI_Protection", "Protection");
-                    if (this.TabPageV_Control01_Party != null) this.TabPageV_Control01_Party.Text = LocalizationManager.Get("UI_Party", "Party");
-                    if (this.TabPageV_Control01_Inventory != null) this.TabPageV_Control01_Inventory.Text = LocalizationManager.Get("UI_Inventory", "Inventory");
-                    if (this.TabPageV_Control01_Town != null) this.TabPageV_Control01_Town.Text = LocalizationManager.Get("UI_Items", "Town & Items");
-                    if (this.TabPageV_Control01_Trade != null) this.TabPageV_Control01_Trade.Text = "Trade";
-                    if (this.TabPageV_Control01_Chat != null) this.TabPageV_Control01_Chat.Text = LocalizationManager.Get("UI_Chat", "Chat");
+                    // Sidebar dikey sekme başlıklarının tek canonical sahibi ReferenceLayout.RefreshSidebarTitles'tır;
+                    // burada ezilmesini engelleyerek çift repaint ve text çakışması önlenir.
 
                     if (this.TabPageH_Character_Option03 != null)
                         this.TabPageH_Character_Option03.Text = LocalizationManager.Get("UI_Protection", "Protection");

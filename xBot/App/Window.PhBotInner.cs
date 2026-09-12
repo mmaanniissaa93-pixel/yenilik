@@ -18,6 +18,19 @@ namespace xBot.App
     {
         private bool _innersHooked;
         private bool _innerLayout;
+        private readonly HashSet<string> _activeInnerLayouts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        private bool BeginInnerLayout([System.Runtime.CompilerServices.CallerMemberName] string caller = null)
+        {
+            if (string.IsNullOrEmpty(caller)) return true;
+            return _activeInnerLayouts.Add(caller);
+        }
+
+        private void EndInnerLayout([System.Runtime.CompilerServices.CallerMemberName] string caller = null)
+        {
+            if (!string.IsNullOrEmpty(caller))
+                _activeInnerLayouts.Remove(caller);
+        }
 
         private static readonly Color PhBotComboGray = Color.FromArgb(225, 225, 225);
 
@@ -286,8 +299,7 @@ namespace xBot.App
         // ---------------------------------------------------------------
         private void LayoutAttackInner()
         {
-            if (_innerLayout) return;
-            _innerLayout = true;
+            if (!BeginInnerLayout()) return;
             try
             {
                 Panel p = TabPageH_Skills_Option01_Panel;
@@ -499,7 +511,7 @@ namespace xBot.App
                 catch { }
             }
             catch (Exception ex) { PhBotDebug("attack inner: " + ex.Message); }
-            finally { _innerLayout = false; }
+            finally { EndInnerLayout(); }
         }
 
         // ---------------------------------------------------------------
@@ -507,8 +519,7 @@ namespace xBot.App
         // ---------------------------------------------------------------
         private void LayoutBuffsInner()
         {
-            if (_innerLayout) return;
-            _innerLayout = true;
+            if (!BeginInnerLayout()) return;
             try
             {
                 Panel p = TabPageH_Skills_Option02_Panel;
@@ -613,7 +624,7 @@ namespace xBot.App
                 catch { }
             }
             catch (Exception ex) { PhBotDebug("buffs inner: " + ex.Message); }
-            finally { _innerLayout = false; }
+            finally { EndInnerLayout(); }
         }
 
         private void EnsureBuffUpDown(Panel p, int ux, int uw)
@@ -702,8 +713,7 @@ namespace xBot.App
         // ---------------------------------------------------------------
         private void LayoutPotionsInner()
         {
-            if (_innerLayout) return;
-            _innerLayout = true;
+            if (!BeginInnerLayout()) return;
             try
             {
                 Panel p = TabPageH_Character_Option02_Panel;
@@ -808,9 +818,81 @@ namespace xBot.App
                 if (Character_tbxUsePetHGP != null && (string.IsNullOrEmpty(Character_tbxUsePetHGP.Text) || Character_tbxUsePetHGP.Text == "0"))
                     Character_tbxUsePetHGP.Text = "80";
                 PlacePotionRowFixed(p, Character_cbxUsePetHGP, isTR ? "Otomatik HGP kullan" : "Auto use HGP potions", 132, Character_tbxUsePetHGP, 495, 52, 551, -1, -1, 0, rightX, ry);
+                ry += step + 8;
+
+                // --- BECERİ VE PET KORUMASI (ProtectionManager) ---
+                PhBotLabel(p, "lblSkillHealSection", isTR ? "--- Beceri ile Koruma ---" : "--- Skill Recovery ---", rightX, ry);
+                ry += step;
+
+                if (cbxProtectionSkillHP != null)
+                {
+                    MoveTo(cbxProtectionSkillHP, p, rightX, ry);
+                    cbxProtectionSkillHP.Text = isTR ? "HP < % ise skill bas" : "Heal skill if HP < %";
+                    Classicize(cbxProtectionSkillHP);
+                    cbxProtectionSkillHP.AutoSize = true;
+                    cbxProtectionSkillHP.Visible = true;
+                }
+                if (nudProtectionSkillHP != null)
+                {
+                    MoveTo(nudProtectionSkillHP, p, rightX + (isTR ? 148 : 138), ry - 2);
+                    nudProtectionSkillHP.Font = PhBotFont();
+                    nudProtectionSkillHP.BackColor = Color.White;
+                    nudProtectionSkillHP.ForeColor = Color.Black;
+                    nudProtectionSkillHP.Size = new Size(45, 22);
+                    nudProtectionSkillHP.Visible = true;
+                }
+                ry += step;
+
+                if (cbxProtectionSkillMP != null)
+                {
+                    MoveTo(cbxProtectionSkillMP, p, rightX, ry);
+                    cbxProtectionSkillMP.Text = isTR ? "MP < % ise skill bas" : "Mana skill if MP < %";
+                    Classicize(cbxProtectionSkillMP);
+                    cbxProtectionSkillMP.AutoSize = true;
+                    cbxProtectionSkillMP.Visible = true;
+                }
+                if (nudProtectionSkillMP != null)
+                {
+                    MoveTo(nudProtectionSkillMP, p, rightX + (isTR ? 148 : 138), ry - 2);
+                    nudProtectionSkillMP.Font = PhBotFont();
+                    nudProtectionSkillMP.BackColor = Color.White;
+                    nudProtectionSkillMP.ForeColor = Color.Black;
+                    nudProtectionSkillMP.Size = new Size(45, 22);
+                    nudProtectionSkillMP.Visible = true;
+                }
+                ry += step;
+
+                if (cbxProtectionCure != null)
+                {
+                    MoveTo(cbxProtectionCure, p, rightX, ry);
+                    cbxProtectionCure.Text = isTR ? "Kötü durumu skill ile temizle" : "Cure bad status with skill";
+                    Classicize(cbxProtectionCure);
+                    cbxProtectionCure.AutoSize = true;
+                    cbxProtectionCure.Visible = true;
+                }
+                ry += step;
+
+                if (cbxProtectionPetRevive != null)
+                {
+                    MoveTo(cbxProtectionPetRevive, p, rightX, ry);
+                    cbxProtectionPetRevive.Text = isTR ? "Ölen peti dirilt (Grass of Life)" : "Revive pet (Grass of Life)";
+                    Classicize(cbxProtectionPetRevive);
+                    cbxProtectionPetRevive.AutoSize = true;
+                    cbxProtectionPetRevive.Visible = true;
+                }
+                ry += step;
+
+                if (cbxProtectionPetSummon != null)
+                {
+                    MoveTo(cbxProtectionPetSummon, p, rightX, ry);
+                    cbxProtectionPetSummon.Text = isTR ? "Peti otomatik çağır" : "Auto summon pet";
+                    Classicize(cbxProtectionPetSummon);
+                    cbxProtectionPetSummon.AutoSize = true;
+                    cbxProtectionPetSummon.Visible = true;
+                }
             }
             catch (Exception ex) { PhBotDebug("potions inner: " + ex.Message); }
-            finally { _innerLayout = false; }
+            finally { EndInnerLayout(); }
         }
 
         private void PlacePotionCheck(Panel p, CheckBox cbx, string text, int x, int y, int width)

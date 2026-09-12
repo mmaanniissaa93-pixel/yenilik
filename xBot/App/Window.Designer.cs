@@ -18,9 +18,17 @@ namespace xBot.App
 		/// <param name="disposing">true si los recursos administrados se deben desechar; false en caso contrario.</param>
 		protected override void Dispose(bool disposing)
 		{
-			if (disposing && (components != null))
+			if (disposing)
 			{
-				components.Dispose();
+				try { _combatUiSyncTimer?.Stop(); _combatUiSyncTimer?.Dispose(); } catch { }
+				try { _gameInfoLiveTimer?.Stop(); _gameInfoLiveTimer?.Dispose(); } catch { }
+				try { _targetAssistUiTimer?.Stop(); _targetAssistUiTimer?.Dispose(); } catch { }
+				try { _tradeUiTimer?.Stop(); _tradeUiTimer?.Dispose(); } catch { }
+				try { _questUiTimer?.Stop(); _questUiTimer?.Dispose(); } catch { }
+				if (components != null)
+				{
+					components.Dispose();
+				}
 			}
 			base.Dispose(disposing);
 		}

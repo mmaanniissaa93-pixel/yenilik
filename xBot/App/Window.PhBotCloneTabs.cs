@@ -507,23 +507,28 @@ namespace xBot.App
                 CombatAIEngine.ZerkMonsterCount = (int)nAtt.Value;
                 Settings.SaveCharacterSettings();
             };
+            Action onZerkChanged = () => {
+                SyncBerserkLegacyCheckbox();
+                Settings.SaveCharacterSettings();
+            };
+
             cAtt.CheckedChanged += (s, e) => {
                 CombatAIEngine.ZerkMonsterCountEnabled = cAtt.Checked;
-                Settings.SaveCharacterSettings();
+                onZerkChanged();
             };
             gbx.Controls.Add(nAtt);
 
             var cFull = AddPhBotCheck(gbx, isTR ? "Doldukça" : "Full", 15, 40, CombatAIEngine.ZerkWhenFull);
-            cFull.CheckedChanged += (s, e) => { CombatAIEngine.ZerkWhenFull = cFull.Checked; Settings.SaveCharacterSettings(); };
+            cFull.CheckedChanged += (s, e) => { CombatAIEngine.ZerkWhenFull = cFull.Checked; onZerkChanged(); };
 
             var cEven = AddPhBotCheck(gbx, isTR ? "Canavar saldırmasa bile" : "even if no monsters are attacking", 95, 40, CombatAIEngine.ZerkEvenIfNotAttacking);
-            cEven.CheckedChanged += (s, e) => { CombatAIEngine.ZerkEvenIfNotAttacking = cEven.Checked; Settings.SaveCharacterSettings(); };
+            cEven.CheckedChanged += (s, e) => { CombatAIEngine.ZerkEvenIfNotAttacking = cEven.Checked; onZerkChanged(); };
 
             Action<CheckBox, SRMob.Mob> bindMob = (cb, mt) => {
                 cb.CheckedChanged += (s, e) => {
                     if (cb.Checked) CombatAIEngine.ZerkMobTypes.Add(mt);
                     else CombatAIEngine.ZerkMobTypes.Remove(mt);
-                    Settings.SaveCharacterSettings();
+                    onZerkChanged();
                 };
             };
 
@@ -538,10 +543,21 @@ namespace xBot.App
             bindMob(AddPhBotCheck(gbx, "Unique", 15, 238, CombatAIEngine.ZerkMobTypes.Contains(SRMob.Mob.Unique)), SRMob.Mob.Unique);
 
             var cScript = AddPhBotCheck(gbx, isTR ? "Komut" : "Script", 15, 260, CombatAIEngine.ZerkInScript);
-            cScript.CheckedChanged += (s, e) => { CombatAIEngine.ZerkInScript = cScript.Checked; Settings.SaveCharacterSettings(); };
+            cScript.CheckedChanged += (s, e) => { CombatAIEngine.ZerkInScript = cScript.Checked; onZerkChanged(); };
 
             var cPillar = AddPhBotCheck(gbx, isTR ? "Pillar" : "Pillars", 15, 282, CombatAIEngine.ZerkPillars);
-            cPillar.CheckedChanged += (s, e) => { CombatAIEngine.ZerkPillars = cPillar.Checked; Settings.SaveCharacterSettings(); };
+            cPillar.CheckedChanged += (s, e) => { CombatAIEngine.ZerkPillars = cPillar.Checked; onZerkChanged(); };
+            SyncBerserkLegacyCheckbox();
+        }
+
+        private void SyncBerserkLegacyCheckbox()
+        {
+            try
+            {
+                if (Combat_cbxAutoBerserk != null)
+                    Combat_cbxAutoBerserk.Checked = CombatAIEngine.IsBerserkEnabled;
+            }
+            catch { }
         }
 
         private void BuildProtectionMonsterPrefs(Panel p)

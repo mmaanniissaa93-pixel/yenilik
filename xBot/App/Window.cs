@@ -88,14 +88,14 @@ namespace xBot.App
 		}
 		private void InitializePerformance(Control c)
 		{
-			if(typeof(Panel) == c.GetType())
+			if (c is Panel)
 			{
 				typeof(Panel).InvokeMember("DoubleBuffered",
 					BindingFlags.SetProperty | BindingFlags.Instance | BindingFlags.NonPublic,
 					null, c, new object[] { true });
 			}
 			for (int j = 0; j < c.Controls.Count; j++)
-				InitializeFonts(c.Controls[j]);
+				InitializePerformance(c.Controls[j]);
 		}
 		/// <summary>
 		/// Initialize all default values required by the GUI.
@@ -128,7 +128,7 @@ namespace xBot.App
 			Settings_cmbxCreateCharRace.SelectedIndex =
 			Settings_cmbxCreateCharGenre.SelectedIndex =
 			Settings_cmbxInjectTo.SelectedIndex = 0;
-			TabPageH_Option_Click(this.TabPageH_Town_Option03, null);
+			TabPageH_Option_Click(this.TabPageH_Town_Option01, null);
 			Town_cmbxHpType.SelectedIndex = 3;
 			Town_cmbxMpType.SelectedIndex = 3;
 
