@@ -140,6 +140,77 @@ public static class DelayedCombatReply {
     Check (!$live.Invoke($null, @($mob))) 'Removed target remaining in cache is rejected'
     Check (![xBot.App.CombatPolicy]::CanSendAttack($true, 123, 456)) 'Unrelated selection cannot authorize an attack'
     Check (![xBot.App.CombatPolicy]::CanSendAttack($true, 123, 0)) 'Failed selection cannot authorize an attack'
+
+    # Feed the real dispatcher wire payloads, without creating sockets or a proxy.
+    $agent = [Runtime.Serialization.FormatterServices]::GetUninitializedObject([xBot.Network.Agent])
+    $dispatch = $agent.GetType().GetMethod('Remote_PacketHandler', $flags)
+    foreach ($state in @(1, 2, 3)) {
+        foreach ($previousSuccess in @($false, $true)) {
+            [xBot.Game.InfoManager]::LastSkillCastSuccess = $previousSuccess
+            [xBot.Game.InfoManager]::LastSkillCastErrorCode = 0x06
+            [xBot.Game.InfoManager]::MonitorSkillCast.Reset() | Out-Null
+            $packet = New-Object SecurityAPI.Packet([uint16]0xB074, $false, $false, [byte[]]@($state, 0, 4))
+            $packet.Lock()
+            $dispatch.Invoke($agent, @($packet.PSObject.BaseObject)) | Out-Null
+            Check (([xBot.Game.InfoManager]::LastSkillCastSuccess -eq $previousSuccess) -and
+                [xBot.Game.InfoManager]::LastSkillCastErrorCode -eq 0x06 -and
+                ![xBot.Game.InfoManager]::MonitorSkillCast.WaitOne(0)) "B074 state $state preserves cast result and does not wake attack wait"
+        }
+    }
+    foreach ($code in @(0x05, 0x06, 0x0C, 0x10)) {
+        [xBot.Game.InfoManager]::CharacterActions.Reset()
+        Check ([xBot.Game.InfoManager]::CharacterActions.TryBegin(789, 2, 123, $true, $true, 500)) 'Track outgoing attack before parsing its reply'
+        [xBot.Game.InfoManager]::LastSkillCastSuccess = $true
+        [xBot.Game.InfoManager]::MonitorSkillCast.Reset() | Out-Null
+        $packet = New-Object SecurityAPI.Packet([uint16]0xB070, $false, $false, [byte[]]@(2, $code))
+        $packet.Lock()
+        $dispatch.Invoke($agent, @($packet.PSObject.BaseObject)) | Out-Null
+        Check (![xBot.Game.InfoManager]::LastSkillCastSuccess -and
+            [xBot.Game.InfoManager]::LastSkillCastErrorCode -eq $code -and
+            [xBot.Game.InfoManager]::MonitorSkillCast.WaitOne(0)) "B070 failure $code publishes the actual one-byte skill error"
+    }
+    $characterProperty = [xBot.Game.InfoManager].GetProperty('Character')
+    $previousCharacter = [xBot.Game.InfoManager]::Character
+    $character = [Runtime.Serialization.FormatterServices]::GetUninitializedObject([xBot.Game.Objects.Entity.SRCharacter])
+    $character.UniqueID = 789
+    try {
+        $characterProperty.GetSetMethod($true).Invoke($null, @($character)) | Out-Null
+        foreach ($sourceId in @(456, 789)) {
+            [xBot.Game.InfoManager]::CharacterActions.Reset()
+            [xBot.Game.InfoManager]::CharacterActions.TryBegin(789, 1, 123, $true, $true, 500) | Out-Null
+            [xBot.Game.InfoManager]::LastSkillCastSuccess = $false
+            [xBot.Game.InfoManager]::LastSkillCastErrorCode = 0x10
+            [xBot.Game.InfoManager]::MonitorSkillCast.Reset() | Out-Null
+            $packet = New-Object SecurityAPI.Packet([uint16]0xB070)
+            $packet.WriteByte(1)
+            $packet.WriteByte(2) # SkillCast.Attack
+            $packet.WriteByte(0x30)
+            $packet.WriteUInt(0)
+            $packet.WriteUInt([uint32]$sourceId)
+            $packet.WriteUInt(0)
+            $packet.WriteUInt(123)
+            $packet.WriteByte(0)
+            $packet.Lock()
+            $dispatch.Invoke($agent, @($packet.PSObject.BaseObject)) | Out-Null
+            $ownCast = $sourceId -eq 789
+            Check (([xBot.Game.InfoManager]::LastSkillCastSuccess -eq $ownCast) -and
+                ([xBot.Game.InfoManager]::MonitorSkillCast.WaitOne(0) -eq $ownCast)) "B070 cast from $sourceId acknowledges only this character's attack"
+            if ($ownCast) { Check ([xBot.Game.InfoManager]::LastSkillCastErrorCode -eq 0) 'Confirmed attack clears previous obstacle error' }
+        }
+    } finally {
+        $characterProperty.GetSetMethod($true).Invoke($null, @($previousCharacter)) | Out-Null
+    }
+    $compiler = New-Object Microsoft.CSharp.CSharpCodeProvider
+    try {
+        $parameters = New-Object CodeDom.Compiler.CompilerParameters
+        $parameters.GenerateInMemory = $true
+        foreach ($reference in @($assemblyFile, 'System.dll', 'System.Core.dll', 'System.Windows.Forms.dll', 'System.Drawing.dll')) {
+            $parameters.ReferencedAssemblies.Add($reference) | Out-Null
+        }
+        $compiled = $compiler.CompileAssemblyFromSource($parameters, [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'BotEngineIntegration.cs')))
+        if ($compiled.Errors.HasErrors) { throw ($compiled.Errors | Out-String) }
+        $compiled.CompiledAssembly.GetType('BotEngineIntegration').GetMethod('Run').Invoke($null, @($bot, $window)) | Out-Null
+    } finally { $compiler.Dispose() }
 } finally {
     if ($bot) { $bot.GetType().GetField('tBotting', $flags).SetValue($bot, $null) }
     $window.Dispose()

@@ -45,7 +45,7 @@ internal static class Program
         RunFilter("SoX filtresi normal ekipmanı almaz", new ItemFilterInput { IsEquipable = true, Degree = 5, IsSox = false }, FilterOptions(1, 15, true), null, false);
         RunFilter("China kapalıyken China ekipmanı alınmaz", new ItemFilterInput { IsEquipable = true, Degree = 5, IsChina = true }, FilterOptions(1, 15, false, false, true), null, false);
         RunFilter("Female kapalıyken kadın ekipmanı alınmaz", new ItemFilterInput { IsEquipable = true, Degree = 5, IsFemale = true }, FilterOptions(1, 15, false, true, true, true, false), null, false);
-        RunFilter("Gold ve alchemy filtreden bağımsız alınır", new ItemFilterInput { IsGold = true, Degree = 0 }, FilterOptions(8, 8, true, false, false, false, false), null, true);
+        RunFilter("Kural yokken gold karakter tarafından alınmaz", new ItemFilterInput { IsGold = true, Degree = 0 }, FilterOptions(8, 8, true, false, false, false, false), null, false);
         RunFilter("Açık pickup kuralı global filtreyi geçersiz kılar", new ItemFilterInput { IsEquipable = true, Degree = 8 }, FilterOptions(1, 7), new ItemFilterRule { Pickup = true }, true);
         RunFilter("Kapalı pickup kuralı itemi engeller", new ItemFilterInput { IsEquipable = false }, FilterOptions(1, 15), new ItemFilterRule { Pickup = false }, false);
         RunPickFilter("Ana toplama ayarı kapalıysa açık kural da eşya toplamaz", new ItemFilterInput { IsGold = true }, new ItemFilterRule { Pickup = true }, new PickFilterOptions { Enabled = false }, false);

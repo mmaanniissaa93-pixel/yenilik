@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
@@ -479,13 +480,14 @@ namespace xBot.App
 			var usable = new System.Collections.Generic.List<SRSkill>();
 			foreach (var s in skills)
 			{
-				try { if (s != null && s.isUsableSkill()) usable.Add(s); } catch { }
+				try { if (s != null && s.isUsableSkill() && !ImbuePolicy.IsChineseImbueSkill(s.ServerName)) usable.Add(s); } catch { }
 			}
 			if (usable.Count == 0)
 			{
 				Skills_lstvSkills.InvokeIfRequired(() => {
 					try { Skills_lstvSkills.BeginUpdate(); Skills_lstvSkills.Items.Clear(); Skills_lstvSkills.EndUpdate(); } catch { }
 				});
+				this.InvokeIfRequired(() => RefreshImbueSkillList());
 				return;
 			}
 			usable.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
@@ -534,6 +536,11 @@ namespace xBot.App
 		{
 			if (Skill == null)
 				return;
+			if (ImbuePolicy.IsChineseImbueSkill(Skill.ServerName))
+			{
+				this.InvokeIfRequired(() => RefreshImbueSkillList());
+				return;
+			}
 			if (!Skill.isUsableSkill())
 				return;
 			string iconKey = LoadIconKey(Skill.Icon);
@@ -554,6 +561,15 @@ namespace xBot.App
 		}
 		public void UpdateSkill(uint lastSkillID, SRSkill newSkill)
 		{
+			InvalidateAttackSkillsCache();
+			if (ImbuePolicy.IsChineseImbueSkill(newSkill.ServerName))
+			{
+				RemoveSkill(lastSkillID);
+				if (SkillManager.SelectedImbueSkillId == lastSkillID)
+					SkillManager.SelectedImbueSkillId = newSkill.ID;
+				this.InvokeIfRequired(() => RefreshImbueSkillList());
+				return;
+			}
 			ListViewItem temp;
 			string key = lastSkillID.ToString();
 			string newkey = newSkill.ID.ToString();
@@ -1678,7 +1694,7 @@ namespace xBot.App
 					skills[j] = s;
 				}
 			});
-			return skills ?? new SRSkill[0];
+			return (skills ?? new SRSkill[0]).Where(s => s != null && !ImbuePolicy.IsChineseImbueSkill(s.ServerName)).ToArray();
 		}
 
 		/// <summary>
@@ -1807,7 +1823,7 @@ namespace xBot.App
 				default:
 					goto case SRMob.Mob.General;
 			}
-			return buffs;
+			return (buffs ?? new SRSkill[0]).Where(s => s != null && !ImbuePolicy.IsChineseImbueSkill(s.ServerName)).ToArray();
 		}
 		public void Stall_Create(xList<SRItemStall> inventoryStall)
 		{
@@ -2814,6 +2830,7 @@ namespace xBot.App
 								if (!lstvAttackMobType.Items.ContainsKey(item.Name))
 								{
 									SRSkill skill = (SRSkill)item.Tag;
+									if (skill != null && ImbuePolicy.IsChineseImbueSkill(skill.ServerName)) continue;
 									// DB eksikse (SKILL_UNKNOWN) siniflanamaz; eklemeye izin ver.
 									if (skill == null || skill.isAttackingSkill() || skill.IsDatabaseMissing())
 									{
@@ -2851,6 +2868,7 @@ namespace xBot.App
 								if (!lstvBuffMobType.Items.ContainsKey(item.Name))
 								{
 									SRSkill skill = (SRSkill)item.Tag;
+									if (skill != null && ImbuePolicy.IsChineseImbueSkill(skill.ServerName)) continue;
 									// DB eksikse (SKILL_UNKNOWN) siniflanamaz; eklemeye izin ver.
 									if (skill == null || skill.isBuffSkill() || skill.IsDatabaseMissing())
 									{
@@ -3605,7 +3623,13 @@ namespace xBot.App
 						}
 						else
 						{
-							Training_lstvAreas.SelectedItems[0].SubItems[5].Tag = int.Parse(c.Text);
+							var area = Training_lstvAreas.SelectedItems[0];
+							if (area.Tag is TrainingAreaInfo info)
+							{
+								info.Radius = int.Parse(c.Text);
+								if (area.SubItems.Count > 2) area.SubItems[2].Text = c.Text;
+							}
+							else if (area.SubItems.Count > 5) area.SubItems[5].Tag = int.Parse(c.Text);
 							Settings.SaveCharacterSettings();
 						}
 					}

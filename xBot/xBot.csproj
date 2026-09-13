@@ -141,6 +141,9 @@
     <Compile Include="App\SecretStore.cs" />
     <Compile Include="App\CombatAIEngine.cs" />
     <Compile Include="App\CombatPolicy.cs" />
+    <Compile Include="App\CharacterActionTracker.cs" />
+    <Compile Include="App\BuffRetryTracker.cs" />
+    <Compile Include="App\PickupQueue.cs" />
     <Compile Include="App\TeleportLinkPolicy.cs" />
     <Compile Include="App\ReturnToAreaPolicy.cs" />
     <Compile Include="App\CollisionPolicy.cs" />

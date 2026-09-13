@@ -231,6 +231,7 @@ namespace xBot.Game
 		public static AutoResetEvent MonitorSkillCast { get { return m_MonitorSkillCast; } }
 		public static bool LastSkillCastSuccess { get; set; } = true;
 		public static ushort LastSkillCastErrorCode { get; set; } = 0;
+		public static CharacterActionTracker CharacterActions { get; } = new CharacterActionTracker();
 		public static AutoResetEvent MonitorMobSpawnChanged { get { return m_MonitorMobSpawnChanged; } }
 		public static AutoResetEvent MonitorNpcTalk { get { return m_MonitorNpcTalk; } }
 		public static AutoResetEvent MonitorGuildStorageResponse { get { return m_MonitorGuildStorageResponse; } }
@@ -421,6 +422,8 @@ namespace xBot.Game
 		internal static void OnDisconnected()
 		{
 			inGame = false;
+			CharacterActions.Reset();
+			SkillManager.ResetCastSession();
 			xBot.App.QuestAutomationManager.CancelSession();
 			inTeleport = false;
 
@@ -1858,9 +1861,18 @@ namespace xBot.Game
 				}
 				catch { }
 
-				LastSkillCastSuccess = true;
-				LastSkillCastErrorCode = 0;
-				m_MonitorSkillCast.Set();
+				bool wasAttack;
+				if (CharacterActions.Confirm(sourceUniqueID, skillID, targetUniqueID,
+					PacketBuilder.IsBaseSkillId(skillID) || skillID <= 1, out wasAttack))
+				{
+					SkillManager.OnAuxiliarySkillConfirmed(skillID);
+					if (wasAttack)
+					{
+						LastSkillCastSuccess = true;
+						LastSkillCastErrorCode = 0;
+						m_MonitorSkillCast.Set();
+					}
+				}
 			}
 		}
 		internal static void OnEntityBuffAdded(uint uniqueID, SRBuff buff)
@@ -1881,6 +1893,16 @@ namespace xBot.Game
 				if (lastBuff != null)
 					m_Buffs.RemoveKey(lastBuff.UniqueID);
 				entity.Buffs[buff.GroupID] = buff;
+				if (entity == Character)
+				{
+					if (CharacterActions.ConfirmAppliedBuff(Character.UniqueID, buff.ID))
+					{
+						SkillManager.OnAuxiliarySkillConfirmed(buff.ID);
+						var learned = Character.Skills?.Find(s => s != null && s.ID == buff.ID);
+						if (learned != null && learned.isCastingEnabled) learned.StartCooldown();
+					}
+					SkillManager.OnBuffApplied(buff.ID);
+				}
 				// Check my own
 				if (entity == Character)
 				{

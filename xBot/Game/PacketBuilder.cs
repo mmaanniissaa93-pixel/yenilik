@@ -844,8 +844,12 @@ namespace xBot.Game
 			p.WriteByte(2);
 			Bot.Get.Proxy.Agent.InjectToServer(p,1000);
 		}
-		public static void CastSkill(uint skillID, uint targetUniqueID = 0)
+		public static bool CastSkill(uint skillID, uint targetUniqueID = 0)
 		{
+			if (Bot.Get.Proxy?.Agent == null || InfoManager.Character == null) return false;
+			var skill = SkillManager.GetCastSkill(skillID);
+			if (!InfoManager.CharacterActions.TryBegin(InfoManager.Character.UniqueID, skillID,
+				targetUniqueID, false, false, skill == null || skill.IsDatabaseMissing() ? 500 : skill.CastingTime)) return false;
 			Packet p = new Packet(Agent.Opcode.CLIENT_CHARACTER_ACTION_REQUEST);
 			p.WriteByte(1);
 			p.WriteByte(SRTypes.CharacterAction.SkillCast);
@@ -860,14 +864,21 @@ namespace xBot.Game
 				p.WriteByte(0);
 			}
 			Bot.Get.Proxy.Agent.InjectToServer(p);
+			return true;
 		}
 		public static bool IsBaseSkillId(uint id)
 		{
 			return id == 2 || id == 40 || id == 70 || (id >= 8419 && id <= 8421) || id == 9354 || id == 9355 || id == 9944 || id == 10625 || id == 11162 || id == 11526;
 		}
-		public static void AttackTarget(uint targetUniqueID, uint skillID = 1)
+		public static bool AttackTarget(uint targetUniqueID, uint skillID = 1)
 		{
-			if (targetUniqueID == 0 || Bot.Get.Proxy == null || Bot.Get.Proxy.Agent == null) return;
+			if (targetUniqueID == 0 || Bot.Get.Proxy?.Agent == null || InfoManager.Character == null) return false;
+            var skill = SkillManager.GetCastSkill(skillID);
+            bool basic = skillID <= 1 || IsBaseSkillId(skillID);
+            bool targetRequired = basic || skill == null || skill.IsDatabaseMissing() || skill.isTargetRequired;
+            if (!InfoManager.CharacterActions.TryBegin(InfoManager.Character.UniqueID, skillID,
+                targetRequired ? targetUniqueID : 0,
+				basic, true, skill == null || skill.IsDatabaseMissing() ? 700 : skill.CastingTime)) return false;
 			Packet p = new Packet(Agent.Opcode.CLIENT_CHARACTER_ACTION_REQUEST);
 			p.WriteByte(1);
 			// Check if is common attack or animation base reference
@@ -882,16 +893,6 @@ namespace xBot.Game
 				p.WriteByte((byte)SRTypes.CharacterAction.SkillCast);
 				p.WriteUInt(skillID);
 
-				bool targetRequired = true;
-				try
-				{
-					if (InfoManager.Character != null && InfoManager.Character.Skills != null && InfoManager.Character.Skills.ContainsKey(skillID))
-					{
-						targetRequired = InfoManager.Character.Skills[skillID].isTargetRequired;
-					}
-				}
-				catch { }
-
 				if (targetRequired)
 				{
 					p.WriteByte(1);
@@ -903,6 +904,7 @@ namespace xBot.Game
 				}
 			}
 			Bot.Get.Proxy.Agent.InjectToServer(p);
+			return true;
 		}
 		public static void RemoveBuff(uint skillID, uint targetUniqueID = 0)
 		{

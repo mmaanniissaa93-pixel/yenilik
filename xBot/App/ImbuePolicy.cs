@@ -53,8 +53,7 @@ namespace xBot.App
             bool hasElement = ContainsElement(name, token);
             bool hasImbueMarker = name.Contains("GIGONGTA")
                 || name.Contains("ENCHANT")
-                || name.Contains("IMBU")
-                || name.Contains("BUFF");
+                || name.Contains("IMBU");
 
             return hasElement && hasImbueMarker;
         }

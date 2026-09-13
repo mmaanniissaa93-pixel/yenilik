@@ -3839,20 +3839,35 @@ namespace xBot.Game
 		}
 		public static void EntitySkillStart(Packet p)
 		{
-			// success
-			if (p.ReadBool())
+			if (p.ReadByte() != 1)
 			{
-				SRTypes.SkillCast type = (SRTypes.SkillCast)p.ReadByte();
-                p.SeekRead(1, System.IO.SeekOrigin.Current);
-                uint skillID = p.ReadUInt();
-				uint sourceUniqueID = p.ReadUInt();
-                p.SeekRead(4, System.IO.SeekOrigin.Current);
-                uint targetUniqueID = p.ReadUInt();
-				if(type == SRTypes.SkillCast.Attack)
-                    SkillDamageParsing(p);
-				// End of Packet
-				InfoManager.OnEntitySkillCast(type, skillID, sourceUniqueID, targetUniqueID);
+				// B070 failures carry a one-byte skill error (0x10 = obstacle).
+				// Parse before publishing so truncated packets cannot wake a cast.
+				byte error = p.ReadByte();
+				uint skillId = InfoManager.CharacterActions.PendingSkillId;
+				bool wasAttack;
+				if (InfoManager.CharacterActions.Reject(error, out wasAttack))
+				{
+					if (wasAttack)
+					{
+						InfoManager.LastSkillCastSuccess = false;
+						InfoManager.LastSkillCastErrorCode = error;
+						InfoManager.MonitorSkillCast.Set();
+					}
+					else SkillManager.OnBuffRejected(skillId, error);
+				}
+				return;
 			}
+			SRTypes.SkillCast type = (SRTypes.SkillCast)p.ReadByte();
+			p.SeekRead(1, System.IO.SeekOrigin.Current);
+			uint skillID = p.ReadUInt();
+			uint sourceUniqueID = p.ReadUInt();
+			p.SeekRead(4, System.IO.SeekOrigin.Current);
+			uint targetUniqueID = p.ReadUInt();
+			if (type == SRTypes.SkillCast.Attack)
+				SkillDamageParsing(p);
+			// End of Packet
+			InfoManager.OnEntitySkillCast(type, skillID, sourceUniqueID, targetUniqueID);
 		}
 		public static void EntitySkillEnd(Packet p)
 		{

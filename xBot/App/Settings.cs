@@ -914,7 +914,7 @@ Window w = Window.Get;
 						foreach (JToken token in (JArray)Attack["General"])
 						{
 							string skillName = (string)token;
-							SRSkill skill = mySkills.Find(s => s.Name == skillName);
+							SRSkill skill = mySkills.Find(s => s != null && s.Name == skillName && !ImbuePolicy.IsChineseImbueSkill(s.ServerName));
 							if (skill != null)
 							{
 								ListViewItem item = new ListViewItem(skillName);
@@ -930,7 +930,7 @@ Window w = Window.Get;
 						foreach (JToken token in (JArray)Attack["Champion"])
 						{
 							string skillName = (string)token;
-							SRSkill skill = mySkills.Find(s => s.Name == skillName);
+							SRSkill skill = mySkills.Find(s => s != null && s.Name == skillName && !ImbuePolicy.IsChineseImbueSkill(s.ServerName));
 							if (skill != null)
 							{
 								ListViewItem item = new ListViewItem(skillName);
@@ -946,7 +946,7 @@ Window w = Window.Get;
 						foreach (JToken token in (JArray)Attack["Giant"])
 						{
 							string skillName = (string)token;
-							SRSkill skill = mySkills.Find(s => s.Name == skillName);
+							SRSkill skill = mySkills.Find(s => s != null && s.Name == skillName && !ImbuePolicy.IsChineseImbueSkill(s.ServerName));
 							if (skill != null)
 							{
 								ListViewItem item = new ListViewItem(skillName);
@@ -962,7 +962,7 @@ Window w = Window.Get;
 						foreach (JToken token in (JArray)Attack["PartyGeneral"])
 						{
 							string skillName = (string)token;
-							SRSkill skill = mySkills.Find(s => s.Name == skillName);
+							SRSkill skill = mySkills.Find(s => s != null && s.Name == skillName && !ImbuePolicy.IsChineseImbueSkill(s.ServerName));
 							if (skill != null)
 							{
 								ListViewItem item = new ListViewItem(skillName);
@@ -978,7 +978,7 @@ Window w = Window.Get;
 						foreach (JToken token in (JArray)Attack["PartyChampion"])
 						{
 							string skillName = (string)token;
-							SRSkill skill = mySkills.Find(s => s.Name == skillName);
+							SRSkill skill = mySkills.Find(s => s != null && s.Name == skillName && !ImbuePolicy.IsChineseImbueSkill(s.ServerName));
 							if (skill != null)
 							{
 								ListViewItem item = new ListViewItem(skillName);
@@ -994,7 +994,7 @@ Window w = Window.Get;
 						foreach (JToken token in (JArray)Attack["PartyGiant"])
 						{
 							string skillName = (string)token;
-							SRSkill skill = mySkills.Find(s => s.Name == skillName);
+							SRSkill skill = mySkills.Find(s => s != null && s.Name == skillName && !ImbuePolicy.IsChineseImbueSkill(s.ServerName));
 							if (skill != null)
 							{
 								ListViewItem item = new ListViewItem(skillName);
@@ -1010,7 +1010,7 @@ Window w = Window.Get;
 						foreach (JToken token in (JArray)Attack["Unique"])
 						{
 							string skillName = (string)token;
-							SRSkill skill = mySkills.Find(s => s.Name == skillName);
+							SRSkill skill = mySkills.Find(s => s != null && s.Name == skillName && !ImbuePolicy.IsChineseImbueSkill(s.ServerName));
 							if (skill != null)
 							{
 								ListViewItem item = new ListViewItem(skillName);
@@ -1026,7 +1026,7 @@ Window w = Window.Get;
 						foreach (JToken token in (JArray)Attack["Elite"])
 						{
 							string skillName = (string)token;
-							SRSkill skill = mySkills.Find(s => s.Name == skillName);
+							SRSkill skill = mySkills.Find(s => s != null && s.Name == skillName && !ImbuePolicy.IsChineseImbueSkill(s.ServerName));
 							if (skill != null)
 							{
 								ListViewItem item = new ListViewItem(skillName);
@@ -1042,7 +1042,7 @@ Window w = Window.Get;
 						foreach (JToken token in (JArray)Attack["Event"])
 						{
 							string skillName = (string)token;
-							SRSkill skill = mySkills.Find(s => s.Name == skillName);
+							SRSkill skill = mySkills.Find(s => s != null && s.Name == skillName && !ImbuePolicy.IsChineseImbueSkill(s.ServerName));
 							if (skill != null)
 							{
 								ListViewItem item = new ListViewItem(skillName);
@@ -1062,7 +1062,7 @@ Window w = Window.Get;
 						foreach (JToken token in (JArray)Buff["General"])
 						{
 							string skillName = (string)token;
-							SRSkill skill = mySkills.Find(s => s.Name == skillName);
+							SRSkill skill = mySkills.Find(s => s != null && s.Name == skillName && !ImbuePolicy.IsChineseImbueSkill(s.ServerName));
 							if (skill != null)
 							{
 								ListViewItem item = new ListViewItem(skillName);
@@ -1078,7 +1078,7 @@ Window w = Window.Get;
 						foreach (JToken token in (JArray)Buff["Champion"])
 						{
 							string skillName = (string)token;
-							SRSkill skill = mySkills.Find(s => s.Name == skillName);
+							SRSkill skill = mySkills.Find(s => s != null && s.Name == skillName && !ImbuePolicy.IsChineseImbueSkill(s.ServerName));
 							if (skill != null)
 							{
 								ListViewItem item = new ListViewItem(skillName);
@@ -1094,7 +1094,7 @@ Window w = Window.Get;
 						foreach (JToken token in (JArray)Buff["Giant"])
 						{
 							string skillName = (string)token;
-							SRSkill skill = mySkills.Find(s => s.Name == skillName);
+							SRSkill skill = mySkills.Find(s => s != null && s.Name == skillName && !ImbuePolicy.IsChineseImbueSkill(s.ServerName));
 							if (skill != null)
 							{
 								ListViewItem item = new ListViewItem(skillName);
@@ -1110,7 +1110,7 @@ Window w = Window.Get;
 						foreach (JToken token in (JArray)Buff["PartyGeneral"])
 						{
 							string skillName = (string)token;
-							SRSkill skill = mySkills.Find(s => s.Name == skillName);
+							SRSkill skill = mySkills.Find(s => s != null && s.Name == skillName && !ImbuePolicy.IsChineseImbueSkill(s.ServerName));
 							if (skill != null)
 							{
 								ListViewItem item = new ListViewItem(skillName);
@@ -1126,7 +1126,7 @@ Window w = Window.Get;
 						foreach (JToken token in (JArray)Buff["PartyChampion"])
 						{
 							string skillName = (string)token;
-							SRSkill skill = mySkills.Find(s => s.Name == skillName);
+							SRSkill skill = mySkills.Find(s => s != null && s.Name == skillName && !ImbuePolicy.IsChineseImbueSkill(s.ServerName));
 							if (skill != null)
 							{
 								ListViewItem item = new ListViewItem(skillName);
@@ -1142,7 +1142,7 @@ Window w = Window.Get;
 						foreach (JToken token in (JArray)Buff["PartyGiant"])
 						{
 							string skillName = (string)token;
-							SRSkill skill = mySkills.Find(s => s.Name == skillName);
+							SRSkill skill = mySkills.Find(s => s != null && s.Name == skillName && !ImbuePolicy.IsChineseImbueSkill(s.ServerName));
 							if (skill != null)
 							{
 								ListViewItem item = new ListViewItem(skillName);
@@ -1158,7 +1158,7 @@ Window w = Window.Get;
 						foreach (JToken token in (JArray)Buff["Unique"])
 						{
 							string skillName = (string)token;
-							SRSkill skill = mySkills.Find(s => s.Name == skillName);
+							SRSkill skill = mySkills.Find(s => s != null && s.Name == skillName && !ImbuePolicy.IsChineseImbueSkill(s.ServerName));
 							if (skill != null)
 							{
 								ListViewItem item = new ListViewItem(skillName);
@@ -1174,7 +1174,7 @@ Window w = Window.Get;
 						foreach (JToken token in (JArray)Buff["Elite"])
 						{
 							string skillName = (string)token;
-							SRSkill skill = mySkills.Find(s => s.Name == skillName);
+							SRSkill skill = mySkills.Find(s => s != null && s.Name == skillName && !ImbuePolicy.IsChineseImbueSkill(s.ServerName));
 							if (skill != null)
 							{
 								ListViewItem item = new ListViewItem(skillName);

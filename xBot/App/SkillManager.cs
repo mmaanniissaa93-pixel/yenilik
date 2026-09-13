@@ -16,7 +16,8 @@ namespace xBot.App
         // Kept for backwards-compatible settings; the active choice is the skill ID.
         public static string SelectedImbue { get; set; } = "None";
         public static uint SelectedImbueSkillId { get; set; }
-        public static bool UseDevilSpirit { get; set; } = false;
+        // Both screens edit the same "when ready" trigger; retain the legacy name.
+        public static bool UseDevilSpirit { get => DevilWhenReady; set => DevilWhenReady = value; }
         public static byte DevilSpiritHPPercent { get; set; } = 100;
         public static int DevilSpiritDelaySeconds { get; set; } = 5;
         public static bool InOrderCombo { get; set; } = true;
@@ -33,7 +34,63 @@ namespace xBot.App
         public static string LastCastSkill { get; private set; } = "-";
         public static int ConsecutiveCastFailures { get; private set; }
         public static DateTime LastCastAt { get; private set; }
-        private static DateTime LastImbueAttemptAt { get; set; }
+        private static readonly BuffRetryTracker BuffRetries = new BuffRetryTracker();
+        private static readonly BuffRetryTracker AttackRetries = new BuffRetryTracker();
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<uint, SRSkill> CastMetadata =
+            new System.Collections.Concurrent.ConcurrentDictionary<uint, SRSkill>();
+        public static SRSkill GetCastSkill(uint id)
+        {
+            var learned = InfoManager.Character?.Skills?.Find(s => s != null && s.ID == id);
+            return learned ?? CastMetadata.GetOrAdd(id, value => new SRSkill(value));
+        }
+        public static void ResetCastSession() { CastMetadata.Clear(); BuffRetries.Reset(); AttackRetries.Reset(); }
+        public static void OnAuxiliarySkillConfirmed(uint id)
+        {
+            SRSkill metadata;
+            if (CastMetadata.TryGetValue(id, out metadata) && metadata.isCastingEnabled)
+                metadata.StartCooldown();
+        }
+
+        public static void BeginBotRun() { BuffRetries.Reset(); AttackRetries.Reset(); s_lastDevilAttemptUtc = DateTime.MinValue; }
+        public static bool CanUseAttackSkill(SRSkill skill, uint mp)
+        {
+            return skill != null && skill.Enabled && skill.isCastingEnabled
+                && (skill.ID == 1 || skill.MPUsage <= mp)
+                && !ImbuePolicy.IsChineseImbueSkill(skill.ServerName) && AttackRetries.CanTry(skill.ID);
+        }
+        public static void OnAttackRejected(uint skillId, ushort error)
+        {
+            if (error == 5 || error == 0x0C)
+                AttackRetries.Rejected(skillId, error == 5 ? 1000 : 350);
+        }
+        public static void DeferBuff(uint skillId) { BuffRetries.Rejected(skillId, 2000); }
+        public static bool CanSendBuff(SRSkill skill)
+        {
+            return skill != null && skill.Enabled && skill.isCastingEnabled
+                && InfoManager.Character != null && skill.MPUsage <= InfoManager.Character.MP
+                && BuffRetries.CanTry(skill.ID);
+        }
+        public static bool TrySendBuff(SRSkill skill)
+        {
+            if (!CanSendBuff(skill)) return false;
+            return TrySendBuff(skill.ID);
+        }
+        private static bool TrySendBuff(uint skillId)
+        {
+            var skill = GetCastSkill(skillId);
+            if (!skill.isCastingEnabled || InfoManager.Character == null || skill.MPUsage > InfoManager.Character.MP) return false;
+            return BuffRetries.TrySend(skillId, () => PacketBuilder.CastSkill(skillId));
+        }
+        public static void OnBuffApplied(uint skillId) { BuffRetries.Applied(skillId); }
+        public static void OnBuffRejected(uint skillId, ushort error)
+        {
+            if (skillId == 0) return;
+            // A cooldown rejection gives no remaining duration. Do not invent
+            // a fresh 30-minute Devil cooldown or 16-second imbue cooldown.
+            int delay = skillId == GetEquippedDevilSkillId() ? Math.Max(1000, Math.Min(60000, DevilSpiritDelaySeconds * 1000)) : 1000;
+            BuffRetries.Rejected(skillId, error == 0x0C ? 350 : error == 5 ? delay : 2000);
+            Window.Get?.Log($"[Buff] ID={skillId}, sunucu yanıtı=0x{error:X2}; yeniden denenecek.");
+        }
 
         public sealed class ImbueSkillOption
         {
@@ -88,7 +145,7 @@ namespace xBot.App
             if (InfoManager.Character == null || InfoManager.Character.Buffs == null)
                 return false;
 
-            for (byte i = 0; i < InfoManager.Character.Buffs.Count; i++)
+            for (int i = 0; i < InfoManager.Character.Buffs.Count; i++)
             {
                 var buff = InfoManager.Character.Buffs.GetAt(i);
                 if (buff != null && !string.IsNullOrEmpty(buff.ServerName))
@@ -100,41 +157,22 @@ namespace xBot.App
             return false;
         }
 
-        public static void EnsureImbueActive()
+        public static bool EnsureImbueActive()
         {
-            string selectedElement = GetSelectedImbueElement();
-            if (selectedElement == "None" || HasActiveImbue(selectedElement))
-                return;
-
-            if (InfoManager.Character == null || InfoManager.Character.Skills == null)
-                return;
-
-            // Prevent a missing/late server response from causing an imbue
-            // packet every tick. The skill cooldown remains authoritative
-            // after the server confirms the cast.
-            if ((DateTime.Now - LastImbueAttemptAt).TotalMilliseconds < 1000)
-                return;
-
-            SRSkill imbueSkill = null;
-            for (int i = 0; i < InfoManager.Character.Skills.Count; i++)
+            string element = GetSelectedImbueElement();
+            if (element == "None" || HasActiveImbue(element) || InfoManager.Character?.Skills == null)
+                return false;
+            SRSkill selected = null;
+            foreach (var skill in InfoManager.Character.Skills.Snapshot())
             {
-                var s = InfoManager.Character.Skills.GetAt(i);
-                if (s != null && s.Enabled && s.isCastingEnabled
-                    && ImbuePolicy.IsImbueSkill(s.ServerName, selectedElement)
-                    && (SelectedImbueSkillId == 0 || s.ID == SelectedImbueSkillId))
-                {
-                    if (imbueSkill == null || s.Level > imbueSkill.Level)
-                        imbueSkill = s;
-                }
+                if (skill == null || !skill.Enabled || !ImbuePolicy.IsImbueSkill(skill.ServerName, element)) continue;
+                if (SelectedImbueSkillId != 0 && skill.ID != SelectedImbueSkillId) continue;
+                if (selected == null || skill.Level > selected.Level) selected = skill;
             }
-
-            if (imbueSkill != null)
-            {
-                LastImbueAttemptAt = DateTime.Now;
-                PacketBuilder.CastSkill(imbueSkill.ID, 0);
-            }
+            if (!TrySendBuff(selected)) return false;
+            Window.Get?.Log($"[Buff] Imbue isteği: {selected.Name} (ID={selected.ID}).");
+            return true;
         }
-
         private static string GetSelectedImbueElement()
         {
             if (SelectedImbueSkillId != 0 && InfoManager.Character != null && InfoManager.Character.Skills != null)
@@ -178,59 +216,33 @@ namespace xBot.App
         /// Devil Spirit uzun süreli bir buff'tır (10dk), her atakta basılmaz:
         /// buff zaten aktifse veya devil hazır değilse dokunulmaz.
         /// </summary>
-        public static void CheckDevilSpirit(List<SRMob> nearbyMobs = null)
+        public static bool CheckDevilSpirit(List<SRMob> nearbyMobs = null)
         {
-            if (!IsDevilSpiritEnabled || InfoManager.Character == null)
-                return;
+            if (!IsDevilSpiritEnabled || InfoManager.Character == null || !InfoManager.CharacterActions.CanStart)
+                return false;
             if (DevilSpiritHPPercent < 100 && InfoManager.Character.GetHPPercent() > DevilSpiritHPPercent)
-                return;
-            if (HasDevilBuff())
-                return;
-
-            // phBot koşulları (Hazırsa, saldıran mob sayısı, mob türleri, saldırmasa bile)
-            if (!EvaluateDevilTriggers(nearbyMobs))
-                return;
-
-            int delaySec = Math.Max(1, DevilSpiritDelaySeconds);
-            if ((DateTime.UtcNow - s_lastDevilAttemptUtc).TotalSeconds < delaySec)
-                return;
-
-            // 1) Eğer avatar slotlarında kuşanılı değilse kuşanmayı dene
+                return false;
+            if (HasDevilBuff() || !EvaluateDevilTriggers(nearbyMobs)) return false;
             if (!IsDevilEquipped())
             {
-                if (TryEquipDevilItem())
-                    return;
+                // Equip and activate separately, without delaying activation
+                // once the server has placed the item in the avatar inventory.
+                if ((DateTime.UtcNow - s_lastDevilAttemptUtc).TotalSeconds < 2) return false;
+                return TryEquipDevilItem() || TryUseDevilItem();
             }
-
-            // 2) Öğrenilmiş devil skili varsa bas
-            SRSkill devilSkill = FindDevilSkill();
-            if (devilSkill != null && devilSkill.isCastingEnabled)
-            {
-                s_lastDevilAttemptUtc = DateTime.UtcNow;
-                devilSkill.StartCooldown();
-                PacketBuilder.CastSkill(devilSkill.ID, 0);
-                Window.Get?.Log("Devil Spirit becerisi basıldı [" + (devilSkill.Name ?? devilSkill.ID.ToString()) + "].");
-                return;
-            }
-
-            // 3) Skill listede görünmese bile kuşanılı Devil Spirit'in aktif beceri ID'sini belirle ve bas
-            uint derivedSkillId = GetEquippedDevilSkillId();
-            if (derivedSkillId != 0)
-            {
-                s_lastDevilAttemptUtc = DateTime.UtcNow;
-                PacketBuilder.CastSkill(derivedSkillId, 0);
-                Window.Get?.Log($"Devil Spirit becerisi doğrudan aktifleştirildi [Skill ID: {derivedSkillId}].");
-                return;
-            }
-
-            // 4) Kullanılabilir devil summon eşyası varsa kullan
-            TryUseDevilItem();
+            var learned = FindDevilSkill();
+            uint skillId = learned != null ? learned.ID : GetEquippedDevilSkillId();
+            if (skillId == 0) return false;
+            bool sent = learned != null ? TrySendBuff(learned) : TrySendBuff(skillId);
+            if (sent) Window.Get?.Log($"[Buff] Devil Spirit isteği: ID={skillId}.");
+            return sent;
         }
-
         private static bool EvaluateDevilTriggers(List<SRMob> nearbyMobs)
         {
+            if (nearbyMobs != null)
+                nearbyMobs = nearbyMobs.Where(m => m != null && m.LifeStateType != SRModel.LifeState.Dead).ToList();
             // 1) "Hazırsa" (DevilWhenReady): Devil Spirit hazır olduğunda bas!
-            if (DevilWhenReady)
+            if (DevilWhenReady || UseDevilSpirit)
             {
                 if (DevilEvenIfNotAttacking)
                     return true;
@@ -381,10 +393,13 @@ namespace xBot.App
                 var skills = InfoManager.Character?.Skills;
                 if (skills == null)
                     return null;
+                uint equippedSkillId = GetEquippedDevilSkillId();
+                if (equippedSkillId != 0)
+                    return skills.Find(s => s != null && s.ID == equippedSkillId && s.Enabled);
                 for (int i = 0; i < skills.Count; i++)
                 {
                     var s = skills.GetAt(i);
-                    if (s == null) continue;
+                    if (s == null || !s.Enabled || !s.isUsableSkill()) continue;
                     string sn = s.ServerName ?? "";
                     string name = s.Name ?? "";
                     if (sn.IndexOf("NASRUN", StringComparison.OrdinalIgnoreCase) >= 0

@@ -13,6 +13,7 @@ namespace xBot.App
         private readonly Action<int> wait;
         private readonly Func<bool> canContinue;
         private readonly Func<SRCoord, bool> allowed;
+        public bool WasBlocked { get; private set; }
 
         public LocalObstacleNavigator(Func<SRCoord> position, Action<SRCoord> move,
             Action<int> wait, Func<bool> canContinue, Func<SRCoord, bool> allowed)
@@ -26,6 +27,13 @@ namespace xBot.App
 
         public bool MoveTo(SRCoord destination, double tolerance)
         {
+            return MoveTo(() => destination, tolerance);
+        }
+
+        public bool MoveTo(Func<SRCoord> getDestination, double tolerance)
+        {
+            WasBlocked = false;
+            SRCoord destination = getDestination();
             if (!canContinue() || destination == null || !allowed(destination)) return false;
             SRCoord start = position();
             if (start == null) return false;
@@ -34,11 +42,15 @@ namespace xBot.App
 
             move(destination);
             int lastProgress = 0;
-            for (int elapsed = 100; elapsed <= 8000; elapsed += 100)
+            SRCoord lastProgressPosition = start;
+            SRCoord commanded = destination;
+            for (int elapsed = 100; elapsed <= 15000; elapsed += 100)
             {
                 wait(100);
                 SRCoord current = position();
                 if (!canContinue() || current == null) break;
+                destination = getDestination();
+                if (destination == null || !allowed(destination)) break;
                 double distance = current.DistanceTo(destination);
                 if (distance <= tolerance)
                 {
@@ -47,14 +59,19 @@ namespace xBot.App
                     if (tolerance > 1) move(current);
                     return true;
                 }
-                if (bestDistance - distance >= 0.25)
+                if (current.DistanceTo(lastProgressPosition) >= 0.25)
                 {
-                    bestDistance = distance;
+                    lastProgressPosition = current;
                     lastProgress = elapsed;
+                }
+                if (commanded.DistanceTo(destination) >= 2)
+                {
+                    move(destination);
+                    commanded = destination;
                 }
                 // Measure a full interval after issuing movement; never count
                 // the initial standing position as a collision.
-                if (elapsed - lastProgress >= 1200) break;
+                if (elapsed - lastProgress >= 1200) { WasBlocked = true; break; }
             }
 
             SRCoord stopped = position();
@@ -104,10 +121,13 @@ namespace xBot.App
         }
 
         // True means retry combat; false means release this target.
-        public bool OnFailure(bool enabled, Func<int, bool> tryDetour)
+        public bool OnFailure(bool enabled, ushort skillError, Func<int, bool> tryDetour)
         {
             if (++failures < 3) return true;
-            if (!enabled) return false;
+            // A timeout, cooldown, busy state or invalid target says nothing
+            // about geometry. Only an explicit B070 obstacle error permits
+            // an in-range detour; approach recovery separately observes stalls.
+            if (!enabled || skillError != 0x10) return false;
             while (attempts < LocalObstacleNavigator.MaxDetours)
             {
                 if (tryDetour(attempts++))

@@ -858,26 +858,9 @@ namespace xBot.Network
 					PacketParser.DropUnlocked(packet);
 					break;
 				case Opcode.SERVER_CHARACTER_ACTION_RESPONSE:
-					try
-					{
-						byte result = packet.ReadByte();
-						if (result == 1) // 1 = Success
-						{
-							InfoManager.LastSkillCastSuccess = true;
-							InfoManager.LastSkillCastErrorCode = 0;
-							InfoManager.MonitorSkillCast.Set();
-						}
-						else
-						{
-							InfoManager.LastSkillCastSuccess = false;
-							try { InfoManager.LastSkillCastErrorCode = packet.ReadUShort(); } catch { InfoManager.LastSkillCastErrorCode = 0xFFFF; }
-							InfoManager.MonitorSkillCast.Set();
-						}
-					}
-					catch (Exception ex)
-					{
-						App.Window.Get?.Log("[SkillCast parse] " + ex.Message);
-					}
+					// B074 reports action state/recurrence, not a skill result.
+					// Only B070 can acknowledge or reject a cast. Reading the
+					// state payload as an error produced spurious 0x0400 failures.
 					break;
 				default:
 					// Tanımlı ama işlenmeyen opcode'lar sessizce yutulmasın — teşhis için seyrek logla

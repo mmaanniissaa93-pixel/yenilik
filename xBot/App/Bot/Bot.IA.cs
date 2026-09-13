@@ -14,7 +14,7 @@ namespace xBot.App
 {
     public partial class Bot
     {
-        public bool isBotting { get { return tBotting != null; } }
+        public bool isBotting { get { Thread worker = tBotting; return worker != null && worker.IsAlive && !m_stopBottingRequested; } }
         /// <summary>
         /// Thread controlling all botting actions.
         /// </summary>
@@ -27,6 +27,7 @@ namespace xBot.App
         private bool m_mobsCacheDirty = true;
         private SRCoord m_lastTrainingPosition;
         private int m_lastTrainingRadius;
+        private long m_mobCacheUpdatedAt;
         // Town scriptleri loop şeklinde bitince (son nokta ilk noktaya yakın) aynı
         // tick'te tekrar town algılanıp sonsuz döngüye girilmemesi için guard.
         // SADECE son döngünün bittiği yerde (+80m) ve 90sn içinde duruluyorsa atlanır;
@@ -37,7 +38,7 @@ namespace xBot.App
         private DateTime m_lastPartyMatchReform = DateTime.MinValue;
         private Thread tPetLooting = null;
         private volatile bool m_stopPetLootingRequested = false;
-        private readonly Dictionary<uint, DateTime> _petCommandedDrops = new Dictionary<uint, DateTime>();
+        private readonly PickupQueue _characterPickup = new PickupQueue();
         private readonly Dictionary<uint, DateTime> _unreachableMobs = new Dictionary<uint, DateTime>();
 
         /// <summary>
@@ -47,9 +48,9 @@ namespace xBot.App
         {
             try
             {
-                m_stopPetLootingRequested = false;
                 if (tPetLooting != null && tPetLooting.IsAlive)
                     return;
+                m_stopPetLootingRequested = false;
 
                 tPetLooting = new Thread(this.ThreadPetLooting)
                 {
@@ -70,9 +71,8 @@ namespace xBot.App
             {
                 m_stopPetLootingRequested = true;
                 Thread tp = tPetLooting;
-                tPetLooting = null;
                 try { if (tp != null && tp.IsAlive && tp != Thread.CurrentThread) tp.Join(500); } catch { }
-                lock (_petCommandedDrops) { _petCommandedDrops.Clear(); }
+                if (tp == null || !tp.IsAlive) tPetLooting = null;
             }
             catch { }
         }
@@ -110,7 +110,18 @@ namespace xBot.App
         {
             if (InfoManager.inGame && !isBotting)
             {
+                // A stopped worker may still be leaving a blocking script/UI call.
+                // Do not reactivate its shared flag by starting a second motor.
+                if (tBotting != null && tBotting.IsAlive)
+                {
+                    Window.Get.Log("Önceki bot işlemi kapanıyor; henüz yeniden başlatılamadı.");
+                    return;
+                }
                 m_stopBottingRequested = false;
+                m_mobsCacheDirty = true;
+                _characterPickup.Reset();
+                _unreachableMobs.Clear();
+                SkillManager.BeginBotRun();
                 try { m_botCts?.Dispose(); } catch { }
                 m_botCts = new System.Threading.CancellationTokenSource();
                 tBotting = new Thread(this.ThreadBotting);
@@ -122,6 +133,7 @@ namespace xBot.App
                 // ...
                 Window w = Window.Get;
                 w.Log("Starting bot");
+                w.Log($"[Motor] Tek karakter işlemi etkin. Toplama filtresi={ItemFilterManager.IsFilterActive}, pet={ItemFilterManager.Pick.UsePickPet}, pet yok/dolu ise karakter={ItemFilterManager.Pick.PickWithCharIfPetGoneFull}.");
                 // Update GUI
                 WinAPI.InvokeIfRequired(w.btnBotStart, () => {
                     w.btnBotStart.ForeColor = Color.Lime;
@@ -140,9 +152,9 @@ namespace xBot.App
                 QuestAutomationManager.Suspend();
                 try { m_botCts?.Cancel(); } catch { }
                 Thread t = tBotting;
-                tBotting = null;
                 // Bloklanan döngüye en fazla 2sn süre tanı, UI'yi kilitleme
                 try { if (t != null && t.IsAlive && t != Thread.CurrentThread) t.Join(2000); } catch { }
+                if (t == null || !t.IsAlive) tBotting = null;
                 // ...
                 Window w = Window.Get;
                 w.LogProcess("Bot stopped");
@@ -209,6 +221,15 @@ namespace xBot.App
                 w.LogProcess("Checking current location...");
                 SRCoord myPosition = InfoManager.Character.GetRealtimePosition();
                 currentScript = null;
+                var activeArea = w.TrainingArea_GetPosition();
+                if (activeArea != null && myPosition != null
+                    && myPosition.DistanceTo(activeArea) <= w.TrainingArea_GetRadius()
+                    && !TownManager.Get.IsNearTown(myPosition))
+                {
+                    // Starting in the configured field needs no town-script scan.
+                    AttackLoop();
+                    continue;
+                }
                 // Döngü daha yeni bitti VE hâlâ bittiği yerde duruluyorsa tekrar girme
                 // (yoksa loop-script kendini sonsuz tetikler). Onun dışında şehirde
                 // yakalanırsa HER ZAMAN town döngüsü yapılır.
@@ -702,8 +723,8 @@ namespace xBot.App
                     }
                 }
 
-                // Check buffs
-                BuffLoop();
+                // Combat buffs are maintained at action boundaries, including
+                // during a long fight. Support-only mode uses the same tick.
 
                 // Check party support (Heal, Ress, Cure)
                 PartySupportManager.RunTick();
@@ -720,13 +741,11 @@ namespace xBot.App
                     // No attack mode check (support / lure / buffer only)
                     if (SkillManager.NoAttackMode)
                     {
+                        BuffLoop();
                         w.LogProcess("Support mode: Buffing & Following only");
                         Thread.Sleep(400);
                         continue;
                     }
-
-                    // Ensure Imbue is active before combat
-                    SkillManager.EnsureImbueActive();
 
                     // Lure döngüsü kontrolü
                     if (CheckLureTick(w, trainingPosition, trainingRadius))
@@ -736,7 +755,8 @@ namespace xBot.App
 
                     // Attacking
                     // Update cached mob list if training area changed or cache is dirty
-                    if (m_mobsCacheDirty || !trainingPosition.Equals(m_lastTrainingPosition) || trainingRadius != m_lastTrainingRadius)
+                    if (m_mobsCacheDirty || !trainingPosition.Equals(m_lastTrainingPosition) || trainingRadius != m_lastTrainingRadius
+                        || EngineNow - m_mobCacheUpdatedAt >= 500)
                     {
                         m_cachedMobsInRange.Clear();
                         foreach (var m in InfoManager.Mobs.Snapshot())
@@ -749,11 +769,9 @@ namespace xBot.App
                         m_lastTrainingPosition = trainingPosition;
                         m_lastTrainingRadius = trainingRadius;
                         m_mobsCacheDirty = false;
+                        m_mobCacheUpdatedAt = EngineNow;
                     }
                     List<SRMob> mobs = m_cachedMobsInRange;
-
-                    // Devil Spirit: Check activation conditions
-                    SkillManager.CheckDevilSpirit(mobs);
 
                     // Combat AI: Check Berserker activation (canonical state: CombatAIEngine.IsBerserkEnabled)
                     if (CombatAIEngine.IsBerserkEnabled)
@@ -820,6 +838,7 @@ namespace xBot.App
                     SRMob mob = GetMobFiltered(mobs, trainingPosition, trainingRadius);
                     if (mob == null)
                     {
+                        MaintainCombatBuffs(mobs, SRMob.Mob.General);
                         // No mob to attack
                         w.LogProcess("No mobs around to attack");
                         LootDrops(trainingPosition, trainingRadius);
@@ -839,6 +858,8 @@ namespace xBot.App
                     }
                     else
                     {
+                        if (!WaitForCharacterAction(mob)) continue;
+                        if (MaintainCombatBuffs(mobs, mob.MobType)) continue;
                         // Combat AI: Ranged Kiting check (Disabled by default, only executes when explicitly checked)
                         if (w.Combat_cbxKiting != null && w.Combat_cbxKiting.Checked)
                         {
@@ -896,8 +917,8 @@ namespace xBot.App
                                     }
                                 }
 
-                                // NOT: Imbue/Devil zaten mob başında (dış döngüde) kontrol ediliyor;
-                                // her vuruşta tekrar taramak iç döngüde mikro-takılma yapıyordu.
+                                if (!WaitForCharacterAction(mob)) break;
+                                if (MaintainCombatBuffs(mobs, mob.MobType)) continue;
                                 // Distance check to target
                                 myWeapon = GetMyWeaponType();
                                 SRSkill[] skillshots = w.Skills_GetSkillShots(mob.MobType);
@@ -933,16 +954,7 @@ namespace xBot.App
                                                 idx =>
                                                 {
                                                     SRSkill candidate = skillshots[idx];
-                                                    if (candidate == null)
-                                                        return false;
-                                                    if (candidate.ID != 1)
-                                                    {
-                                                        if (!candidate.Enabled && !candidate.isUsableSkill())
-                                                            return false;
-                                                        if (currentMP > 0 && candidate.MPUsage > currentMP)
-                                                            return false;
-                                                    }
-                                                    return candidate.isCastingEnabled;
+                                                        return SkillManager.CanUseAttackSkill(candidate, currentMP);
                                                 },
                                                 ref currentSkillIndex);
                                             if (picked < 0)
@@ -961,8 +973,7 @@ namespace xBot.App
                                         for (int k = 0; k < skillshots.Length; k++)
                                         {
                                             SRSkill candidate = skillshots[k];
-                                            if (candidate != null && candidate.ID != 1 && (candidate.Enabled || candidate.isUsableSkill()) && candidate.isCastingEnabled
-                                                && (currentMP == 0 || candidate.MPUsage <= currentMP))
+                                            if (candidate != null && candidate.ID != 1 && SkillManager.CanUseAttackSkill(candidate, currentMP))
                                             {
                                                 if (TryPrepareAttackSkill(candidate, w))
                                                 {
@@ -978,7 +989,7 @@ namespace xBot.App
                                             for (int k = 0; k < skillshots.Length; k++)
                                             {
                                                 SRSkill candidate = skillshots[k];
-                                                if (candidate != null && candidate.ID == 1 && candidate.isCastingEnabled)
+                                                if (candidate != null && candidate.ID == 1 && SkillManager.CanUseAttackSkill(candidate, currentMP))
                                                 {
                                                     skillToCast = candidate;
                                                     break;
@@ -994,29 +1005,17 @@ namespace xBot.App
                                     // Silkroad skilleri birkaç saniye içinde döner; kısa bekle ve bir sonraki turda ilk açılan skili anında bas.
                                     if (hasConfiguredSkills)
                                     {
-                                        if (currentMP > 0 || noSkillAttempts < 40)
+                                        if (++noSkillAttempts >= 200)
                                         {
-                                            noSkillAttempts++;
-                                            Thread.Sleep(30);
-                                            continue;
-                                        }
-                                    }
-
-                                    noSkillAttempts++;
-                                    if (noSkillAttempts >= 2 && SkillPolicy.ShouldUseFallback(InfoManager.Mobs.ContainsKey(mob.UniqueID), false))
-                                    {
-                                        if (TryFallbackAttack(mob, w, false))
-                                            obstacleRecovery.OnSuccess();
-                                        else if (!RecoverFailedCombatAttack(mob, obstacleRecovery,
-                                            $"Common Attack (0x{InfoManager.LastSkillCastErrorCode:X4})"))
+                                            DeferCombatTarget(mob, "Seçili saldırı becerileri kullanılamıyor (MP, silah veya bekleme süresi)");
                                             break;
-                                        noSkillAttempts = 0;
+                                        }
+                                        SleepInterruptible(50);
+                                        continue;
                                     }
-                                    else
-                                    {
-                                        Thread.Sleep(40);
-                                    }
-                                    continue;
+                                    // Basic attacks use the same send/ack/recovery path as skills.
+                                    skillToCast = SkillManager.GetFallbackAttack(myWeapon);
+                                    if (skillToCast == null) break;
                                 }
 
                                 noSkillAttempts = 0;
@@ -1050,7 +1049,11 @@ namespace xBot.App
                                 InfoManager.LastSkillCastErrorCode = 0;
                                 InfoManager.MonitorSkillCast.Reset();
 
-                                PacketBuilder.AttackTarget(mob.UniqueID, skillToCast.ID);
+                                if (!PacketBuilder.AttackTarget(mob.UniqueID, skillToCast.ID))
+                                {
+                                    SleepInterruptible(50);
+                                    continue;
+                                }
 
                                 bool confirmed = WaitForCombatCast(mob);
                                 bool treatAsSuccess = confirmed && InfoManager.LastSkillCastSuccess;
@@ -1060,26 +1063,10 @@ namespace xBot.App
                                 {
                                     obstacleRecovery.OnSuccess();
                                     SkillManager.RecordCastSuccess(skillToCast);
-                                    try { skillToCast.StartCooldown(); } catch { }
+                                    // InfoManager starts cooldown at the server acknowledgement.
 
-                                    // Smooth pipeline: tam cast süresi kadar kör bekleme; sıradaki
-                                    // skill hazır olur olmaz devam et. Üst üste reddediliyorsa
-                                    // server erken ateşe izin vermiyor demektir, tam bekle.
-                                    int castTime = Math.Max(0, skillToCast.CastingTime);
-                                    int fullWait = Math.Max(350, castTime);
-                                    int minGap = SkillManager.ConsecutiveCastFailures >= 2
-                                        ? fullWait
-                                        : Math.Max(200, (castTime * 2) / 3);
-                                    int elapsed = 0;
-                                    while (elapsed < fullWait && isBotting)
-                                    {
-                                        if (!IsLiveCombatTarget(mob))
-                                            break;
-                                        if (elapsed >= minGap && IsAnyAttackSkillReady(skillshots))
-                                            break;
-                                        Thread.Sleep(30);
-                                        elapsed += 30;
-                                    }
+                                    // Readiness survives target death and also gates loot/buffs.
+                                    WaitForCharacterAction(mob);
 
                                     // PhBot SlowerAttackMode: vuruşlar arası ek gecikme
                                     if (CombatAIEngine.SlowerAttackMode)
@@ -1102,41 +1089,19 @@ namespace xBot.App
                                     if (!IsLiveCombatTarget(mob))
                                         break;
                                     SkillManager.RecordCastFailure(skillToCast, reason);
+                                    if (confirmed) SkillManager.OnAttackRejected(skillToCast.ID, InfoManager.LastSkillCastErrorCode);
                                     if (!RecoverFailedCombatAttack(mob, obstacleRecovery, reason))
                                         break;
                                     Thread.Sleep(60);
                                 }
                             }
 
-                            // Mob öldükten sonra drop topla
-                            LootDrops(trainingPosition, trainingRadius);
+                            // A failed cast or range adjustment is not a completed fight.
+                            if (!IsLiveCombatTarget(mob))
+                                LootDrops(trainingPosition, trainingRadius);
                     }
                 }
             }
-        }
-
-        /// <summary>
-        /// Pipeline bekleyiş için hafif hazır-skill taraması (silah değiştirmez,
-        /// paket göndermez; sadece sıradaki vuruşa geçilebilir mi diye bakar).
-        /// </summary>
-        private bool IsAnyAttackSkillReady(SRSkill[] skillshots)
-        {
-            if (skillshots == null || skillshots.Length == 0)
-                return false;
-            uint currentMP = 0;
-            try { currentMP = InfoManager.Character != null ? InfoManager.Character.MP : 0; } catch { }
-            for (int i = 0; i < skillshots.Length; i++)
-            {
-                SRSkill s = skillshots[i];
-                if (s == null || !s.isCastingEnabled)
-                    continue;
-                if (s.ID != 1 && !s.Enabled && !s.isUsableSkill())
-                    continue;
-                if (s.ID != 1 && currentMP > 0 && s.MPUsage > currentMP)
-                    continue;
-                return true;
-            }
-            return false;
         }
 
         private bool TryPrepareAttackSkill(SRSkill skill, Window w)
@@ -1150,7 +1115,7 @@ namespace xBot.App
                 return true;
 
             SRTypes.Weapon currentWeapon = GetMyWeaponType();
-            if (currentWeapon == primaryWeapon || currentWeapon == secondaryWeapon)
+            if (MatchesRequiredWeapon(skill, currentWeapon))
                 return true;
 
             SRTypes.Weapon requiredWeapon = primaryWeapon != SRTypes.Weapon.None
@@ -1160,7 +1125,7 @@ namespace xBot.App
             w.LogProcess("Checking weapon required (" + requiredWeapon + ")...");
             int inventorySlot = InfoManager.Character.Inventory.FindIndex(
                 item => item != null && item.ID2 == 1 && item.ID3 == 6
-                    && (item.ID4 == (byte)primaryWeapon || item.ID4 == (byte)secondaryWeapon), 13, 16);
+                    && (item.ID4 == (byte)primaryWeapon || item.ID4 == (byte)secondaryWeapon), 13);
             if (inventorySlot == -1)
             {
                 w.LogProcess("Weapon required not found (" + requiredWeapon + ")...");
@@ -1168,22 +1133,30 @@ namespace xBot.App
             }
 
             w.LogProcess("Changing weapon (" + currentWeapon + ")...");
-            byte attempts = 5;
-            while (currentWeapon != requiredWeapon && attempts > 0)
+            // A second move of the same inventory slot can swap the weapon back.
+            // Send once, then verify the equipped type from server inventory state.
+            InfoManager.MonitorWeaponChanged.Reset();
+            PacketBuilder.MoveItem((byte)inventorySlot, 6, SRTypes.InventoryItemMovement.InventoryToInventory);
+            var wait = System.Diagnostics.Stopwatch.StartNew();
+            while (isBotting && !MatchesRequiredWeapon(skill, currentWeapon) && wait.ElapsedMilliseconds < 1500)
             {
-                PacketBuilder.MoveItem((byte)inventorySlot, 6, SRTypes.InventoryItemMovement.InventoryToInventory);
-                attempts--;
-                InfoManager.MonitorWeaponChanged.WaitOne(250);
+                InfoManager.MonitorWeaponChanged.WaitOne(50);
                 currentWeapon = GetMyWeaponType();
             }
 
-            if (currentWeapon != requiredWeapon)
+            if (!isBotting || !MatchesRequiredWeapon(skill, currentWeapon))
             {
                 w.LogProcess("Weapon changing failed!");
                 return false;
             }
 
             return true;
+        }
+
+        private static bool MatchesRequiredWeapon(SRSkill skill, SRTypes.Weapon weapon)
+        {
+            if (skill.RequiredWeaponPrimary == SRTypes.Weapon.None && skill.RequiredWeaponSecondary == SRTypes.Weapon.None) return true;
+            return weapon != SRTypes.Weapon.None && (weapon == skill.RequiredWeaponPrimary || weapon == skill.RequiredWeaponSecondary);
         }
 
         private static bool IsLiveCombatTarget(SRMob mob)
@@ -1219,47 +1192,6 @@ namespace xBot.App
             return ready;
         }
 
-        private bool TryFallbackAttack(SRMob mob, Window w, bool deferOnFailure = true)
-        {
-            if (!EnsureCombatTargetSelected(mob))
-                return false;
-
-            SRSkill fallback = SkillManager.GetFallbackAttack(GetMyWeaponType());
-            if (fallback == null)
-                return false;
-
-            w.LogProcess("Casting Common Attack fallback...");
-            InfoManager.LastSkillCastSuccess = false;
-            InfoManager.LastSkillCastErrorCode = 0;
-            InfoManager.MonitorSkillCast.Reset();
-
-            PacketBuilder.AttackTarget(mob.UniqueID, 1u);
-            if (WaitForCombatCast(mob))
-            {
-                if (InfoManager.LastSkillCastSuccess)
-                {
-                    SkillManager.RecordCastSuccess(fallback);
-                    int elapsed = 0;
-                    int animTime = Math.Max(400, fallback.CastingTime);
-                    while (elapsed < animTime && isBotting)
-                    {
-                        if (!IsLiveCombatTarget(mob))
-                            break;
-                        Thread.Sleep(50);
-                        elapsed += 50;
-                    }
-                    return true;
-                }
-            }
-
-            if (!IsLiveCombatTarget(mob)) return false;
-            SkillManager.RecordCastFailure(fallback, "Common Attack yanıt vermedi");
-            if (deferOnFailure)
-                DeferCombatTarget(mob, $"Common Attack reddedildi/zaman aşımı (0x{InfoManager.LastSkillCastErrorCode:X4})");
-            Thread.Sleep(80);
-            return false;
-        }
-
         private bool WaitForCombatCast(SRMob mob)
         {
             var wait = System.Diagnostics.Stopwatch.StartNew();
@@ -1267,7 +1199,18 @@ namespace xBot.App
             {
                 if (InfoManager.MonitorSkillCast.WaitOne(50)) return true;
             }
-            while (isBotting && IsLiveCombatTarget(mob) && wait.ElapsedMilliseconds < 1200);
+            while (isBotting && !m_stopBottingRequested && IsLiveCombatTarget(mob) && wait.ElapsedMilliseconds < 1600);
+            return false;
+        }
+
+        private bool WaitForCharacterAction(SRMob mob = null)
+        {
+            while (isBotting && !m_stopBottingRequested && InfoManager.inGame
+                && InfoManager.Character != null && (mob == null || IsLiveCombatTarget(mob)))
+            {
+                if (InfoManager.CharacterActions.CanStart) return true;
+                if (!SleepInterruptible(50)) return false;
+            }
             return false;
         }
 
@@ -1296,15 +1239,19 @@ namespace xBot.App
             if (!isBotting || !IsLiveCombatTarget(mob)
                 || InfoManager.SelectedEntityUniqueID != mob.UniqueID) return false;
             bool enabled = CollisionPolicy.EnableCollisionInTrainingArea && CollisionPolicy.NavigateAroundObstacles;
-            bool retry = recovery.OnFailure(enabled, attempt => {
+            ushort skillError = InfoManager.LastSkillCastErrorCode;
+            // Busy/cooldown belongs to the character, not terrain or target.
+            if (skillError == 5 || skillError == 0x0C)
+                return SleepInterruptible(350);
+            bool retry = recovery.OnFailure(enabled, skillError, attempt => {
                 if (!isBotting || !IsLiveCombatTarget(mob)) return false;
                 Window.Get.Log($"[Combat] {mob.Name}: saldırı ilerlemiyor ({reason}); engel için yan geçiş {attempt + 1}/{LocalObstacleNavigator.MaxDetours}.");
-                return CreateCombatNavigator(mob).TryDetour(mob.GetRealtimePosition(), attempt);
+                return RunCharacterMovement(mob, () => CreateCombatNavigator(mob).TryDetour(mob.GetRealtimePosition(), attempt));
             });
             if (!retry)
             {
                 DeferCombatTarget(mob, reason);
-                if (enabled && IsLiveCombatTarget(mob))
+                if (enabled && skillError == 0x10 && IsLiveCombatTarget(mob))
                     _unreachableMobs[mob.UniqueID] = DateTime.UtcNow.AddSeconds(15);
             }
             return retry;
@@ -1312,39 +1259,44 @@ namespace xBot.App
 
         private bool ApproachTargetWithCollision(SRCoord targetPosition, double stopRange, SRMob targetMob)
         {
-            SRCoord myPosition = InfoManager.Character?.GetRealtimePosition();
-            if (myPosition == null || targetPosition == null) return false;
-            if (myPosition.DistanceTo(targetPosition) <= stopRange) return true;
+            return RunCharacterMovement(targetMob, () => ApproachCombatTarget(targetPosition, stopRange, targetMob));
+        }
 
-            if (CombatAIEngine.UseTeleportSkills && myPosition.DistanceTo(targetPosition) > 12.0)
-                TryCastTeleportSkill();
+        private bool RunCharacterMovement(SRMob mob, Func<bool> movement)
+        {
+            if (!WaitForCharacterAction(mob) || !InfoManager.CharacterActions.TryReserve()) return false;
+            try { return movement(); }
+            finally { InfoManager.CharacterActions.Release(); }
+        }
 
+        private bool ApproachCombatTarget(SRCoord targetPosition, double stopRange, SRMob targetMob)
+        {
+            Func<SRCoord> destination = () => targetMob == null ? targetPosition : targetMob.GetRealtimePosition();
             var navigator = CreateCombatNavigator(targetMob);
-            if (navigator.MoveTo(targetPosition, stopRange)) return true;
-            if (!CollisionPolicy.EnableCollisionInTrainingArea) return false;
-
-            if (CollisionPolicy.NavigateAroundObstacles)
+            if (navigator.MoveTo(destination, stopRange)) return true;
+            if (!navigator.WasBlocked || !CollisionPolicy.EnableCollisionInTrainingArea
+                || !CollisionPolicy.NavigateAroundObstacles) return false;
+            for (int attempt = 0; attempt < LocalObstacleNavigator.MaxDetours && isBotting && !m_stopBottingRequested; attempt++)
             {
-                for (int attempt = 0; attempt < LocalObstacleNavigator.MaxDetours && isBotting; attempt++)
-                {
-                    if (targetMob != null)
-                    {
-                        if (!IsLiveCombatTarget(targetMob)) return false;
-                        targetPosition = targetMob.GetRealtimePosition();
-                    }
-                    Window.Get.LogProcess($"Engel için yan geçiş deneniyor ({attempt + 1}/{LocalObstacleNavigator.MaxDetours})...");
-                    if (!navigator.TryDetour(targetPosition, attempt)) continue;
-                    if (targetMob != null) targetPosition = targetMob.GetRealtimePosition();
-                    if (navigator.MoveTo(targetPosition, stopRange)) return true;
-                }
+                if (targetMob != null && !IsLiveCombatTarget(targetMob)) return false;
+                Window.Get.Log($"[Movement] Hareketsizlik doğrulandı; yan geçiş {attempt + 1}/{LocalObstacleNavigator.MaxDetours}.");
+                if (navigator.TryDetour(destination(), attempt) && navigator.MoveTo(destination, stopRange)) return true;
             }
-
             if (IsLiveCombatTarget(targetMob))
-            {
-                _unreachableMobs[targetMob.UniqueID] = DateTime.UtcNow.AddSeconds(15);
-                Window.Get.Log($"[Combat] {targetMob.Name}: engel aşılamadı, başka hedefe geçiliyor.");
-            }
+                DeferCombatTarget(targetMob, "Yaklaşma sırasında engel aşılamadı");
             return false;
+        }
+        // Used by caravan defence; normal grinding runs the unified skill path.
+        private bool TryFallbackAttack(SRMob mob, Window window)
+        {
+            if (!WaitForCharacterAction(mob) || !EnsureCombatTargetSelected(mob)) return false;
+            InfoManager.MonitorSkillCast.Reset();
+            InfoManager.LastSkillCastSuccess = false;
+            InfoManager.LastSkillCastErrorCode = 0;
+            if (!PacketBuilder.AttackTarget(mob.UniqueID)) return false;
+            if (!WaitForCombatCast(mob) || !InfoManager.LastSkillCastSuccess) return false;
+            WaitForCharacterAction(mob);
+            return true;
         }
 
         private void TryCastTeleportSkill()
@@ -2395,8 +2347,8 @@ namespace xBot.App
             {
                 SRSkill s = skillshots[i];
                 if (s == null || s.ID == 1) continue;
-                if (!s.Enabled && !s.isUsableSkill()) continue;
-                if (!s.isCastingEnabled) continue;
+                if (!s.Enabled || ImbuePolicy.IsChineseImbueSkill(s.ServerName)) continue;
+                // Cooldown must not shrink ranged combat to melee distance.
 
                 double r = GetSkillAttackRange(s, weapon);
                 if (r > maxRange)
@@ -3042,373 +2994,188 @@ namespace xBot.App
         }
         private void BuffLoop()
         {
-            Window w = Window.Get;
-            SRSkill[] buffs = w.Skills_GetBuffs(SRMob.Mob.General);
-            if (buffs == null || buffs.Length == 0)
-                return;
-
-            for (int i = 0; i < buffs.Length; i++)
-            {
-                SRSkill buff = buffs[i];
-                if (buff == null || !buff.isCastingEnabled)
-                    continue;
-
-                // Karakterde bu buff zaten aktif mi kontrol et
-                bool hasBuff = false;
-                if (InfoManager.Character != null && InfoManager.Character.Buffs != null)
-                {
-                    hasBuff = InfoManager.Character.Buffs.ContainsKey(buff.GroupID);
-                }
-
-                if (!hasBuff)
-                {
-                    w.LogProcess("Casting buff: " + buff.Name + " (" + buff.CastingTime + "ms)...");
-                    CheckWeaponSwitch(buff);
-                    PacketBuilder.CastSkill(buff.ID);
-                    Thread.Sleep(Math.Max(500, buff.CastingTime + 100));
-                }
-            }
-
-            // Revert back to primary attack weapon if weapon was switched for buffs
-            EnsureMainWeapon();
-
-            // Devil Spirit: Check activation conditions during buff cycle
-            if (SkillManager.IsDevilSpiritEnabled)
-            {
-                SkillManager.CheckDevilSpirit(m_cachedMobsInRange);
-            }
+            if (WaitForCharacterAction()) MaintainCombatBuffs(m_cachedMobsInRange, SRMob.Mob.General);
         }
 
-        /// <summary>
-        /// Pick Filter: yerdeki toplanabilir eşya var mı? (Pick items first için hızlı tarama)
-        /// Karakter listesi (Pick) VEYA pet listesi (Pet) doluysa true.
-        /// </summary>
-        private bool HasLootableDrops()
+        private bool MaintainCombatBuffs(List<SRMob> mobs, SRMob.Mob type)
         {
-            try
+            if (!isBotting || m_stopBottingRequested || !InfoManager.inGame
+                || InfoManager.Character == null || !InfoManager.CharacterActions.CanStart) return false;
+            // Each tick sends at most one request. Unsent/failed requests stay
+            // eligible, so imbue, Devil and ordinary buffs cannot starve each other.
+            if (!SkillManager.NoAttackMode && SkillManager.EnsureImbueActive()) return true;
+            if (SkillManager.CheckDevilSpirit(mobs)) return true;
+            foreach (var buff in Window.Get.Skills_GetBuffs(type))
             {
-                if (InfoManager.Character == null)
-                    return false;
-                if (!ItemFilterManager.IsFilterActive)
-                    return false;
-                SRCoord myPos = InfoManager.Character.GetRealtimePosition();
-                if (myPos == null)
-                    return false;
-                for (int i = 0; i < InfoManager.Entities.Count; i++)
+                if (!SkillManager.CanSendBuff(buff)
+                    || ImbuePolicy.IsChineseImbueSkill(buff.ServerName)) continue;
+                bool active = InfoManager.Character.Buffs != null && InfoManager.Character.Buffs.Find(
+                    b => b != null && (b.ID == buff.ID || (buff.GroupID != 0 && b.GroupID == buff.GroupID))) != null;
+                if (active) continue;
+                CheckWeaponSwitch(buff);
+                var equipmentWait = System.Diagnostics.Stopwatch.StartNew();
+                while (isBotting && IsSwitchingWeapon && equipmentWait.ElapsedMilliseconds < 1500)
+                    SleepInterruptible(25);
+                if (!isBotting) return false;
+                var currentWeapon = GetMyWeaponType();
+                if (IsSwitchingWeapon || !MatchesRequiredWeapon(buff, currentWeapon))
                 {
-                    SREntity entity = null;
-                    try { entity = InfoManager.Entities.GetAt(i); } catch { continue; }
-                    if (entity is SRDrop drop)
-                    {
-                        try
-                        {
-                            if (drop.GetRealtimePosition().DistanceTo(myPos) > 30.0)
-                                continue;
-                            if (ItemFilterManager.ShouldPickup(drop))
-                                return true;
-                            if (IsPetWanted(drop))
-                                return true;
-                        }
-                        catch { }
-                    }
+                    IsSwitchingWeapon = false;
+                    SkillManager.DeferBuff(buff.ID);
+                    continue;
+                }
+                if (SkillManager.TrySendBuff(buff))
+                {
+                    Window.Get.Log($"[Buff] İstek: {buff.Name} (ID={buff.ID}).");
+                    return true;
                 }
             }
-            catch { }
+            EnsureMainWeapon();
             return false;
         }
+        private static long EngineNow => System.Diagnostics.Stopwatch.GetTimestamp() * 1000 / System.Diagnostics.Stopwatch.Frequency;
 
-        /// <summary>
-        /// Bu damla pet listesinde mi? (Pet=Yes ve pet müsait/dolu değil)
-        /// </summary>
-        private bool IsPetWanted(SRDrop drop)
+        private SRCoService GetPickupPet(out bool full)
         {
-            try
-            {
-                if (drop == null || !ItemFilterManager.Pick.UsePickPet)
-                    return false;
-                SRCoService pet = null;
-                try { pet = InfoManager.MyPets.Find(p => p.isPickPet()); } catch { }
-                if (pet == null)
-                    return false;
-                bool full = false;
-                try
-                {
-                    full = pet.Inventory == null
-                        || pet.Inventory.FindIndex(item => item == null, 0) == -1;
-                }
-                catch { full = false; }
-                return ItemFilterManager.ShouldUsePet(drop, true, full);
-            }
-            catch { return false; }
+            var pet = InfoManager.MyPets.Find(p => p != null && p.isPickPet()
+                && p.LifeStateType != SRModel.LifeState.Dead);
+            // Unknown inventory is unavailable, never permission for speculative pickup.
+            full = pet != null && (pet.Inventory == null || pet.Inventory.FindIndex(i => i == null, 0) < 0);
+            return pet;
         }
 
-        /// <summary>
-        /// Asenkron Pet Toplama Döngüsü.
-        /// Karakter savaşırken, skill basarken veya hareket ederken pet'in
-        /// yerdeki eşyaları gecikmesiz, anında ve bağımsız olarak toplamasını sağlar.
-        /// </summary>
+        private bool IsEligibleDrop(SRDrop drop, LootActor actor, SRCoord center, int radius,
+            SRCoService pet, bool petFull, PickupQueue queue)
+        {
+            if (drop == null || center == null || radius <= 0 || !InfoManager.isEntityNear(drop.UniqueID)
+                || queue.IsDeferred(drop.UniqueID, EngineNow)) return false;
+            var position = drop.GetRealtimePosition();
+            if (position == null || center.inDungeon() != position.inDungeon()
+                || (center.inDungeon() && center.Region != position.Region)
+                || center.DistanceTo(position) > radius) return false;
+            if (ItemFilterManager.ResolveLootActor(drop, pet != null, petFull) != actor) return false;
+            if (drop.ID2 == 3 && drop.ID3 == 4 && ItemFilterManager.Pick.PickArrowsBolts
+                && CountItemTotalQuantity(3, 4, 0) >= ItemFilterManager.Pick.ArrowBoltAmount) return false;
+            return true;
+        }
+
+        private SRDrop FindLootDrop(LootActor actor, SRCoord center, int radius, PickupQueue queue)
+        {
+            if (!ItemFilterManager.IsFilterActive || InfoManager.Character == null) return null;
+            bool full;
+            var pet = GetPickupPet(out full);
+            if (actor == LootActor.Character && (InfoManager.Character.Inventory == null
+                || (!ItemFilterManager.Pick.PickEvenWhenFull
+                    && InfoManager.Character.Inventory.FindIndex(i => i == null, 13) < 0))) return null;
+            SRCoord origin = actor == LootActor.Pet ? pet?.GetRealtimePosition() : InfoManager.Character.GetRealtimePosition();
+            if (origin == null) return null;
+            SRDrop nearest = null;
+            double distance = double.MaxValue;
+            foreach (var entity in InfoManager.Entities.Snapshot())
+            {
+                var drop = entity as SRDrop;
+                if (!IsEligibleDrop(drop, actor, center, radius, pet, full, queue)) continue;
+                double candidate = origin.DistanceTo(drop.GetRealtimePosition());
+                if (candidate < distance) { distance = candidate; nearest = drop; }
+            }
+            return nearest;
+        }
+
+        // Only character work can preempt the next fight. Pet work is independent.
+        private bool HasLootableDrops()
+        {
+            return FindLootDrop(LootActor.Character, Window.Get.TrainingArea_GetPosition(),
+                Window.Get.TrainingArea_GetPickRadius(), _characterPickup) != null;
+        }
+
         private void ThreadPetLooting()
         {
+            // Owned exclusively by this worker; the attack loop never sends pet pickups.
+            var queue = new PickupQueue();
             while (!m_stopPetLootingRequested)
             {
                 try
                 {
-                    if (!InfoManager.inGame || InfoManager.Character == null)
+                    if (!isBotting || m_stopBottingRequested || !InfoManager.inGame || InfoManager.Character == null
+                        || !ItemFilterManager.IsFilterActive || !ItemFilterManager.Pick.UsePickPet)
                     {
-                        Thread.Sleep(500);
+                        queue.Reset();
+                        Thread.Sleep(100);
                         continue;
                     }
-
-                    if (!ItemFilterManager.Pick.UsePickPet || !ItemFilterManager.IsFilterActive || ItemFilterManager.Pick.DontPickItems)
+                    bool full;
+                    var pet = GetPickupPet(out full);
+                    var center = Window.Get.TrainingArea_GetPosition();
+                    int radius = Window.Get.TrainingArea_GetPickRadius();
+                    bool available = pet != null && !full;
+                    var pending = queue.Target == 0 ? null : InfoManager.GetEntity(queue.Target) as SRDrop;
+                    queue.Observe(pending != null && InfoManager.isEntityNear(queue.Target),
+                        available && pet.UniqueID == queue.Actor
+                        && IsEligibleDrop(pending, LootActor.Pet, center, radius, pet, full, queue), EngineNow);
+                    if (available && queue.Target == 0)
                     {
-                        Thread.Sleep(300);
-                        continue;
-                    }
-
-                    SRCoService pickPet = null;
-                    try { pickPet = InfoManager.MyPets.Find(p => p != null && p.isPickPet()); } catch { }
-                    if (pickPet == null)
-                    {
-                        Thread.Sleep(500);
-                        continue;
-                    }
-
-                    bool petFull = false;
-                    try
-                    {
-                        petFull = pickPet.Inventory == null
-                            || pickPet.Inventory.FindIndex(item => item == null, 0) == -1;
-                    }
-                    catch { petFull = false; }
-
-                    if (petFull)
-                    {
-                        Thread.Sleep(1000);
-                        continue;
-                    }
-
-                    SRCoord center = InfoManager.Character.GetRealtimePosition();
-                    if (center == null)
-                    {
-                        Thread.Sleep(200);
-                        continue;
-                    }
-
-                    int pickRadius = 45;
-                    try
-                    {
-                        if (Window.Get != null)
-                            pickRadius = Window.Get.TrainingArea_GetPickRadius();
-                    }
-                    catch { }
-                    if (pickRadius < 30) pickRadius = 45;
-
-                    DateTime now = DateTime.UtcNow;
-
-                    // 4 saniyeden eski veya artık çevrede olmayan komutları hafızadan düşür
-                    lock (_petCommandedDrops)
-                    {
-                        List<uint> cleanup = null;
-                        foreach (var kvp in _petCommandedDrops)
+                        var drop = FindLootDrop(LootActor.Pet, center, radius, queue);
+                        if (drop != null && !m_stopPetLootingRequested && isBotting && !m_stopBottingRequested)
                         {
-                            if ((now - kvp.Value).TotalSeconds > 3.0 || !InfoManager.isEntityNear(kvp.Key))
+                            double distance = pet.GetRealtimePosition().DistanceTo(drop.GetRealtimePosition());
+                            double speed = Math.Max(0.001, pet.GetMovementSpeed());
+                            int timeout = (int)Math.Min(30000, Math.Max(2500, distance / speed + 2000));
+                            if (queue.TryBegin(pet.UniqueID, drop.UniqueID, EngineNow, timeout))
                             {
-                                if (cleanup == null) cleanup = new List<uint>();
-                                cleanup.Add(kvp.Key);
+                                Window.Get.Log($"[Loot:Pet] UID={drop.UniqueID}, pet={pet.UniqueID}");
+                                PacketBuilder.PickUpItem(drop.UniqueID, pet.UniqueID);
                             }
-                        }
-                        if (cleanup != null)
-                        {
-                            for (int c = 0; c < cleanup.Count; c++)
-                                _petCommandedDrops.Remove(cleanup[c]);
-                        }
-                    }
-
-                    // Yerdeki dropları tara
-                    List<SRDrop> petDrops = new List<SRDrop>();
-                    for (int i = 0; i < InfoManager.Entities.Count; i++)
-                    {
-                        SREntity entity = null;
-                        try { entity = InfoManager.Entities.GetAt(i); } catch { continue; }
-                        if (entity is SRDrop drop)
-                        {
-                            try
-                            {
-                                if (!InfoManager.isEntityNear(drop.UniqueID))
-                                    continue;
-
-                                double dist = drop.GetRealtimePosition().DistanceTo(center);
-                                if (dist <= pickRadius)
-                                {
-                                    if (ItemFilterManager.ShouldUsePet(drop, true, petFull))
-                                    {
-                                        lock (_petCommandedDrops)
-                                        {
-                                            if (!_petCommandedDrops.ContainsKey(drop.UniqueID))
-                                                petDrops.Add(drop);
-                                        }
-                                    }
-                                }
-                            }
-                            catch { }
-                        }
-                    }
-
-                    if (petDrops.Count > 0)
-                    {
-                        // En yakından başlayarak pet'e komut ver
-                        petDrops.Sort((a, b) => a.GetRealtimePosition().DistanceTo(center).CompareTo(b.GetRealtimePosition().DistanceTo(center)));
-
-                        for (int d = 0; d < petDrops.Count; d++)
-                        {
-                            if (m_stopPetLootingRequested) break;
-                            SRDrop drop = petDrops[d];
-                            if (!InfoManager.isEntityNear(drop.UniqueID)) continue;
-
-                            lock (_petCommandedDrops)
-                            {
-                                _petCommandedDrops[drop.UniqueID] = DateTime.UtcNow;
-                            }
-
-                            PacketBuilder.PickUpItem(drop.UniqueID, pickPet.UniqueID);
-                            Thread.Sleep(100);
                         }
                     }
                 }
-                catch { }
-
+                catch (Exception ex) { Window.Get.Log("[Loot:Pet] " + ex.Message); Thread.Sleep(500); }
                 Thread.Sleep(100);
             }
         }
 
         private void LootDrops(SRCoord trainingPosition, int trainingRadius)
         {
-            if (InfoManager.Character == null || InfoManager.Character.Inventory == null)
-                return;
-
-            if (!ItemFilterManager.IsFilterActive || ItemFilterManager.Pick.DontPickItems)
-                return;
-
-            // Çantada boş yer var mı? (13. slottan itibaren)
-            int emptySlot = InfoManager.Character.Inventory.FindIndex(i => i == null, 13);
-            if (emptySlot == -1 && !ItemFilterManager.Pick.PickEvenWhenFull)
-                return; // Envanter dolu
-
-            SRCoord myPos = InfoManager.Character.GetRealtimePosition();
-            if (myPos == null) return;
-
-            bool wantPet = ItemFilterManager.Pick.UsePickPet;
-            SRCoService pickPet = wantPet ? InfoManager.MyPets.Find(p => p.isPickPet()) : null;
-            uint petId = pickPet != null ? pickPet.UniqueID : 0;
-            bool petFull = false;
-            if (pickPet != null)
+            int radius = Window.Get.TrainingArea_GetPickRadius();
+            var drop = FindLootDrop(LootActor.Character, trainingPosition, radius, _characterPickup);
+            if (drop == null || !WaitForCharacterAction()) return;
+            Func<bool> valid = () => {
+                if (!isBotting || m_stopBottingRequested || !InfoManager.inGame || InfoManager.Character == null) return false;
+                bool full;
+                var pet = GetPickupPet(out full);
+                return IsEligibleDrop(drop, LootActor.Character, trainingPosition, radius, pet, full, _characterPickup);
+            };
+            if (!valid()) return;
+            if (!InfoManager.CharacterActions.TryReserve()) return;
+            try
             {
-                try
+                if (!_characterPickup.TryBegin(InfoManager.Character.UniqueID, drop.UniqueID, EngineNow, 15000)) return;
+                var destination = drop.GetRealtimePosition();
+                var navigator = new LocalObstacleNavigator(() => InfoManager.Character?.GetRealtimePosition(),
+                    point => { if (InfoManager.inGame && InfoManager.Character != null) MoveTo(point); },
+                    ms => SleepInterruptible(ms), valid,
+                    point => trainingPosition != null && trainingPosition.DistanceTo(point) <= radius
+                        && (!TrainingOptionsPolicy.StayInTrainingArea || trainingPosition.DistanceTo(point) <= trainingRadius));
+                bool reached = navigator.MoveTo(destination, 3);
+                if (!reached && valid() && CollisionPolicy.EnableCollisionInTrainingArea
+                    && CollisionPolicy.NavigateAroundObstaclesWhilePicking)
                 {
-                    petFull = pickPet.Inventory == null
-                        || pickPet.Inventory.FindIndex(item => item == null, 0) == -1;
+                    for (int attempt = 0; attempt < LocalObstacleNavigator.MaxDetours && valid(); attempt++)
+                        if (navigator.TryDetour(destination, attempt) && navigator.MoveTo(destination, 3)) { reached = true; break; }
                 }
-                catch { petFull = false; }
+                if (!reached || !valid()) return;
+                Window.Get.Log($"[Loot:Character] UID={drop.UniqueID}; filtre karakter toplamaya izin verdi.");
+                PacketBuilder.PickUpItem(drop.UniqueID);
+                // Do not switch movement targets every 150 ms; await pickup/despawn.
+                long until = EngineNow + 1800;
+                while (valid() && EngineNow < until) SleepInterruptible(50);
             }
-
-            int pickRadius = Window.Get != null ? Window.Get.TrainingArea_GetPickRadius() : 45;
-            List<SRDrop> drops = new List<SRDrop>();
-
-            for (int i = 0; i < InfoManager.Entities.Count; i++)
+            finally
             {
-                SREntity entity = null;
-                try { entity = InfoManager.Entities.GetAt(i); } catch { continue; }
-                if (entity is SRDrop drop)
-                {
-                    try
-                    {
-                        if (!InfoManager.isEntityNear(drop.UniqueID))
-                            continue;
-
-                        double dist = drop.GetRealtimePosition().DistanceTo(myPos);
-                        if (dist <= pickRadius)
-                        {
-                            bool charWantsDrop = ItemFilterManager.ShouldPickup(drop);
-                            bool petWantsDrop = petId != 0 && ItemFilterManager.ShouldUsePet(drop, true, petFull);
-                            if (!charWantsDrop && !petWantsDrop)
-                                continue;
-
-                            // Ok/mermi kotası dolduysa yerden alma.
-                            if (drop.ID2 == 3 && drop.ID3 == 4 && ItemFilterManager.Pick.PickArrowsBolts)
-                            {
-                                int have = CountItemTotalQuantity(3, 4, 0);
-                                if (have >= ItemFilterManager.Pick.ArrowBoltAmount)
-                                    continue;
-                            }
-
-                            drops.Add(drop);
-                        }
-                    }
-                    catch { }
-                }
-            }
-
-            if (drops.Count == 0)
-                return;
-
-            // En yakından uzağa sırala
-            drops.Sort((a, b) => a.GetRealtimePosition().DistanceTo(myPos).CompareTo(b.GetRealtimePosition().DistanceTo(myPos)));
-
-            for (int d = 0; d < drops.Count && d < 15; d++)
-            {
-                if (!isBotting || m_stopBottingRequested) break;
-                SRDrop drop = drops[d];
-                if (!InfoManager.isEntityNear(drop.UniqueID))
-                    continue;
-
-                var dropRule = ItemFilterManager.GetRule(drop.Name) ?? ItemFilterManager.GetRule(drop.ServerName);
-                bool petOnly = dropRule != null && dropRule.Pet && !dropRule.Pickup;
-                bool petWants = petId != 0 && ItemFilterManager.ShouldUsePet(drop, true, petFull);
-                bool charWants = ItemFilterManager.ShouldPickup(drop);
-                if (petOnly && !petWants && ItemFilterManager.Pick.PickWithCharIfPetGoneFull)
-                    charWants = true;
-
-                // Pet toplayabiliyorsa pet'e komut ver
-                if (petWants)
-                {
-                    lock (_petCommandedDrops)
-                    {
-                        _petCommandedDrops[drop.UniqueID] = DateTime.UtcNow;
-                    }
-                    PacketBuilder.PickUpItem(drop.UniqueID, petId);
-                }
-
-                // Karakter yalnızca pet alamıyorsa veya pet yoksa/doluysa yürüyüp toplasın
-                // (Pet toplayacaksa karakterin savaşı durdurup yürümesine gerek yok)
-                bool needCharMove = charWants && (!petWants || pickPet == null || petFull);
-                if (needCharMove)
-                {
-                    if (!InfoManager.isEntityNear(drop.UniqueID))
-                        continue;
-                    double dist = myPos.DistanceTo(drop.GetRealtimePosition());
-                    if (dist > 3.0)
-                    {
-                        if (CollisionPolicy.NavigateAroundObstaclesWhilePicking)
-                        {
-                            bool reached = ApproachTargetWithCollision(drop.GetRealtimePosition(), 3.0, null);
-                            if (!reached && CollisionPolicy.EnableCollisionInTrainingArea)
-                            {
-                                Window.Get?.LogProcess($"Eşyaya ({drop.Name}) giderken engel aşılamadı, atlanıyor...");
-                                continue;
-                            }
-                        }
-                        else
-                        {
-                            MoveTo(drop.GetRealtimePosition());
-                            Thread.Sleep(200);
-                        }
-                    }
-                    PacketBuilder.PickUpItem(drop.UniqueID);
-                    Thread.Sleep(150);
-                }
+                InfoManager.CharacterActions.Release();
+                if (InfoManager.isEntityNear(drop.UniqueID)) _characterPickup.Fail(EngineNow);
+                else _characterPickup.Observe(false, true, EngineNow);
             }
         }
-
         private int CountItemTotalQuantity(byte tid2, byte tid3, byte tid4 = 0)
         {
             if (InfoManager.Character == null || InfoManager.Character.Inventory == null)

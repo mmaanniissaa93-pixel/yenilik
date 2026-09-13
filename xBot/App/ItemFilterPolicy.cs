@@ -3,6 +3,8 @@ using System.Collections.Generic;
 
 namespace xBot.App
 {
+    public enum LootActor { None, Character, Pet }
+
     public enum ItemFilterAction
     {
         Ignore,
@@ -58,7 +60,7 @@ namespace xBot.App
     public class ItemFilterRule
     {
         public string ItemName { get; set; } = "";
-        public bool Pickup { get; set; } = true;
+        public bool Pickup { get; set; } = false;
         public bool Pet { get; set; } = false;
         public bool Sell { get; set; } = false;
         public bool Store { get; set; } = false;
@@ -123,7 +125,7 @@ namespace xBot.App
             if (pick != null && pick.OnlyPickSpecificBlues && input.IsEquipable && (input.IsRare || input.IsBlue || input.IsSox))
                 return true;
 
-            if (input.IsGold || input.IsElixirOrStone)
+            if (pick != null && pick.PickArrowsBolts && input.IsArrowBolt)
                 return true;
 
             return false;
@@ -140,6 +142,7 @@ namespace xBot.App
         /// </summary>
         public static bool ShouldUsePet(ItemFilterInput input, ItemFilterRule rule, PickFilterOptions pick, bool petAvailable, bool petFull)
         {
+            if (input == null) return false;
             if (!petAvailable)
                 return false;
             if (pick != null && !pick.Enabled)
@@ -185,6 +188,20 @@ namespace xBot.App
                 return true;
 
             return false;
+        }
+
+        // Priority scans and both workers must resolve the same actor.
+        public static LootActor ResolveLootActor(ItemFilterInput input, ItemFilterOptions options,
+            ItemFilterRule rule, PickFilterOptions pick, bool petAvailable, bool petFull)
+        {
+            if (pick == null || !pick.Enabled || pick.DontPickItems) return LootActor.None;
+            bool character = ShouldPickup(input, options, rule, pick);
+            bool pet = ShouldUsePet(input, rule, pick, true, false);
+            if (pet && petAvailable && !petFull) return LootActor.Pet;
+            if (character) return LootActor.Character;
+            if (pet && (!petAvailable || petFull) && pick.PickWithCharIfPetGoneFull)
+                return LootActor.Character;
+            return LootActor.None;
         }
 
         public static Func<IDictionary<string, BlueAttributeRule>> GetBluesProvider { get; set; }

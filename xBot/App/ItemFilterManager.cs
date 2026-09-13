@@ -27,7 +27,7 @@ namespace xBot.App
             {
                 if (Pick.DontPickItems)
                     return false;
-                return Pick.Enabled || Rules.Count > 0 || EzFilterManager.HasAnyRule() || Pick.OnlyPickRareBlue;
+                return Pick.Enabled;
             }
         }
         public static StoreGoldOptions StoreGold { get; set; } = new StoreGoldOptions();
@@ -228,6 +228,13 @@ namespace xBot.App
             return ItemFilterPolicy.ShouldDismantle(
                 CreateInput(item, item is SREquipable),
                 Dismantle);
+        }
+
+        public static LootActor ResolveLootActor(SRDrop drop, bool petAvailable, bool petFull)
+        {
+            if (drop == null) return LootActor.None;
+            return ItemFilterPolicy.ResolveLootActor(CreateInput(drop), GetOptions(),
+                FindRule(drop.Name, drop.ServerName), Pick, petAvailable, petFull);
         }
 
         public static int GetOwnerKind(SRDrop drop)
@@ -785,7 +792,7 @@ namespace xBot.App
                 Pick.ArrowBoltAmount = GetInt(po, "ArrowBoltAmount", 200);
                 Pick.OnlyStoreSpecificBlues = GetBool(po, "OnlyStoreSpecificBlues", false);
                 Pick.OnlyPickSpecificBlues = GetBool(po, "OnlyPickSpecificBlues", false);
-                Pick.PickWithCharIfPetGoneFull = GetBool(po, "PickWithCharIfPetGoneFull", true);
+                Pick.PickWithCharIfPetGoneFull = GetBool(po, "PickWithCharIfPetGoneFull", false);
                 Pick.DontMovePetItemsExceptStoreSell = GetBool(po, "DontMovePetItemsExceptStoreSell", true);
                 Pick.OnlyStorePlusEnabled = GetBool(po, "OnlyStorePlusEnabled", false);
                 Pick.OnlyStorePlus = GetInt(po, "OnlyStorePlus", 0);

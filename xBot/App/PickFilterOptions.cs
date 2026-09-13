@@ -20,7 +20,7 @@ namespace xBot.App
         public int ArrowBoltAmount { get; set; } = 200;
         public bool OnlyStoreSpecificBlues { get; set; } = false;
         public bool OnlyPickSpecificBlues { get; set; } = false;
-        public bool PickWithCharIfPetGoneFull { get; set; } = true;
+        public bool PickWithCharIfPetGoneFull { get; set; } = false;
         public bool DontMovePetItemsExceptStoreSell { get; set; } = true;
         public bool OnlyStorePlusEnabled { get; set; } = false;
         public int OnlyStorePlus { get; set; } = 0;

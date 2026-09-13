@@ -3272,11 +3272,11 @@ namespace xBot.App
                     return;
 
                 SkillManager.ImbueSkillOption selected = cmbxImbue.SelectedItem as SkillManager.ImbueSkillOption;
-                if (selected == null)
+                if (selected == null && cmbxImbue.SelectedIndex != 0)
                     return;
 
-                SkillManager.SelectedImbueSkillId = selected.SkillId;
-                SkillManager.SelectedImbue = selected.Element;
+                SkillManager.SelectedImbueSkillId = selected?.SkillId ?? 0;
+                SkillManager.SelectedImbue = selected?.Element ?? "None";
                 Settings.SaveCharacterSettings();
             };
 
@@ -3374,7 +3374,7 @@ namespace xBot.App
             if (selected == null)
             {
                 string legacyElement = SkillManager.NormalizeImbueSelection(SkillManager.SelectedImbue);
-                selected = options.FirstOrDefault(option => option.Element == legacyElement) ?? options.FirstOrDefault();
+                selected = options.FirstOrDefault(option => option.Element == legacyElement);
             }
 
             refreshingImbueSkills = true;
@@ -3382,6 +3382,7 @@ namespace xBot.App
             {
                 cmbxImbue.BeginUpdate();
                 cmbxImbue.Items.Clear();
+                cmbxImbue.Items.Add(LocalizationManager.CurrentLanguage == "TR" ? "Kullanma" : "None");
                 foreach (SkillManager.ImbueSkillOption option in options)
                     cmbxImbue.Items.Add(option);
 
@@ -3394,7 +3395,7 @@ namespace xBot.App
                 }
                 else
                 {
-                    cmbxImbue.Text = "No Chinese imbue found";
+                    cmbxImbue.SelectedIndex = 0;
                 }
             }
             finally
