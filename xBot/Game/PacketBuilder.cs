@@ -236,9 +236,10 @@ namespace xBot.Game
 			p.WriteAscii(message);
 			Bot.Get.Proxy.Agent.InjectToServer(p);
 		}
-		public static void MoveTo(ushort region, int x, int y, int z, uint petUniqueID = 0u)
+		public static void MoveTo(ushort region, int x, int y, int z, uint petUniqueID = 0u, Action<string> trace = null)
 		{
-			if (Bot.Get.Proxy == null || Bot.Get.Proxy.Agent == null) return;
+			if (Bot.Get.Proxy == null || Bot.Get.Proxy.Agent == null)
+			{ trace?.Invoke("MoveTo not sent reason=no-agent"); return; }
 			Packet p;
 			if (petUniqueID == 0)
 			{
@@ -265,14 +266,15 @@ namespace xBot.Game
 				p.WriteUShort((ushort)y);
 			}
 			Bot.Get.Proxy.Agent.InjectToServer(p);
+			trace?.Invoke($"MoveTo queued region={region} sector={region & 255}/{region >> 8} wire X/Z/Y={x}/{z}/{y} pet={petUniqueID}");
 		}
-		public static void MoveTo(SRCoord position, uint petUniqueID = 0u)
+		public static void MoveTo(SRCoord position, uint petUniqueID = 0u, Action<string> trace = null)
 		{
 			if (position == null) return;
 			int z = position.Z;
 			if (z == 0 && InfoManager.Character != null && InfoManager.Character.Position != null)
 				z = InfoManager.Character.Position.Z;
-			MoveTo(position.Region, position.X, position.Y, z, petUniqueID);
+			MoveTo(position.Region, position.X, position.Y, z, petUniqueID, trace);
 		}
 		public static void AddStatPointINT()
 		{

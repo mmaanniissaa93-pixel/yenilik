@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>disable</ImplicitUsings></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../xBot/Game/Navigation/AStarPathfinder.cs" Link="AStarPathfinder.cs" />
+    <Compile Include="../../xBot/Game/Navigation/NavPoint.cs" Link="NavPoint.cs" />
+    <Compile Include="../../xBot/Game/Navigation/NavRegion.cs" Link="NavRegion.cs" />
+    <Compile Include="../../xBot/Game/Navigation/NavDataReader.cs" Link="NavDataReader.cs" />
+    <Compile Include="../../xBot/Game/Navigation/NavigationManager.cs" Link="NavigationManager.cs" />
+    <Compile Include="../../xBot/Game/Navigation/NavigationRoute.cs" Link="NavigationRoute.cs" />
+    <Compile Include="../../xBot/Game/Navigation/FerryApproachNavigator.cs" Link="FerryApproachNavigator.cs" />
+    <Compile Include="../../xBot/Game/Objects/Common/SRCoord.cs" Link="SRCoord.cs" />
+  </ItemGroup>
+</Project>

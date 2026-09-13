@@ -70,13 +70,20 @@ namespace xBot.Game.Navigation
 		/// <summary>
 		/// Calculates shortest walkable path between (startX, startY) and (targetX, targetY) on NavRegion.
 		/// </summary>
-		public List<SRCoord> FindPath(NavRegion region, float startX, float startY, float targetX, float targetY)
+		public List<SRCoord> FindPath(NavRegion region, float startX, float startY, float targetX, float targetY,
+			bool meshOnly = false, ISet<int> excludedNodes = null)
 		{
 			if (region == null || region.Points == null || region.Points.Length == 0)
 				return null;
 
 			int startNode = region.FindNearestPointIndex(startX, startY);
 			int targetNode = region.FindNearestPointIndex(targetX, targetY);
+			if (startNode < 0 || region.Points[startNode].DistanceSquaredTo(startX, startY) > 25.0 * 25.0
+				|| (excludedNodes != null && excludedNodes.Contains(startNode))) return null;
+			// Ferry endpoints may be off mesh or on a disconnected component. Choose
+			// the closest node reachable from THIS start, never append the board itself.
+			if (meshOnly && startNode >= 0)
+				targetNode = FindClosestReachableNode(region, startNode, targetX, targetY, excludedNodes);
 
 			if (startNode == -1 || targetNode == -1)
 				return null;
@@ -100,6 +107,8 @@ namespace xBot.Game.Navigation
 
 			if (startNode == targetNode)
 			{
+				if (meshOnly)
+					return new List<SRCoord> { new SRCoord(targetPt.X, targetPt.Y, (int)targetPt.Z) };
 				return new List<SRCoord> { new SRCoord(targetX, targetY) };
 			}
 
@@ -153,7 +162,8 @@ namespace xBot.Game.Navigation
 				for (int n = 0; n < neighbors.Length; n++)
 				{
 					int neighbor = neighbors[n];
-					if (neighbor < 0 || neighbor >= totalPoints || closedSet[neighbor])
+					if (neighbor < 0 || neighbor >= totalPoints || closedSet[neighbor]
+						|| (excludedNodes != null && excludedNodes.Contains(neighbor)))
 						continue;
 
 					NavPoint neighborPt = region.Points[neighbor];
@@ -188,7 +198,7 @@ namespace xBot.Game.Navigation
 			rawPath.Reverse();
 
 			// Smooth path
-			List<NavPoint> smoothedPath = SmoothPath(rawPath, region);
+			List<NavPoint> smoothedPath = meshOnly ? rawPath : SmoothPath(rawPath, region);
 
 			// Convert to SRCoord list
 			List<SRCoord> waypoints = new List<SRCoord>();
@@ -198,7 +208,7 @@ namespace xBot.Game.Navigation
 			}
 
 			// If target was found, ensure exact target is the final waypoint
-			if (found && waypoints.Count > 0)
+			if (!meshOnly && found && waypoints.Count > 0)
 			{
 				SRCoord last = waypoints[waypoints.Count - 1];
 				if (last.DistanceTo(new SRCoord(targetX, targetY)) > 1.0)
@@ -208,6 +218,35 @@ namespace xBot.Game.Navigation
 			}
 
 			return waypoints;
+		}
+
+		private static int FindClosestReachableNode(NavRegion region, int start, float x, float y, ISet<int> excluded)
+		{
+			var visited = new bool[region.Points.Length];
+			var pending = new Queue<int>();
+			pending.Enqueue(start);
+			visited[start] = true;
+			int closest = -1;
+			double best = double.MaxValue;
+			while (pending.Count > 0)
+			{
+				int current = pending.Dequeue();
+				double distance = region.Points[current].DistanceSquaredTo(x, y);
+				if (distance < best && (excluded == null || !excluded.Contains(current)))
+				{
+					best = distance;
+					closest = current;
+				}
+				var neighbors = region.Neighbors != null && current < region.Neighbors.Length ? region.Neighbors[current] : null;
+				if (neighbors == null) continue;
+				foreach (int next in neighbors)
+				{
+					if (next < 0 || next >= visited.Length || visited[next] || (excluded != null && excluded.Contains(next))) continue;
+					visited[next] = true;
+					pending.Enqueue(next);
+				}
+			}
+			return closest;
 		}
 
 		private static double Heuristic(NavPoint a, NavPoint b)

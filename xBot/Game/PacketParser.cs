@@ -2015,6 +2015,8 @@ namespace xBot.Game
 				}
 			}
 			// End of Packet
+			if (entity == InfoManager.Character || entity.UniqueID == InfoManager.Character?.RidingUniqueID)
+				Bot.Get.FerryMovementTrace?.Invoke($"server movement uid={entity.UniqueID} hasMovement={hasMovement} current={currentPosition} destination={entity.MovementPosition}");
 			InfoManager.OnEntityMovement(ref entity);
 		}
 		public static void EntityMovementStuck(Packet packet)
@@ -2024,6 +2026,8 @@ namespace xBot.Game
 			entity.Position = new SRCoord(packet.ReadUShort(), (int)packet.ReadFloat(), (int)packet.ReadFloat(), (int)packet.ReadFloat());
 			entity.Angle = packet.ReadUShort();
 			// End of Packet
+			if (entity == InfoManager.Character || entity.UniqueID == InfoManager.Character?.RidingUniqueID)
+				Bot.Get.FerryMovementTrace?.Invoke($"server movement-stuck uid={entity.UniqueID} correctedPosition={entity.Position}");
 			if (entity.isModel())
 			{
 				SRModel model = ((SRModel)entity);

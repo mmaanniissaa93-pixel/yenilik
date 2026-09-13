@@ -106,7 +106,9 @@ namespace xBot.Game.Objects.Entity
 				SRCoord P = Position;
 				SRCoord Q = MovementPosition;
 				// Check if it's updated..
-				if (!P.Equals(Q))
+				// Interpolation must finish the server move. The route's default 3m
+				// arrival tolerance would freeze short moves before a precise nav node.
+				if (!P.Equals(Q, 0.05))
 				{
 					// Scale 1920units:192px = 10:1 => To Ms
 					double MilisecondsPerUnit = GetMovementSpeed();

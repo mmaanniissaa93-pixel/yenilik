@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -373,10 +373,32 @@ namespace xBot.App
                                         var segment = navRoute.Segments[s];
                                         if (segment.Type == RouteSegmentType.Walk)
                                         {
-                                            for (int p = 0; p < segment.Waypoints.Count && isBotting; p++)
+                                            int walkWpCount = segment.Waypoints != null ? segment.Waypoints.Count : 0;
+                                            // Ferry'ye giden walk mu? (hemen ardından teleport segmenti varsa)
+                                            TeleportLinkInfo walkNextLink = null;
+                                            bool walkIsFerryWalk = false;
+                                            try
                                             {
-                                                if (myPosition.DistanceTo(trainingPosition) <= trainingRadius)
+                                                if (s + 1 < navRoute.Segments.Count && navRoute.Segments[s + 1] != null
+                                                    && navRoute.Segments[s + 1].Type == RouteSegmentType.Teleport
+                                                    && navRoute.Segments[s + 1].TeleportLink != null)
+                                                {
+                                                    walkIsFerryWalk = true;
+                                                    walkNextLink = navRoute.Segments[s + 1].TeleportLink;
+                                                }
+                                            }
+                                            catch { }
+                                            w.Log($"[WALK-TRACE] begin count={walkWpCount} ferryWalk={walkIsFerryWalk}");
+                                            w.Log($"[ROUTE-TRACE] executing segment[{s}] type=Walk waypoints={walkWpCount}");
+                                            string walkAbortReason = null;
+                                            int walkFailedWp = 0;
+                                            for (int p = 0; p < walkWpCount && isBotting; p++)
+                                            {
+                                                if (myPosition != null && trainingPosition != null && myPosition.DistanceTo(trainingPosition) <= trainingRadius)
+                                                {
+                                                    walkAbortReason = "arrived-training-area";
                                                     break; // Arrived at training area
+                                                }
 
                                                 if (ReturnToAreaPolicy.RemountInCaves && (myPosition.inDungeon() || SRCoord.inDungeon(myPosition.Region)))
                                                 {
@@ -390,13 +412,74 @@ namespace xBot.App
                                                     }
                                                 }
 
-                                                w.LogProcess($"NavMesh walk [{p + 1}/{segment.Waypoints.Count}]");
-                                                WaitMovement(segment.Waypoints[p], 12);
-                                                myPosition = InfoManager.Character.GetRealtimePosition();
+                                                SRCoord walkWp = null;
+                                                try { walkWp = segment.Waypoints[p]; } catch { }
+                                                bool walkIsFinalWp = (p == walkWpCount - 1);
+                                                string walkWpStr = walkWp != null ? ((int)walkWp.PosX + "," + (int)walkWp.PosY + "," + walkWp.Z + " r" + walkWp.Region) : "?";
+                                                double walkDistBefore = -1;
+                                                try { walkDistBefore = (myPosition != null && walkWp != null) ? myPosition.DistanceTo(walkWp) : -1; } catch { }
+                                                w.Log($"[WALK-TRACE] wp[{p + 1}/{walkWpCount}] target=[{walkWpStr}] distBefore=[{(walkDistBefore >= 0 ? walkDistBefore.ToString("F0") + "m" : "?")}]");
+                                                if (walkIsFinalWp && walkIsFerryWalk && walkNextLink != null && walkNextLink.BoardCoord != null && walkWp != null)
+                                                {
+                                                    double walkDBoard = -1, walkDWp = -1;
+                                                    try { walkDBoard = myPosition != null ? myPosition.DistanceTo(walkNextLink.BoardCoord) : -1; } catch { }
+                                                    try { walkDWp = myPosition != null ? myPosition.DistanceTo(walkWp) : -1; } catch { }
+                                                    w.Log($"[WALK-TRACE] FINAL waypoint=[{walkWpStr}]");
+                                                    w.Log($"[WALK-TRACE] FINAL distanceToBoard=[{(walkDBoard >= 0 ? walkDBoard.ToString("F0") + "m" : "?")}]");
+                                                    w.Log($"[WALK-TRACE] FINAL distancePlayerToWaypoint=[{(walkDWp >= 0 ? walkDWp.ToString("F0") + "m" : "?")}]");
+                                                }
+
+                                                // Ferry final waypoint daha sıkı varışla (2.5m), normal wp mevcut (3.0m).
+                                                // Gerçek nav node korunur; son metreleri teleport segmentinin
+                                                // kesilebilir mesh yaklaşımı yürür.
+                                                double walkTol = (walkIsFinalWp && walkIsFerryWalk) ? 2.5 : 3.0;
+                                                int walkAttempts = (walkIsFinalWp && walkIsFerryWalk) ? 15 : 12;
+                                                w.Log($"[WALK-TRACE] WaitMovement begin wp={p + 1} tolerance={walkTol:F1}m attempts={walkAttempts}");
+                                                bool wpOk = false;
+                                                try { wpOk = WaitMovement(walkWp, walkAttempts, walkTol); } catch { wpOk = false; }
+                                                try { myPosition = InfoManager.Character.GetRealtimePosition(); } catch { }
+                                                string walkCurStr = "?";
+                                                double walkDistAfter = -1;
+                                                try
+                                                {
+                                                    if (myPosition != null)
+                                                    {
+                                                        walkCurStr = ((int)myPosition.PosX + "," + (int)myPosition.PosY + "," + myPosition.Z + " r" + myPosition.Region);
+                                                        if (walkWp != null) walkDistAfter = myPosition.DistanceTo(walkWp);
+                                                    }
+                                                }
+                                                catch { }
+                                                w.Log($"[WALK-TRACE] WaitMovement end wp={p + 1} result={wpOk} current=[{walkCurStr}] distAfter=[{(walkDistAfter >= 0 ? walkDistAfter.ToString("F0") + "m" : "?")}]");
+                                                if (!wpOk)
+                                                {
+                                                    walkFailedWp++;
+                                                    w.LogProcess($"NavMesh walk [{p + 1}/{walkWpCount}] failed — route aborted.", Window.ProcessState.Warning);
+                                                    walkAbortReason = "waypoint-failed";
+                                                    routeAborted = true;
+                                                    break;
+                                                }
                                             }
+                                            if (m_stopBottingRequested || !isBotting)
+                                                walkAbortReason = "stop-requested";
+                                            if (walkAbortReason != null)
+                                                w.Log($"[WALK-TRACE] segment aborted reason={walkAbortReason}");
+                                            else
+                                                w.Log($"[WALK-TRACE] segment completed failedWp={walkFailedWp}/{walkWpCount}");
+                                            w.Log($"[ROUTE-TRACE] segment[{s}] returned result={(walkAbortReason != null ? "aborted-" + walkAbortReason : "completed")}");
+                                            // A failed normal waypoint aborts the route; only the ferry
+                                            // executor has a bounded mesh recovery policy.
+                                            if (walkAbortReason == null || walkAbortReason == "arrived-training-area")
+                                                w.Log($"[ROUTE-TRACE] advancing {s} -> {s + 1}");
+                                            else
+                                                break;
                                         }
                                         else if (segment.Type == RouteSegmentType.Teleport)
                                         {
+                                            string tpSrc = "?";
+                                            string tpDst = "?";
+                                            try { if (segment.TeleportLink != null) { tpSrc = segment.TeleportLink.SourceName ?? "?"; tpDst = segment.TeleportLink.DestinationName ?? "?"; } } catch { }
+                                            w.Log($"[ROUTE-TRACE] executing segment[{s}] type=Teleport/Ferry");
+                                            w.Log($"[ROUTE-TRACE] teleport transition begin [{tpSrc} -> {tpDst}]");
                                             if (!ExecuteTeleportTransition(segment.TeleportLink))
                                             {
                                                 w.LogProcess("Teleport transition failed. Retrying route...", Window.ProcessState.Warning);
@@ -592,22 +675,51 @@ namespace xBot.App
                             if (navRoute != null && !navRoute.IsEmpty)
                             {
                                 w.Log($"Town Loop: NavMesh dönüş rotası ({navRoute.Segments.Count} segment) uygulanıyor...");
-                                foreach (var segment in navRoute.Segments)
+                                for (int ts = 0; ts < navRoute.Segments.Count && isBotting && !m_stopBottingRequested; ts++)
                                 {
-                                    if (!isBotting || m_stopBottingRequested) break;
+                                    var segment = navRoute.Segments[ts];
                                     if (segment.Type == RouteSegmentType.Walk)
                                     {
-                                        foreach (var wp in segment.Waypoints)
+                                        int townWpCount = segment.Waypoints != null ? segment.Waypoints.Count : 0;
+                                        bool townIsFerryWalk = false;
+                                        try
                                         {
-                                            if (!isBotting || m_stopBottingRequested) break;
-                                            SRCoord cur = InfoManager.Character.GetRealtimePosition();
-                                            if (cur != null && cur.DistanceTo(tp) <= w.TrainingArea_GetRadius())
-                                                break;
-                                            WaitMovement(wp, 12);
+                                            townIsFerryWalk = (ts + 1 < navRoute.Segments.Count && navRoute.Segments[ts + 1] != null
+                                                && navRoute.Segments[ts + 1].Type == RouteSegmentType.Teleport
+                                                && navRoute.Segments[ts + 1].TeleportLink != null);
                                         }
+                                        catch { }
+                                        w.Log($"[WALK-TRACE] begin count={townWpCount} ferryWalk={townIsFerryWalk} (town)");
+                                        int townFailedWp = 0;
+                                        for (int tq = 0; tq < townWpCount && isBotting && !m_stopBottingRequested; tq++)
+                                        {
+                                            SRCoord cur = InfoManager.Character.GetRealtimePosition();
+                                            if (cur != null && tp != null && cur.DistanceTo(tp) <= w.TrainingArea_GetRadius())
+                                                break;
+                                            SRCoord twp = null;
+                                            try { twp = segment.Waypoints[tq]; } catch { }
+                                            bool townIsFinal = (tq == townWpCount - 1);
+                                            double townTol = (townIsFinal && townIsFerryWalk) ? 2.5 : 3.0;
+                                            int townAttempts = (townIsFinal && townIsFerryWalk) ? 15 : 12;
+                                            w.Log($"[WALK-TRACE] WaitMovement begin wp={tq + 1} tolerance={townTol:F1}m attempts={townAttempts} (town)");
+                                            bool wpOk = false;
+                                            try { wpOk = WaitMovement(twp, townAttempts, townTol); } catch { wpOk = false; }
+                                            w.Log($"[WALK-TRACE] WaitMovement end wp={tq + 1} result={wpOk} (town)");
+                                            if (!wpOk)
+                                            {
+                                                townFailedWp++;
+                                                w.LogProcess("Town Loop: NavMesh walk failed — route aborted.", Window.ProcessState.Warning);
+                                                break;
+                                            }
+                                        }
+                                        if (townFailedWp > 0 || !isBotting || m_stopBottingRequested) break;
+                                        w.Log($"[WALK-TRACE] segment completed failedWp={townFailedWp}/{townWpCount} (town)");
+                                        w.Log($"[ROUTE-TRACE] segment[{ts}] returned result=completed (town)");
+                                        w.Log($"[ROUTE-TRACE] advancing {ts} -> {ts + 1} (town)");
                                     }
                                     else if (segment.Type == RouteSegmentType.Teleport)
                                     {
+                                        w.Log($"[ROUTE-TRACE] executing segment[{ts}] type=Teleport/Ferry (town)");
                                         if (!ExecuteTeleportTransition(segment.TeleportLink))
                                             break;
                                     }
@@ -3582,7 +3694,13 @@ namespace xBot.App
         /// <summary>
         /// Akıllı hareket ve çarpışma/takılma kurtarma (Anti-Stuck Obstacle Avoidance) motoru.
         /// </summary>
-        public bool WaitMovement(SRCoord position, int maxAttempts)
+        public bool WaitMovement(SRCoord position, int maxAttempts, double arrivalTolerance = 3.0)
+        {
+            return WaitMovement(position, maxAttempts, arrivalTolerance, null, false, null);
+        }
+
+        private bool WaitMovement(SRCoord position, int maxAttempts, double arrivalTolerance,
+            Func<bool> interrupt, bool meshOnly, Action<string> trace)
         {
             int attemps = 0;
             SRCoord myPosition;
@@ -3593,19 +3711,36 @@ namespace xBot.App
             int bypassCount = 0; // Ard arda kaç kez bypass yapıldı (büyüyen adım için)
             double startDist = -1;
             double bestDist = double.MaxValue;
+            var progressClock = System.Diagnostics.Stopwatch.StartNew();
+            double checkpointDist = double.MaxValue;
 
-            while (isBotting)
+            while (isBotting && !m_stopBottingRequested)
             {
-                myPosition = InfoManager.Character.GetRealtimePosition();
-
-                // Hedefe tolerans dahilinde (<= 3 metre) ulaşıldı mı?
-                if (myPosition.Equals(position, 3.0))
+                if (!InfoManager.inGame || InfoManager.Character == null || position == null)
+                { trace?.Invoke("WaitMovement false reason=no-character/target/session"); return false; }
+                if (interrupt != null && interrupt())
                 {
+                    // Cancel the outstanding waypoint command before interacting.
+                    MoveTo(InfoManager.Character.GetRealtimePosition(), trace);
+                    trace?.Invoke("WaitMovement interrupted reason=candidate-found");
+                    return true;
+                }
+                myPosition = InfoManager.Character.GetRealtimePosition();
+                if (myPosition == null) return false;
+                if (meshOnly && (myPosition.inDungeon() != position.inDungeon()
+                    || (myPosition.inDungeon() && myPosition.Region != position.Region)))
+                { trace?.Invoke("WaitMovement false reason=region-mismatch"); return false; }
+
+                // Arrival tolerance is independent of maxAttempts (normal 3m, ferry mesh 0.75m).
+                if (myPosition.Equals(position, arrivalTolerance))
+                {
+                    trace?.Invoke($"WaitMovement true reason=arrived attempts={attemps} distance={myPosition.DistanceTo(position):F2} tolerance={arrivalTolerance:F2}");
                     return true;
                 }
 
                 if (attemps >= maxAttempts)
                 {
+                    trace?.Invoke($"WaitMovement false reason=maxAttempts attempts={attemps} distance={myPosition.DistanceTo(position):F2} region={myPosition.Region}/{position.Region}");
                     return false;
                 }
                 attemps++;
@@ -3614,9 +3749,20 @@ namespace xBot.App
                 if (startDist < 0) startDist = curDist;
                 if (curDist < bestDist) bestDist = curDist;
 
+                if (meshOnly)
+                {
+                    if (curDist < checkpointDist - 0.25)
+                    { checkpointDist = curDist; progressClock.Restart(); }
+                    else if (progressClock.ElapsedMilliseconds >= 4000)
+                    {
+                        trace?.Invoke($"WaitMovement false reason=no-progress distance={curDist:F2}; collision/unacknowledged-move possible");
+                        return false;
+                    }
+                }
+
                 // İlerleme watchdog: 10 denemede en iyi mesafe 3m'den az kısalmadıysa duvar/dağ
                 // önündeyiz demektir; 168 deneme boyunca yerinde sekme, erken çık.
-                if (attemps % 10 == 0 && (startDist - bestDist) < 3.0 && startDist > 15.0)
+                if (!meshOnly && attemps % 10 == 0 && (startDist - bestDist) < 3.0 && startDist > 15.0)
                 {
                     Window.Get.LogProcess("No progress towards target (blocked by wall/mountain). Aborting walk.", Window.ProcessState.Warning);
                     return false;
@@ -3631,6 +3777,7 @@ namespace xBot.App
                     if (ReturnToAreaPolicy.ReturnIfStuckAfterSecondsEnabled && ReturnToAreaPolicy.ReturnIfStuckSeconds > 0 && stuckSec >= ReturnToAreaPolicy.ReturnIfStuckSeconds)
                     {
                         Window.Get?.LogProcess($"WaitMovement: {ReturnToAreaPolicy.ReturnIfStuckSeconds}s takılı kalındı ('Şu süre boyunca takılı kalırsa şehre dön' aktif). Şehre dönülüyor...", Window.ProcessState.Warning);
+                        trace?.Invoke("WaitMovement false reason=return-if-stuck-policy");
                         UseReturnScroll();
                         return false;
                     }
@@ -3638,11 +3785,12 @@ namespace xBot.App
                     if (ReturnToAreaPolicy.GoBackCoordIfStuck && ReturnToAreaPolicy.GoBackCoordSeconds > 0 && stuckSec >= ReturnToAreaPolicy.GoBackCoordSeconds)
                     {
                         Window.Get?.LogProcess($"WaitMovement: {ReturnToAreaPolicy.GoBackCoordSeconds}s takılı kalındı ('Karakter takılırsa bir koordinat geri dön' aktif).");
+                        trace?.Invoke("WaitMovement false reason=go-back-policy");
                         return false;
                     }
 
                     stuckCounter++;
-                    if (stuckCounter >= 2)
+                    if (!meshOnly && stuckCounter >= 2)
                     {
                         // 2 denemede ilerleyemedi -> Önünde engel/duvar var!
                         Window.Get.LogProcess("Collision detected! Executing obstacle bypass maneuver...");
@@ -3696,7 +3844,7 @@ namespace xBot.App
                 }
                 lastPosition = myPosition;
 
-                if (ReturnToAreaPolicy.AvoidStatueOfJustice)
+                if (!meshOnly && ReturnToAreaPolicy.AvoidStatueOfJustice)
                 {
                     try
                     {
@@ -3724,11 +3872,12 @@ namespace xBot.App
 
                 // Hedefe doğru yürü
                 int timeWalking = myPosition.TimeTo(position, InfoManager.Character.GetSpeed());
-                MoveTo(position);
-                int waitTime = Math.Min(1200, Math.Max(300, timeWalking / 2));
+                MoveTo(position, trace);
+                int waitTime = Math.Min(meshOnly ? 300 : 1200, Math.Max(300, timeWalking / 2));
                 Window.Get.LogProcess("Walking towards waypoint (" + (int)myPosition.DistanceTo(position) + "m remaining)...");
                 Thread.Sleep(waitTime);
             }
+            trace?.Invoke("WaitMovement false reason=stopped");
             return false;
         }
         public bool WaitSelectEntity(uint uniqueID, int maxAttempts, int delay, string logProcess = "")
@@ -4013,9 +4162,161 @@ namespace xBot.App
             return false;
         }
 
+        /// <summary>
+        /// Teşhis amaçlı ferry proximity taraması (genel; Roc/DB hardcode yok).
+        /// refPos çevresindeki teleport/NPC/building sayımları + mesafeye göre
+        /// sıralı entity listesi + izlenen ModelID gözcüsü döndürür.
+        /// </summary>
+        private sealed class FerryNearbyScan
+        {
+            public int NpcCount;
+            public int TeleportCount;
+            public int BuildingCount;
+            public List<KeyValuePair<double, SREntity>> ByDist = new List<KeyValuePair<double, SREntity>>();
+            public bool SeenWatchModel;
+            public string WatchModelInfo = "";
+        }
+
+        private static FerryNearbyScan ScanFerryNearby(SRCoord refPos, SRCoord board, double countRadius, double listRadius, uint watchModelId)
+        {
+            FerryNearbyScan res = new FerryNearbyScan();
+            if (refPos == null)
+                return res;
+            try
+            {
+                HashSet<uint> seenUid = new HashSet<uint>();
+                // Sıra: teleport/building listesi, NPC listesi, genel entity listesi.
+                for (int pass = 0; pass < 3; pass++)
+                {
+                    System.Collections.IEnumerable list = null;
+                    try
+                    {
+                        if (pass == 0) list = InfoManager.TeleportAndBuildings.Snapshot();
+                        else if (pass == 1) list = InfoManager.Npcs.Snapshot();
+                        else list = InfoManager.Entities.Snapshot();
+                    }
+                    catch { list = null; }
+                    if (list == null)
+                        continue;
+                    foreach (object o in list)
+                    {
+                        try
+                        {
+                            SREntity e = o as SREntity;
+                            if (e == null || e.Position == null)
+                                continue;
+                            if (e is SRPlayer || e is SRDrop || e is SRMob)
+                                continue;
+                            SRTeleport tpX = e as SRTeleport;
+                            if (tpX != null && IsPlayerOpenedPortal(tpX))
+                                continue;
+                            if (!seenUid.Add(e.UniqueID))
+                                continue;
+                            double dP = refPos.DistanceTo(e.Position);
+                            if (watchModelId != 0 && e.ID == watchModelId && dP <= listRadius && !res.SeenWatchModel)
+                            {
+                                res.SeenWatchModel = true;
+                                double dB0 = -1;
+                                try { dB0 = (board != null) ? board.DistanceTo(e.Position) : -1; } catch { }
+                                res.WatchModelInfo = string.Format("{0}|{1} pos=[{2},{3} r{4}] dP={5:F0}m dB={6}",
+                                    e.Name ?? "?", e.ServerName ?? "?",
+                                    (int)e.Position.PosX, (int)e.Position.PosY, e.Position.Region,
+                                    dP, (dB0 >= 0 ? dB0.ToString("F0") + "m" : "?"));
+                            }
+                            if (dP <= listRadius)
+                                res.ByDist.Add(new KeyValuePair<double, SREntity>(dP, e));
+                            if (dP <= countRadius)
+                            {
+                                if (e is SRTeleport)
+                                    res.TeleportCount++;
+                                else if (e is SRNpc)
+                                    res.NpcCount++;
+                                else if (e is SRFortressStruct)
+                                    res.BuildingCount++;
+                                else if (pass == 0)
+                                    res.BuildingCount++; // teleport/building listesindeki kapı yapıları
+                            }
+                        }
+                        catch { }
+                    }
+                }
+                res.ByDist.Sort((a, b) => a.Key.CompareTo(b.Key));
+            }
+            catch { }
+            return res;
+        }
+
+        internal Action<string> FerryMovementTrace;
+        private bool m_ferryMovementCompared;
+
+        // Opt-in live diagnostic: launch with XBOT_FERRY_COMPARE_MOVES=1.
+        // Every target uses fresh runtime coordinates and the production WaitMovement ->
+        // Bot.MoveTo -> PacketBuilder path (including mounted movement). No offline position.
+        private void CompareFerryMovementTargets(TeleportLinkInfo link)
+        {
+            if (m_ferryMovementCompared || Environment.GetEnvironmentVariable("XBOT_FERRY_COMPARE_MOVES") != "1") return;
+            var initial = InfoManager.Character?.GetRealtimePosition();
+            if (initial == null || initial.DistanceTo(link.BoardCoord) > 40) return;
+            m_ferryMovementCompared = true;
+            for (int variant = 0; variant < 3 && isBotting && !m_stopBottingRequested; variant++)
+            {
+                var before = InfoManager.Character?.GetRealtimePosition();
+                if (before == null || before.DistanceTo(link.BoardCoord) > 40) return;
+                var path = NavigationManager.Get.FindApproachPath(before, link.BoardCoord);
+                double distance = before.DistanceTo(link.BoardCoord);
+                double oldStep = distance > 15 ? 5 : distance > 7 ? 2.5 : 1.5;
+                var target = variant == 0 ? StandPointNear(before, link.BoardCoord, Math.Max(2, distance - oldStep))
+                    : variant == 1 ? StandPointNear(before, link.BoardCoord, Math.Max(0, distance - 4))
+                    : path?.Find(p => !before.Equals(p, 0.75));
+                string label = variant == 0 ? "A-StandPointNear" : variant == 1 ? "B-geometric-4m" : "C-next-nav-node";
+                if (target == null) { FerryMovementTrace?.Invoke(label + " no target"); continue; }
+                FerryMovementTrace?.Invoke($"compare {label} before={before} target={target} oldToleranceWouldSkip={before.Equals(target, 3)}");
+                bool result = WaitMovement(target, 30, 0.75, null, true, FerryMovementTrace);
+                var after = InfoManager.Character?.GetRealtimePosition();
+                FerryMovementTrace?.Invoke($"compare {label} result={result} before={before} after={after} moved={after?.DistanceTo(before):F2}");
+            }
+        }
+
+        private bool ApproachTeleportOnMesh(TeleportLinkInfo link)
+        {
+            bool loggedCandidate = false;
+            Func<bool> scan = () =>
+            {
+                // FindBestTeleportCandidate snapshots the live spawn collections each call.
+                var candidate = FindBestTeleportCandidate(link);
+                if (candidate == null) return false;
+                if (!loggedCandidate)
+                    Window.Get.Log($"[FERRY-NAV] candidate found {candidate.Name} model={candidate.ID} uid={candidate.UniqueID} position={candidate.Position}");
+                loggedCandidate = true;
+                return true;
+            };
+            if (scan()) return true;
+            if (link.BoardCoord == null) return false;
+            var navigator = new FerryApproachNavigator
+            {
+                Position = () => InfoManager.Character?.GetRealtimePosition(),
+                Active = () => isBotting && !m_stopBottingRequested && InfoManager.inGame,
+                CandidateVisible = scan,
+                FindPath = (current, failed) => NavigationManager.Get.FindApproachPath(current, link.BoardCoord, failed),
+                Walk = (point, interrupt) => WaitMovement(point,
+                    Math.Max(16, Math.Min(120, InfoManager.Character.GetRealtimePosition().TimeTo(point, InfoManager.Character.GetMovementSpeed()) / 300 + 10)),
+                    0.75, interrupt, true, FerryMovementTrace),
+                Pause = Thread.Sleep,
+                Log = message => Window.Get.Log(message)
+            };
+            FerryMovementTrace = message => Window.Get.Log("[FERRY-NAV] " + message);
+            try
+            {
+                CompareFerryMovementTargets(link);
+                return navigator.Approach(link.BoardCoord);
+            }
+            finally { FerryMovementTrace = null; }
+        }
+
         private bool ExecuteTeleportTransition(TeleportLinkInfo link)
         {
             Window w = Window.Get;
+            if (link == null || !isBotting || m_stopBottingRequested) return false;
             if (link != null)
             {
                 int playerLevel = (int)(InfoManager.Character != null ? InfoManager.Character.Level : 0);
@@ -4026,7 +4327,7 @@ namespace xBot.App
                 }
             }
             w.Log($"Ferry/Teleport: Transitioning [{link.SourceName}] -> [{link.DestinationName}]...");
-            // Teşhis: yeni kodun koştuğu ve mesafelerin logdan belli olması için.
+            // Teşhis: current region / board region / distance-to-board / spawn sayıları.
             try
             {
                 SRCoord dbgPos = null;
@@ -4034,96 +4335,22 @@ namespace xBot.App
                 int tpCount = 0, npcCount = 0;
                 try { tpCount = InfoManager.TeleportAndBuildings.Count; } catch { }
                 try { npcCount = InfoManager.Npcs.Count; } catch { }
-                w.Log($"Ferry/Teleport: pos=[{(dbgPos != null ? ((int)dbgPos.PosX + "," + (int)dbgPos.PosY + " r" + dbgPos.Region) : "?")}] board=[{(link.BoardCoord != null ? ((int)link.BoardCoord.PosX + "," + (int)link.BoardCoord.PosY + " r" + link.BoardCoord.Region) : "?")}] dist=[{(dbgPos != null && link.BoardCoord != null ? dbgPos.DistanceTo(link.BoardCoord).ToString("F0") + "m" : "?")}] spawned(tp={tpCount},npc={npcCount}) NpcId={link.NpcId} DestId={link.DestinationId}");
+                string curReg = dbgPos != null ? dbgPos.Region.ToString() : "?";
+                string boardReg = link.BoardCoord != null ? link.BoardCoord.Region.ToString() : "?";
+                w.Log($"Ferry/Teleport: curRegion={curReg} boardRegion={boardReg} pos=[{(dbgPos != null ? ((int)dbgPos.PosX + "," + (int)dbgPos.PosY + " r" + dbgPos.Region) : "?")}] board=[{(link.BoardCoord != null ? ((int)link.BoardCoord.PosX + "," + (int)link.BoardCoord.PosY + " r" + link.BoardCoord.Region) : "?")}] dist=[{(dbgPos != null && link.BoardCoord != null ? dbgPos.DistanceTo(link.BoardCoord).ToString("F0") + "m" : "?")}] spawned(tp={tpCount},npc={npcCount}) NpcId={link.NpcId} DestId={link.DestinationId}");
             }
             catch { }
 
-            // 0. Önce kapı koordinatına yürü (şehir scripti depoda/potioncuda
-            //    bitmiş olabilir — kapı 80m+ uzaktaysa aday aramak anlamsız).
-            //    Her şehrin BoardCoord'u TeleportManager'da bellidir.
+            // Movement failure must not fall through to blind board / nearby walking.
             try
             {
-                if (link.BoardCoord != null)
-                {
-                    SRCoord myPos0 = null;
-                    try { myPos0 = InfoManager.Character.GetRealtimePosition(); } catch { }
-                    if (myPos0 != null)
-                    {
-                        double distBoard = myPos0.DistanceTo(link.BoardCoord);
-                        // Sadece gerçekten uzaktaysa yürü (>40m). Menzildeyken
-                        // (<=40m) hiç kımıldama — kapı dışarıdan tıklanabiliyor,
-                        // yaklaşmak havuz/duvara toslatıyor.
-                        if (distBoard > 40.0)
-                        {
-                            w.LogProcess($"Walking to gate [{link.SourceName}] ({distBoard:F0}m)...");
-                            bool reached = false;
-                            try
-                            {
-                                if (NavigationManager.Get.IsAvailable)
-                                {
-                                    SRCoord standTarget = StandPointNear(myPos0, link.BoardCoord, 25.0);
-                                    List<SRCoord> path = NavigationManager.Get.FindPath(myPos0, standTarget);
-                                    if (path != null && path.Count > 0)
-                                    {
-                                        // Kapı çevresi waypoint'leri ele (yapıya dolandırır),
-                                        // final radyal durma noktası korunur.
-                                        var trimmed = new List<SRCoord>();
-                                        foreach (var q in path)
-                                        {
-                                            try
-                                            {
-                                                if (q != null && q.DistanceTo(link.BoardCoord) > 30.0)
-                                                    trimmed.Add(q);
-                                            }
-                                            catch { }
-                                        }
-                                        trimmed.Add(standTarget);
-                                        path = trimmed;
-                                        foreach (var wp in path)
-                                        {
-                                            if (!isBotting || m_stopBottingRequested) break;
-                                            WaitMovement(wp, 12);
-                                            SRCoord cur = null;
-                                            try { cur = InfoManager.Character.GetRealtimePosition(); } catch { }
-                                            if (cur != null && cur.DistanceTo(link.BoardCoord) <= 30.0)
-                                            {
-                                                reached = true;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            catch { }
-                            if (!reached)
-                            {
-                                // NavMesh yoksa/boşsa direkt yürü (şehir içi genelde açıktır).
-                                // 25m yakınına — daha içeri girme, duvar/havuz yapar.
-                                SRCoord cur = null;
-                                try { cur = InfoManager.Character.GetRealtimePosition(); } catch { }
-                                if (cur != null && cur.DistanceTo(link.BoardCoord) > 28.0)
-                                {
-                                    SRCoord stand = StandPointNear(cur, link.BoardCoord, 25.0);
-                                    double d = cur.DistanceTo(stand);
-                                    int attempts = (int)(d / 5.0) + 10;
-                                    if (attempts < 15) attempts = 15;
-                                    if (attempts > 40) attempts = 40;
-                                    WaitMovement(stand, attempts);
-                                }
-                            }
-                            SRCoord after = null;
-                            try { after = InfoManager.Character.GetRealtimePosition(); } catch { }
-                            if (after != null && after.DistanceTo(link.BoardCoord) > 80.0)
-                            {
-                                w.Log($"Ferry/Teleport: kapıya yaklaşılamadı ({after.DistanceTo(link.BoardCoord):F0}m uzakta) — ışınlanma iptal.", Theme.LogLevel.Warning);
-                                TeleportManager.Get.NoteLinkFailure(link);
-                                return false;
-                            }
-                        }
-                    }
-                }
+                if (!ApproachTeleportOnMesh(link)) return false;
             }
-            catch { }
+            catch (Exception ex)
+            {
+                w.Log("[FERRY-NAV] approach exception: " + ex.Message, Theme.LogLevel.Warning);
+                return false;
+            }
 
             // 1. Aday topla: güçlü eşleşme (ModelID / hedef seçenekli kapı)
             //    bulunur bulunmaz bekleme bırakılır, yoksa ~9sn beklenir
@@ -4149,6 +4376,27 @@ namespace xBot.App
                 }
                 Thread.Sleep(300);
             }
+            try
+            {
+                if (firstSeen != null && firstSeen.Position != null)
+                {
+                    SRCoord me = null;
+                    try { me = InfoManager.Character.GetRealtimePosition(); } catch { }
+                    double dBoard = -1, dNpc = -1;
+                    try { dBoard = me != null ? me.DistanceTo(link.BoardCoord) : -1; } catch { }
+                    try { dNpc = me != null ? me.DistanceTo(firstSeen.Position) : -1; } catch { }
+                    string spawnStr = ((int)firstSeen.Position.PosX + "," + (int)firstSeen.Position.PosY + " r" + firstSeen.Position.Region);
+                    w.Log($"Ferry/Teleport: candidate=[{firstSeen.Name}|{firstSeen.ServerName}|ID {firstSeen.ID}|UID {firstSeen.UniqueID}] spawn=[{spawnStr}] distToBoard=[{(dBoard >= 0 ? dBoard.ToString("F0") + "m" : "?")}] distToNpc=[{(dNpc >= 0 ? dNpc.ToString("F0") + "m" : "?")}]");
+                }
+                else
+                {
+                    SRCoord me = null;
+                    try { me = InfoManager.Character.GetRealtimePosition(); } catch { }
+                    string dBoard = (me != null && link.BoardCoord != null) ? me.DistanceTo(link.BoardCoord).ToString("F0") + "m" : "?";
+                    w.Log($"Ferry/Teleport: candidate yok (distToBoard=[{dBoard}]) — nearby taramasına geçiliyor.", Theme.LogLevel.Warning);
+                }
+            }
+            catch { }
 
             // 1b. BoardCoord etrafında aday yoksa (DB koordinatı private
             // serverda farklı olabilir): oyuncuya yakın ışınlanma isimli
@@ -4223,7 +4471,10 @@ namespace xBot.App
                             int attempts = (int)(d0 / 5.0) + 10;
                             if (attempts < 15) attempts = 15;
                             if (attempts > 40) attempts = 40;
-                            WaitMovement(stand, attempts);
+                            bool nearOk = false;
+                            try { nearOk = WaitMovement(stand, attempts); } catch { nearOk = false; }
+                            if (!nearOk)
+                                w.Log("Ferry/Teleport: nearby gate yürüyüşü başarısız — mevcut konumdan yeniden taranıyor.", Theme.LogLevel.Warning);
                             // Yürüdükten sonra kısa yeniden tara (uzun 9sn beklemeye girme).
                             for (int attempt = 0; attempt < 10 && isBotting; attempt++)
                             {
@@ -4282,12 +4533,18 @@ namespace xBot.App
                     if (dNpc < 8.0)
                     {
                         w.LogProcess($"Too close to gate ({dNpc:F1}m, collision) — stepping back...");
-                        WaitMovement(StandPointNear(myPos, targetEntity.Position, 15.0), 6);
+                        bool backOk = false;
+                        try { backOk = WaitMovement(StandPointNear(myPos, targetEntity.Position, 15.0), 6); } catch { backOk = false; }
+                        if (!backOk)
+                            w.Log("Ferry/Teleport: geri çekilme başarısız — mevcut konumdan seçim denenecek.", Theme.LogLevel.Warning);
                     }
                     else if (dNpc > 30.0)
                     {
                         w.LogProcess($"Walking to teleport NPC ({dNpc:F1}m)...");
-                        WaitMovement(StandPointNear(myPos, targetEntity.Position, 20.0), 6);
+                        bool npcOk = false;
+                        try { npcOk = WaitMovement(StandPointNear(myPos, targetEntity.Position, 20.0), 6); } catch { npcOk = false; }
+                        if (!npcOk)
+                            w.Log("Ferry/Teleport: NPC yaklaşması başarısız — mevcut konumdan seçim denenecek.", Theme.LogLevel.Warning);
                     }
                     else
                     {

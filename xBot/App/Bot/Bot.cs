@@ -465,10 +465,14 @@ namespace xBot.App
 		/// </summary>
 		public void MoveTo(SRCoord position)
 		{
+			MoveTo(position, null);
+		}
+		private void MoveTo(SRCoord position, Action<string> trace)
+		{
 			if (InfoManager.Character.isRiding)
-				PacketBuilder.MoveTo(position,InfoManager.Character.RidingUniqueID);
+				PacketBuilder.MoveTo(position,InfoManager.Character.RidingUniqueID, trace);
 			else
-				PacketBuilder.MoveTo(position);
+				PacketBuilder.MoveTo(position, 0, trace);
 		}
 		/// <summary>
 		/// Try to use and item at the slot specified. Return success.

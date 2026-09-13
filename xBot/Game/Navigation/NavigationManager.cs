@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -100,7 +100,7 @@ namespace xBot.Game.Navigation
 					cy = (MinY + MaxY) / 2f;
 				}
 
-				return new SRCoord((ushort)RegionId, (int)cx, (int)cy, 0);
+				return new SRCoord(cx, cy);
 			}
 		}
 
@@ -218,7 +218,7 @@ namespace xBot.Game.Navigation
 				
 				foreach (var other in m_boundsIndex)
 				{
-					if (entry.Borders(other))
+					if ((entry.RegionId & 0x8000) == (other.RegionId & 0x8000) && entry.Borders(other))
 					{
 						var crossingPoint = entry.GetCrossingPoint(other);
 						double weight = entry.DistanceTo(other.MinX, other.MinY); // Approximate weight
@@ -285,6 +285,108 @@ namespace xBot.Game.Navigation
 			return path;
 		}
 
+        /// <summary>
+        /// A raw, connected mesh path to the closest reachable point near a board.
+        /// Never uses the short-distance shortcut, smoothing, or an exact off-mesh tail.
+        /// Failed waypoints are excluded only for the bounded ferry recovery attempt.
+        /// </summary>
+        public List<SRCoord> FindApproachPath(SRCoord start, SRCoord board, IList<SRCoord> failedPoints = null)
+        {
+            if (!IsAvailable || start == null || board == null || start.inDungeon() != board.inDungeon()
+                || (start.inDungeon() && start.Region != board.Region)) return null;
+            List<SRCoord> best = null;
+            foreach (var entry in m_boundsIndex)
+            {
+                if (((entry.RegionId & 0x8000) != 0) != start.inDungeon()
+                    || !entry.Contains((float)start.PosX, (float)start.PosY, 25)
+                    || !entry.Contains((float)board.PosX, (float)board.PosY, 30)) continue;
+                var path = FindMeshLeg(entry, start, board, failedPoints);
+                if (path != null && path.Count > 0 && (best == null
+                    || path.Last().DistanceTo(board) < best.Last().DistanceTo(board))) best = path;
+            }
+            if (best != null) return best;
+            var multi = FindMultiRegionRoute(start, board, true, failedPoints);
+            return FlattenWalkOnly(multi);
+        }
+
+        public static List<SRCoord> FlattenWalkOnly(NavigationRoute route)
+        {
+            if (route == null || route.IsEmpty) return null;
+            // Reject the WHOLE route if an intervening teleport or empty leg exists.
+            if (route.Segments.Any(s => s == null || s.Type != RouteSegmentType.Walk
+                || s.Waypoints == null || s.Waypoints.Count == 0 || s.Waypoints.Any(p => p == null))) return null;
+            return route.Segments.SelectMany(s => s.Waypoints).ToList();
+        }
+
+        private List<SRCoord> FindMeshLeg(RegionBoundsEntry entry, SRCoord start, SRCoord target, IList<SRCoord> failed)
+        {
+            var region = GetOrLoadRegion(entry);
+            if (region == null) return null;
+            var excluded = new HashSet<int>();
+            if (failed != null)
+                foreach (var point in failed)
+                {
+                    int node = region.FindNearestPointIndex((float)point.PosX, (float)point.PosY);
+                    if (node >= 0 && region.Points[node].DistanceTo((float)point.PosX, (float)point.PosY) < 0.2)
+                        excluded.Add(node);
+                }
+            var path = m_pathfinder.FindPath(region, (float)start.PosX, (float)start.PosY,
+                (float)target.PosX, (float)target.PosY, true, excluded);
+            if (path != null && start.inDungeon())
+                path = path.Select(p => new SRCoord(p.PosX, p.PosY, start.Region, p.Z)).ToList();
+            return path;
+        }
+
+        private RegionBoundsEntry FindMeshRegionAt(SRCoord position)
+        {
+            return m_boundsIndex.Where(e => ((e.RegionId & 0x8000) != 0) == position.inDungeon()
+                && e.Contains((float)position.PosX, (float)position.PosY, 30))
+                .OrderBy(e => {
+                    var r = GetOrLoadRegion(e);
+                    int n = r == null ? -1 : r.FindNearestPointIndex((float)position.PosX, (float)position.PosY);
+                    return n < 0 ? double.MaxValue : r.Points[n].DistanceSquaredTo((float)position.PosX, (float)position.PosY);
+                }).FirstOrDefault();
+        }
+
+        // Bounding boxes alone do not prove a walkable crossing. Only join files at
+        // a shared physical node (including height); otherwise fail safely.
+        private NavigationRoute FindMeshRegionRoute(SRCoord start, SRCoord target,
+            List<int> regionIds, IList<SRCoord> failed)
+        {
+            var route = new NavigationRoute();
+            var current = start;
+            for (int i = 0; i < regionIds.Count - 1; i++)
+            {
+                var entry = m_boundsIndex.Find(e => e.RegionId == regionIds[i]);
+                var nextEntry = m_boundsIndex.Find(e => e.RegionId == regionIds[i + 1]);
+                var region = GetOrLoadRegion(entry);
+                var next = GetOrLoadRegion(nextEntry);
+                if (region == null || next == null) return null;
+                var nextPoints = new HashSet<Tuple<float, float, ushort>>(
+                    next.Points.Select(p => Tuple.Create(p.X, p.Y, p.Z)));
+                var shared = region.Points.Where(p => nextPoints.Contains(Tuple.Create(p.X, p.Y, p.Z)))
+                    .OrderBy(p => p.DistanceTo((float)current.PosX, (float)current.PosY)
+                        + p.DistanceTo((float)target.PosX, (float)target.PosY));
+                List<SRCoord> leg = null;
+                foreach (var node in shared)
+                {
+                    var crossing = start.inDungeon() ? new SRCoord(node.X, node.Y, start.Region, node.Z)
+                        : new SRCoord(node.X, node.Y, (int)node.Z);
+                    var candidate = FindMeshLeg(entry, current, crossing, failed);
+                    if (candidate != null && candidate.Last().DistanceTo(crossing) < 0.1)
+                    { leg = candidate; break; }
+                }
+                if (leg == null) return null;
+                route.Segments.Add(RouteSegment.CreateWalk(leg));
+                current = leg.Last();
+            }
+            var finalEntry = m_boundsIndex.Find(e => e.RegionId == regionIds.Last());
+            var finalLeg = FindMeshLeg(finalEntry, current, target, failed);
+            if (finalLeg == null || finalLeg.Count == 0) return null;
+            route.Segments.Add(RouteSegment.CreateWalk(finalLeg));
+            return route;
+        }
+
 		/// <summary>
 		/// Finds a complete compound route. If direct path is not possible (e.g. river or different region),
 		/// incorporates Ferries and Teleports automatically.
@@ -318,27 +420,18 @@ namespace xBot.Game.Navigation
 		{
 			Window.Get?.Log($"NavMesh: Bridge selected: [{bestLink.SourceName} -> {bestLink.DestinationName}]");
 
-			// Segment 1: Walk to ferry/gate board position — kapının tam üstüne
-			// değil 17m yakınına (Dimensional Gate/NPC collision'ı var, dibine
-			// girmek takılma yapar). Son yaklaşmayı teleport adımı radyal yapar.
-			SRCoord boardStand = StandOff(start, bestLink.BoardCoord, 17.0);
-			Window.Get?.Log($"NavMesh: walk-to-board stops {start.DistanceTo(boardStand):F0}m from gate (collision margin 17m).");
-			List<SRCoord> pathToBoard = FindPath(start, boardStand);
-			if (pathToBoard == null || pathToBoard.Count == 0)
-			{
-				pathToBoard = new List<SRCoord> { boardStand };
-			}
-			else
-			{
-				// Kapı çevresindeki sık waypoint'leri ele: NavMesh araziyi bilir,
-				// kapı/havuz/duvar yapısını bilmez — bu mikro noktalar karakteri
-				// yapının içine sokup duvara toslatır. 20m dışı korunur, final
-				// yaklaşmayı teleport adımı radyal yapar.
-				var trimmed = pathToBoard.Where(wp => wp.DistanceTo(bestLink.BoardCoord) > 20.0).ToList();
-				trimmed.Add(boardStand);
-				pathToBoard = trimmed;
-			}
-			route.Segments.Add(RouteSegment.CreateWalk(pathToBoard));
+            // Preserve the connected node chain. The teleport executor owns the
+            // final 40m and can interrupt it as soon as an entity streams in.
+            List<SRCoord> pathToBoard = FindApproachPath(start, bestLink.BoardCoord);
+            if (pathToBoard == null || pathToBoard.Count == 0) return null;
+            var outerWalk = new List<SRCoord>();
+            foreach (var point in pathToBoard)
+            {
+                if (point.DistanceTo(bestLink.BoardCoord) <= 40.0) break;
+                outerWalk.Add(point);
+            }
+            if (outerWalk.Count > 0)
+                route.Segments.Add(RouteSegment.CreateWalk(outerWalk));
 
 				// Segment 2: Ferry Teleport
 				route.Segments.Add(RouteSegment.CreateTeleport(bestLink));
@@ -375,13 +468,13 @@ namespace xBot.Game.Navigation
 		/// Finds a multi-region path by computing region sequence via graph A*
 		/// and stitching together intra-region paths through crossing points.
 		/// </summary>
-		public NavigationRoute FindMultiRegionRoute(SRCoord start, SRCoord target)
+		public NavigationRoute FindMultiRegionRoute(SRCoord start, SRCoord target, bool meshOnly = false, IList<SRCoord> failedPoints = null)
 		{
 			if (!IsAvailable || start == null || target == null)
 				return null;
 
-			var startRegion = FindRegionAt((float)start.PosX, (float)start.PosY);
-			var targetRegion = FindRegionAt((float)target.PosX, (float)target.PosY);
+			var startRegion = meshOnly ? FindMeshRegionAt(start) : FindRegionAt((float)start.PosX, (float)start.PosY);
+            var targetRegion = meshOnly ? FindMeshRegionAt(target) : FindRegionAt((float)target.PosX, (float)target.PosY);
 
 			if (startRegion == null || targetRegion == null)
 			{
@@ -392,7 +485,7 @@ namespace xBot.Game.Navigation
 			// Same region - use direct path
 			if (startRegion.RegionId == targetRegion.RegionId)
 			{
-				var direct = FindPath(start, target);
+				var direct = meshOnly ? FindMeshLeg(startRegion, start, target, failedPoints) : FindPath(start, target);
 				if (direct != null && direct.Count > 0)
 				{
 					var singleRegionRoute = new NavigationRoute();
@@ -412,6 +505,8 @@ namespace xBot.Game.Navigation
 
 			Window.Get?.Log($"NavMesh: Multi-region route through {regionPath.Count} regions: {string.Join(" -> ", regionPath)}");
 
+            if (meshOnly) return FindMeshRegionRoute(start, target, regionPath, failedPoints);
+
 			// Build the complete route by stitching intra-region paths
 			var route = new NavigationRoute();
 			SRCoord currentPos = start;
@@ -425,7 +520,7 @@ namespace xBot.Game.Navigation
 				var nextEntry = m_boundsIndex.Find(e => e.RegionId == nextRegionId);
 
 				if (currentEntry == null || nextEntry == null)
-					continue;
+					return null;
 
 				// Get crossing point between regions
 				SRCoord crossingPoint = currentEntry.GetCrossingPoint(nextEntry);
@@ -439,9 +534,8 @@ namespace xBot.Game.Navigation
 				}
 				else
 				{
-					// Fallback: direct to crossing point
-					route.Segments.Add(RouteSegment.CreateWalk(new List<SRCoord> { crossingPoint }));
-					currentPos = crossingPoint;
+					// A missing mesh leg is not permission to cross a river or wall.
+					return null;
 				}
 			}
 
@@ -451,6 +545,7 @@ namespace xBot.Game.Navigation
 			{
 				route.Segments.Add(RouteSegment.CreateWalk(finalSegment));
 			}
+			else return null; // Never report a partial route as a complete walk.
 
 			Window.Get?.Log($"NavMesh: Multi-region route created: {route.Segments.Count} segments, {route.TotalWaypointsCount} total waypoints.");
 			return route;

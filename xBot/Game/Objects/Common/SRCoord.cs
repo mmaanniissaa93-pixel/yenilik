@@ -34,8 +34,8 @@ namespace xBot.Game.Objects.Common
 			this.Region = Region;
 			if (inDungeon())
 			{
-				this.PosX = 128 * 192 + X / 10;
-				this.PosY = 128 * 192 + Y / 10;
+				this.PosX = 128 * 192 + X / 10.0;
+				this.PosY = 128 * 192 + Y / 10.0;
 				this.xSector = (byte)(((128.0 * 192.0 + this.PosX) / 192.0) - 128);
 				this.ySector = (byte)(((128.0 * 192.0 + this.PosY) / 192.0) - 128);
 			}
@@ -43,8 +43,8 @@ namespace xBot.Game.Objects.Common
 			{
 				this.xSector = (byte)(Region & 0xFF);
 				this.ySector = (byte)(Region >> 8);
-				this.PosX = (xSector - 135) * 192 + X / 10;
-				this.PosY = (ySector - 92) * 192 + Y / 10;
+				this.PosX = (xSector - 135) * 192 + X / 10.0;
+				this.PosY = (ySector - 92) * 192 + Y / 10.0;
 			}
 
 			this.X = X;
