@@ -86,6 +86,25 @@ public static class BotEngineIntegration
             Check(readyRange == coolingRange && readyRange >= 14, "Real ranged skill keeps range throughout cooldown");
             window.Training_tbxRadius.Text = "73";
             Check(info.Radius == 73 && window.TrainingArea_GetRadius() == 73, "Legacy radius input updates current area model without invalid subitem index");
+            // Actual server codes from this profile's Wolf's Thunderbolt / Flame Wave - Arrow.
+            // A missing family used to fall through to the equipped sword/spear's melee range.
+            foreach (string family in new[] { "SKILL_CH_LIGHTNING_STORM_", "SKILL_CH_FIRE_GIGONGSUL_" })
+            foreach (string level in new[] { "A_01", "A_09", "B_01" })
+            foreach (var meleeWeapon in new[] { SRTypes.Weapon.Sword, SRTypes.Weapon.Spear })
+            {
+                var nuke = Skill(60010, family + level, 10000, 0);
+                double castRange = (double)Call(bot, "GetSkillAttackRange", nuke, meleeWeapon);
+                Check(castRange == 15, "Actual ranged family retains spell range with " + meleeWeapon + ": " + nuke.ServerName);
+                Check((bool)Call(bot, "ApproachTargetWithCollision", new SRCoord(114.0, 100.0), castRange, null),
+                    "Target inside spell range sends no movement (no proxy installed)");
+                nuke.StartCooldown();
+                Check((double)Call(bot, "GetEffectiveAttackRange", new[] { nuke }, meleeWeapon) == castRange,
+                    "Same ranged family keeps approach range while cooling down");
+            }
+            var meleeSkill = Skill(60011, "SKILL_CH_SWORD_ATTACK_A_01", 0, 0);
+            meleeSkill.RequiredWeaponPrimary = SRTypes.Weapon.Sword;
+            Check((double)Call(bot, "GetSkillAttackRange", meleeSkill, SRTypes.Weapon.Sword) < 5,
+                "Real melee skill still requires melee range");
             RunBuffTests(bot, window, character);
         }
         finally

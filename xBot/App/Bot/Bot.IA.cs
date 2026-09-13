@@ -2310,7 +2310,9 @@ namespace xBot.App
             // 2. Silah gerektirmeyen gerçek Çin Büyü Nukeleri (Cold, Lightning, Fire)
             if (sn.Contains("_COLD_GUNG") || sn.Contains("_COLD_WAVE") || sn.Contains("_COLD_CHUN") ||
                 sn.Contains("_LIGHTNING_GUNG") || sn.Contains("_LIGHTNING_THUNDER") || sn.Contains("_LIGHTNING_SHOCK") ||
-                sn.Contains("_FIRE_GUNG") || sn.Contains("_FIRE_WAVE"))
+                sn.StartsWith("SKILL_CH_LIGHTNING_STORM_") ||
+                sn.Contains("_FIRE_GUNG") || sn.Contains("_FIRE_WAVE") ||
+                sn.StartsWith("SKILL_CH_FIRE_GIGONGSUL_"))
             {
                 return 15.0;
             }
