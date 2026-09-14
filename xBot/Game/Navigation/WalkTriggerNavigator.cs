@@ -48,6 +48,7 @@ namespace xBot.Game.Navigation
                 if (blocked) continue;
                 var current = Position();
                 if (current == null || current.DistanceTo(link.BoardCoord) > MaxTailDistance + 0.75) return false;
+                var approachOrigin = current;
                 for (int step = 0; step < 7 && Active() && !interrupted(); step++)
                 {
                     current = Position();
@@ -61,6 +62,21 @@ namespace xBot.Game.Navigation
                     bool moved = Walk(point, interrupted);
                     Log($"[CAVE-TRANSITION] tail result={moved} after={Position()}");
                     if (!moved) break;
+                }
+                // The database point can sit on the near edge of the trigger volume.
+                // Continue through it along the observed approach, rather than stopping there.
+                current = Position();
+                double approachDistance = approachOrigin.DistanceTo(link.BoardCoord);
+                if (Active() && !interrupted() && current != null && current.DistanceTo(link.BoardCoord) <= 0.5
+                    && approachDistance > 0.5)
+                {
+                    double dx = (link.BoardCoord.PosX - approachOrigin.PosX) / approachDistance;
+                    double dy = (link.BoardCoord.PosY - approachOrigin.PosY) / approachDistance;
+                    var crossing = current.inDungeon()
+                        ? new SRCoord(link.BoardCoord.PosX + dx * 2, link.BoardCoord.PosY + dy * 2, current.Region, link.BoardCoord.Z)
+                        : new SRCoord(link.BoardCoord.PosX + dx * 2, link.BoardCoord.PosY + dy * 2, link.BoardCoord.Z);
+                    Log($"[CAVE-TRANSITION] crossing trigger center target={crossing}");
+                    Walk(crossing, interrupted);
                 }
                 if (WaitForArrival(arrived, 100)) return Success();
                 Log($"[CAVE-TRANSITION] timeout attempt={attempt + 1}/2 afterRegion={Position()?.Region}");

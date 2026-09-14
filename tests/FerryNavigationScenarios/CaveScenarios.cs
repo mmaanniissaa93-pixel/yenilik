@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -25,6 +25,11 @@ static class CaveScenarios
     }
     public static void Run(Action<bool,string> check)
     {
+        var straight = Enumerable.Range(0, 25).Select(i => new SRCoord(24576.0 + i * 0.5, 24576.0, (ushort)32769)).ToList();
+        var compact = NavigationManager.CompactCavePath(straight);
+        check(compact.Count == 2 && compact.Last() == straight.Last(), "half-metre straight corridor nodes collapse to one 12m leg");
+        var corner = new List<SRCoord> { straight[0], straight[10], new SRCoord(straight[10].PosX, 24581.0, (ushort)32769) };
+        check(NavigationManager.CompactCavePath(corner).Count == 3, "cave compaction preserves right-angle wall corners");
         var links=LoadLinks();
         TeleportLinkInfo L(uint id,uint dest=0)=>links.First(l=>l.SourceId==id && (dest==0||l.DestinationId==dest));
         check(L(11).TransitionMode==TransitionMode.WalkTrigger && L(55).TransitionMode==TransitionMode.WalkTrigger,"real DB DW/Jangan entry gates classify WalkTrigger");
@@ -76,6 +81,9 @@ static class CaveScenarios
         current=new SRCoord(entry.BoardCoord.PosX+5,entry.BoardCoord.PosY);
         nav.Walk=(point,interrupt)=>{walks++;current=point;if(current.DistanceTo(entry.BoardCoord)<0.3)current=entry.ArriveCoord;return interrupt() || true;};
         check(nav.Execute(entry) && walks>1,"walk-trigger crosses the center and succeeds without NPC/entity interaction");
+        current=new SRCoord(entry.BoardCoord.PosX+5,entry.BoardCoord.PosY);walks=polls=0;
+        nav.Walk=(point,interrupt)=>{walks++;current=point;if(point.PosX < entry.BoardCoord.PosX - 1)current=entry.ArriveCoord;return true;};
+        check(nav.Execute(entry), "DW entry crosses beyond the DB center when the trigger starts behind it");
         current=new SRCoord(entry.BoardCoord.PosX+5,entry.BoardCoord.PosY);walks=polls=0;
         nav.Walk=(point,interrupt)=>{walks++;current=point;if(current.DistanceTo(entry.BoardCoord)<0.3)loading=true;return true;};
         nav.Pause=_=>{polls++;if(polls==4){loading=false;current=entry.ArriveCoord;}};

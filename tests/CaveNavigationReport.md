@@ -49,3 +49,14 @@ Yeni sınıflar: `TeleportLinkInfo` (ayrı dosyaya taşındı), `TeleportTransit
 `tests/FerryNavigationScenarios.ps1` ile 76 graph/route/executor kontrolü ve 7 gerçek uygulama assembly kontrolü geçti. Bunlar 23 cnav dosyasının normalize edilmiş bounds/düğüm uyumunu, DW/Jangan yollarını, çoklu oda portal rotasını, loading/timeout/stop davranışını, gerçek SQLite yükleyicisini ve Roc ferry regresyonlarını kapsıyor.
 
 Yeni build ile canlı DW/Jangan portal geçişi henüz yapılmadı. Eski runtime logu girişteki candidate bekleme hatasını doğruluyor; yeni davranışın canlı server/trigger testi ayrı olarak gerekli. Runtime kayıtları `[CAVE-NAV]`, `[CAVE-PATH]`, `[CAVE-TRANSITION]` altında bırakıldı.
+
+
+## DW giriş ve kısa koridor adımları — 14 Eylül düzeltmesi
+
+Debug session_debug.log içinde 07:19–07:21 kaydında DW girişinin BoardCoord merkezine ulaşıp zaman aşımına girdiği; sonraki koridor rotasının 219 ham noktadan oluştuğu ve hareket komutunun 300 ms arayla tekrarlandığı görüldü.
+
+- WalkTrigger merkezi yakalandığında, geçiş/loading başlamamışsa gözlenen yaklaşma yönünde en fazla 2 m ileri geçiş komutu eklenir. Başarı yine gerçek bölge/oda varışından doğrulanır.
+- CaveWaypoints yalnız aynı bölgede, aynı düz çizgi ve yükseklik eğimi üzerindeki noktaları en fazla 12 m segmentler halinde birleştirir. 5 cm çizgi sapması sınırı köşeleri korur; dış alanın geniş toleranslı smoothing yöntemi uygulanmaz.
+- Mesh yürüyüşünde hedef bir kez gönderilir; hareket ilerliyorsa tekrar gönderilmez. En az 1.2 saniye ilerleme görülmezse sınırlı tekrar yapılır, mevcut 4 saniyelik takılma kontrolü korunur.
+
+Release/x86 ve Debug/AnyCPU derlemeleri başarılı. FerryNavigationScenarios: 79 kontrol; gerçek assembly entegrasyonu: 134 kontrol başarılı. Yeni testler yarım metre noktaları, dik köşe korumasını ve merkezin arkasında açılan giriş tetikleyicisini kapsar. Canlı sunucuda bu yeni davranış henüz denenmedi.

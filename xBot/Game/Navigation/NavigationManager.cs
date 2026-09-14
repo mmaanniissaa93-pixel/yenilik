@@ -342,7 +342,40 @@ namespace xBot.Game.Navigation
 
         private static List<SRCoord> CaveWaypoints(List<SRCoord> points, ushort region)
         {
-            return points?.Select(p => new SRCoord(p.PosX, p.PosY, region, (int)unchecked((short)p.Z))).ToList();
+            return CompactCavePath(points?.Select(p => new SRCoord(p.PosX, p.PosY, region, (int)unchecked((short)p.Z))).ToList());
+        }
+
+        // Merge only straight graph edges; preserve corners and height changes.
+        // Unlike outdoor smoothing, this cannot cut several metres across a wall.
+        public static List<SRCoord> CompactCavePath(List<SRCoord> points)
+        {
+            if (points == null || points.Count < 3) return points;
+            var result = new List<SRCoord> { points[0] };
+            for (int i = 0; i < points.Count - 1;)
+            {
+                int next = i + 1;
+                for (int j = i + 2; j < points.Count; j++)
+                {
+                    var a = points[i]; var b = points[j];
+                    double dx = b.PosX - a.PosX, dy = b.PosY - a.PosY;
+                    double length2 = dx * dx + dy * dy;
+                    if (a.Region != b.Region || length2 < 0.01 || length2 > 144) break;
+                    bool straight = true;
+                    for (int k = i + 1; k < j; k++)
+                    {
+                        var p = points[k];
+                        double u = ((p.PosX - a.PosX) * dx + (p.PosY - a.PosY) * dy) / length2;
+                        double ex = p.PosX - a.PosX - u * dx, ey = p.PosY - a.PosY - u * dy;
+                        if (p.Region != a.Region || u < 0 || u > 1 || ex * ex + ey * ey > 0.0025
+                            || Math.Abs(p.Z - (a.Z + u * (b.Z - a.Z))) > 0.1)
+                        { straight = false; break; }
+                    }
+                    if (!straight) break;
+                    next = j;
+                }
+                result.Add(points[next]); i = next;
+            }
+            return result;
         }
 
         public static List<SRCoord> FlattenWalkOnly(NavigationRoute route)

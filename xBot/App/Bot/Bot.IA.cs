@@ -3544,6 +3544,7 @@ namespace xBot.App
             double bestDist = double.MaxValue;
             var progressClock = System.Diagnostics.Stopwatch.StartNew();
             double checkpointDist = double.MaxValue;
+            var sendClock = System.Diagnostics.Stopwatch.StartNew();
 
             while (isBotting && !m_stopBottingRequested)
             {
@@ -3703,7 +3704,11 @@ namespace xBot.App
 
                 // Hedefe doğru yürü
                 int timeWalking = myPosition.TimeTo(position, InfoManager.Character.GetSpeed());
-                MoveTo(position, trace);
+                if (!meshOnly || attemps == 1 || (progressClock.ElapsedMilliseconds >= 1200 && sendClock.ElapsedMilliseconds >= 1200))
+                {
+                    MoveTo(position, trace);
+                    sendClock.Restart();
+                }
                 int waitTime = Math.Min(meshOnly ? 300 : 1200, Math.Max(300, timeWalking / 2));
                 Window.Get.LogProcess("Walking towards waypoint (" + (int)myPosition.DistanceTo(position) + "m remaining)...");
                 Thread.Sleep(waitTime);

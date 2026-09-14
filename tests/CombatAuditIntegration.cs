@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.Serialization;
@@ -103,6 +103,16 @@ public static class CombatAuditIntegration
             var teleport = Skill(98006, "Teleport"); teleport.Params = "0|1952803890|500|125|0";
             var distance = typeof(Bot).GetMethod("GetTeleportDistance", statics);
             Check((double)distance.Invoke(null, new object[] { teleport }) == 12.5, "Teleport distance comes from skill data in decimetres");
+
+            CombatAIEngine.ZerkInScript = false;
+            var completedScript = new Script(); completedScript.Add("// harmless fixture command"); completedScript.Run();
+            Check(completedScript.Completed && !completedScript.Running, "Script reports completion only after reaching its end");
+            var pausedScript = new Script(); pausedScript.Add("// must not execute"); pausedScript.ContinueCondition = delegate { return false; }; pausedScript.Run();
+            Check(!pausedScript.Completed && !pausedScript.Running, "Paused lure script does not report completion or remain running");
+            var failedScript = new Script(); failedScript.Add("// must not execute");
+            failedScript.ContinueCondition = delegate { throw new InvalidOperationException("fixture failure"); };
+            try { failedScript.Run(); } catch (InvalidOperationException) { }
+            Check(!failedScript.Completed && !failedScript.Running, "Script exception clears runtime state without reporting completion");
 
             Info("inGame", true); Info("Party", null); InfoManager.Players.Clear();
             var buff = Skill(98007, "AuditBuff"); var ress = Skill(98008, "AuditRess");

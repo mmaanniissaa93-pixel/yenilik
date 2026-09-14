@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -217,12 +217,12 @@ namespace xBot.App
         {
             bool enabled = LurePolicy.WalkBackDistEnabled || LurePolicy.LureSkillEnabled || LurePolicy.UseScript;
             if (!enabled || center == null) { IsLuring = false; lureStage = 0; return false; }
+            if (LureShouldPause(center, radius)) { IsLuring = false; lureStage = 0; nextLureAction = EngineNow + 1000; return false; }
             if (EngineNow < nextLureAction)
             {
                 if (lureStage == 0) return false;
                 SleepInterruptible(100); return true;
             }
-            if (LureShouldPause(center, radius)) { IsLuring = false; lureStage = 0; nextLureAction = EngineNow + 1000; return false; }
             IsLuring = true;
             try
             {
@@ -280,9 +280,9 @@ namespace xBot.App
                 }
                 else
                 {
-                    MoveLurePoint(center);
-                    lureStage = 0;
-                    if (LurePolicy.BuffAtLureEnd) RunLureBuffs();
+                    bool returned = MoveLurePoint(center);
+                    lureStage = returned ? 0 : 3;
+                    if (returned && LurePolicy.BuffAtLureEnd) RunLureBuffs();
                     nextLureAction = EngineNow + Math.Max(100, LurePolicy.DelayCenterMs);
                 }
                 return true;
