@@ -9,5 +9,9 @@
     <Compile Include="../../xBot/Game/Navigation/NavigationRoute.cs" Link="NavigationRoute.cs" />
     <Compile Include="../../xBot/Game/Navigation/FerryApproachNavigator.cs" Link="FerryApproachNavigator.cs" />
     <Compile Include="../../xBot/Game/Objects/Common/SRCoord.cs" Link="SRCoord.cs" />
+    <Compile Include="../../xBot/Game/Navigation/TeleportLinkInfo.cs" Link="TeleportLinkInfo.cs" />
+    <Compile Include="../../xBot/Game/Navigation/TeleportTransitionPolicy.cs" Link="TeleportTransitionPolicy.cs" />
+    <Compile Include="../../xBot/Game/Navigation/TransitionRoutePlanner.cs" Link="TransitionRoutePlanner.cs" />
+    <Compile Include="../../xBot/Game/Navigation/WalkTriggerNavigator.cs" Link="WalkTriggerNavigator.cs" />
   </ItemGroup>
 </Project>

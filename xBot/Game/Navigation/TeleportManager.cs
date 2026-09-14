@@ -7,23 +7,6 @@ using xBot.Game.Objects.Common;
 
 namespace xBot.Game.Navigation
 {
-	public class TeleportLinkInfo
-	{
-		public uint SourceId { get; set; }
-		public uint DestinationId { get; set; }
-		public uint NpcId { get; set; }
-		public string SourceName { get; set; }
-		public string DestinationName { get; set; }
-		public SRCoord BoardCoord { get; set; }
-		public SRCoord ArriveCoord { get; set; }
-		public bool IsFerry { get; set; }
-
-		public override string ToString()
-		{
-			return $"[{SourceName} -> {DestinationName}] Board:({(int)BoardCoord.PosX},{(int)BoardCoord.PosY}) Arrive:({(int)ArriveCoord.PosX},{(int)ArriveCoord.PosY})";
-		}
-	}
-
 	public class TeleportManager
 	{
 		private static TeleportManager m_instance;
@@ -74,6 +57,9 @@ namespace xBot.Game.Navigation
 			// 1. Try to load from SQLite database
 			TryLoadFromDatabase();
 
+        foreach (var link in m_links)
+            link.TransitionMode = TeleportTransitionPolicy.Classify(link, m_links);
+
 		// 2. Add Built-in / Fallback Ferries to guarantee 100% availability
 		AddBuiltinFerries();
 
@@ -122,7 +108,7 @@ namespace xBot.Game.Navigation
 				if (!db.Connect())
 					return;
 
-				string query = "SELECT sourceid, destinationid, id, name, destination, spawn_region, spawn_x, spawn_y, spawn_z, pos_region, pos_x, pos_y, pos_z FROM teleportlinks;";
+				string query = "SELECT t.*, CASE WHEN EXISTS(SELECT 1 FROM models m WHERE m.id=t.id) OR EXISTS(SELECT 1 FROM teleportbuildings b WHERE b.id=t.id) THEN 1 ELSE 0 END AS has_entity FROM teleportlinks t;";
 				var results = db.GetResultFromQuery(query);
 				db.Close();
 
@@ -161,6 +147,11 @@ namespace xBot.Game.Navigation
 								SourceId = srcId,
 								DestinationId = dstId,
 								NpcId = npcId,
+                                ServerName = row["servername"],
+                                TypeId1 = int.Parse(row["tid1"]),
+                                Gold = int.Parse(row["gold"]),
+                                MinimumLevel = int.Parse(row["level"]),
+                                HasEntityModel = row["has_entity"] == "1",
 								SourceName = srcName,
 								DestinationName = dstName,
 								BoardCoord = boardCoord,
@@ -303,6 +294,8 @@ namespace xBot.Game.Navigation
 				if (!CollisionPolicy.IsLinkAllowed(link, playerLevel))
 					continue;
 
+                if (!TeleportTransitionPolicy.SameSpace(start, link.BoardCoord)
+                    || !TeleportTransitionPolicy.SameSpace(target, link.ArriveCoord)) continue;
 				double distToBoard = start.DistanceTo(link.BoardCoord);
 				double distFromArriveToTarget = link.ArriveCoord.DistanceTo(target);
 

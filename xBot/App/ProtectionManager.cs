@@ -81,6 +81,11 @@ namespace xBot.App
         private static DateTime lastReturnEveryUtc = DateTime.MinValue;
         private static DateTime lastReturnNextHourUtc = DateTime.MinValue;
         private static bool stopAfterReturn;
+        private static bool disconnectAfterReturn;
+        private static DateTime pendingReturnUntil = DateTime.MinValue;
+        public static bool HasPendingReturn { get { lock (RuntimeLock) return DateTime.UtcNow < pendingReturnUntil; } }
+        private static DateTime sessionStartedUtc = DateTime.UtcNow;
+        private static DateTime lastExplicitReturnAttempt = DateTime.MinValue;
         private static bool levelUpPending;
 
         /// <summary>
@@ -130,7 +135,11 @@ namespace xBot.App
                 nextPetProtectionUtc = DateTime.MinValue;
                 lastPetSummonAttemptUtc = DateTime.MinValue;
                 characterDeadSinceUtc = DateTime.MinValue;
-                stopAfterReturn = false;
+                stopAfterReturn = disconnectAfterReturn = false;
+                pendingReturnUntil = DateTime.MinValue;
+                sessionStartedUtc = DateTime.UtcNow;
+                lastExplicitReturnAttempt = DateTime.MinValue;
+                lastReturnAtTimeUtc = lastReturnEveryUtc = lastReturnNextHourUtc = DateTime.MinValue;
                 levelUpPending = false;
             }
         }
@@ -317,6 +326,7 @@ namespace xBot.App
                 }
 
                 ProtectionPolicyInput input = BuildPolicyInput(now);
+                if (input.IsInTown) pendingReturnUntil = DateTime.MinValue;
                 ProtectionPolicyOptions options = GetPolicyOptions();
                 ProtectionDecision decision = ProtectionPolicy.Evaluate(input, options);
 
@@ -324,12 +334,15 @@ namespace xBot.App
                 // trigger throttle; the character may already be in town by then.
                 if (decision == ProtectionDecision.StopBotInTown)
                 {
-                    stopAfterReturn = false;
+                    bool disconnect = disconnectAfterReturn;
+                    stopAfterReturn = disconnectAfterReturn = false;
                     Window.Get?.Log("Protection: Returned to town; bot stopped.");
                     Bot.Get.Stop();
+                    if (disconnect) Bot.Get.Proxy?.Stop();
                     return true;
                 }
 
+                if (HasPendingReturn) return false;
                 if ((now - lastTownReturnCheck).TotalSeconds < 3)
                     return false;
 
@@ -348,14 +361,21 @@ namespace xBot.App
                     return TryReturnToTown(GetReturnReason(input));
 
                 // Time-based return triggers
+                if (!input.IsAlive || input.IsInTown || !UseReturnScrolls) return false;
+                if (ReturnDisconnectMinutesEnabled && ReturnDisconnectMinutes > 0
+                    && (now - sessionStartedUtc).TotalMinutes >= ReturnDisconnectMinutes)
+                {
+                    if (TryReturnToTown("Return/disconnect interval elapsed.", true))
+                    { disconnectAfterReturn = true; return true; }
+                }
                 if (ReturnAtTimeEnabled && !string.IsNullOrEmpty(ReturnAtTimeValue))
                 {
                     string nowStr = DateTime.Now.ToString("HH:mm");
                     if (nowStr == ReturnAtTimeValue && (now - lastReturnAtTimeUtc).TotalSeconds > 70)
                     {
-                        lastReturnAtTimeUtc = now;
-                        if (ReturnAtTimeStopBot) stopAfterReturn = true;
-                        return TryReturnToTown("Configured time reached (" + ReturnAtTimeValue + ").");
+                        bool sent = TryReturnToTown("Configured time reached (" + ReturnAtTimeValue + ").", ReturnAtTimeStopBot);
+                        if (sent) lastReturnAtTimeUtc = now;
+                        return sent;
                     }
                 }
 
@@ -364,8 +384,9 @@ namespace xBot.App
                     if (lastReturnEveryUtc == DateTime.MinValue) lastReturnEveryUtc = now;
                     else if ((now - lastReturnEveryUtc).TotalMinutes >= ReturnEveryMinutes)
                     {
-                        lastReturnEveryUtc = now;
-                        return TryReturnToTown("Periodic interval elapsed (" + ReturnEveryMinutes + " min).");
+                        bool sent = TryReturnToTown("Periodic interval elapsed (" + ReturnEveryMinutes + " min).");
+                        if (sent) lastReturnEveryUtc = now;
+                        return sent;
                     }
                 }
 
@@ -374,8 +395,9 @@ namespace xBot.App
                     int minToHour = 60 - DateTime.Now.Minute;
                     if (minToHour <= ReturnNextHourMinutes && (now - lastReturnNextHourUtc).TotalSeconds > 120)
                     {
-                        lastReturnNextHourUtc = now;
-                        return TryReturnToTown("Approaching next hour (" + minToHour + " min left).");
+                        bool sent = TryReturnToTown("Approaching next hour (" + minToHour + " min left).");
+                        if (sent) lastReturnNextHourUtc = now;
+                        return sent;
                     }
                 }
 
@@ -479,11 +501,24 @@ namespace xBot.App
             return "A protection condition was met.";
         }
 
-        private static bool TryReturnToTown(string reason)
+        public static bool RequestReturn(string reason, bool stopOnArrival = false)
         {
+            if (!InfoManager.inGame || InfoManager.Character == null || !Bot.Get.isBotting) return false;
+            lock (RuntimeLock)
+            {
+                if ((DateTime.UtcNow - lastExplicitReturnAttempt).TotalSeconds < 3) return false;
+                lastExplicitReturnAttempt = DateTime.UtcNow;
+                return TryReturnToTown(reason, stopOnArrival);
+            }
+        }
+
+        private static bool TryReturnToTown(string reason, bool stopOnArrival = false)
+        {
+            if (!UseReturnScrolls || HasPendingReturn) return false;
             if (Bot.Get.UseReturnScroll())
             {
-                stopAfterReturn = StopBotInTown;
+                pendingReturnUntil = DateTime.UtcNow.AddSeconds(30);
+                stopAfterReturn = StopBotInTown || stopOnArrival;
                 levelUpPending = false;
                 Window.Get?.Log("Protection: " + reason + " Returning to town...");
                 return true;

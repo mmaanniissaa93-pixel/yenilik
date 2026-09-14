@@ -1,8 +1,9 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using Newtonsoft.Json.Linq;
 using xBot.Game;
+using xBot.Game.Navigation;
 using xBot.Game.Objects.Common;
 using xBot.Game.Objects.Entity;
 using xBot.Game.Objects.Party;
@@ -36,15 +37,21 @@ namespace xBot.App
         public static List<string> BuffProximityPlayers { get; } = new List<string>();
 
         private static readonly Dictionary<string, (DateTime FirstDeadTime, int Retries)> DeadPlayerTracker = new Dictionary<string, (DateTime, int)>();
+        private static readonly Dictionary<string, DateTime> recentBuffs = new Dictionary<string, DateTime>();
         private static DateTime lastSupportActionUtc = DateTime.MinValue;
         private static readonly object supportLock = new object();
+
+        public static void ResetRuntimeState()
+        {
+            lock (supportLock)
+            {
+                recentBuffs.Clear(); DeadPlayerTracker.Clear(); lastSupportActionUtc = DateTime.MinValue;
+            }
+        }
 
         public static void RunTick()
         {
             if (InfoManager.Character == null || !InfoManager.inGame || !Bot.Get.isBotting)
-                return;
-
-            if (InfoManager.Party == null || InfoManager.Party.Members == null || InfoManager.Party.Members.Count <= 1)
                 return;
 
             if (InfoManager.Character.LifeStateType == SRModel.LifeState.Dead)
@@ -61,8 +68,11 @@ namespace xBot.App
             uint pendingTarget = 0;
             int pendingSleep = 0;
             string pendingLog = null;
+            string pendingBuffKey = null;
             try
             {
+                foreach (var key in new List<string>(recentBuffs.Keys))
+                    if (recentBuffs[key] <= DateTime.UtcNow) recentBuffs.Remove(key);
                 SRCoord myPos = InfoManager.Character.GetRealtimePosition();
                 if (myPos == null)
                     return;
@@ -128,6 +138,7 @@ namespace xBot.App
                         {
                             SRPlayer p = InfoManager.Players.GetAt(i);
                             if (p == null || p.Name == InfoManager.Character.Name) continue;
+                            if (p.LifeStateType != SRModel.LifeState.Dead) DeadPlayerTracker.Remove(p.Name);
                             if (p.LifeStateType == SRModel.LifeState.Dead && ResurrectPolicy.MatchesRegex(p.Name))
                             {
                                 if (p.Position != null && myPos.DistanceTo(p.Position) <= resRange)
@@ -214,7 +225,8 @@ namespace xBot.App
                 }
 
                 // 4. Check Assigned Party Buffs (Parti Sekmesi & Parti Ayarları)
-                if (pendingSkill == null && PartyBuffsEnabled && PartyBuffAssignments.Count > 0)
+                if (pendingSkill == null && PartyBuffsEnabled && PartyBuffAssignments.Count > 0
+                    && !(Bot.Get.IsLuring && LurePolicy.BuffAtLureEnd))
                 {
                     // Yakın oyuncu kuralı (Proximity Rule)
                     bool proximityAllow = true;
@@ -249,21 +261,28 @@ namespace xBot.App
                             var assign = PartyBuffAssignments[ai];
                             if (assign == null || string.IsNullOrEmpty(assign.PlayerName)) continue;
 
-                            SRPlayer targetPlayer = InfoManager.Players.Find(p => p != null && (p.Name.Equals(assign.PlayerName, StringComparison.OrdinalIgnoreCase) || (assign.PlayerName == "*" && BuffAllNearbyPlayers)));
-                            if (targetPlayer == null || targetPlayer.LifeStateType == SRModel.LifeState.Dead) continue;
-                            if (targetPlayer.Position == null || myPos.DistanceTo(targetPlayer.Position) > buffRange) continue;
-
-                            // Karakterde skill'i bul
                             SRSkill buffSkill = FindBuffSkill(assign.SkillId, assign.SkillName);
-                            if (buffSkill != null && buffSkill.Enabled && buffSkill.isCastingEnabled)
+                            if (buffSkill == null || !buffSkill.Enabled || !buffSkill.isCastingEnabled) continue;
+                            foreach (var targetPlayer in InfoManager.Players.Snapshot())
                             {
+                                if (targetPlayer == null || targetPlayer.LifeStateType == SRModel.LifeState.Dead) continue;
+                                if (!string.Equals(targetPlayer.Name, assign.PlayerName, StringComparison.OrdinalIgnoreCase)
+                                    && !(assign.PlayerName == "*" && BuffAllNearbyPlayers)) continue;
+                                if (targetPlayer.Position == null || !TeleportTransitionPolicy.SameSpace(myPos, targetPlayer.Position)
+                                    || myPos.DistanceTo(targetPlayer.Position) > buffRange) continue;
+                                string key = targetPlayer.UniqueID + ":" + buffSkill.ID;
+                                if (recentBuffs.ContainsKey(key)) continue;
+                                if (targetPlayer.Buffs != null && targetPlayer.Buffs.Find(b => b != null
+                                    && (b.ID == buffSkill.ID || (buffSkill.GroupID != 0 && b.GroupID == buffSkill.GroupID))) != null) continue;
                                 pendingSkill = buffSkill;
                                 pendingTarget = targetPlayer.UniqueID;
+                                pendingBuffKey = key;
                                 pendingSleep = Math.Max(400, buffSkill.CastingTime + 150);
                                 pendingLog = $"Party Support: Casting [{buffSkill.Name}] on [{targetPlayer.Name}]...";
                                 lastSupportActionUtc = DateTime.UtcNow;
                                 break;
                             }
+                            if (pendingSkill != null) break;
                         }
                     }
                 }
@@ -278,17 +297,22 @@ namespace xBot.App
             {
                 if (pendingLog != null) Window.Get?.LogProcess(pendingLog);
                 Bot.Get.CheckWeaponSwitch(pendingSkill);
-                PacketBuilder.CastSkill(pendingSkill.ID, pendingTarget);
+                if (!PacketBuilder.CastSkill(pendingSkill.ID, pendingTarget)) return;
+                if (pendingBuffKey != null)
+                {
+                    lock (supportLock) recentBuffs[pendingBuffKey] = DateTime.UtcNow.AddSeconds(5);
+                }
                 Thread.Sleep(pendingSleep);
                 Bot.Get.EnsureMainWeapon();
 
                 // Buffla ve merkeze dön
-                if (BuffAndReturnToCenter && Window.Get != null)
+                if (pendingBuffKey != null && BuffAndReturnToCenter && Window.Get != null
+                    && Bot.Get.isBotting && InfoManager.inGame)
                 {
                     SRCoord trainPos = Window.Get.TrainingArea_GetPosition();
                     if (trainPos != null)
                     {
-                        Bot.Get.MoveTo(trainPos);
+                        Bot.Get.ReturnAfterPartyBuff(trainPos);
                     }
                 }
             }

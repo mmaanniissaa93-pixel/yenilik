@@ -914,12 +914,22 @@ namespace xBot.App
                 host.Controls.Add(gbProf);
 
                 // Right Column CheckBoxes
-                PhBotTodoCheck(host, "PhBot_AutoBeforeLoop",
+                var beforeLoopCheck = PhBotTodoCheck(host, "PhBot_AutoBeforeLoop",
                     isTR ? "Her şehir döngüsünden önce otomatik yapılandırma" : "Auto configure before each town loop",
-                    col2X, 36, false);
-                PhBotTodoCheck(host, "PhBot_AutoSharedPick",
+                    col2X, 36, AutoConfigureManager.AutoConfigureBeforeTownLoop);
+                if (beforeLoopCheck.Tag == null)
+                {
+                    beforeLoopCheck.Tag = "bound";
+                    beforeLoopCheck.CheckedChanged += (s, e) => { AutoConfigureManager.AutoConfigureBeforeTownLoop = beforeLoopCheck.Checked; Settings.SaveCharacterSettings(); };
+                }
+                var sharedPickCheck = PhBotTodoCheck(host, "PhBot_AutoSharedPick",
                     isTR ? "Paylaşılan pick filter kullan (locale)" : "Use shared pick filter (locale)",
-                    col2X, 62, false);
+                    col2X, 62, AutoConfigureManager.UseSharedPickFilter);
+                if (sharedPickCheck.Tag == null)
+                {
+                    sharedPickCheck.Tag = "bound";
+                    sharedPickCheck.CheckedChanged += (s, e) => { AutoConfigureManager.UseSharedPickFilter = sharedPickCheck.Checked; AutoConfigureManager.LoadSharedPickFilter(); Settings.SaveCharacterSettings(); };
+                }
 
                 // Configure Button (Big Middle Button)
                 Button btnConfigure = new Button

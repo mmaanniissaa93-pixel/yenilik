@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -218,7 +218,7 @@ namespace xBot.Game.Navigation
 				
 				foreach (var other in m_boundsIndex)
 				{
-					if ((entry.RegionId & 0x8000) == (other.RegionId & 0x8000) && entry.Borders(other))
+					if ((entry.RegionId & 0x8000) == 0 && (other.RegionId & 0x8000) == 0 && entry.Borders(other))
 					{
 						var crossingPoint = entry.GetCrossingPoint(other);
 						double weight = entry.DistanceTo(other.MinX, other.MinY); // Approximate weight
@@ -248,6 +248,22 @@ namespace xBot.Game.Navigation
 				Window.Get?.Log($"NavMesh: Not available or null coords (Init={m_initialized}, Start={start != null}, Target={target != null})");
 				return null;
 			}
+
+            if (!TeleportTransitionPolicy.SameSpace(start, target)) return null;
+            if (start.inDungeon())
+            {
+                var entry = m_boundsIndex.Find(e => e.RegionId == start.Region);
+                if (entry == null) { Window.Get?.Log($"[CAVE-NAV] start={start} target={target} navFile=missing region={start.Region}"); return null; }
+                var caveRegion = GetOrLoadRegion(entry);
+                if (caveRegion == null) return null;
+                int a = caveRegion.FindNearestPointIndex((float)start.PosX, (float)start.PosY);
+                int b = caveRegion.FindNearestPointIndex((float)target.PosX, (float)target.PosY);
+                var result = m_pathfinder.FindPath(caveRegion, (float)start.PosX, (float)start.PosY, (float)target.PosX, (float)target.PosY, false, null, true);
+                result = CaveWaypoints(result, start.Region);
+                Window.Get?.Log($"[CAVE-NAV] start={start} navFile={Path.GetFileName(entry.FilePath)} nearestNode={a} nearestDistance={(a < 0 ? -1 : caveRegion.Points[a].DistanceTo((float)start.PosX, (float)start.PosY)):F2} target={target} targetNavFile={Path.GetFileName(entry.FilePath)}");
+                Window.Get?.Log($"[CAVE-PATH] startNode={a} targetNode={b} count={result?.Count ?? 0} result={(result == null ? "null" : "success")}");
+                return result;
+            }
 
 			float startX = (float)start.PosX;
 			float startY = (float)start.PosY;
@@ -298,6 +314,7 @@ namespace xBot.Game.Navigation
             foreach (var entry in m_boundsIndex)
             {
                 if (((entry.RegionId & 0x8000) != 0) != start.inDungeon()
+                    || (start.inDungeon() && entry.RegionId != start.Region)
                     || !entry.Contains((float)start.PosX, (float)start.PosY, 25)
                     || !entry.Contains((float)board.PosX, (float)board.PosY, 30)) continue;
                 var path = FindMeshLeg(entry, start, board, failedPoints);
@@ -307,6 +324,25 @@ namespace xBot.Game.Navigation
             if (best != null) return best;
             var multi = FindMultiRegionRoute(start, board, true, failedPoints);
             return FlattenWalkOnly(multi);
+        }
+
+        public void TraceCavePosition(SRCoord player, SRCoord target)
+        {
+            if (!IsAvailable || player == null || target == null || (!player.inDungeon() && !target.inDungeon())) return;
+            var entry = player.inDungeon() ? m_boundsIndex.Find(e => e.RegionId == player.Region) : FindMeshRegionAt(player);
+            var targetEntry = target.inDungeon() ? m_boundsIndex.Find(e => e.RegionId == target.Region) : FindMeshRegionAt(target);
+            var region = entry == null ? null : GetOrLoadRegion(entry);
+            int node = region == null ? -1 : region.FindNearestPointIndex((float)player.PosX, (float)player.PosY);
+            double distance = node < 0 ? -1 : region.Points[node].DistanceTo((float)player.PosX, (float)player.PosY);
+            Window.Get?.Log($"[CAVE-NAV] player={player} navFile={entry?.FilePath ?? "missing"} nearestNode={node} nearestDistance={distance:F2} target={target} targetNavFile={targetEntry?.FilePath ?? "missing"}");
+        }
+
+        private List<SRCoord> FindApproachPathForRoute(SRCoord start, SRCoord board)
+        { return FindApproachPath(start, board); }
+
+        private static List<SRCoord> CaveWaypoints(List<SRCoord> points, ushort region)
+        {
+            return points?.Select(p => new SRCoord(p.PosX, p.PosY, region, (int)unchecked((short)p.Z))).ToList();
         }
 
         public static List<SRCoord> FlattenWalkOnly(NavigationRoute route)
@@ -333,13 +369,14 @@ namespace xBot.Game.Navigation
             var path = m_pathfinder.FindPath(region, (float)start.PosX, (float)start.PosY,
                 (float)target.PosX, (float)target.PosY, true, excluded);
             if (path != null && start.inDungeon())
-                path = path.Select(p => new SRCoord(p.PosX, p.PosY, start.Region, p.Z)).ToList();
+                path = CaveWaypoints(path, start.Region);
             return path;
         }
 
         private RegionBoundsEntry FindMeshRegionAt(SRCoord position)
         {
             return m_boundsIndex.Where(e => ((e.RegionId & 0x8000) != 0) == position.inDungeon()
+                && (!position.inDungeon() || e.RegionId == position.Region)
                 && e.Contains((float)position.PosX, (float)position.PosY, 30))
                 .OrderBy(e => {
                     var r = GetOrLoadRegion(e);
@@ -395,6 +432,16 @@ namespace xBot.Game.Navigation
 		{
 			if (!IsAvailable || start == null || target == null)
 				return null;
+
+            if (start.inDungeon() || target.inDungeon())
+            {
+                int level = (int)(InfoManager.Character?.Level ?? 0);
+                var links = TeleportManager.Get.Links.Where(l => !TeleportManager.Get.IsLinkBlacklisted(l)
+                    && CollisionPolicy.IsLinkAllowed(l, level)
+                    && (CollisionPolicy.IgnoreTeleportLevel || level == 0 || level >= l.MinimumLevel)).ToList();
+                return TransitionRoutePlanner.Find(start, target, links,
+                    (a,b) => FindPath(a,b) ?? FlattenWalkOnly(FindMultiRegionRoute(a,b)), FindApproachPathForRoute);
+            }
 
 			NavigationRoute route = new NavigationRoute();
 
@@ -472,6 +519,17 @@ namespace xBot.Game.Navigation
 		{
 			if (!IsAvailable || start == null || target == null)
 				return null;
+
+            if (!TeleportTransitionPolicy.SameSpace(start, target)) return null;
+            if (start.inDungeon())
+            {
+                var entry = m_boundsIndex.Find(e => e.RegionId == start.Region);
+                var points = entry == null ? null : (meshOnly ? FindMeshLeg(entry, start, target, failedPoints) : FindPath(start, target));
+                if (points == null || points.Count == 0) return null;
+                var caveRoute = new NavigationRoute();
+                caveRoute.Segments.Add(RouteSegment.CreateWalk(points));
+                return caveRoute;
+            }
 
 			var startRegion = meshOnly ? FindMeshRegionAt(start) : FindRegionAt((float)start.PosX, (float)start.PosY);
             var targetRegion = meshOnly ? FindMeshRegionAt(target) : FindRegionAt((float)target.PosX, (float)target.PosY);
@@ -651,7 +709,7 @@ namespace xBot.Game.Navigation
 			// return null so FindCompoundRoute will search for Ferry/Teleport bridges.
 			foreach (var entry in m_boundsIndex)
 			{
-				if (entry.Contains(startX, startY, 40f) && entry.Contains(targetX, targetY, 40f))
+				if ((entry.RegionId & 0x8000) == 0 && entry.Contains(startX, startY, 40f) && entry.Contains(targetX, targetY, 40f))
 					return entry;
 			}
 
@@ -717,12 +775,23 @@ namespace xBot.Game.Navigation
 		/// Warms up the navigation cache by preloading regions near the given position.
 		/// Loads the containing region and adjacent regions within the specified radius.
 		/// </summary>
+        public void WarmupCacheNear(SRCoord position)
+        {
+            if (!IsAvailable || position == null) return;
+            if (position.inDungeon())
+            {
+                var entry = m_boundsIndex.Find(e => e.RegionId == position.Region);
+                if (entry != null) GetOrLoadRegion(entry);
+            }
+            else WarmupCacheNear((float)position.PosX, (float)position.PosY);
+        }
+
 		public void WarmupCacheNear(float x, float y, int adjacentRegionCount = 2)
 		{
 			if (!IsAvailable)
 				return;
 
-			var containing = m_boundsIndex.Find(e => e.Contains(x, y, 40f));
+			var containing = m_boundsIndex.Find(e => (e.RegionId & 0x8000) == 0 && e.Contains(x, y, 40f));
 			if (containing == null)
 				return;
 
@@ -731,7 +800,7 @@ namespace xBot.Game.Navigation
 
 			// Then preload adjacent regions asynchronously
 			var adjacent = m_boundsIndex
-				.Where(e => e.RegionId != containing.RegionId)
+				.Where(e => (e.RegionId & 0x8000) == 0 && e.RegionId != containing.RegionId)
 				.OrderBy(e => e.DistanceTo(x, y))
 				.Take(adjacentRegionCount);
 
@@ -745,22 +814,6 @@ namespace xBot.Game.Navigation
 	/// Kapı/NPC'nin tam üstüne değil standDist metre yakınına durma noktası
 	/// (oyundan hedefe bakınca hedefin gerisi). Collision takılmasını önler.
 	/// </summary>
-	private static SRCoord StandOff(SRCoord from, SRCoord target, double standDist)
-	{
-		try
-		{
-			if (from == null || target == null)
-				return target;
-			double dx = from.PosX - target.PosX;
-			double dy = from.PosY - target.PosY;
-			double d = System.Math.Sqrt(dx * dx + dy * dy);
-			if (d < 0.001 || d <= standDist)
-				return from;
-			double k = standDist / d;
-			return new SRCoord(target.PosX + dx * k, target.PosY + dy * k);
-		}
-		catch { return target; }
-	}
 
 	private static int ParseRegionId(string fileName)
 		{

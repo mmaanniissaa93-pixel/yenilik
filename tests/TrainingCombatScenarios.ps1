@@ -1,4 +1,4 @@
-param(
+﻿param(
     [Parameter(Mandatory=$true)][string]$AssemblyPath,
     [Parameter(Mandatory=$true)][string]$OutputDirectory
 )
@@ -210,6 +210,9 @@ public static class DelayedCombatReply {
         $compiled = $compiler.CompileAssemblyFromSource($parameters, [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'BotEngineIntegration.cs')))
         if ($compiled.Errors.HasErrors) { throw ($compiled.Errors | Out-String) }
         $compiled.CompiledAssembly.GetType('BotEngineIntegration').GetMethod('Run').Invoke($null, @($bot, $window)) | Out-Null
+        $audit = $compiler.CompileAssemblyFromSource($parameters, [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'CombatAuditIntegration.cs')))
+        if ($audit.Errors.HasErrors) { throw ($audit.Errors | Out-String) }
+        $audit.CompiledAssembly.GetType('CombatAuditIntegration').GetMethod('Run').Invoke($null, @($bot, $window)) | Out-Null
     } finally { $compiler.Dispose() }
 } finally {
     if ($bot) { $bot.GetType().GetField('tBotting', $flags).SetValue($bot, $null) }

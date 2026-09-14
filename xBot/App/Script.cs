@@ -20,6 +20,9 @@ namespace xBot.App
 		private DateTime m_lastRepairTime = DateTime.MinValue;
 		public string FileName { get; private set; }
 		public bool Running { get; set; }
+        public bool IsLureScript { get; set; }
+        public bool Completed { get; private set; }
+        public Func<bool> ContinueCondition { get; set; }
 		public bool IsTownScript { get { return m_isTownScript; } }
 
 		public Script()
@@ -270,11 +273,18 @@ namespace xBot.App
 			Window w = Window.Get;
 			m_stopSignal.Reset();
 			Running = true;
+            Completed = false;
+            try
+            {
 			int consecutiveStepBacks = 0;
 			// Parsing script
-			for (int j = startIndex; j < m_lines.Count && Running && b.isBotting; j++)
+			int j;
+			for (j = startIndex; j < m_lines.Count && Running && b.isBotting && (ContinueCondition == null || ContinueCondition()); j++)
 			{
+				b.RunScriptBerserk();
 				ScriptStepResult res = ExecuteLine(j);
+                if (res == ScriptStepResult.Continue && Running && b.isBotting
+                    && (ContinueCondition == null || ContinueCondition()) && IsLureScript && LurePolicy.BuffAfterScriptCommand) b.RunLureBuffs();
 				if (res == ScriptStepResult.AbortReturn)
 					break;
 				if (res == ScriptStepResult.StepBack)
@@ -297,7 +307,9 @@ namespace xBot.App
 					consecutiveStepBacks = 0;
 				}
 			}
-			Running = false;
+            Completed = j >= m_lines.Count && Running && b.isBotting;
+            }
+            finally { Running = false; }
 		}
 		/// <summary>
 		/// Scripti sondan başa doğru koşar (Alana Dönüş &gt; Reverse route).
@@ -313,8 +325,9 @@ namespace xBot.App
 			m_stopSignal.Reset();
 			Running = true;
 			int consecutiveStepBacks = 0;
-			for (int j = startIndex; j >= 0 && Running && b.isBotting; j--)
+			for (int j = startIndex; j >= 0 && Running && b.isBotting && (ContinueCondition == null || ContinueCondition()); j--)
 			{
+				b.RunScriptBerserk();
 				ScriptStepResult res = ExecuteLine(j);
 				if (res == ScriptStepResult.AbortReturn)
 					break;
@@ -595,6 +608,11 @@ namespace xBot.App
 				w.LogProcess("CAST: skill bekleme süresinde [" + skill.Name + "].", Window.ProcessState.Warning);
 				return;
 			}
+            if (IsLureScript)
+            {
+                b.CastLureSkill(skill, w.TrainingArea_GetPosition(), w.TrainingArea_GetRadius());
+                return;
+            }
 			b.CheckWeaponSwitch(skill);
 			uint target = skill.isTargetRequired ? InfoManager.SelectedEntityUniqueID : 0;
 			if (skill.isTargetRequired && target == 0)

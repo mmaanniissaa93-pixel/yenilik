@@ -1042,10 +1042,15 @@ namespace xBot.App
                 }
             };
             grpScript.Controls.Add(PhBot_Lure_BtnLoadScript);
+            var useLureScript = new CheckBox { Name = "PhBot_Lure_UseScript", Text = "Script kullan", Checked = LurePolicy.UseScript,
+                AutoSize = true, Location = new Point(80, 0) };
+            useLureScript.CheckedChanged += (s, e) => LurePolicy.UseScript = useLureScript.Checked;
+            PhBot_Lure_ScriptPathText.TextChanged += (s, e) => useLureScript.Checked = LurePolicy.UseScript;
+            grpScript.Controls.Add(useLureScript);
 
             PhBot_Lure_BuffAfterScriptCheck = new CheckBox
             {
-                Text = "Script bittikten sonra buff bas",
+                Text = "Her script komutundan sonra buff bas",
                 Location = new Point(15, 60),
                 AutoSize = true,
                 Checked = LurePolicy.BuffAfterScriptCommand,
@@ -1191,6 +1196,19 @@ namespace xBot.App
 
             PopulateLureSkills();
             RefreshLureWhitelist();
+            BindLureSaving(p);
+        }
+
+        private void BindLureSaving(Control parent)
+        {
+            foreach (Control control in parent.Controls)
+            {
+                if (control is CheckBox check) check.CheckedChanged += (s, e) => Settings.SaveCharacterSettings();
+                else if (control is TextBox text) text.TextChanged += (s, e) => Settings.SaveCharacterSettings();
+                else if (control is ComboBox combo) combo.SelectedIndexChanged += (s, e) => Settings.SaveCharacterSettings();
+                else if (control is Button button) button.Click += (s, e) => Settings.SaveCharacterSettings();
+                BindLureSaving(control);
+            }
         }
 
         private void RefreshLureWhitelist()
@@ -1204,6 +1222,7 @@ namespace xBot.App
         private void PopulateLureSkills()
         {
             if (PhBot_Lure_SkillCombo == null) return;
+            string savedLureSkill = LurePolicy.LureSkillName;
             PhBot_Lure_SkillCombo.Items.Clear();
             PhBot_Lure_SkillCombo.Items.Add("");
             try
@@ -1222,8 +1241,11 @@ namespace xBot.App
             }
             catch { }
 
-            if (!string.IsNullOrEmpty(LurePolicy.LureSkillName) && PhBot_Lure_SkillCombo.Items.Contains(LurePolicy.LureSkillName))
-                PhBot_Lure_SkillCombo.SelectedItem = LurePolicy.LureSkillName;
+            if (!string.IsNullOrEmpty(savedLureSkill))
+            {
+                if (!PhBot_Lure_SkillCombo.Items.Contains(savedLureSkill)) PhBot_Lure_SkillCombo.Items.Add(savedLureSkill);
+                PhBot_Lure_SkillCombo.SelectedItem = savedLureSkill;
+            }
             else if (PhBot_Lure_SkillCombo.Items.Count > 0)
                 PhBot_Lure_SkillCombo.SelectedIndex = 0;
         }

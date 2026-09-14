@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using xBot.App;
 using xBot.App.CommandCenter;
@@ -13,6 +13,7 @@ internal static class Program
         Run("Bot çalışmıyorsa koruma aksiyonu yok", BaseInput(), BaseOptions(), ProtectionDecision.None);
         Run("Tetik kapalıysa koşul aksiyon üretmez", With(input => input.FullInventory = true), BaseOptions(), ProtectionDecision.None);
 
+        Run("Saatli dönüşün durma isteği genel şehirde dur ayarından bağımsızdır", With(input => input.IsInTown = true, input => input.StopAfterReturn = true), BaseOptions(), ProtectionDecision.StopBotInTown);
         ProtectionPolicyOptions allTriggers = BaseOptions();
         allTriggers.ReturnNoArrows = true;
         allTriggers.ReturnFullInventory = true;

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Collections.Generic;
 using System.Drawing;
@@ -1700,17 +1700,32 @@ namespace xBot.App
 		/// <summary>
 		/// Get all skillshots used for an specific mob type. If it's an empty list, it will try to add from a lower mob type or General.
 		/// </summary>
+        private static SRSkill[] ResolveAttackSkillList(System.Collections.Generic.Dictionary<SRMob.Mob, SRSkill[]> cache, SRMob.Mob type)
+        {
+            if (cache.TryGetValue(type, out var exact) && exact != null && exact.Length > 0) return exact;
+            if (!CombatAIEngine.UseLowerSkills) return new SRSkill[0];
+            SRMob.Mob[] lower;
+            switch (type)
+            {
+                case SRMob.Mob.Giant: lower = new[] { SRMob.Mob.Champion, SRMob.Mob.General }; break;
+                case SRMob.Mob.PartyGiant: lower = new[] { SRMob.Mob.PartyChampion, SRMob.Mob.PartyGeneral, SRMob.Mob.Giant, SRMob.Mob.Champion, SRMob.Mob.General }; break;
+                case SRMob.Mob.PartyChampion: lower = new[] { SRMob.Mob.PartyGeneral, SRMob.Mob.Champion, SRMob.Mob.General }; break;
+                case SRMob.Mob.Elite:
+                case SRMob.Mob.Strong: lower = new[] { SRMob.Mob.PartyGiant, SRMob.Mob.Giant, SRMob.Mob.Champion, SRMob.Mob.General }; break;
+                default: lower = new[] { SRMob.Mob.General }; break;
+            }
+            foreach (var candidate in lower)
+                if (cache.TryGetValue(candidate, out var skills) && skills != null && skills.Length > 0) return skills;
+            return new SRSkill[0];
+        }
+
 		public SRSkill[] Skills_GetSkillShots(SRMob.Mob type)
 		{
 			lock (m_AttackSkillsCacheLock)
 			{
 				if (m_AttackSkillsCache != null && m_AttackSkillsCache.TryGetValue(type, out SRSkill[] cached))
 				{
-					if (cached != null && cached.Length > 0)
-						return cached;
-					if (type != SRMob.Mob.General && m_AttackSkillsCache.TryGetValue(SRMob.Mob.General, out SRSkill[] gen) && gen != null && gen.Length > 0)
-						return gen;
-					return cached ?? new SRSkill[0];
+					return ResolveAttackSkillList(m_AttackSkillsCache, type);
 				}
 			}
 
@@ -1732,13 +1747,7 @@ namespace xBot.App
 				m_AttackSkillsCache = newCache;
 			}
 
-			if (newCache.TryGetValue(type, out SRSkill[] result) && result != null && result.Length > 0)
-				return result;
-
-			if (type != SRMob.Mob.General && newCache.TryGetValue(SRMob.Mob.General, out SRSkill[] genSkills) && genSkills != null && genSkills.Length > 0)
-				return genSkills;
-
-			return result ?? new SRSkill[0];
+			return ResolveAttackSkillList(newCache, type);
 		}
 		/// <summary>
 		/// Get all buffs used for a specific mob type. Falls back to lower mob types or General buffs.

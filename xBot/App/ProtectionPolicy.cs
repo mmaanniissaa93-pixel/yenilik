@@ -88,7 +88,7 @@ namespace xBot.App
                 return ProtectionDecision.None;
             }
 
-            if (options.StopBotInTown && input.IsInTown && input.StopAfterReturn)
+            if (input.IsInTown && input.StopAfterReturn)
                 return ProtectionDecision.StopBotInTown;
 
             if (HasReturnTrigger(input, options) && input.HasReturnScroll && options.UseReturnScrolls)

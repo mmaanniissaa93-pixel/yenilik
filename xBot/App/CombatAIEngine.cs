@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -48,9 +48,6 @@ namespace xBot.App
         public static bool IsBerserkEnabled => ZerkWhenFull || ZerkMonsterCountEnabled || (ZerkMobTypes != null && ZerkMobTypes.Count > 0) || ZerkPillars || ZerkInScript;
 
         // Eski uyumluluk bayrakları
-        public static bool ZerkWhenHPFull { get; set; } = false;
-        public static bool ZerkAvoidanceBased { get; set; } = false;
-        public static bool ZerkRarityBased { get; set; } = false;
         public static bool UseZerkPotion { get; set; } = false;
         public static bool UseEnergyOfLife { get; set; } = false;
 

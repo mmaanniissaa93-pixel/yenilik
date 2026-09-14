@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
@@ -346,7 +346,6 @@ namespace xBot.App
                 {
                     if (TabPageV_Control01_Training_Panel != null && TabPageV_Control01_Training_Panel.Visible)
                     {
-                        RefreshCombatControls();
                         RefreshReturnToAreaControls();
                     }
                     if (TabPageV_Control01_Skills_Panel != null && TabPageV_Control01_Skills_Panel.Visible
@@ -1940,59 +1939,6 @@ namespace xBot.App
             catch { }
         }
 
-        // --- Savaş sekmesi: yeni kartlar (Berserker / Gelişmiş / Kaçınma) ---
-        private GroupBox gbxCombatBerserk;
-        private GroupBox gbxCombatAdvanced;
-        private GroupBox gbxCombatAvoid;
-        private Label lblBerserkDesc;
-        private Label lblAdvDesc;
-        private Label lblAvoidDesc;
-        private Label lblZerkMobUnit;
-        private Label[] avoidHeaderLabels;
-        private Label[] avoidRowLabels;
-        private TableLayoutPanel tblAvoidTable;
-        private CheckBox cbxZerkHpFull;
-        private CheckBox cbxZerkCount;
-        private NumericUpDown nudZerkCount;
-        private CheckBox cbxZerkAvoidance;
-        private CheckBox cbxZerkRarity;
-        private CheckBox cbxAdvPillars;
-        private CheckBox cbxAdvWeakerFirst;
-        private CheckBox cbxAdvNoFollow;
-        private System.Collections.Generic.Dictionary<SRMob.Mob, CheckBox[]> avoidTableCells;
-        private bool m_combatUiRefreshing;
-
-        private struct AvoidTableRow
-        {
-            public string Key;
-            public string Default;
-            public SRMob.Mob Type;
-            public AvoidTableRow(string key, string def, SRMob.Mob type) { Key = key; Default = def; Type = type; }
-        }
-
-        private static readonly AvoidTableRow[] AvoidTableRows = new AvoidTableRow[]
-        {
-            new AvoidTableRow("UI_R_General", "Genel", SRMob.Mob.General),
-            new AvoidTableRow("UI_R_Champion", "Champion", SRMob.Mob.Champion),
-            new AvoidTableRow("UI_R_Giant", "Dev (Giant)", SRMob.Mob.Giant),
-            new AvoidTableRow("UI_R_PGeneral", "GeneralParty", SRMob.Mob.PartyGeneral),
-            new AvoidTableRow("UI_R_PChampion", "ChampionParty", SRMob.Mob.PartyChampion),
-            new AvoidTableRow("UI_R_PGiant", "GiantParty", SRMob.Mob.PartyGiant),
-            new AvoidTableRow("UI_R_Unique", "Unique", SRMob.Mob.Unique),
-            new AvoidTableRow("UI_R_Elite", "Elite", SRMob.Mob.Elite),
-            new AvoidTableRow("UI_R_Event", "Event", SRMob.Mob.Event)
-        };
-
-        private static string AvoidRowLabel(AvoidTableRow row)
-        {
-            return LocalizationManager.Get(row.Key, row.Default);
-        }
-
-        private void BuildCombatTabWidgets()
-        {
-            RemoveCombatTabWidgets();
-        }
-
         private void RemoveCombatTabWidgets()
         {
             try
@@ -2027,8 +1973,6 @@ namespace xBot.App
             // Motorun okuduğu eski kutular: CombatAIEngine state'i ile senkron tutulur.
             if (Combat_cbxAutoBerserk != null) Combat_cbxAutoBerserk.Checked = CombatAIEngine.IsBerserkEnabled;
             if (Combat_cbxMobPriority != null) Combat_cbxMobPriority.Checked = true;
-            if (Combat_cbxKiting != null) Combat_cbxKiting.Checked = false;
-            if (Combat_cbxPanicEscape != null) Combat_cbxPanicEscape.Checked = true;
             if (Combat_cbxTargetGeneral != null) Combat_cbxTargetGeneral.Checked = true;
             if (Combat_cbxTargetChampion != null) Combat_cbxTargetChampion.Checked = true;
             if (Combat_cbxTargetGiant != null) Combat_cbxTargetGiant.Checked = true;
@@ -2051,176 +1995,7 @@ namespace xBot.App
             return cbx;
         }
 
-        private void SaveCombatAI()
-        {
-            if (m_combatUiRefreshing)
-                return;
-            try { Settings.SaveBotSettings(); } catch { }
-        }
-
-        private void BuildCombatBerserkCard()
-        {
-            gbxCombatBerserk = new GroupBox
-            {
-                Name = "gbxCombatBerserk",
-                Text = "Berserker",
-                Location = new Point(6, 6),
-                Size = new Size(312, 200)
-            };
-            lblBerserkDesc = new Label
-            {
-                Text = LocalizationManager.Get("UI_BerserkDesc", "Control when berserk should be used during combat."),
-                Location = new Point(12, 20),
-                Size = new Size(288, 26),
-                ForeColor = Color.Gray
-            };
-            cbxZerkHpFull = CreateCombatTick(LocalizationManager.Get("UI_ZerkHPFull", "When HP is full"), CombatAIEngine.ZerkWhenHPFull,
-                v => { CombatAIEngine.ZerkWhenHPFull = v; SaveCombatAI(); });
-            cbxZerkHpFull.Location = new Point(12, 50);
-            cbxZerkCount = CreateCombatTick(LocalizationManager.Get("UI_ZerkMobCount", "Monster count"), CombatAIEngine.ZerkMonsterCountEnabled,
-                v => { CombatAIEngine.ZerkMonsterCountEnabled = v; SaveCombatAI(); });
-            cbxZerkCount.Location = new Point(12, 74);
-            cbxZerkCount.Size = new Size(130, 22);
-            nudZerkCount = new NumericUpDown
-            {
-                Location = new Point(148, 74),
-                Size = new Size(48, 22),
-                Minimum = 1,
-                Maximum = 50,
-                Value = Math.Max(1, Math.Min(50, CombatAIEngine.ZerkMonsterCount))
-            };
-            nudZerkCount.ValueChanged += (s, e) => { CombatAIEngine.ZerkMonsterCount = (int)nudZerkCount.Value; SaveCombatAI(); };
-            lblZerkMobUnit = new Label
-            {
-                Text = LocalizationManager.Get("UI_ZerkUnit", "canavar"),
-                Location = new Point(202, 76),
-                AutoSize = true,
-                ForeColor = Color.Gray
-            };
-            cbxZerkAvoidance = CreateCombatTick(LocalizationManager.Get("UI_ZerkAvoidance", "Avoidance based"), CombatAIEngine.ZerkAvoidanceBased,
-                v => { CombatAIEngine.ZerkAvoidanceBased = v; SaveCombatAI(); });
-            cbxZerkAvoidance.Location = new Point(12, 98);
-            cbxZerkRarity = CreateCombatTick(LocalizationManager.Get("UI_ZerkRarity", "Monster rarity based"), CombatAIEngine.ZerkRarityBased,
-                v => { CombatAIEngine.ZerkRarityBased = v; SaveCombatAI(); });
-            cbxZerkRarity.Location = new Point(12, 122);
-            gbxCombatBerserk.Controls.AddRange(new Control[] { lblBerserkDesc, cbxZerkHpFull, cbxZerkCount, nudZerkCount, lblZerkMobUnit, cbxZerkAvoidance, cbxZerkRarity });
-            pnlTrainingCombat.Controls.Add(gbxCombatBerserk);
-        }
-
         private void SkinControlHierarchy(Control c) { }
-
-        private void BuildCombatAdvancedCard()
-        {
-            gbxCombatAdvanced = new GroupBox
-            {
-                Name = "gbxCombatAdvanced",
-                Text = LocalizationManager.Get("UI_AdvTitle", "Gelişmiş"),
-                Location = new Point(324, 6),
-                Size = new Size(312, 200)
-            };
-            lblAdvDesc = new Label
-            {
-                Text = LocalizationManager.Get("UI_AdvDesc", "Fine tune target selection and movement behavior."),
-                Location = new Point(12, 20),
-                Size = new Size(288, 26),
-                ForeColor = Color.Gray
-            };
-            cbxAdvPillars = CreateCombatTick(LocalizationManager.Get("UI_IgnoreDimensionPillars", "Ignore dimension pillars"), CombatAIEngine.IgnoreDimensionPillars,
-                v => { CombatAIEngine.IgnoreDimensionPillars = v; SaveCombatAI(); });
-            cbxAdvPillars.Location = new Point(12, 50);
-            cbxAdvWeakerFirst = CreateCombatTick(LocalizationManager.Get("UI_AttackWeakerFirst", "Attack weaker first"), CombatAIEngine.AttackWeakerFirst,
-                v => { CombatAIEngine.AttackWeakerFirst = v; SaveCombatAI(); });
-            cbxAdvWeakerFirst.Location = new Point(12, 74);
-            cbxAdvNoFollow = CreateCombatTick(LocalizationManager.Get("UI_DoNotFollowMobs", "Do not follow mobs"), CombatAIEngine.DoNotFollowMobs,
-                v => { CombatAIEngine.DoNotFollowMobs = v; SaveCombatAI(); });
-            cbxAdvNoFollow.Location = new Point(12, 98);
-            gbxCombatAdvanced.Controls.AddRange(new Control[] { lblAdvDesc, cbxAdvPillars, cbxAdvWeakerFirst, cbxAdvNoFollow });
-            pnlTrainingCombat.Controls.Add(gbxCombatAdvanced);
-            SkinControlHierarchy(gbxCombatAdvanced);
-        }
-
-        private void BuildCombatAvoidTable()
-        {
-            gbxCombatAvoid = new GroupBox
-            {
-                Name = "gbxCombatAvoid",
-                Text = LocalizationManager.Get("UI_AvoidTitle", "Kaçınma"),
-                Location = new Point(6, 212),
-                Size = new Size(630, 320)
-            };
-            lblAvoidDesc = new Label
-            {
-                Text = LocalizationManager.Get("UI_AvoidDesc", "Set target preferences by monster rarity."),
-                Location = new Point(12, 20),
-                Size = new Size(600, 18),
-                ForeColor = Color.Gray
-            };
-            gbxCombatAvoid.Controls.Add(lblAvoidDesc);
-
-            tblAvoidTable = new TableLayoutPanel
-            {
-                Name = "tblAvoidTable",
-                Location = new Point(12, 42),
-                Size = new Size(606, 218),
-                ColumnCount = 4,
-                RowCount = AvoidTableRows.Length + 1,
-                AutoSize = false
-            };
-            var table = tblAvoidTable;
-            table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 330));
-            table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 92));
-            table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 92));
-            table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 92));
-            table.RowStyles.Add(new RowStyle(SizeType.Absolute, 22));
-            for (int i = 0; i < AvoidTableRows.Length; i++)
-                table.RowStyles.Add(new RowStyle(SizeType.Absolute, 22));
-
-            avoidHeaderLabels = new Label[4];
-            string[] headerKeys = new string[] { "UI_AvoidH_Rarity", "UI_AvoidH_Avoid", "UI_AvoidH_Prefer", "UI_AvoidH_Berserk" };
-            string[] headerDefs = new string[] { "Rarity", "Kaçın", "Öncelik", "Berserke" };
-            for (int h = 0; h < 4; h++)
-            {
-                var hlbl = new Label { Text = LocalizationManager.Get(headerKeys[h], headerDefs[h]), ForeColor = Color.White, AutoSize = true };
-                avoidHeaderLabels[h] = hlbl;
-                table.Controls.Add(hlbl, h, 0);
-            }
-
-            avoidTableCells = new System.Collections.Generic.Dictionary<SRMob.Mob, CheckBox[]>();
-            avoidRowLabels = new Label[AvoidTableRows.Length];
-            for (int r = 0; r < AvoidTableRows.Length; r++)
-            {
-                var row = AvoidTableRows[r];
-                var rule = CombatAIEngine.GetRule(row.Type);
-                var rowLbl = new Label { Text = AvoidRowLabel(row), ForeColor = Color.White, AutoSize = true, Anchor = AnchorStyles.Left };
-                avoidRowLabels[r] = rowLbl;
-                table.Controls.Add(rowLbl, 0, r + 1);
-                CheckBox[] cells = new CheckBox[3];
-                bool[] vals = new bool[] { rule.Avoid, rule.Prefer, rule.Berserk };
-                for (int c = 0; c < 3; c++)
-                {
-                    var cbx = new CheckBox
-                    {
-                        Checked = vals[c],
-                        AutoSize = false,
-                        Size = new Size(20, 20),
-                        Anchor = AnchorStyles.None,
-                        Text = ""
-                    };
-                    cbx.CheckedChanged += (s, e) =>
-                    {
-                        CheckBox[] all = avoidTableCells[row.Type];
-                        CombatAIEngine.SetRule(row.Type, all[0].Checked, all[1].Checked, all[2].Checked);
-                        SaveCombatAI();
-                    };
-                    cells[c] = cbx;
-                    table.Controls.Add(cbx, c + 1, r + 1);
-                }
-                avoidTableCells[row.Type] = cells;
-            }
-            gbxCombatAvoid.Controls.Add(table);
-            pnlTrainingCombat.Controls.Add(gbxCombatAvoid);
-            SkinControlHierarchy(gbxCombatAvoid);
-        }
 
         // --- Alana Dönüş (Area sekmesi): dönüş yolculuğu ayarları ---
         private GroupBox gbxReturnToArea;
@@ -2417,50 +2192,6 @@ namespace xBot.App
                     Log("Yürüyüş scripti bağlandı: " + fileDialog.FileName);
                 }
             }
-        }
-
-        private void RefreshCombatControls()
-        {
-            m_combatUiRefreshing = true;
-            try
-            {
-                if (cbxZerkHpFull != null) cbxZerkHpFull.Checked = CombatAIEngine.ZerkWhenHPFull;
-                if (cbxZerkCount != null) cbxZerkCount.Checked = CombatAIEngine.ZerkMonsterCountEnabled;
-                if (nudZerkCount != null) nudZerkCount.Value = Math.Max(nudZerkCount.Minimum, Math.Min(nudZerkCount.Maximum, CombatAIEngine.ZerkMonsterCount));
-                if (cbxZerkAvoidance != null) cbxZerkAvoidance.Checked = CombatAIEngine.ZerkAvoidanceBased;
-                if (cbxZerkRarity != null) cbxZerkRarity.Checked = CombatAIEngine.ZerkRarityBased;
-                if (cbxAdvPillars != null) cbxAdvPillars.Checked = CombatAIEngine.IgnoreDimensionPillars;
-                if (cbxAdvWeakerFirst != null) cbxAdvWeakerFirst.Checked = CombatAIEngine.AttackWeakerFirst;
-                if (cbxAdvNoFollow != null) cbxAdvNoFollow.Checked = CombatAIEngine.DoNotFollowMobs;
-                if (avoidTableCells != null)
-                {
-                    foreach (var row in AvoidTableRows)
-                    {
-                        if (!avoidTableCells.ContainsKey(row.Type))
-                            continue;
-                        var rule = CombatAIEngine.GetRule(row.Type);
-                        CheckBox[] cells = avoidTableCells[row.Type];
-                        if (cells[0].Checked != rule.Avoid) cells[0].Checked = rule.Avoid;
-                        if (cells[1].Checked != rule.Prefer) cells[1].Checked = rule.Prefer;
-                        if (cells[2].Checked != rule.Berserk) cells[2].Checked = rule.Berserk;
-                    }
-                }
-            }
-            finally { m_combatUiRefreshing = false; }
-        }
-
-        private void EnsureTrainingCombatTab()
-        {
-            RemoveCombatTabWidgets();
-        }
-
-        private void ResizeTrainingTab(Button tab, int x, int width)
-        {
-            if (tab == null)
-                return;
-
-            tab.Location = new Point(x, 0);
-            tab.Size = new Size(width, tab.Height);
         }
 
         private void BuildScriptCreator()
@@ -3953,7 +3684,6 @@ namespace xBot.App
                 UpdateSkillRuntimeStatus();
 
                 // Savaş sekmesi (Berserker / Gelişmiş / Kaçınma kartları)
-                RefreshCombatControls();
 
                 // Alana Dönüş kartı
                 RefreshReturnToAreaControls();
@@ -4113,35 +3843,6 @@ namespace xBot.App
 
                     // Savaş sekmesi kaldırıldı
                     if (btnTrainingCombat != null) btnTrainingCombat.Visible = false;
-                    if (gbxCombatAdvanced != null) gbxCombatAdvanced.Text = LocalizationManager.Get("UI_AdvTitle", "Gelişmiş");
-                    if (gbxCombatAvoid != null) gbxCombatAvoid.Text = LocalizationManager.Get("UI_AvoidTitle", "Kaçınma");
-                    if (lblBerserkDesc != null) lblBerserkDesc.Text = LocalizationManager.Get("UI_BerserkDesc", "Control when berserk should be used during combat.");
-                    if (lblAdvDesc != null) lblAdvDesc.Text = LocalizationManager.Get("UI_AdvDesc", "Fine tune target selection and movement behavior.");
-                    if (lblAvoidDesc != null) lblAvoidDesc.Text = LocalizationManager.Get("UI_AvoidDesc", "Set target preferences by monster rarity.");
-                    if (cbxZerkHpFull != null) cbxZerkHpFull.Text = LocalizationManager.Get("UI_ZerkHPFull", "When HP is full");
-                    if (cbxZerkCount != null) cbxZerkCount.Text = LocalizationManager.Get("UI_ZerkMobCount", "Monster count");
-                    if (lblZerkMobUnit != null) lblZerkMobUnit.Text = LocalizationManager.Get("UI_ZerkUnit", "canavar");
-                    if (cbxZerkAvoidance != null) cbxZerkAvoidance.Text = LocalizationManager.Get("UI_ZerkAvoidance", "Avoidance based");
-                    if (cbxZerkRarity != null) cbxZerkRarity.Text = LocalizationManager.Get("UI_ZerkRarity", "Monster rarity based");
-                    if (cbxAdvPillars != null) cbxAdvPillars.Text = LocalizationManager.Get("UI_IgnoreDimensionPillars", "Ignore dimension pillars");
-                    if (cbxAdvWeakerFirst != null) cbxAdvWeakerFirst.Text = LocalizationManager.Get("UI_AttackWeakerFirst", "Attack weaker first");
-                    if (cbxAdvNoFollow != null) cbxAdvNoFollow.Text = LocalizationManager.Get("UI_DoNotFollowMobs", "Do not follow mobs");
-                    if (avoidHeaderLabels != null && avoidHeaderLabels.Length == 4)
-                    {
-                        avoidHeaderLabels[0].Text = LocalizationManager.Get("UI_AvoidH_Rarity", "Rarity");
-                        avoidHeaderLabels[1].Text = LocalizationManager.Get("UI_AvoidH_Avoid", "Kaçın");
-                        avoidHeaderLabels[2].Text = LocalizationManager.Get("UI_AvoidH_Prefer", "Öncelik");
-                        avoidHeaderLabels[3].Text = LocalizationManager.Get("UI_AvoidH_Berserk", "Berserke");
-                    }
-                    if (avoidRowLabels != null)
-                    {
-                        for (int r = 0; r < avoidRowLabels.Length && r < AvoidTableRows.Length; r++)
-                        {
-                            if (avoidRowLabels[r] != null)
-                                avoidRowLabels[r].Text = AvoidRowLabel(AvoidTableRows[r]);
-                        }
-                    }
-                    // Alana Dönüş kartı
                     if (gbxReturnToArea != null) gbxReturnToArea.Text = LocalizationManager.Get("UI_ReturnTitle", "Alana Dönüş");
                     var lblReturnDesc = gbxReturnToArea != null ? gbxReturnToArea.Controls["lblReturnDesc"] as Label : null;
                     if (lblReturnDesc != null) lblReturnDesc.Text = LocalizationManager.Get("UI_ReturnDesc", "Route back to the training area and startup behavior.");

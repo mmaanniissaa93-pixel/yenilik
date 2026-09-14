@@ -120,6 +120,11 @@ namespace xBot.App
                 m_stopBottingRequested = false;
                 m_mobsCacheDirty = true;
                 _characterPickup.Reset();
+                rotation.Reset();
+                ProtectionManager.ResetRuntimeState();
+                PartySupportManager.ResetRuntimeState();
+                IsLuring = false; usedEasterNpcs.Clear(); nextEasterCheck = 0;
+                lureStage = 0; nextLureAction = nextTeleportAttempt = 0;
                 _unreachableMobs.Clear();
                 SkillManager.BeginBotRun();
                 try { m_botCts?.Dispose(); } catch { }
@@ -249,7 +254,7 @@ namespace xBot.App
                     bool townCycling = true;
                     try { townCycling = ReturnToAreaPolicy.TownCycling; } catch { }
                     try { if (w.Town_cbxEnableTownLoop != null && w.Town_cbxEnableTownLoop.Checked) townCycling = true; } catch { }
-                    if (ReturnToAreaPolicy.SkipTownScript)
+                    if (ReturnToAreaPolicy.SkipTownScript || !ReturnToAreaPolicy.ContinueTownScript)
                     {
                         townCycling = false;
                     }
@@ -307,7 +312,7 @@ namespace xBot.App
                         int trainingRadius = w.TrainingArea_GetRadius();
                         double distanceToArea = myPosition.DistanceTo(trainingPosition);
                         w.LogProcess($"Pos: ({(int)myPosition.PosX},{(int)myPosition.PosY}) -> Slot: ({(int)trainingPosition.PosX},{(int)trainingPosition.PosY}) [{(int)distanceToArea}m, r={trainingRadius}m]");
-                        if (distanceToArea <= trainingRadius)
+                        if (TeleportTransitionPolicy.SameSpace(myPosition, trainingPosition) && distanceToArea <= trainingRadius)
                         {
                             AttackLoop();
                         }
@@ -362,6 +367,7 @@ namespace xBot.App
                             if (NavigationManager.Get.IsAvailable)
                             {
                                 w.LogProcess("NavMesh: Calculating route to training area...");
+                                NavigationManager.Get.TraceCavePosition(InfoManager.Character.GetRealtimePosition(), trainingPosition);
                                 NavigationRoute navRoute = NavigationManager.Get.FindCompoundRoute(myPosition, trainingPosition);
                                 if (navRoute != null && !navRoute.IsEmpty)
                                 {
@@ -394,7 +400,7 @@ namespace xBot.App
                                             int walkFailedWp = 0;
                                             for (int p = 0; p < walkWpCount && isBotting; p++)
                                             {
-                                                if (myPosition != null && trainingPosition != null && myPosition.DistanceTo(trainingPosition) <= trainingRadius)
+                                                if (TeleportTransitionPolicy.SameSpace(myPosition, trainingPosition) && myPosition.DistanceTo(trainingPosition) <= trainingRadius)
                                                 {
                                                     walkAbortReason = "arrived-training-area";
                                                     break; // Arrived at training area
@@ -436,7 +442,7 @@ namespace xBot.App
                                                 int walkAttempts = (walkIsFinalWp && walkIsFerryWalk) ? 15 : 12;
                                                 w.Log($"[WALK-TRACE] WaitMovement begin wp={p + 1} tolerance={walkTol:F1}m attempts={walkAttempts}");
                                                 bool wpOk = false;
-                                                try { wpOk = WaitMovement(walkWp, walkAttempts, walkTol); } catch { wpOk = false; }
+                                                try { wpOk = WaitNavigationWaypoint(walkWp, walkAttempts, walkTol); } catch { wpOk = false; }
                                                 try { myPosition = InfoManager.Character.GetRealtimePosition(); } catch { }
                                                 string walkCurStr = "?";
                                                 double walkDistAfter = -1;
@@ -540,6 +546,12 @@ namespace xBot.App
                             }
                             else
                             {
+                                if (myPosition.inDungeon() || trainingPosition.inDungeon())
+                                {
+                                    w.Log("[CAVE-PATH] route unavailable; refusing direct fallback across cave geometry/rooms.");
+                                    Stop();
+                                    return;
+                                }
                                 w.LogProcess("Fallback: No movement script configured, using direct walk.", Window.ProcessState.Warning);
                                 // 3. Fallback: Direct walk to training position with collision avoidance
                             // Calculate attempts based on distance (more attempts for farther distances)
@@ -610,6 +622,7 @@ namespace xBot.App
                 return;
             }
 
+            AutoConfigureManager.ApplyBeforeTownLoop();
             w.Log("Town Loop: Initiating town logistic sequence...");
 
             SRCoord myPosition = InfoManager.Character.GetRealtimePosition();
@@ -694,7 +707,7 @@ namespace xBot.App
                                         for (int tq = 0; tq < townWpCount && isBotting && !m_stopBottingRequested; tq++)
                                         {
                                             SRCoord cur = InfoManager.Character.GetRealtimePosition();
-                                            if (cur != null && tp != null && cur.DistanceTo(tp) <= w.TrainingArea_GetRadius())
+                                            if (TeleportTransitionPolicy.SameSpace(cur, tp) && cur.DistanceTo(tp) <= w.TrainingArea_GetRadius())
                                                 break;
                                             SRCoord twp = null;
                                             try { twp = segment.Waypoints[tq]; } catch { }
@@ -703,7 +716,7 @@ namespace xBot.App
                                             int townAttempts = (townIsFinal && townIsFerryWalk) ? 15 : 12;
                                             w.Log($"[WALK-TRACE] WaitMovement begin wp={tq + 1} tolerance={townTol:F1}m attempts={townAttempts} (town)");
                                             bool wpOk = false;
-                                            try { wpOk = WaitMovement(twp, townAttempts, townTol); } catch { wpOk = false; }
+                                            try { wpOk = WaitNavigationWaypoint(twp, townAttempts, townTol); } catch { wpOk = false; }
                                             w.Log($"[WALK-TRACE] WaitMovement end wp={tq + 1} result={wpOk} (town)");
                                             if (!wpOk)
                                             {
@@ -756,11 +769,13 @@ namespace xBot.App
                     Stop();
                     return;
                 }
+                if (InfoManager.Character == null || !InfoManager.inGame) return;
                 myPosition = InfoManager.Character.GetRealtimePosition();
                 trainingRadius = w.TrainingArea_GetRadius();
 
+                if (!TeleportTransitionPolicy.SameSpace(myPosition, trainingPosition)) return;
                 // Check movement
-                if (doMovement)
+                if (doMovement && !IsLuring)
                 {
                     // Avoid getting far away from training area
                     if (myPosition.DistanceTo(trainingPosition) - trainingRadius < 50)
@@ -850,6 +865,10 @@ namespace xBot.App
 
                 if (trainingRadius > 0)
                 {
+                    if (ProtectionManager.CheckTownReturnTriggers() || ProtectionManager.HasPendingReturn)
+                    { SleepInterruptible(100); continue; }
+                    if (CheckLureTick(w, trainingPosition, trainingRadius)) continue;
+
                     // No attack mode check (support / lure / buffer only)
                     if (SkillManager.NoAttackMode)
                     {
@@ -859,11 +878,6 @@ namespace xBot.App
                         continue;
                     }
 
-                    // Lure döngüsü kontrolü
-                    if (CheckLureTick(w, trainingPosition, trainingRadius))
-                    {
-                        continue;
-                    }
 
                     // Attacking
                     // Update cached mob list if training area changed or cache is dirty
@@ -891,23 +905,6 @@ namespace xBot.App
                         CheckBerserker(mobs);
                     }
 
-                    // Combat AI: Emergency Panic Escape (low HP & no pots)
-                    if (w.Combat_cbxPanicEscape == null || w.Combat_cbxPanicEscape.Checked)
-                    {
-                        if (CheckPanicEscape())
-                            return;
-                    }
-
-                    // Combat AI: Check if we need to return to town (no pots / full bag / durability)
-                    if (w.Town_cbxEnableTownLoop == null || w.Town_cbxEnableTownLoop.Checked)
-                    {
-                        if (ProtectionManager.CheckTownReturnTriggers())
-                        {
-                            TownLoop(null);
-                            return;
-                        }
-                    }
-
                     // Pick Filter: "Pick items first" — yerde toplanacak eşya varsa
                     // yeni mob seçmeden önce topla.
                     if (ItemFilterManager.Pick.PickItemsFirst && HasLootableDrops())
@@ -931,10 +928,13 @@ namespace xBot.App
                         }
                     }
 
+
                     // Training Options: Kasılma alanında periyodik kontroller
                     CheckPandoraAndMonsterScrolls(mobs);
                     CheckFlowerSummon();
+                    if (TrainingOptionsPolicy.UseEnergyOfLife && InfoManager.Character.GetHPPercent() <= 50) TryUseEnergyOfLife();
                     CheckTreasureBoxes();
+                    TryUseEasterEggNpc();
                     CheckAutoEquipBetterItems();
 
                     // Pet Motoru: Oto çağırma, canlandırma, koruma, stuck auto-recall
@@ -972,12 +972,6 @@ namespace xBot.App
                     {
                         if (!WaitForCharacterAction(mob)) continue;
                         if (MaintainCombatBuffs(mobs, mob.MobType)) continue;
-                        // Combat AI: Ranged Kiting check (Disabled by default, only executes when explicitly checked)
-                        if (w.Combat_cbxKiting != null && w.Combat_cbxKiting.Checked)
-                        {
-                            ExecuteKiting(mob, myPosition);
-                        }
-
                         // Check distance to target mob before attacking
                         SRTypes.Weapon myWeapon = GetMyWeaponType();
                         SRSkill[] initialSkillshots = w.Skills_GetSkillShots(mob.MobType);
@@ -1029,6 +1023,7 @@ namespace xBot.App
                                     }
                                 }
 
+                                if (ShouldRotateTarget(mob, trainingPosition, trainingRadius)) break;
                                 if (!WaitForCharacterAction(mob)) break;
                                 if (MaintainCombatBuffs(mobs, mob.MobType)) continue;
                                 // Distance check to target
@@ -1168,6 +1163,16 @@ namespace xBot.App
                                 }
 
                                 bool confirmed = WaitForCombatCast(mob);
+                                if (!confirmed && CombatAIEngine.Lagtastic && IsLiveCombatTarget(mob)
+                                    && WaitForCharacterAction(mob) && EnsureCombatTargetSelected(mob)
+                                    && skillToCast.isCastingEnabled && InfoManager.Character != null
+                                    && skillToCast.MPUsage <= InfoManager.Character.MP)
+                                {
+                                    // One retry after timeout; never overlap a pending cast or retry a rejection.
+                                    InfoManager.MonitorSkillCast.Reset();
+                                    if (PacketBuilder.AttackTarget(mob.UniqueID, skillToCast.ID))
+                                        confirmed = WaitForCombatCast(mob);
+                                }
                                 bool treatAsSuccess = confirmed && InfoManager.LastSkillCastSuccess;
                                 // Damage from another player or a DOT is not our cast acknowledgement.
 
@@ -1186,12 +1191,7 @@ namespace xBot.App
                                         Thread.Sleep(300);
                                     }
 
-                                    // PhBot SwitchMonsterAfterDot: canavara DOT (kanama/zehir/yanma) bulaştıysa diğerine geç
-                                    if (CombatAIEngine.SwitchMonsterAfterDot && mob != null && mob.BadStatusFlags != SRModel.BadStatus.None)
-                                    {
-                                        w.LogProcess($"PhBot: Switching monster after DOT on [{mob.Name}]");
-                                        break;
-                                    }
+
                                 }
                                 else
                                 {
@@ -1371,6 +1371,7 @@ namespace xBot.App
 
         private bool ApproachTargetWithCollision(SRCoord targetPosition, double stopRange, SRMob targetMob)
         {
+            if (targetMob != null) TryCastTeleportSkill(targetMob, stopRange);
             return RunCharacterMovement(targetMob, () => ApproachCombatTarget(targetPosition, stopRange, targetMob));
         }
 
@@ -1411,123 +1412,6 @@ namespace xBot.App
             return true;
         }
 
-        private void TryCastTeleportSkill()
-        {
-            if (InfoManager.Character == null || InfoManager.Character.Skills == null) return;
-            for (int i = 0; i < InfoManager.Character.Skills.Count; i++)
-            {
-                var sk = InfoManager.Character.Skills.GetAt(i);
-                if (sk != null && sk.Enabled && sk.isCastingEnabled)
-                {
-                    string sName = sk.ServerName ?? "";
-                    if (sName.IndexOf("TELEPORT", StringComparison.OrdinalIgnoreCase) >= 0
-                        || sName.IndexOf("MOVING_MARCH", StringComparison.OrdinalIgnoreCase) >= 0
-                        || sName.IndexOf("PHANTOM", StringComparison.OrdinalIgnoreCase) >= 0
-                        || sName.IndexOf("GHOST_WALK", StringComparison.OrdinalIgnoreCase) >= 0)
-                    {
-                        PacketBuilder.CastSkill(sk.ID);
-                        Thread.Sleep(200);
-                        break;
-                    }
-                }
-            }
-        }
-
-        private bool CheckLureTick(Window w, SRCoord trainingPosition, int trainingRadius)
-        {
-            if (!LurePolicy.WalkBackDistEnabled && !LurePolicy.LureSkillEnabled && !LurePolicy.UseScript)
-                return false;
-
-            // Check Stop conditions
-            int deadParty = 0;
-            if (InfoManager.Party?.Members != null)
-            {
-                for (int i = 0; i < InfoManager.Party.Members.Count; i++)
-                {
-                    var m = InfoManager.Party.Members.GetAt(i);
-                    if (m != null && m.HPPercent == 0) deadParty++;
-                }
-            }
-
-            int giantPartyCount = 0;
-            int areaMobCount = 0;
-            for (int i = 0; i < InfoManager.Mobs.Count; i++)
-            {
-                var m = InfoManager.Mobs.GetAt(i);
-                if (m == null) continue;
-                if (trainingPosition != null && trainingRadius > 0 && trainingPosition.DistanceTo(m.GetRealtimePosition()) <= trainingRadius)
-                {
-                    areaMobCount++;
-                    if (m.MobType == SRMob.Mob.PartyGiant) giantPartyCount++;
-                }
-            }
-
-            bool partyNear = true;
-            if (LurePolicy.StopIfPartyAway && InfoManager.Party?.Members != null)
-            {
-                for (int i = 0; i < InfoManager.Party.Members.Count; i++)
-                {
-                    var m = InfoManager.Party.Members.GetAt(i);
-                    if (m == null || m.Name == InfoManager.Character.Name) continue;
-                    if (LurePolicy.PartyNearWhitelist.Count > 0 && !LurePolicy.PartyNearWhitelist.Contains(m.Name)) continue;
-                    var lp = InfoManager.Players.Find(p => p != null && p.Name == m.Name);
-                    if (lp == null || lp.Position == null || (trainingPosition != null && trainingPosition.DistanceTo(lp.Position) > (trainingRadius + 45.0)))
-                    {
-                        partyNear = false;
-                        break;
-                    }
-                }
-            }
-
-            if (LurePolicy.ShouldPauseLure(deadParty, giantPartyCount, areaMobCount, partyNear))
-            {
-                w.LogProcess("Lure: Durdurma koşulu sağlandı (ölü parti / mob sayısı / parti uzak), lure bekletiliyor.");
-                Thread.Sleep(800);
-                return true;
-            }
-
-            // Cast Lure skill if enabled
-            if (LurePolicy.LureSkillEnabled && !string.IsNullOrEmpty(LurePolicy.LureSkillName))
-            {
-                SRSkill lSkill = null;
-                if (InfoManager.Character?.Skills != null)
-                {
-                    for (int i = 0; i < InfoManager.Character.Skills.Count; i++)
-                    {
-                        var s = InfoManager.Character.Skills.GetAt(i);
-                        if (s != null && s.Enabled && s.isCastingEnabled && (s.Name == LurePolicy.LureSkillName || s.ServerName == LurePolicy.LureSkillName))
-                        {
-                            lSkill = s;
-                            break;
-                        }
-                    }
-                }
-
-                if (lSkill != null)
-                {
-                    for (int i = 0; i < InfoManager.Mobs.Count; i++)
-                    {
-                        var m = InfoManager.Mobs.GetAt(i);
-                        if (m == null) continue;
-                        if (m.TargetUniqueID != InfoManager.Character.UniqueID && trainingPosition != null && trainingPosition.DistanceTo(m.GetRealtimePosition()) <= trainingRadius)
-                        {
-                            w.LogProcess($"Lure: Casting [{lSkill.Name}] on [{m.Name}]...");
-                            PacketBuilder.AttackTarget(m.UniqueID, lSkill.ID);
-                            Thread.Sleep(Math.Max(350, lSkill.CastingTime + 100));
-                            break;
-                        }
-                    }
-                }
-            }
-
-            if (LurePolicy.BuffAtLureEnd)
-            {
-                BuffLoop();
-            }
-
-            return false;
-        }
-
         private SRMob GetMobFiltered(List<SRMob> mobs, SRCoord trainingPosition, int trainingRadius)
         {
             if (mobs == null || mobs.Count == 0)
@@ -1545,8 +1429,10 @@ namespace xBot.App
                     _unreachableMobs.Remove(expired[e]);
             }
 
+            rotation.Prune(id => IsLiveCombatTarget(InfoManager.Mobs.Find(m => m != null && m.UniqueID == id)));
             SRMob bestMob = null;
             double bestScore = double.MinValue;
+            int bestPreferenceIndex = int.MaxValue;
             SRCoord myPosition = InfoManager.Character.GetRealtimePosition();
 
             Window w = Window.Get;
@@ -1556,6 +1442,7 @@ namespace xBot.App
             {
                 SRMob m = mobs[j];
                 if (!IsLiveCombatTarget(m)) continue;
+                if (CombatAIEngine.SwitchMonsterAfterDot && rotation.IsDeferred(m.UniqueID, HasDamageOverTime(m), EngineNow)) continue;
 
                 // Çarpışma / Engel nedeniyle ulaşılamayan canavarlar geçici süreyle atlanır
                 if (_unreachableMobs.ContainsKey(m.UniqueID))
@@ -1591,6 +1478,7 @@ namespace xBot.App
                 }
 
                 SRCoord mobPosition = m.GetRealtimePosition();
+                if (!TeleportTransitionPolicy.SameSpace(myPosition, mobPosition) || !IsWithinTrainingBoundary(mobPosition)) continue;
                 bool withinTrainingArea = trainingPosition == null || trainingRadius <= 0
                     || trainingPosition.DistanceTo(mobPosition) <= trainingRadius;
 
@@ -1745,10 +1633,6 @@ namespace xBot.App
                         int listBonus = (prefIdx >= 0) ? (CombatAIEngine.MonsterPreferences.Count - prefIdx) * 1000 : 500;
                         score += 2000.0 + listBonus;
                     }
-                    else if (prefEntry.Preference == MonsterPreferenceType.Avoid)
-                    {
-                        score -= 5000.0;
-                    }
                 }
                 else if (CombatAIEngine.IsPreferred(m.MobType))
                 {
@@ -1771,8 +1655,13 @@ namespace xBot.App
                 // Distance penalty: prefer closer enemies to minimize running around
                 score -= (dist * 1.5);
 
-                if (score > bestScore)
+                int preferenceIndex = prefEntry != null && prefEntry.Preference == MonsterPreferenceType.Prefer
+                    ? CombatAIEngine.GetPreferenceIndex(m) : int.MaxValue;
+                if (preferenceIndex < 0) preferenceIndex = int.MaxValue;
+                if ((CombatAIEngine.SwitchTargetByPosition && preferenceIndex < bestPreferenceIndex)
+                    || ((!CombatAIEngine.SwitchTargetByPosition || preferenceIndex == bestPreferenceIndex) && score > bestScore))
                 {
+                    bestPreferenceIndex = preferenceIndex;
                     bestScore = score;
                     bestMob = m;
                 }
@@ -1815,9 +1704,6 @@ namespace xBot.App
             // Delegate to CombatAIEngine for configurable berserk triggers
             bool shouldActivate = CombatAIEngine.CheckBerserkTrigger(nearbyMobs, hpPercent);
 
-            // Fallback: HP low (< 45%) and in combat
-            if (!shouldActivate && hpPercent < 45.0 && nearbyMobs != null && nearbyMobs.Count > 0)
-                shouldActivate = true;
 
             if (shouldActivate)
             {
@@ -2469,65 +2355,6 @@ namespace xBot.App
                     maxRange = r;
             }
             return maxRange;
-        }
-
-        private void ExecuteKiting(SRMob mob, SRCoord myPosition)
-        {
-            if (mob == null || myPosition == null)
-                return;
-
-            SRTypes.Weapon weapon = GetMyWeaponType();
-            bool isRanged = (weapon == SRTypes.Weapon.Bow || 
-                             weapon == SRTypes.Weapon.Crossbow || 
-                             weapon == SRTypes.Weapon.TwoHandStaff || 
-                             weapon == SRTypes.Weapon.Warlock);
-
-            if (!isRanged)
-                return;
-
-            SRCoord mobPos = mob.GetRealtimePosition();
-            double dist = myPosition.DistanceTo(mobPos);
-
-            // If mob gets closer than 4 meters, kite backwards
-            if (dist < 4.0 && dist > 0.1)
-            {
-                double dx = myPosition.PosX - mobPos.PosX;
-                double dy = myPosition.PosY - mobPos.PosY;
-                double len = Math.Sqrt(dx * dx + dy * dy);
-                if (len > 0.001)
-                {
-                    double stepDist = 6.0;
-                    SRCoord kitePos = new SRCoord(myPosition.PosX + (dx / len) * stepDist, myPosition.PosY + (dy / len) * stepDist);
-                    Window.Get?.LogProcess("Combat AI: Kiting back from mob...");
-                    MoveTo(kitePos);
-                    Thread.Sleep(500);
-                }
-            }
-        }
-
-        private bool CheckPanicEscape()
-        {
-            if (InfoManager.Character == null || InfoManager.Character.Inventory == null)
-                return false;
-
-            byte hpSlot = 0;
-            bool hasHpPot = FindItem(3, 1, 1, ref hpSlot);
-            double hpPercent = InfoManager.Character.HPMax > 0 ? ((double)InfoManager.Character.HP / InfoManager.Character.HPMax * 100.0) : 100.0;
-
-            // HP critical (< 22%) and no HP pots left
-            if (hpPercent < 22.0 && !hasHpPot)
-            {
-                byte scrollSlot = 0;
-                if (FindItem(3, 3, 1, ref scrollSlot) || FindItem(3, 3, 2, ref scrollSlot) || FindItem(3, 3, 3, ref scrollSlot))
-                {
-                    Window.Get?.Log("Combat AI: EMERGENCY! HP critical and no HP potions! Using Return Scroll...");
-                    SRItem scrollItem = InfoManager.Character.Inventory[scrollSlot];
-                    PacketBuilder.UseItem(scrollItem, scrollSlot);
-                    SleepInterruptible(4000);
-                    return true;
-                }
-            }
-            return false;
         }
 
         /// <summary>
@@ -3538,11 +3365,6 @@ namespace xBot.App
 			}
 		}
 
-        private void WalkLoop()
-        {
-
-        }
-
         private DateTime m_lastReturnPrep = DateTime.MinValue;
         /// <summary>
         /// Alana Dönüş hazırlığı (Area &gt; Alana Dönüş kartı).
@@ -3694,13 +3516,22 @@ namespace xBot.App
         /// <summary>
         /// Akıllı hareket ve çarpışma/takılma kurtarma (Anti-Stuck Obstacle Avoidance) motoru.
         /// </summary>
+        private bool WaitNavigationWaypoint(SRCoord point, int attempts, double tolerance)
+        {
+            if (point == null) return false;
+            if (!point.inDungeon()) return WaitMovement(point, attempts, tolerance);
+            return WaitMovement(point, Math.Max(attempts, Math.Min(160,
+                InfoManager.Character.GetRealtimePosition().TimeTo(point, InfoManager.Character.GetMovementSpeed()) / 300 + 10)),
+                0.75, null, true, message => Window.Get.Log("[CAVE-PATH] " + message));
+        }
+
         public bool WaitMovement(SRCoord position, int maxAttempts, double arrivalTolerance = 3.0)
         {
             return WaitMovement(position, maxAttempts, arrivalTolerance, null, false, null);
         }
 
         private bool WaitMovement(SRCoord position, int maxAttempts, double arrivalTolerance,
-            Func<bool> interrupt, bool meshOnly, Action<string> trace)
+            Func<bool> interrupt, bool meshOnly, Action<string> trace, bool stopOnInterrupt = true)
         {
             int attemps = 0;
             SRCoord myPosition;
@@ -3721,8 +3552,8 @@ namespace xBot.App
                 if (interrupt != null && interrupt())
                 {
                     // Cancel the outstanding waypoint command before interacting.
-                    MoveTo(InfoManager.Character.GetRealtimePosition(), trace);
-                    trace?.Invoke("WaitMovement interrupted reason=candidate-found");
+                    if (stopOnInterrupt) MoveTo(InfoManager.Character.GetRealtimePosition(), trace);
+                    trace?.Invoke(stopOnInterrupt ? "WaitMovement interrupted reason=candidate-found" : "WaitMovement interrupted reason=transition-observed");
                     return true;
                 }
                 myPosition = InfoManager.Character.GetRealtimePosition();
@@ -4167,84 +3998,7 @@ namespace xBot.App
         /// refPos çevresindeki teleport/NPC/building sayımları + mesafeye göre
         /// sıralı entity listesi + izlenen ModelID gözcüsü döndürür.
         /// </summary>
-        private sealed class FerryNearbyScan
-        {
-            public int NpcCount;
-            public int TeleportCount;
-            public int BuildingCount;
-            public List<KeyValuePair<double, SREntity>> ByDist = new List<KeyValuePair<double, SREntity>>();
-            public bool SeenWatchModel;
-            public string WatchModelInfo = "";
-        }
 
-        private static FerryNearbyScan ScanFerryNearby(SRCoord refPos, SRCoord board, double countRadius, double listRadius, uint watchModelId)
-        {
-            FerryNearbyScan res = new FerryNearbyScan();
-            if (refPos == null)
-                return res;
-            try
-            {
-                HashSet<uint> seenUid = new HashSet<uint>();
-                // Sıra: teleport/building listesi, NPC listesi, genel entity listesi.
-                for (int pass = 0; pass < 3; pass++)
-                {
-                    System.Collections.IEnumerable list = null;
-                    try
-                    {
-                        if (pass == 0) list = InfoManager.TeleportAndBuildings.Snapshot();
-                        else if (pass == 1) list = InfoManager.Npcs.Snapshot();
-                        else list = InfoManager.Entities.Snapshot();
-                    }
-                    catch { list = null; }
-                    if (list == null)
-                        continue;
-                    foreach (object o in list)
-                    {
-                        try
-                        {
-                            SREntity e = o as SREntity;
-                            if (e == null || e.Position == null)
-                                continue;
-                            if (e is SRPlayer || e is SRDrop || e is SRMob)
-                                continue;
-                            SRTeleport tpX = e as SRTeleport;
-                            if (tpX != null && IsPlayerOpenedPortal(tpX))
-                                continue;
-                            if (!seenUid.Add(e.UniqueID))
-                                continue;
-                            double dP = refPos.DistanceTo(e.Position);
-                            if (watchModelId != 0 && e.ID == watchModelId && dP <= listRadius && !res.SeenWatchModel)
-                            {
-                                res.SeenWatchModel = true;
-                                double dB0 = -1;
-                                try { dB0 = (board != null) ? board.DistanceTo(e.Position) : -1; } catch { }
-                                res.WatchModelInfo = string.Format("{0}|{1} pos=[{2},{3} r{4}] dP={5:F0}m dB={6}",
-                                    e.Name ?? "?", e.ServerName ?? "?",
-                                    (int)e.Position.PosX, (int)e.Position.PosY, e.Position.Region,
-                                    dP, (dB0 >= 0 ? dB0.ToString("F0") + "m" : "?"));
-                            }
-                            if (dP <= listRadius)
-                                res.ByDist.Add(new KeyValuePair<double, SREntity>(dP, e));
-                            if (dP <= countRadius)
-                            {
-                                if (e is SRTeleport)
-                                    res.TeleportCount++;
-                                else if (e is SRNpc)
-                                    res.NpcCount++;
-                                else if (e is SRFortressStruct)
-                                    res.BuildingCount++;
-                                else if (pass == 0)
-                                    res.BuildingCount++; // teleport/building listesindeki kapı yapıları
-                            }
-                        }
-                        catch { }
-                    }
-                }
-                res.ByDist.Sort((a, b) => a.Key.CompareTo(b.Key));
-            }
-            catch { }
-            return res;
-        }
 
         internal Action<string> FerryMovementTrace;
         private bool m_ferryMovementCompared;
@@ -4313,6 +4067,30 @@ namespace xBot.App
             finally { FerryMovementTrace = null; }
         }
 
+        private bool ExecuteWalkTriggerTransition(TeleportLinkInfo link)
+        {
+            var navigator = new WalkTriggerNavigator
+            {
+                Position = () => InfoManager.Character?.GetRealtimePosition(),
+                Active = () => isBotting && !m_stopBottingRequested,
+                Loading = () => InfoManager.inTeleport || !InfoManager.inGame,
+                FindPath = (current, failed) => NavigationManager.Get.FindApproachPath(current, link.BoardCoord, failed),
+                Walk = (point, interrupt) => WaitMovement(point,
+                    Math.Max(20, Math.Min(160, InfoManager.Character.GetRealtimePosition().TimeTo(point, InfoManager.Character.GetMovementSpeed()) / 300 + 10)),
+                    0.25, interrupt, true, message => Window.Get.Log("[CAVE-TRANSITION] " + message), false),
+                Pause = Thread.Sleep,
+                Log = message => Window.Get.Log(message)
+            };
+            NavigationManager.Get.TraceCavePosition(InfoManager.Character?.GetRealtimePosition(), link.BoardCoord);
+            bool result;
+            try { result = navigator.Execute(link); }
+            catch (Exception ex)
+            { Window.Get.Log("[CAVE-TRANSITION] failed: " + ex.Message); result = false; }
+            if (result) TeleportManager.Get.NoteLinkSuccess(link);
+            else if (isBotting && !m_stopBottingRequested) TeleportManager.Get.NoteLinkFailure(link);
+            return result;
+        }
+
         private bool ExecuteTeleportTransition(TeleportLinkInfo link)
         {
             Window w = Window.Get;
@@ -4325,6 +4103,12 @@ namespace xBot.App
                     w.Log($"Ferry/Teleport: [{link.SourceName} -> {link.DestinationName}] Çarpışma sekmesi ayarları nedeniyle engellendi.");
                     return false;
                 }
+            }
+            if (link.TransitionMode == TransitionMode.WalkTrigger)
+            {
+                if (!CollisionPolicy.IgnoreTeleportLevel && InfoManager.Character != null
+                    && InfoManager.Character.Level < link.MinimumLevel) return false;
+                return ExecuteWalkTriggerTransition(link);
             }
             w.Log($"Ferry/Teleport: Transitioning [{link.SourceName}] -> [{link.DestinationName}]...");
             // Teşhis: current region / board region / distance-to-board / spawn sayıları.

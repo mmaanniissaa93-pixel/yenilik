@@ -1,4 +1,4 @@
-using Newtonsoft.Json.Linq;
+﻿using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -19,6 +19,58 @@ namespace xBot.App
         public static string LastAppliedBuild { get; private set; } = "";
         public static List<string> LastAppliedMasteries { get; private set; } = new List<string>();
         public static List<string> LastAppliedSkills { get; private set; } = new List<string>();
+
+        public static void ApplyBeforeTownLoop()
+        {
+            if (!AutoConfigureBeforeTownLoop || string.IsNullOrEmpty(LastAppliedBuild)) return;
+            string[] parts = LastAppliedBuild.Split(new[] { ' ', '/' }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length < 3) return;
+            if (parts[0] == "Chinese") ApplyChinese(parts[1], parts[2]);
+            else if (parts[0] == "European") ApplyEuropean(parts[1], parts[2]);
+        }
+
+        private static string SharedFilterPath()
+        {
+            string name = (Game.DataManager.SilkroadName ?? "Default") + "_" + (Game.InfoManager.ServerName ?? "Default");
+            foreach (char c in Path.GetInvalidFileNameChars()) name = name.Replace(c, '_');
+            return Path.Combine("Config", "SharedPick", name + ".json");
+        }
+
+        public static void SaveSharedPickFilter()
+        {
+            if (!UseSharedPickFilter) return;
+            string temporary = null;
+            try
+            {
+                string path = SharedFilterPath();
+                Directory.CreateDirectory(Path.GetDirectoryName(path));
+                var data = new JObject { ["ItemFilterManager"] = ItemFilterManager.ToJson(), ["EzFilterManager"] = EzFilterManager.ToJson() };
+                temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+                File.WriteAllText(temporary, data.ToString());
+                if (File.Exists(path)) File.Replace(temporary, path, null);
+                else File.Move(temporary, path);
+            }
+            catch (Exception ex) { Window.Get?.Log("Shared pick filter could not be saved: " + ex.Message); }
+            finally
+            {
+                if (temporary != null)
+                    try { if (File.Exists(temporary)) File.Delete(temporary); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+            }
+        }
+
+        public static void LoadSharedPickFilter()
+        {
+            if (!UseSharedPickFilter) return;
+            string path = SharedFilterPath();
+            if (!File.Exists(path)) { SaveSharedPickFilter(); return; }
+            try
+            {
+                var data = JObject.Parse(File.ReadAllText(path));
+                if (data["ItemFilterManager"] is JObject filter) ItemFilterManager.FromJson(SharedPickFilterPolicy.Merge(ItemFilterManager.ToJson(), filter));
+                if (data["EzFilterManager"] is JObject ez) EzFilterManager.FromJson(SharedPickFilterPolicy.MergeCategories(EzFilterManager.ToJson(), ez));
+            }
+            catch (Exception ex) { Window.Get?.Log("Shared pick filter could not be loaded: " + ex.Message); }
+        }
 
         public static string ApplyChinese(string build, string weapon)
         {

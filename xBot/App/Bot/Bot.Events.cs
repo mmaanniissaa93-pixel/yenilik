@@ -1,4 +1,4 @@
-using SecurityAPI;
+﻿using SecurityAPI;
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
@@ -31,6 +31,7 @@ namespace xBot.App
 		public void OnDisconnected()
 		{
 			ProtectionManager.ResetRuntimeState();
+            PartySupportManager.ResetRuntimeState();
 			AlchemyManager.Stop();
 
 			// Stop recording (dosyaya yazıp butonları sıfırlar; doğrudan
@@ -221,9 +222,7 @@ namespace xBot.App
 			// Warmup NavMesh cache near character position
 			if (InfoManager.Character != null && InfoManager.Character.Position != null)
 			{
-				NavigationManager.Get.WarmupCacheNear(
-					(float)InfoManager.Character.Position.PosX,
-					(float)InfoManager.Character.Position.PosY);
+				NavigationManager.Get.WarmupCacheNear(InfoManager.Character.Position);
 			}
 
 			// Start loop event

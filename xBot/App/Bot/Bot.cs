@@ -358,8 +358,9 @@ namespace xBot.App
 		/// </summary>
 		public bool UseReturnScroll()
 		{
-			try { ReturnToAreaPolicy.LastRecallPosition = InfoManager.Character.GetRealtimePosition(); } catch { }
-			xList<SRItem> inventory = InfoManager.Character.Inventory;
+			var character = InfoManager.Character;
+			if (character == null || character.Inventory == null) return false;
+			xList<SRItem> inventory = character.Inventory;
 			for (byte j = 13; j < inventory.Capacity; j++)
 			{
 				if (inventory[j] != null && inventory[j].isType(3, 3, 1))
@@ -373,7 +374,8 @@ namespace xBot.App
 						case "ITEM_ETC_E041225_SANTA_WINGS":
 						case "ITEM_MALL_RETURN_SCROLL_HIGH_SPEED":
 						case "ITEM_EVENT_RETURN_SCROLL_HIGH_SPEED":
-							PacketBuilder.UseItem(inventory[j], j);
+							if (!PacketBuilder.UseItem(inventory[j], j)) return false;
+							ReturnToAreaPolicy.LastRecallPosition = character.GetRealtimePosition();
 							return true;
 					}
 				}

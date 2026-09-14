@@ -397,9 +397,10 @@ namespace xBot.App
         }
         private void CheckUsingHP(object sender, ElapsedEventArgs e)
         {
-            if (InfoManager.Character == null)
+            var character = InfoManager.Character;
+            if (character == null || character.Inventory == null)
                 return;
-            if (InfoManager.Character.LifeStateType == SRModel.LifeState.Alive)
+            if (character.LifeStateType == SRModel.LifeState.Alive)
             {
                 Window w = Window.Get;
                 if (w.Character_cbxUseHP.Checked || w.Character_cbxUseHPGrain.Checked)
@@ -408,25 +409,25 @@ namespace xBot.App
                     w.Character_tbxUseHP.InvokeIfRequired(() => {
                         useHP = ParsePercentSafe(w.Character_tbxUseHP.Text);
                     });
-                    if (InfoManager.Character.GetHPPercent() <= useHP)
+                    if (character.GetHPPercent() <= useHP)
                     {
                         byte slot = 0;
                         // En güçlü normal pot önce, Mall pot yedek (PotionPolicy).
                         if (w.Character_cbxUseHPGrain.Checked && FindBestItem(3, 1, 1, ref slot, "_SPOTION_")
                             || w.Character_cbxUseHP.Checked && FindBestItem(3, 1, 1, ref slot))
                         {
-                            int baseInterval = (InfoManager.Character != null && InfoManager.Character.IsEuropean()) ? 15000 : 1000;
+                            int baseInterval = (character != null && character.IsEuropean()) ? 15000 : 1000;
                             int userDelay = w.GetPotionDelay(w.Character_cbxUseHP.Name, 1000);
                             int requiredInterval = Math.Max(baseInterval, userDelay);
                             if (tUsingHP.Interval != requiredInterval)
                                 tUsingHP.Interval = requiredInterval;
-                            PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot);
-                            tUsingHP.Start();
+                            if (ReferenceEquals(character, InfoManager.Character) && PacketBuilder.UseItem(character.Inventory[slot], slot))
+                                tUsingHP.Start();
                         }
                         else
                         {
                             LogPotionThrottled(ref s_lastHpNoPotionLog, "[HP] Eşik tuttu (%"
-                                + InfoManager.Character.GetHPPercent().ToString("0") + " <= %" + useHP
+                                + character.GetHPPercent().ToString("0") + " <= %" + useHP
                                 + ") ama envanterde uygun HP potu bulunamadı! (Grain kutusu ve pot tipini kontrol et)");
                         }
                     }
@@ -441,9 +442,10 @@ namespace xBot.App
         }
         private void CheckUsingMP(object sender, ElapsedEventArgs e)
         {
-            if (InfoManager.Character == null)
+            var character = InfoManager.Character;
+            if (character == null || character.Inventory == null)
                 return;
-            if (InfoManager.Character.LifeStateType == SRModel.LifeState.Alive)
+            if (character.LifeStateType == SRModel.LifeState.Alive)
             {
                 Window w = Window.Get;
                 if (w.Character_cbxUseMP.Checked || w.Character_cbxUseMPGrain.Checked)
@@ -452,25 +454,25 @@ namespace xBot.App
                     WinAPI.InvokeIfRequired(w.Character_tbxUseMP, () => {
                         useMP = ParsePercentSafe(w.Character_tbxUseMP.Text);
                     });
-                    if (InfoManager.Character.GetMPPercent() <= useMP)
+                    if (character.GetMPPercent() <= useMP)
                     {
                         byte slot = 0;
                         // En güçlü normal pot önce, Mall pot yedek (PotionPolicy).
                         if (w.Character_cbxUseMPGrain.Checked && FindBestItem(3, 1, 2, ref slot, "_SPOTION_")
                             || w.Character_cbxUseMP.Checked && FindBestItem(3, 1, 2, ref slot))
                         {
-                            int baseInterval = (InfoManager.Character != null && InfoManager.Character.IsEuropean()) ? 15000 : 1000;
+                            int baseInterval = (character != null && character.IsEuropean()) ? 15000 : 1000;
                             int userDelay = w.GetPotionDelay(w.Character_cbxUseMP.Name, 1000);
                             int requiredInterval = Math.Max(baseInterval, userDelay);
                             if (tUsingMP.Interval != requiredInterval)
                                 tUsingMP.Interval = requiredInterval;
-                            PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot);
-                            tUsingMP.Start();
+                            if (ReferenceEquals(character, InfoManager.Character) && PacketBuilder.UseItem(character.Inventory[slot], slot))
+                                tUsingMP.Start();
                         }
                         else
                         {
                             LogPotionThrottled(ref s_lastMpNoPotionLog, "[MP] Eşik tuttu (%"
-                                + InfoManager.Character.GetMPPercent().ToString("0") + " <= %" + useMP
+                                + character.GetMPPercent().ToString("0") + " <= %" + useMP
                                 + ") ama envanterde uygun MP potu bulunamadı! (Grain kutusu ve pot tipini kontrol et)");
                         }
                     }
@@ -485,29 +487,27 @@ namespace xBot.App
         }
         private void CheckUsingVigor(object sender, ElapsedEventArgs e)
         {
-            if (InfoManager.Character == null)
+            var character = InfoManager.Character;
+            if (character == null || character.Inventory == null)
                 return;
-            if (InfoManager.Character.LifeStateType == SRModel.LifeState.Alive)
+            if (character.LifeStateType == SRModel.LifeState.Alive)
             {
                 Window w = Window.Get;
                 if (w.Character_cbxUseHPVigor.Checked || w.Character_cbxUseMPVigor.Checked)
                 {
-                    int userDelay = w.GetPotionDelay(w.Character_cbxUseHPVigor.Name, 1000);
-                    int requiredInterval = Math.Max(15000, userDelay);
-                    if (tUsingVigor.Interval != requiredInterval)
-                        tUsingVigor.Interval = requiredInterval;
                     byte usePercent = 0;
                     WinAPI.InvokeIfRequired(w.Character_tbxUseHPVigor, () => {
                         usePercent = ParsePercentSafe(w.Character_tbxUseHPVigor.Text);
                     });
                     // Check hp %
-                    if (InfoManager.Character.GetHPPercent() <= usePercent)
+                    if (w.Character_cbxUseHPVigor.Checked && character.GetHPPercent() <= usePercent)
                     {
                         byte slot = 0;
                         if (FindBestItem(3, 1, 3, ref slot))
                         {
-                            PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot);
-                            tUsingVigor.Start();
+                            tUsingVigor.Interval = Math.Max(15000, w.GetPotionDelay(w.Character_cbxUseHPVigor.Name, 1000));
+                            if (ReferenceEquals(character, InfoManager.Character) && PacketBuilder.UseItem(character.Inventory[slot], slot))
+                                tUsingVigor.Start();
                         }
                     }
                     else
@@ -516,13 +516,14 @@ namespace xBot.App
                         WinAPI.InvokeIfRequired(w.Character_tbxUseMPVigor, () => {
                             usePercent = ParsePercentSafe(w.Character_tbxUseMPVigor.Text);
                         });
-                        if (InfoManager.Character.GetMPPercent() <= usePercent)
+                        if (w.Character_cbxUseMPVigor.Checked && character.GetMPPercent() <= usePercent)
                         {
                             byte slot = 0;
                             if (FindBestItem(3, 1, 3, ref slot))
                             {
-                                PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot);
-                                tUsingVigor.Start();
+                                tUsingVigor.Interval = Math.Max(15000, w.GetPotionDelay(w.Character_cbxUseMPVigor.Name, 1000));
+                                if (ReferenceEquals(character, InfoManager.Character) && PacketBuilder.UseItem(character.Inventory[slot], slot))
+                                    tUsingVigor.Start();
                             }
                         }
                     }
@@ -536,12 +537,14 @@ namespace xBot.App
         }
         public void CheckUsingUniversal(object sender, ElapsedEventArgs e)
         {
-            if (InfoManager.Character.LifeStateType == SRModel.LifeState.Alive)
+            var character = InfoManager.Character;
+            if (character == null || character.Inventory == null) return;
+            if (character.LifeStateType == SRModel.LifeState.Alive)
             {
                 Window w = Window.Get;
                 if (w.Character_cbxUsePillUniversal.Checked)
                 {
-                    if (((uint)InfoManager.Character.BadStatusFlags).HasFlags
+                    if (((uint)character.BadStatusFlags).HasFlags
                         ((uint)(SRModel.BadStatus.Freezing
                         | SRModel.BadStatus.ElectricShock
                         | SRModel.BadStatus.Burn
@@ -555,7 +558,7 @@ namespace xBot.App
                             int requiredInterval = Math.Max(12000, userDelay);
                             if (tUsingUniversal.Interval != requiredInterval)
                                 tUsingUniversal.Interval = requiredInterval;
-                            if (PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot))
+                            if (ReferenceEquals(character, InfoManager.Character) && PacketBuilder.UseItem(character.Inventory[slot], slot))
                                 tUsingUniversal.Start();
                         }
                     }
@@ -569,12 +572,14 @@ namespace xBot.App
         }
         private void CheckUsingPurification(object sender, ElapsedEventArgs e)
         {
-            if (InfoManager.Character.LifeStateType == SRModel.LifeState.Alive)
+            var character = InfoManager.Character;
+            if (character == null || character.Inventory == null) return;
+            if (character.LifeStateType == SRModel.LifeState.Alive)
             {
                 Window w = Window.Get;
                 if (w.Character_cbxUsePillPurification.Checked)
                 {
-                    if (((uint)InfoManager.Character.BadStatusFlags).HasFlags
+                    if (((uint)character.BadStatusFlags).HasFlags
                         ((uint)(SRModel.BadStatus.Dull
                         | SRModel.BadStatus.Fear
                         | SRModel.BadStatus.ShortSight
@@ -597,7 +602,7 @@ namespace xBot.App
                             int requiredInterval = Math.Max(12000, userDelay);
                             if (tUsingPurification.Interval != requiredInterval)
                                 tUsingPurification.Interval = requiredInterval;
-                            if (PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot))
+                            if (ReferenceEquals(character, InfoManager.Character) && PacketBuilder.UseItem(character.Inventory[slot], slot))
                                 tUsingPurification.Start();
                         }
                     }

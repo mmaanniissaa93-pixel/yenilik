@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using xBot.App;
 
 static class Program
@@ -11,6 +11,34 @@ static class Program
 
     static void Main()
     {
+        var rotation = new CombatRotationState();
+        Check(!rotation.DotDelayElapsed(1, true, 100, 2), "DOT does not switch on first observation when delay is configured");
+        Check(!rotation.DotDelayElapsed(1, true, 2099, 2), "DOT delay is measured from first observation");
+        Check(rotation.DotDelayElapsed(1, true, 2100, 2), "DOT becomes eligible exactly at configured delay");
+        rotation.Defer(1, 2100);
+        Check(rotation.IsDeferred(1, true, 2200), "Switched DOT target cannot be immediately reselected");
+        Check(!rotation.IsDeferred(1, false, 2300), "Cured target immediately becomes eligible again");
+        Check(!rotation.DotDelayElapsed(1, false, 4000, 0), "No DOT cannot trigger rotation even with zero delay");
+        rotation.DotDelayElapsed(2, true, 4000, 0); rotation.Defer(2, 4000);
+        rotation.Prune(id => false);
+        Check(!rotation.IsDeferred(2, true, 4500), "Despawn removes rotation state before UID reuse");
+        var localFilter = Newtonsoft.Json.Linq.JObject.Parse("{ 'Rules': [ { 'Name':'A', 'MatchType':0, 'Pattern':'', 'Pickup':false, 'Pet':false, 'Sell':false, 'Store':true } ], 'PickOptions': { 'AllowSellAll':false, 'Enabled':false } }");
+        var sharedFilter = Newtonsoft.Json.Linq.JObject.Parse("{ 'Rules': [ { 'Name':'A', 'MatchType':0, 'Pattern':'', 'Pickup':true, 'Pet':true, 'Sell':true, 'Store':false } ], 'PickOptions': { 'AllowSellAll':true, 'Enabled':true } }");
+        var merged = SharedPickFilterPolicy.Merge(localFilter, sharedFilter);
+        Check((bool)merged["Rules"][0]["Pickup"] && (bool)merged["Rules"][0]["Pet"], "Shared filter imports pickup and pet choices");
+        Check(!(bool)merged["Rules"][0]["Sell"] && (bool)merged["Rules"][0]["Store"], "Shared pickup never imports another character's selling or storage choices");
+        Check(!(bool)merged["PickOptions"]["AllowSellAll"] && (bool)merged["PickOptions"]["Enabled"], "Shared options preserve sell-all protection");
+        Check(!(bool)localFilter["Rules"][0]["Pickup"], "Filter merge does not mutate caller state");
+
+        var categories = SharedPickFilterPolicy.MergeCategories(
+            Newtonsoft.Json.Linq.JObject.Parse("{ 'Gold': { 'Pick':false, 'PetPick':false, 'Sell':false } }"),
+            Newtonsoft.Json.Linq.JObject.Parse("{ 'Gold': { 'Pick':true, 'PetPick':true, 'Sell':true } }"));
+        Check((bool)categories["Gold"]["Pick"] && (bool)categories["Gold"]["PetPick"] && !(bool)categories["Gold"]["Sell"],
+            "Shared categories update pickup while preserving local sale choices");
+        var newRules = SharedPickFilterPolicy.Merge(new Newtonsoft.Json.Linq.JObject(), sharedFilter);
+        Check((bool)newRules["Rules"][0]["Pickup"] && !(bool)newRules["Rules"][0]["Sell"],
+            "First shared import creates pickup rules with selling disabled");
+
         long now = 0;
         var action = new CharacterActionTracker(() => now);
         bool attack;

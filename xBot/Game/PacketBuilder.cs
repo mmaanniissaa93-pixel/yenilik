@@ -846,6 +846,31 @@ namespace xBot.Game
 			p.WriteByte(2);
 			Bot.Get.Proxy.Agent.InjectToServer(p,1000);
 		}
+		public static bool CastSkillAtPosition(uint skillID, SRCoord position)
+		{
+			var character = InfoManager.Character;
+			if (character == null || position == null || Bot.Get.Proxy?.Agent == null) return false;
+			var skill = SkillManager.GetCastSkill(skillID);
+			if (skill == null || !InfoManager.CharacterActions.TryBegin(character.UniqueID, skillID,
+				0, false, false, skill.CastingTime)) return false;
+			Packet p = new Packet(Agent.Opcode.CLIENT_CHARACTER_ACTION_REQUEST);
+			p.WriteByte(1);
+			p.WriteByte(SRTypes.CharacterAction.SkillCast);
+			p.WriteUInt(skillID);
+			p.WriteByte(2); // Ground-position target (Ghost Walk / Teleport).
+			p.WriteUShort(position.Region);
+			if (position.inDungeon())
+			{
+				p.WriteInt(position.X); p.WriteInt(position.Z); p.WriteInt(position.Y);
+			}
+			else
+			{
+				p.WriteUShort((ushort)position.X); p.WriteUShort((ushort)position.Z); p.WriteUShort((ushort)position.Y);
+			}
+			Bot.Get.Proxy.Agent.InjectToServer(p);
+			return true;
+		}
+
 		public static bool CastSkill(uint skillID, uint targetUniqueID = 0)
 		{
 			if (Bot.Get.Proxy?.Agent == null || InfoManager.Character == null) return false;

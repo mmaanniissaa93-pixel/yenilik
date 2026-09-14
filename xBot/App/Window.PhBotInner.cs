@@ -447,8 +447,8 @@ namespace xBot.App
                 BindAttackCheck(p, "PhBot_AttackLower", isTR ? "Önce düşük seviyeli canavarlara saldır" : "Attack lower monsters first", ox, y, CombatAIEngine.AttackLowerFirst, v => CombatAIEngine.AttackLowerFirst = v);
                 y += 21;
 
-                BindAttackCheck(p, "PhBot_SwitchDot", isTR ? "DOT tan sonra canavar değiştir" : "Switch monster after DOT", ox, y, CombatAIEngine.SwitchMonsterAfterDot, v => CombatAIEngine.SwitchMonsterAfterDot = v);
-                BindAttackText(p, "PhBot_SwitchDotN", ox + 185, y - 2, 35, CombatAIEngine.SwitchMonsterDotDelay.ToString(), v => { if (int.TryParse(v, out int d)) CombatAIEngine.SwitchMonsterDotDelay = d; });
+                BindAttackCheck(p, "PhBot_SwitchDot", isTR ? "DOT sonrası değiştir (sn)" : "Switch after DOT (seconds)", ox, y, CombatAIEngine.SwitchMonsterAfterDot, v => CombatAIEngine.SwitchMonsterAfterDot = v);
+                BindAttackText(p, "PhBot_SwitchDotN", ox + 185, y - 2, 35, CombatAIEngine.SwitchMonsterDotDelay.ToString(), v => { if (int.TryParse(v, out int d)) CombatAIEngine.SwitchMonsterDotDelay = Math.Max(0, Math.Min(300, d)); });
                 y += 21;
 
                 CheckBox cbLower = BindAttackCheck(p, "PhBot_LowerSkills", isTR ? "Belirli bir canavar tipi için beceri yoksa daha düşük becerileri kullan" : "Use lower skills if skills for a specific monster type do not exist", ox, y, CombatAIEngine.UseLowerSkills, v => CombatAIEngine.UseLowerSkills = v);

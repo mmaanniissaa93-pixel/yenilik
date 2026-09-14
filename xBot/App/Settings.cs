@@ -1,4 +1,4 @@
-using Newtonsoft.Json.Linq;
+﻿using Newtonsoft.Json.Linq;
 using System;
 using System.IO;
 using System.Windows.Forms;
@@ -676,6 +676,7 @@ namespace xBot.App
 				root["ItemFilterManager"] = ItemFilterManager.ToJson();
 				root["EzFilterManager"] = EzFilterManager.ToJson();
 				root["AutoConfigureManager"] = AutoConfigureManager.ToJson();
+                AutoConfigureManager.SaveSharedPickFilter();
 				root["PartySupport"] = PartySupportManager.ToJson();
 				root["ResurrectPolicy"] = ResurrectPolicy.ToJson();
 				root["LurePolicy"] = LurePolicy.ToJson();
@@ -1322,6 +1323,7 @@ Window w = Window.Get;
 					: new Newtonsoft.Json.Linq.JObject());
 				if (root.ContainsKey("EzFilterManager"))
 					EzFilterManager.FromJson((Newtonsoft.Json.Linq.JObject)root["EzFilterManager"]);
+                AutoConfigureManager.LoadSharedPickFilter();
 				if (root.ContainsKey("PartySupport"))
 					PartySupportManager.FromJson((Newtonsoft.Json.Linq.JObject)root["PartySupport"]);
 				if (root.ContainsKey("ResurrectPolicy"))

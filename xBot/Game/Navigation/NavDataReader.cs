@@ -77,6 +77,15 @@ namespace xBot.Game.Navigation
 				offset += RecordSize;
 			}
 
+            if ((regionId & 0x8000) != 0)
+            {
+                float offsetX, offsetY;
+                CaveOffsets(minX, maxX, minY, maxY, out offsetX, out offsetY);
+                for (int i = 0; i < points.Length; i++)
+                { points[i].X -= offsetX; points[i].Y -= offsetY; }
+                minX -= offsetX; maxX -= offsetX; minY -= offsetY; maxY -= offsetY;
+            }
+
 			// Count both directions first, then allocate exact-sized adjacency buffers.
 			// This avoids a List and backing array for every point in a large region.
 			int[] neighborCounts = new int[pointCount];
@@ -178,6 +187,12 @@ namespace xBot.Game.Navigation
 						if (y > maxY) maxY = y;
 					}
 				}
+                if (Path.GetFileName(filePath).StartsWith("cnav", StringComparison.OrdinalIgnoreCase))
+                {
+                    float dx, dy;
+                    CaveOffsets(minX, maxX, minY, maxY, out dx, out dy);
+                    minX -= dx; maxX -= dx; minY -= dy; maxY -= dy;
+                }
 				return true;
 			}
 			catch
@@ -185,6 +200,19 @@ namespace xBot.Game.Navigation
 				return false;
 			}
 		}
+
+        // cnav stores separate 10,000m atlas tiles centered at 5,000 + n*10,000.
+        // Runtime SRCoord stores dungeon-local coordinates relative to 128*192.
+        // Infer each file's tile from its bounds, not a cave-name / room lookup table.
+        private static void CaveOffsets(float minX, float maxX, float minY, float maxY, out float x, out float y)
+        {
+            float originX = (float)(Math.Floor(((double)minX + maxX) / 20000) * 10000 + 5000);
+            float originY = (float)(Math.Floor(((double)minY + maxY) / 20000) * 10000 + 5000);
+            if (minX < originX - 5000 || maxX >= originX + 5000 || minY < originY - 5000 || maxY >= originY + 5000)
+                throw new InvalidDataException("cnav spans multiple atlas tiles; mapping is ambiguous.");
+            x = originX - 128 * 192;
+            y = originY - 128 * 192;
+        }
 
 		private static DeflateStream OpenZlibPayload(FileStream file)
 		{

@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="14.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -141,6 +141,9 @@
     <Compile Include="App\SecretStore.cs" />
     <Compile Include="App\CombatAIEngine.cs" />
     <Compile Include="App\CombatPolicy.cs" />
+    <Compile Include="App\CombatRotationState.cs" />
+    <Compile Include="App\SharedPickFilterPolicy.cs" />
+    <Compile Include="App\Bot\Bot.AdvancedCombat.cs" />
     <Compile Include="App\CharacterActionTracker.cs" />
     <Compile Include="App\BuffRetryTracker.cs" />
     <Compile Include="App\PickupQueue.cs" />
@@ -315,6 +318,11 @@
     <Compile Include="Game\Navigation\NavDataReader.cs" />
     <Compile Include="Game\Navigation\AStarPathfinder.cs" />
     <Compile Include="Game\Navigation\FerryApproachNavigator.cs" />
+    <Compile Include="Game\Navigation\TeleportLinkInfo.cs" />
+    <Compile Include="Game\Navigation\TeleportTransitionPolicy.cs" />
+    <Compile Include="Game\Navigation\TransitionRoutePlanner.cs" />
+    <Compile Include="Game\Navigation\WalkTriggerNavigator.cs" />
+
     <Compile Include="Game\Navigation\NavigationManager.cs" />
     <Compile Include="Game\Navigation\TeleportManager.cs" />
     <Compile Include="Game\Navigation\NavigationRoute.cs" />

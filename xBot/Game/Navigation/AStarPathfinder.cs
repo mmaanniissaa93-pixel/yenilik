@@ -71,7 +71,7 @@ namespace xBot.Game.Navigation
 		/// Calculates shortest walkable path between (startX, startY) and (targetX, targetY) on NavRegion.
 		/// </summary>
 		public List<SRCoord> FindPath(NavRegion region, float startX, float startY, float targetX, float targetY,
-			bool meshOnly = false, ISet<int> excludedNodes = null)
+			bool meshOnly = false, ISet<int> excludedNodes = null, bool preserveNodes = false)
 		{
 			if (region == null || region.Points == null || region.Points.Length == 0)
 				return null;
@@ -198,7 +198,7 @@ namespace xBot.Game.Navigation
 			rawPath.Reverse();
 
 			// Smooth path
-			List<NavPoint> smoothedPath = meshOnly ? rawPath : SmoothPath(rawPath, region);
+			List<NavPoint> smoothedPath = (meshOnly || preserveNodes) ? rawPath : SmoothPath(rawPath, region);
 
 			// Convert to SRCoord list
 			List<SRCoord> waypoints = new List<SRCoord>();

@@ -54,8 +54,8 @@ class Program
         Check(managerPath.All(p=>p.Region == 23406), "outdoor packet regions derive from world sectors, not nav file id 6");
         var shortPath = manager.FindApproachPath(path[0], new SRCoord(path[0].PosX+1,path[0].PosY+1));
         Check(shortPath.All(p=>region.Points.Any(n=>Math.Abs(n.X-p.PosX)<0.01 && Math.Abs(n.Y-p.PosY)<0.01)), "under-5m approach still uses actual mesh nodes");
-        TeleportManager.Get.TestLink = new TeleportLinkInfo { BoardCoord = board, ArriveCoord = new SRCoord(12000,12000) };
-        var compound = manager.FindCompoundRoute(start, new SRCoord(12005,12000));
+        TeleportManager.Get.TestLink = new TeleportLinkInfo { BoardCoord = board, ArriveCoord = new SRCoord(12000,5000) };
+        var compound = manager.FindCompoundRoute(start, new SRCoord(12005,5000));
         Check(compound != null && compound.Segments[0].Type == RouteSegmentType.Teleport,
             "inside final-approach range compound route hands off directly, without geometric board stand");
         TeleportManager.Get.TestLink = null;
@@ -69,6 +69,7 @@ class Program
         Check(manager.FindMultiRegionRoute(new SRCoord(0,0),new SRCoord(20,0),true) == null,
             "adjacent bounding boxes without a shared mesh node cannot create a blind crossing");
         ExecutorScenarios();
+        CaveScenarios.Run(Check);
         Console.WriteLine("Passed " + checks + " checks. Live server movement is NOT tested here.");
     }
     static NavRegion MakeRegion(int id,float[] xs)
@@ -125,4 +126,3 @@ class Program
         Check(!nav.Approach(new SRCoord(15,0)),"stop during movement exits without recovery");
     }
 }
-

@@ -659,8 +659,6 @@ namespace xBot.App
             this.Combat_gbxAI = new System.Windows.Forms.GroupBox();
             this.Combat_cbxAutoBerserk = new System.Windows.Forms.CheckBox();
             this.Combat_cbxMobPriority = new System.Windows.Forms.CheckBox();
-            this.Combat_cbxKiting = new System.Windows.Forms.CheckBox();
-            this.Combat_cbxPanicEscape = new System.Windows.Forms.CheckBox();
             this.Combat_lblInfo = new System.Windows.Forms.Label();
             this.Combat_gbxMobFilter = new System.Windows.Forms.GroupBox();
             this.Combat_cbxTargetGeneral = new System.Windows.Forms.CheckBox();
@@ -10173,8 +10171,6 @@ namespace xBot.App
             // 
             this.Combat_gbxAI.Controls.Add(this.Combat_cbxAutoBerserk);
             this.Combat_gbxAI.Controls.Add(this.Combat_cbxMobPriority);
-            this.Combat_gbxAI.Controls.Add(this.Combat_cbxKiting);
-            this.Combat_gbxAI.Controls.Add(this.Combat_cbxPanicEscape);
             this.Combat_gbxAI.Controls.Add(this.Combat_lblInfo);
             this.Combat_gbxAI.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(122)))), ((int)(((byte)(204)))));
             this.Combat_gbxAI.Location = new System.Drawing.Point(10, 8);
@@ -10210,31 +10206,6 @@ namespace xBot.App
             this.Combat_cbxMobPriority.Text = "Tehdit Önceliği (Boss/Giant First)";
             this.Combat_cbxMobPriority.UseVisualStyleBackColor = true;
             // 
-            // Combat_cbxKiting
-            // 
-            this.Combat_cbxKiting.AutoSize = true;
-            this.Combat_cbxKiting.Checked = false;
-            this.Combat_cbxKiting.CheckState = System.Windows.Forms.CheckState.Unchecked;
-            this.Combat_cbxKiting.ForeColor = System.Drawing.Color.White;
-            this.Combat_cbxKiting.Location = new System.Drawing.Point(15, 88);
-            this.Combat_cbxKiting.Name = "Combat_cbxKiting";
-            this.Combat_cbxKiting.Size = new System.Drawing.Size(255, 20);
-            this.Combat_cbxKiting.TabIndex = 13;
-            this.Combat_cbxKiting.Text = "Menzil Koruma / Geri Çekilme (Kiting)";
-            this.Combat_cbxKiting.UseVisualStyleBackColor = true;
-            // 
-            // Combat_cbxPanicEscape
-            // 
-            this.Combat_cbxPanicEscape.AutoSize = true;
-            this.Combat_cbxPanicEscape.Checked = true;
-            this.Combat_cbxPanicEscape.CheckState = System.Windows.Forms.CheckState.Checked;
-            this.Combat_cbxPanicEscape.ForeColor = System.Drawing.Color.White;
-            this.Combat_cbxPanicEscape.Location = new System.Drawing.Point(15, 118);
-            this.Combat_cbxPanicEscape.Name = "Combat_cbxPanicEscape";
-            this.Combat_cbxPanicEscape.Size = new System.Drawing.Size(265, 20);
-            this.Combat_cbxPanicEscape.TabIndex = 14;
-            this.Combat_cbxPanicEscape.Text = "Acil Durum Kaçışı (Panic Escape)";
-            this.Combat_cbxPanicEscape.UseVisualStyleBackColor = true;
             // 
             // Combat_lblInfo
             // 
@@ -11862,8 +11833,6 @@ namespace xBot.App
 		public System.Windows.Forms.GroupBox Combat_gbxAI;
 		public System.Windows.Forms.CheckBox Combat_cbxAutoBerserk;
 		public System.Windows.Forms.CheckBox Combat_cbxMobPriority;
-		public System.Windows.Forms.CheckBox Combat_cbxKiting;
-		public System.Windows.Forms.CheckBox Combat_cbxPanicEscape;
 		public System.Windows.Forms.Label Combat_lblInfo;
 		public System.Windows.Forms.Panel TabPageH_Town;
 		public System.Windows.Forms.Button TabPageH_Town_Option01;
