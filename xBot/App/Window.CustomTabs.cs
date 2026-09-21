@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
@@ -502,7 +502,7 @@ namespace xBot.App
             gbxStrategy.Location = new Point(432, 344);
             gbxStrategy.Size = new Size(772, 338);
 
-            cbxGeneralAutoLogin = new CheckBox { Text = LocalizationManager.Get("UI_AutoLogin", "Otomatik Giriş Yap"), Location = new Point(16, 36), AutoSize = true, Checked = LoginStrategyManager.AutomatedLogin, ForeColor = Theme.DarkTheme.TextPrimary };
+            cbxGeneralAutoLogin = new CheckBox { Text = LocalizationManager.Get("UI_AutoLogin", "Otomatik Giriş Yap"), Location = new Point(16, 36), AutoSize = true, Checked = LoginStrategyManager.AutomatedLogin, ForeColor = Color.Black };
             cbxGeneralAutoLogin.CheckedChanged += (s, e) =>
             {
                 LoginStrategyManager.AutomatedLogin = cbxGeneralAutoLogin.Checked;
@@ -514,43 +514,43 @@ namespace xBot.App
                 Settings.SaveBotSettings();
             };
 
-            cbxGeneralAutoStart = new CheckBox { Text = LocalizationManager.Get("UI_AutoStartBot", "Oyuna Girince Botu Otomatik Başlat"), Location = new Point(220, 36), AutoSize = true, Checked = LoginStrategyManager.AutoStartBot, ForeColor = Theme.DarkTheme.TextPrimary };
+            cbxGeneralAutoStart = new CheckBox { Text = LocalizationManager.Get("UI_AutoStartBot", "Oyuna Girince Botu Otomatik Başlat"), Location = new Point(220, 36), AutoSize = true, Checked = LoginStrategyManager.AutoStartBot, ForeColor = Color.Black };
             cbxGeneralAutoStart.CheckedChanged += (s, e) => { LoginStrategyManager.AutoStartBot = cbxGeneralAutoStart.Checked; Settings.SaveBotSettings(); };
 
-            cbxGeneralAutoHide = new CheckBox { Text = LocalizationManager.Get("UI_AutoHideClient", "Silkroad İstemcisini Gizle"), Location = new Point(490, 36), AutoSize = true, Checked = LoginStrategyManager.AutoHideClient, ForeColor = Theme.DarkTheme.TextPrimary };
+            cbxGeneralAutoHide = new CheckBox { Text = LocalizationManager.Get("UI_AutoHideClient", "Silkroad İstemcisini Gizle"), Location = new Point(490, 36), AutoSize = true, Checked = LoginStrategyManager.AutoHideClient, ForeColor = Color.Black };
             cbxGeneralAutoHide.CheckedChanged += (s, e) => { LoginStrategyManager.AutoHideClient = cbxGeneralAutoHide.Checked; Settings.SaveBotSettings(); };
 
-            cbxGeneralStaticCaptcha = new CheckBox { Text = LocalizationManager.Get("UI_StaticCaptcha", "Sabit Captcha Kodu:"), Location = new Point(16, 82), AutoSize = true, Checked = LoginStrategyManager.StaticCaptcha, ForeColor = Theme.DarkTheme.TextPrimary };
+            cbxGeneralStaticCaptcha = new CheckBox { Text = LocalizationManager.Get("UI_StaticCaptcha", "Sabit Captcha Kodu:"), Location = new Point(16, 82), AutoSize = true, Checked = LoginStrategyManager.StaticCaptcha, ForeColor = Color.Black };
             cbxGeneralStaticCaptcha.CheckedChanged += (s, e) => { LoginStrategyManager.StaticCaptcha = cbxGeneralStaticCaptcha.Checked; Settings.SaveBotSettings(); };
 
-            tbxGeneralStaticCaptchaCode = new TextBox { Location = new Point(190, 80), Size = new Size(65, 24), BackColor = Theme.DarkTheme.BgInput, ForeColor = Theme.DarkTheme.TextPrimary, BorderStyle = BorderStyle.FixedSingle, Text = LoginStrategyManager.StaticCaptchaCode ?? "" };
+            tbxGeneralStaticCaptchaCode = new TextBox { Location = new Point(190, 80), Size = new Size(65, 24), BackColor = Color.White, ForeColor = Color.Black, BorderStyle = BorderStyle.FixedSingle, Text = LoginStrategyManager.StaticCaptchaCode ?? "" };
             tbxGeneralStaticCaptchaCode.TextChanged += (s, e) => { LoginStrategyManager.StaticCaptchaCode = tbxGeneralStaticCaptchaCode.Text; Settings.SaveBotSettings(); };
             if (ToolTips != null)
                 ToolTips.SetToolTip(tbxGeneralStaticCaptchaCode, "Sabit captcha kodu (örn: 1234)");
 
-            lblGeneralLoginDelay = new Label { Text = LocalizationManager.Get("UI_LoginDelay", "Giriş Gecikmesi:"), Location = new Point(280, 84), AutoSize = true, ForeColor = Theme.DarkTheme.TextMuted };
-            nudGeneralLoginDelay = new NumericUpDown { Location = new Point(400, 80), Size = new Size(55, 24), Minimum = 0, Maximum = 60, Value = LoginStrategyManager.LoginDelaySeconds, BackColor = Theme.DarkTheme.BgInput, ForeColor = Theme.DarkTheme.TextPrimary };
+            lblGeneralLoginDelay = new Label { Text = LocalizationManager.Get("UI_LoginDelay", "Giriş Gecikmesi:"), Location = new Point(280, 84), AutoSize = true, ForeColor = Color.Black };
+            nudGeneralLoginDelay = new NumericUpDown { Location = new Point(400, 80), Size = new Size(55, 24), Minimum = 0, Maximum = 60, Value = LoginStrategyManager.LoginDelaySeconds, BackColor = Color.White, ForeColor = Color.Black };
             nudGeneralLoginDelay.ValueChanged += (s, e) => { LoginStrategyManager.LoginDelaySeconds = (int)nudGeneralLoginDelay.Value; Settings.SaveBotSettings(); };
-            lblLoginDelaySec = new Label { Text = LocalizationManager.CurrentLanguage == "TR" ? "sn" : "sec", Location = new Point(460, 84), AutoSize = true, ForeColor = Theme.DarkTheme.TextMuted };
+            lblLoginDelaySec = new Label { Text = LocalizationManager.CurrentLanguage == "TR" ? "sn" : "sec", Location = new Point(460, 84), AutoSize = true, ForeColor = Color.Black };
 
-            lblGeneralWaitDC = new Label { Text = LocalizationManager.Get("UI_WaitAfterDC", "DC Sonrası Bekleme:"), Location = new Point(16, 130), AutoSize = true, ForeColor = Theme.DarkTheme.TextMuted };
-            nudGeneralWaitAfterDC = new NumericUpDown { Location = new Point(190, 126), Size = new Size(65, 24), Minimum = 0, Maximum = 60, Value = LoginStrategyManager.WaitAfterDCMinutes, BackColor = Theme.DarkTheme.BgInput, ForeColor = Theme.DarkTheme.TextPrimary };
+            lblGeneralWaitDC = new Label { Text = LocalizationManager.Get("UI_WaitAfterDC", "DC Sonrası Bekleme:"), Location = new Point(16, 130), AutoSize = true, ForeColor = Color.Black };
+            nudGeneralWaitAfterDC = new NumericUpDown { Location = new Point(190, 126), Size = new Size(65, 24), Minimum = 0, Maximum = 60, Value = LoginStrategyManager.WaitAfterDCMinutes, BackColor = Color.White, ForeColor = Color.Black };
             nudGeneralWaitAfterDC.ValueChanged += (s, e) => { LoginStrategyManager.WaitAfterDCMinutes = (int)nudGeneralWaitAfterDC.Value; Settings.SaveBotSettings(); };
-            lblWaitDCMin = new Label { Text = "dk", Location = new Point(260, 130), AutoSize = true, ForeColor = Theme.DarkTheme.TextMuted };
+            lblWaitDCMin = new Label { Text = "dk", Location = new Point(260, 130), AutoSize = true, ForeColor = Color.Black };
 
-            cbxGeneralStayConnected = new CheckBox { Text = LocalizationManager.Get("UI_StayConnected", "Bağlantıyı Koru (Çökme / DC Koruması)"), Location = new Point(300, 128), AutoSize = true, Checked = LoginStrategyManager.StayConnected, ForeColor = Theme.DarkTheme.InfoBlue };
+            cbxGeneralStayConnected = new CheckBox { Text = LocalizationManager.Get("UI_StayConnected", "Bağlantıyı Koru (Çökme / DC Koruması)"), Location = new Point(300, 128), AutoSize = true, Checked = LoginStrategyManager.StayConnected, ForeColor = Color.Black };
             cbxGeneralStayConnected.CheckedChanged += (s, e) => { LoginStrategyManager.StayConnected = cbxGeneralStayConnected.Checked; Settings.SaveBotSettings(); };
             if (ToolTips != null)
                 ToolTips.SetToolTip(cbxGeneralStayConnected, "İstemci aniden çökerse sunucu bağlantısını koparmadan Clientless moda geçer");
 
-            cbxGeneralAutoRelogin = new CheckBox { Text = "DC Sonrası Otomatik Yeniden Bağlan", Location = new Point(560, 128), AutoSize = true, Checked = LoginStrategyManager.AutoRelogin, ForeColor = Theme.DarkTheme.TextPrimary };
+            cbxGeneralAutoRelogin = new CheckBox { Text = "DC Sonrası Otomatik Yeniden Bağlan", Location = new Point(560, 128), AutoSize = true, Checked = LoginStrategyManager.AutoRelogin, ForeColor = Color.Black };
             cbxGeneralAutoRelogin.CheckedChanged += (s, e) => { LoginStrategyManager.AutoRelogin = cbxGeneralAutoRelogin.Checked; Settings.SaveBotSettings(); };
             if (ToolTips != null)
                 ToolTips.SetToolTip(cbxGeneralAutoRelogin, "Kapalıysa DC sonrası client kendiliğinden açılmaz, START'a basman gerekir");
 
-            lblGeneralCharStrategy = new Label { Text = LocalizationManager.Get("UI_CharSelectStrategy", "Karakter Seçim Stratejisi:"), Location = new Point(16, 178), AutoSize = true, ForeColor = Theme.DarkTheme.TextMuted };
-            rbnGeneralFirstFound = new RadioButton { Text = LocalizationManager.Get("UI_StrategyFirst", "İlk Bulunan Karakter"), Location = new Point(180, 176), AutoSize = true, Checked = (LoginStrategyManager.Strategy == CharacterSelectionStrategy.FirstFound), ForeColor = Theme.DarkTheme.TextPrimary };
-            rbnGeneralHighestLevel = new RadioButton { Text = LocalizationManager.Get("UI_StrategyHighest", "En Yüksek Seviyeli Karakter"), Location = new Point(410, 176), AutoSize = true, Checked = (LoginStrategyManager.Strategy == CharacterSelectionStrategy.HighestLevel), ForeColor = Theme.DarkTheme.Warning };
+            lblGeneralCharStrategy = new Label { Text = LocalizationManager.Get("UI_CharSelectStrategy", "Karakter Seçim Stratejisi:"), Location = new Point(16, 178), AutoSize = true, ForeColor = Color.Black };
+            rbnGeneralFirstFound = new RadioButton { Text = LocalizationManager.Get("UI_StrategyFirst", "İlk Bulunan Karakter"), Location = new Point(180, 176), AutoSize = true, Checked = (LoginStrategyManager.Strategy == CharacterSelectionStrategy.FirstFound), ForeColor = Color.Black };
+            rbnGeneralHighestLevel = new RadioButton { Text = LocalizationManager.Get("UI_StrategyHighest", "En Yüksek Seviyeli Karakter"), Location = new Point(410, 176), AutoSize = true, Checked = (LoginStrategyManager.Strategy == CharacterSelectionStrategy.HighestLevel), ForeColor = Color.Black };
 
             rbnGeneralFirstFound.CheckedChanged += (s, e) => { if (rbnGeneralFirstFound.Checked) { LoginStrategyManager.Strategy = CharacterSelectionStrategy.FirstFound; Settings.SaveBotSettings(); } };
             rbnGeneralHighestLevel.CheckedChanged += (s, e) => { if (rbnGeneralHighestLevel.Checked) { LoginStrategyManager.Strategy = CharacterSelectionStrategy.HighestLevel; Settings.SaveBotSettings(); } };
@@ -560,11 +560,11 @@ namespace xBot.App
                 Text = LocalizationManager.Get("UI_StrategyCard_Hint", "Kayıtlı hesabı seçip START butonuna bastığınızda bot oyuna otomatik giriş yapacaktır.\nDC sonrası bekleme ve çökme koruması bağlantıyı otomatik olarak canlı tutar."),
                 Location = new Point(16, 226),
                 Size = new Size(736, 50),
-                ForeColor = Theme.DarkTheme.TextFaint,
+                ForeColor = Color.Black,
                 Font = Theme.DarkTheme.FontCaption
             };
 
-            cbxGeneralAutoStartClient = new CheckBox { Text = "Bot Açılışında Client Otomatik Başlat", Location = new Point(16, 282), AutoSize = true, Checked = LoginStrategyManager.AutoStartClient, ForeColor = Theme.DarkTheme.TextPrimary };
+            cbxGeneralAutoStartClient = new CheckBox { Text = "Bot Açılışında Client Otomatik Başlat", Location = new Point(16, 282), AutoSize = true, Checked = LoginStrategyManager.AutoStartClient, ForeColor = Color.Black };
             cbxGeneralAutoStartClient.CheckedChanged += (s, e) => { LoginStrategyManager.AutoStartClient = cbxGeneralAutoStartClient.Checked; Settings.SaveBotSettings(); };
             if (ToolTips != null)
                 ToolTips.SetToolTip(cbxGeneralAutoStartClient, "Kapalıysa bot açılışında START'a basmadan client açılmaz");

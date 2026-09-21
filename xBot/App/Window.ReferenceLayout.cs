@@ -37,6 +37,9 @@ namespace xBot.App
         private void UpdateSidebarItemPositions()
         {
             if (TabPageV_Control01 == null) return;
+            // A larger viewport can make the previous scroll offset invalid.
+            int maxScroll = Math.Max(0, _sidebarTotalHeight - TabPageV_Control01.ClientSize.Height);
+            _sidebarScrollOffset = Math.Max(0, Math.Min(maxScroll, _sidebarScrollOffset));
             TabPageV_Control01.SuspendLayout();
             foreach (Control c in TabPageV_Control01.Controls)
             {
@@ -46,6 +49,20 @@ namespace xBot.App
                 }
             }
             TabPageV_Control01.ResumeLayout(false);
+        }
+
+        private void SidebarItem_Enter(object sender, EventArgs e)
+        {
+            Control item = sender as Control;
+            if (item == null || !(item.Tag is int)) return;
+            int originalTop = (int)item.Tag;
+            int viewHeight = TabPageV_Control01.ClientSize.Height;
+            if (originalTop < _sidebarScrollOffset)
+                _sidebarScrollOffset = originalTop;
+            else if (originalTop + item.Height > _sidebarScrollOffset + viewHeight)
+                _sidebarScrollOffset = originalTop + item.Height - viewHeight;
+            UpdateSidebarItemPositions();
+            TabPageV_Control01.Invalidate();
         }
 
         private void ApplyXBotReferenceLayout()
@@ -63,22 +80,11 @@ namespace xBot.App
                 StartPosition = FormStartPosition.CenterScreen;
                 WindowState = FormWindowState.Normal;
                 ShowInTaskbar = true;
-                BackColor = PhBotBg;
-                ForeColor = Color.Black;
+                BackColor = Theme.AppTheme.Background;
+                ForeColor = Theme.AppTheme.TextPrimary;
                 pnlWindow.Dock = DockStyle.Fill;
                 pnlWindow.SizeChanged += (s, e) => LayoutXBotReference();
                 pnlWindow.BorderStyle = BorderStyle.None;
-                pnlWindow.Paint += (s, e) =>
-                {
-                    if (TabPageV_Control01 != null && TabPageV_Control01.Visible)
-                    {
-                        using (var p = new Pen(Color.FromArgb(220, 222, 226)))
-                        {
-                            e.Graphics.DrawRectangle(p, TabPageV_Control01.Left - 1, TabPageV_Control01.Top - 1,
-                                TabPageV_Control01.Width + 1, TabPageV_Control01.Height + 1);
-                        }
-                    }
-                };
                 pnlHeader.Visible = false;
                 btnBotStart.Visible = btnClientOptions.Visible = btnAnalyzer.Visible = false;
                 if (lblBotState != null)
@@ -226,26 +232,30 @@ namespace xBot.App
             TabPageV_Control01.Tag = null;
             TabPageV_Control01.AutoScroll = false;
             TabPageV_Control01.BorderStyle = BorderStyle.None;
-            TabPageV_Control01.BackColor = Color.White;
+            TabPageV_Control01.BackColor = Theme.AppTheme.Surface;
             TabPageV_Control01.MouseWheel -= Sidebar_MouseWheel;
             TabPageV_Control01.MouseWheel += Sidebar_MouseWheel;
             TabPageV_Control01.Paint += (s, e) =>
             {
                 // 1px zarif kart kenarlığı
-                using (var p = new Pen(Color.FromArgb(226, 228, 232)))
+                using (var p = new Pen(Theme.AppTheme.BorderSubtle))
                 {
                     e.Graphics.DrawRectangle(p, 0, 0, TabPageV_Control01.Width - 1, TabPageV_Control01.Height - 1);
                 }
-                // Seçili öğe mavi dikey göstergesi (X=4, Y=ortalanmış, W=3, H=16, yuvarlak uçlu)
+                // Seçili öğe dikey göstergesi (X=4, Y=ortalanmış, W=3, H=16, yuvarlak uçlu, clip-safe)
                 var selected = TabPageV_Control01.Tag as List<Control>;
                 if (selected != null && selected.Count > 0)
                 {
                     Control sel = selected[0];
-                    int barY = sel.Top + (sel.Height - 16) / 2;
-                    using (var b = new SolidBrush(Color.FromArgb(0, 103, 192)))
-                    using (var path = Theme.DarkTheme.CreateRoundedRectangle(new Rectangle(4, barY, 3, 16), 1))
+                    const int barH = 16;
+                    int barY = sel.Top + (sel.Height - barH) / 2;
+                    if (barY >= 0 && barY + barH <= TabPageV_Control01.ClientSize.Height)
                     {
-                        e.Graphics.FillPath(b, path);
+                        using (var b = new SolidBrush(Theme.AppTheme.Colors.SelectionIndicator))
+                        using (var path = Theme.DarkTheme.CreateRoundedRectangle(new Rectangle(4, barY, 3, barH), 1))
+                        {
+                            e.Graphics.FillPath(b, path);
+                        }
                     }
                 }
                 // phBot zarif 2px overlay kaydırma çubuğu (X=Width-3, W=2)
@@ -255,14 +265,14 @@ namespace xBot.App
                     int maxScroll = _sidebarTotalHeight - viewH;
                     int thumbH = Math.Max(28, (viewH * viewH) / _sidebarTotalHeight);
                     int thumbY = (_sidebarScrollOffset * (viewH - thumbH)) / maxScroll;
-                    using (var b = new SolidBrush(Color.FromArgb(141, 141, 141)))
+                    using (var b = new SolidBrush(Theme.AppTheme.Colors.BorderDefault))
                     {
                         e.Graphics.FillRectangle(b, TabPageV_Control01.Width - 3, thumbY, 2, thumbH);
                     }
                 }
             };
-            TabPageV_ColorSelected = PhBotSelect;
-            TabPageV_ColorHover = PhBotHover;
+            TabPageV_ColorSelected = Theme.AppTheme.SurfaceSelected;
+            TabPageV_ColorHover = Theme.AppTheme.SurfaceHover;
             int y = 8;
             foreach (Panel view in views)
             {
@@ -276,24 +286,27 @@ namespace xBot.App
                 bool existingButton = oldButtons.TryGetValue(name, out button);
                 if (!existingButton) button = new Button();
                 button.Name = name; button.Text = title;
+                button.Font = Theme.AppTheme.FontSidebar;
+                button.ForeColor = Theme.AppTheme.TextPrimary;
                 button.SetBounds(32, y, 144, 26);
                 button.TextAlign = ContentAlignment.MiddleLeft;
-                button.FlatStyle = FlatStyle.Flat; button.BackColor = Color.White;
+                button.FlatStyle = FlatStyle.Flat; button.BackColor = Theme.AppTheme.Surface;
                 button.TabIndex = _referenceViews.Count;
                 button.Visible = true;
                 button.FlatAppearance.BorderSize = 0;
-                button.FlatAppearance.MouseOverBackColor = PhBotHover;
-                button.FlatAppearance.MouseDownBackColor = PhBotSelect;
+                button.FlatAppearance.MouseOverBackColor = Theme.AppTheme.SurfaceHover;
+                button.FlatAppearance.MouseDownBackColor = Theme.AppTheme.SurfaceSelected;
                 button.Tag = y;
                 button.MouseWheel -= Sidebar_MouseWheel;
                 button.MouseWheel += Sidebar_MouseWheel;
+                button.Enter += SidebarItem_Enter;
                 Label icon;
                 bool existingIcon = oldIcons.TryGetValue(name + "_Icon", out icon);
                 if (!existingIcon) icon = new Label();
                 icon.Name = name + "_Icon"; icon.Text = "";
                 icon.Image = PhBotIcons.Get(title);
                 icon.SetBounds(12, y, 20, 26);
-                icon.BackColor = Color.White; icon.Visible = true;
+                icon.BackColor = Theme.AppTheme.Surface; icon.Visible = true;
                 icon.Tag = y;
                 icon.MouseWheel -= Sidebar_MouseWheel;
                 icon.MouseWheel += Sidebar_MouseWheel;
@@ -413,12 +426,12 @@ namespace xBot.App
                 });
             }
 
-            var tabs = new TabControl { Name = strip.Name + "_Tabs", Font = PhBotFont(),
+            var tabs = new TabControl { Name = strip.Name + "_Tabs", Font = Theme.AppTheme.FontSubTab,
                 Padding = (view == TabPageV_Control01_Inventory_Panel) ? new Point(3, 2) : new Point(8, 3),
                 Multiline = false };
             if (view == TabPageV_Control01_Inventory_Panel)
             {
-                tabs.Font = new Font("Segoe UI", 8.25f, FontStyle.Regular);
+                tabs.Font = Theme.AppTheme.FontButton;
             }
             var selected = strip.Tag as Control;
             foreach (Button button in buttons)
@@ -436,7 +449,7 @@ namespace xBot.App
                     continue;
                 }
 
-                var page = new TabPage(button.Text) { Tag = button, BackColor = Color.White, Padding = new Padding(8) };
+                var page = new TabPage(button.Text) { Tag = button, BackColor = Theme.AppTheme.Surface, Padding = new Padding(8) };
                 tabs.TabPages.Add(page);
                 _referencePages.Add(button, page);
                 panel.Dock = DockStyle.Fill;
@@ -491,7 +504,19 @@ namespace xBot.App
             RefreshSidebarTitles();
             // Reapply the active row after recoloring the navigation list.
             var selected = TabPageV_Control01.Tag as List<Control>;
-            if (selected != null) foreach (Control c in selected) c.BackColor = PhBotSelect;
+            if (selected != null)
+            {
+                foreach (Control c in selected)
+                {
+                    c.BackColor = Theme.AppTheme.SurfaceSelected;
+                    Button sb = c as Button;
+                    if (sb != null)
+                    {
+                        sb.Font = Theme.AppTheme.FontSidebarActive;
+                        sb.ForeColor = Theme.AppTheme.TextActive;
+                    }
+                }
+            }
             bool isTR = LocalizationManager.CurrentLanguage == "TR";
             if (_phBotBtnLaunch != null) _phBotBtnLaunch.Text = isTR ? "Clienti Başlat" : "Launch";
             if (_phBotBtnStart != null) _phBotBtnStart.Text = isTR ? "Botu Başlat" : "Start Bot";
@@ -594,10 +619,10 @@ namespace xBot.App
                 return;
             if (control.Parent != null && (control.Parent.Name == "ProjectHax_pnlCloud" || control.Parent.Name == "ProjectHax_pnlSocial"))
                 return;
-            control.Font = _referenceFont;
-            control.ForeColor = Color.Black;
+            control.Font = Theme.AppTheme.FontBody;
+            control.ForeColor = Theme.AppTheme.Colors.TextPrimary;
             control.BackColor = control == pnlWindow || control == _phBotActionsPanel || control == _referenceTools
-                ? PhBotBg : Color.White;
+                ? Theme.AppTheme.Colors.Canvas : Theme.AppTheme.Colors.Surface;
             var button = control as Button;
             if (button != null)
             {
@@ -606,21 +631,16 @@ namespace xBot.App
                 {
                     button.FlatStyle = FlatStyle.Flat;
                     button.FlatAppearance.BorderSize = 0;
-                    button.BackColor = Color.White;
+                    button.BackColor = Theme.AppTheme.Colors.Surface;
+                    button.Font = Theme.AppTheme.FontSidebar;
                 }
-                else if (button.Parent == _phBotActionsPanel || (button.Name != null && button.Name.StartsWith("ProjectHax_")))
+                else if (button.Parent == _phBotActionsPanel)
                 {
-                    button.FlatStyle = FlatStyle.Flat;
-                    button.FlatAppearance.BorderSize = 1;
-                    button.FlatAppearance.BorderColor = Color.FromArgb(210, 212, 216);
-                    button.BackColor = Color.FromArgb(246, 247, 248);
-                    button.ForeColor = Color.FromArgb(30, 30, 30);
+                    // Action panel buttons are styled dynamically by UpdateActionButtonsVisualState()
                 }
                 else
                 {
-                    button.FlatStyle = FlatStyle.Standard;
-                    button.UseVisualStyleBackColor = true;
-                    button.BackColor = PhBotBg;
+                    Theme.AppTheme.ComponentStyles.StyleSecondaryButton(button);
                 }
                 button.Padding = Padding.Empty;
             }
@@ -630,17 +650,43 @@ namespace xBot.App
             if (radio != null) { radio.FlatStyle = FlatStyle.Standard; radio.Padding = Padding.Empty; }
             var list = control as ListView;
             if (list != null) {
-                list.OwnerDraw = false;
-                list.BorderStyle = BorderStyle.FixedSingle;
-                list.FullRowSelect = true;
-                list.HideSelection = false;
-                list.GridLines = list.Columns.Count > 1;
+                Theme.AppTheme.ComponentStyles.StyleListView(list);
             }
             var input = control as TextBox;
-            if (input != null) input.BorderStyle = BorderStyle.FixedSingle;
+            if (input != null) {
+                Theme.AppTheme.ComponentStyles.StyleTextBox(input);
+            }
             var combo = control as ComboBox;
-            if (combo != null) combo.FlatStyle = FlatStyle.Standard;
+            if (combo != null) {
+                Theme.AppTheme.ComponentStyles.StyleComboBox(combo);
+            }
+            var group = control as GroupBox;
+            if (group != null) {
+                group.ForeColor = Theme.AppTheme.Colors.TextPrimary;
+                group.Font = Theme.AppTheme.FontBody;
+            }
             foreach (Control child in control.Controls) StyleXBotReference(child);
+        }
+
+        private void UpdateActionButtonsVisualState()
+        {
+            try
+            {
+                this.InvokeIfRequired(() =>
+                {
+                    if (_phBotBtnStart == null || _phBotBtnStop == null) return;
+                    bool isBotting = false;
+                    try { isBotting = Bot.Get != null && Bot.Get.isBotting; } catch { }
+
+                    Theme.AppTheme.ComponentStyles.StyleActionButton(_phBotBtnLaunch, true);
+                    Theme.AppTheme.ComponentStyles.StyleActionButton(_phBotBtnStart, !isBotting);
+                    Theme.AppTheme.ComponentStyles.StyleActionButton(_phBotBtnClientless, true, subtleDangerHover: true);
+                    Theme.AppTheme.ComponentStyles.StyleActionButton(_phBotBtnStop, isBotting, subtleDangerHover: true);
+                    Theme.AppTheme.ComponentStyles.StyleActionButton(_phBotBtnHide, true);
+                    Theme.AppTheme.ComponentStyles.StyleActionButton(_phBotBtnReturn, true);
+                });
+            }
+            catch { }
         }
 
         private void LayoutXBotReference()
@@ -657,13 +703,13 @@ namespace xBot.App
                 int sidebarH = h - (margin * 2);
                 int x = sidebarX + sidebarW + margin;
                 int contentW = Math.Max(500, w - x - margin);
-                const int bottom = 85; // exact 3-row button grid height
-                int logY = h - bottom - margin - 20;
+                const int actionsH = 108;
+                int logY = h - actionsH - margin;
                 int contentH = logY - margin - 4;
 
                 TabPageV_Control01.SetBounds(sidebarX, sidebarY, sidebarW, sidebarH);
                 TabPageV_Control01.BorderStyle = BorderStyle.None;
-                TabPageV_Control01.BackColor = Color.White;
+                TabPageV_Control01.BackColor = Theme.AppTheme.Surface;
 
                 foreach (Control c in TabPageV_Control01.Controls)
                 {
@@ -696,34 +742,29 @@ namespace xBot.App
 
                 const int actionsW = 212;
 
-                rtbxLogs.SetBounds(x, logY, contentW - actionsW - 10, bottom);
+                rtbxLogs.SetBounds(x, logY, contentW - actionsW - 10, actionsH);
                 rtbxLogs.BorderStyle = BorderStyle.FixedSingle;
                 rtbxLogs.DetectUrls = false;
-                rtbxLogs.BackColor = Color.White;
-                rtbxLogs.ForeColor = Color.Black;
+                rtbxLogs.BackColor = Theme.AppTheme.Colors.Surface;
+                rtbxLogs.ForeColor = Theme.AppTheme.Colors.TextPrimary;
+                rtbxLogs.Font = Theme.AppTheme.FontMonospace;
                 rtbxLogs.Visible = true;
                 rtbxLogs.BringToFront();
 
                 if (_referenceTools != null) _referenceTools.Visible = false;
-                _phBotActionsPanel.SetBounds(w - margin - actionsW, logY, actionsW, bottom + 24);
+                _phBotActionsPanel.SetBounds(w - margin - actionsW, logY, actionsW, actionsH);
                 Button[] actions = { _phBotBtnLaunch, _phBotBtnStart, _phBotBtnClientless, _phBotBtnStop, _phBotBtnHide, _phBotBtnReturn };
                 for (int i = 0; i < actions.Length; i++)
                 {
-                    actions[i].SetBounds((i % 2) * 107, (i / 2) * 29, 103, 27);
-                    actions[i].Font = new Font("Tahoma", 7.5f, FontStyle.Regular);
-                    actions[i].FlatStyle = FlatStyle.Flat;
-                    actions[i].FlatAppearance.BorderSize = 1;
-                    actions[i].FlatAppearance.BorderColor = Color.FromArgb(210, 212, 216);
-                    actions[i].BackColor = Color.FromArgb(246, 247, 248);
-                    actions[i].ForeColor = Color.FromArgb(30, 30, 30);
-                    actions[i].Padding = Padding.Empty;
-                    actions[i].Margin = Padding.Empty;
+                    Button actBtn = actions[i];
+                    actBtn.SetBounds((i % 2) * 107, (i / 2) * 29, 103, 27);
                 }
+                UpdateActionButtonsVisualState();
                 _phBotCopyright.Text = "©2026 xBot";
-                _phBotCopyright.SetBounds(0, 88, actionsW, 16);
-                _phBotCopyright.TextAlign = ContentAlignment.MiddleCenter;
-                _phBotCopyright.Font = new Font("Tahoma", 7.5f, FontStyle.Regular);
-                _phBotCopyright.ForeColor = Color.FromArgb(60, 60, 60);
+                _phBotCopyright.SetBounds(0, 88, actionsW - 4, 16);
+                _phBotCopyright.TextAlign = ContentAlignment.MiddleRight;
+                _phBotCopyright.Font = Theme.AppTheme.FontCaption;
+                _phBotCopyright.ForeColor = Theme.AppTheme.Colors.TextMuted;
             }
             finally { _referenceLayingOut = false; }
         }

@@ -48,7 +48,7 @@ namespace xBot.App
 
             private static void Draw(Graphics g, string key)
             {
-                Color ink = Color.FromArgb(30, 30, 30);
+                Color ink = Theme.AppTheme.Colors.TextSecondary;
                 using (Pen p = new Pen(ink, 1.8f))
                 {
                     p.StartCap = LineCap.Round;
@@ -61,9 +61,9 @@ namespace xBot.App
                         {
                             case "xBot":
                             case "ProjectHax":
-                                using (Font pf = new Font("Tahoma", 8.5f, FontStyle.Bold, GraphicsUnit.Point))
-                                using (SolidBrush pb = new SolidBrush(Color.FromArgb(200, 30, 30)))
-                                using (SolidBrush xb = new SolidBrush(Color.FromArgb(30, 30, 30)))
+                                using (Font pf = new Font("Segoe UI", 8.5f, FontStyle.Bold, GraphicsUnit.Point))
+                                using (SolidBrush pb = new SolidBrush(Theme.AppTheme.Colors.TextPrimary))
+                                using (SolidBrush xb = new SolidBrush(Theme.AppTheme.Colors.TextSecondary))
                                 {
                                     g.DrawString("x", pf, pb, -1, 1);
                                     g.DrawString("B", pf, xb, 7, 1);

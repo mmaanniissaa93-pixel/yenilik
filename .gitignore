@@ -47,3 +47,4 @@ packages/
 
 # Dokümantasyon ve referans dosyaları
 docs/
+.agents/

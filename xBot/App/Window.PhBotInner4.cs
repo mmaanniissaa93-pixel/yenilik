@@ -461,7 +461,7 @@ namespace xBot.App
                 host.BackColor = Color.White;
                 try { host.AutoScroll = true; } catch { }
 
-                CheckBox cbEnable = PhBotTodoCheck(host, "PhBot_KeyEnable", "Enable key bindings", 12, 12, false);
+                CheckBox cbEnable = DisableNotImplemented(PhBotTodoCheck(host, "PhBot_KeyEnable", "Enable key bindings", 12, 12, false));
 
                 string[] standardActions = new string[]
                 {
@@ -729,8 +729,8 @@ namespace xBot.App
 
                 int by = H - 60;
                 Button btnClear = PhBotButton(tabNotif, "PhBot_NotifClear", "Clear", 8, by, 75);
-                CheckBox cbLog = PhBotTodoCheck(tabNotif, "PhBot_NotifLog", "Enable notification logging", 100, by + 4, true);
-                CheckBox cbChat = PhBotTodoCheck(tabNotif, "PhBot_NotifChat", "Enable chat logging", 295, by + 4, true);
+                CheckBox cbLog = DisableNotImplemented(PhBotTodoCheck(tabNotif, "PhBot_NotifLog", "Enable notification logging", 100, by + 4, true));
+                CheckBox cbChat = DisableNotImplemented(PhBotTodoCheck(tabNotif, "PhBot_NotifChat", "Enable chat logging", 295, by + 4, true));
 
                 Action relayoutNotif = () => {
                     int th = tabNotif.ClientSize.Height;

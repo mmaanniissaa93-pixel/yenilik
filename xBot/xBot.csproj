@@ -211,6 +211,7 @@
     <Compile Include="App\ScriptCreatorForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="App\Theme\AppTheme.cs" />
     <Compile Include="App\Theme\DarkTheme.cs" />
     <Compile Include="App\Theme\ModernLogger.cs" />
     <Compile Include="Game\Objects\Common\SRCollectionBook.cs" />

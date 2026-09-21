@@ -11,6 +11,11 @@ namespace xBot.Game.Navigation
 		public string SourceName { get; set; }
 		public string DestinationName { get; set; }
 		public SRCoord BoardCoord { get; set; }
+		// Optional point just beyond a walk-trigger's database spawn.  It is kept
+		// separate from BoardCoord so route planning can still use the server's
+		// reachable spawn while the final trigger walk can continue through the
+		// visible doorway.
+		public SRCoord TriggerCoord { get; set; }
 		public SRCoord ArriveCoord { get; set; }
 		public bool IsFerry { get; set; }
         public TransitionMode TransitionMode { get; set; }

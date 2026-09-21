@@ -263,8 +263,13 @@ namespace xBot.App
                 if (control is CheckBox check) check.Checked = false;
                 ToolTips.SetToolTip(control, "Henüz uygulanmadı / Not implemented");
             }
-            PhBotLabel(page, "LoginUnsupportedNote", LocalizationManager.CurrentLanguage == "TR"
-                ? "Gri seçenekler henüz uygulanmadı." : "Grey options are not implemented yet.", 420, 326);
+            Label lblNote = PhBotLabel(page, "LoginUnsupportedNote", LocalizationManager.CurrentLanguage == "TR"
+                ? "* Gri seçenekler henüz uygulanmadı." : "* Grey options are not implemented yet.", 420, 332);
+            if (lblNote != null)
+            {
+                lblNote.Font = Theme.AppTheme.FontCaption;
+                lblNote.ForeColor = Theme.AppTheme.Colors.TextMuted;
+            }
         }
 
         private void SyncVisibleLoginOptions()

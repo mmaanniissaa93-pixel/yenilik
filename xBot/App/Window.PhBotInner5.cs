@@ -70,6 +70,40 @@ namespace xBot.App
             catch { }
         }
 
+        private static void PhBotSectionDivider(Control parent, string name, string title, int x, int y, int w)
+        {
+            try
+            {
+                Label lbl = parent.Controls[name + "_Lbl"] as Label;
+                if (lbl == null)
+                {
+                    lbl = new Label { Name = name + "_Lbl", AutoSize = true };
+                    parent.Controls.Add(lbl);
+                }
+                lbl.Font = Theme.AppTheme.FontCaption;
+                lbl.ForeColor = Theme.AppTheme.Colors.TextSecondary;
+                lbl.Text = title;
+                lbl.Location = new Point(x, y);
+                lbl.Visible = true;
+                lbl.BringToFront();
+
+                Panel div = parent.Controls[name + "_Div"] as Panel;
+                if (div == null)
+                {
+                    div = new Panel { Name = name + "_Div", Height = 1, BorderStyle = BorderStyle.None };
+                    parent.Controls.Add(div);
+                }
+                div.BackColor = Theme.AppTheme.Colors.BorderSubtle;
+                int textW = TextRenderer.MeasureText(title, lbl.Font).Width;
+                int lineX = x + textW + 6;
+                int lineW = Math.Max(20, (x + w) - lineX);
+                div.SetBounds(lineX, y + 7, lineW, 1);
+                div.Visible = true;
+                div.BringToFront();
+            }
+            catch { }
+        }
+
         // ---------------------------------------------------------------
         // LOGIN / SILKROAD BAĞLANTISI (phBot v33.6.3 1:1)
         // Sub-tabs: Bağlan | Ayarlar | Credentials
@@ -109,6 +143,7 @@ namespace xBot.App
                     };
                     host.Controls.Add(tabLoginRoot);
                 }
+                Theme.AppTheme.ComponentStyles.StyleSubTabControl(tabLoginRoot);
                 tabLoginRoot.Visible = true;
                 tabLoginRoot.BringToFront();
 
@@ -151,19 +186,19 @@ namespace xBot.App
 
                 pageConnect.Text = isTR ? "Bağlan" : "Connect";
                 pageSettings.Text = isTR ? "Ayarlar" : "Settings";
-                pageCredentials.Text = "Credentials";
+                pageCredentials.Text = isTR ? "Hesap Bilgileri" : "Credentials";
 
                 // =======================================================
                 // TAB 1: BAĞLAN (CONNECT)
                 // =======================================================
                 int lx = 14;
-                int ix = 150;
-                int iw = 165;
+                int ix = 174;
+                int iw = 200;
                 int y = 14;
                 const int rStep = 28;
 
                 // 1. Saved login
-                PhBotLabel(pageConnect, "lblSavedLogin", "Saved login", lx, y + 3);
+                PhBotLabel(pageConnect, "lblSavedLogin", isTR ? "Kayıtlı Giriş" : "Saved login", lx, y + 3);
                 ComboBox cbSavedLogin = pageConnect.Controls["PhBot_LoginSavedLogins"] as ComboBox;
                 if (cbSavedLogin == null)
                 {
@@ -226,7 +261,7 @@ namespace xBot.App
                     Login_cmbxServer.BackColor = Color.White;
                     Login_cmbxServer.ForeColor = Color.Black;
                     Login_cmbxServer.DropDownStyle = ComboBoxStyle.DropDownList;
-                    Login_cmbxServer.SetBounds(ix, y, 115, 22);
+                    Login_cmbxServer.SetBounds(ix, y, 106, 22);
                     Login_cmbxServer.Visible = true;
                 }
 
@@ -238,11 +273,8 @@ namespace xBot.App
                         pageConnect.Controls.Add(Login_btnStart);
                     }
                     Login_btnStart.Font = PhBotFont();
-                    Login_btnStart.FlatStyle = FlatStyle.Flat;
-                    Login_btnStart.BackColor = Color.FromArgb(246, 247, 248);
-                    Login_btnStart.ForeColor = Color.Black;
-                    Login_btnStart.FlatAppearance.BorderColor = Color.FromArgb(210, 212, 216);
-                    Login_btnStart.SetBounds(ix + 120, y - 1, 60, 24);
+                    Theme.AppTheme.ComponentStyles.StyleActionButton(Login_btnStart, true);
+                    Login_btnStart.SetBounds(ix + 110, y, 42, 22);
                     bool connectionIdle = true;
                     try { connectionIdle = Bot.Get.Proxy == null || !Bot.Get.Proxy.isRunning; } catch { }
                     if (connectionIdle)
@@ -265,11 +297,9 @@ namespace xBot.App
                     pageConnect.Controls.Add(btnLogout);
                 }
                 btnLogout.Font = PhBotFont();
-                btnLogout.BackColor = Color.FromArgb(246, 247, 248);
-                btnLogout.ForeColor = Color.Black;
-                btnLogout.FlatAppearance.BorderColor = Color.FromArgb(210, 212, 216);
-                btnLogout.SetBounds(ix + 185, y - 1, 68, 24);
-                btnLogout.Text = isTR ? "Çıkış yap" : "Logout";
+                Theme.AppTheme.ComponentStyles.StyleActionButton(btnLogout, btnLogout.Enabled);
+                btnLogout.SetBounds(ix + 154, y, 46, 22);
+                btnLogout.Text = isTR ? "Çıkış" : "Logout";
                 btnLogout.Visible = true;
                 y += rStep;
 
@@ -290,18 +320,18 @@ namespace xBot.App
                 cbGw.Visible = true;
                 y += rStep;
 
-                // 6. Şu kadar denemeden sonra [ 0 ] gateway değiştir
+                // 6. Şu kadar denemeden sonra [ 0 ] Gateway Değiştir
                 PhBotLabel(pageConnect, "lblSwGw1", isTR ? "Şu kadar denemeden sonra" : "Switch gateway after", lx, y + 3);
-                TextBox txtSw = PhBotTodoNumber(pageConnect, "PhBot_LoginSw", 152, y, 42, "0");
+                TextBox txtSw = PhBotTodoNumber(pageConnect, "PhBot_LoginSw", ix, y, 36, "0");
                 txtSw.TextAlign = HorizontalAlignment.Center;
-                PhBotLabel(pageConnect, "lblSwGw2", isTR ? "gateway değiştir" : "attempts", 200, y + 3);
+                PhBotLabel(pageConnect, "lblSwGw2", isTR ? "Gateway Değiştir" : "attempts", ix + 42, y + 3);
                 y += rStep;
 
                 // 7. SOCKS IP/Port + 4 + 5
                 PhBotLabel(pageConnect, "lblSocksIp", "SOCKS IP/Port", lx, y + 3);
-                TextBox tSocksIp = PhBotTodoNumber(pageConnect, "PhBot_SocksIp", ix, y, 98, "");
+                TextBox tSocksIp = PhBotTodoNumber(pageConnect, "PhBot_SocksIp", ix, y, 96, "");
                 tSocksIp.TextAlign = HorizontalAlignment.Left;
-                TextBox tSocksPort = PhBotTodoNumber(pageConnect, "PhBot_SocksPort", ix + 104, y, 46, "0");
+                TextBox tSocksPort = PhBotTodoNumber(pageConnect, "PhBot_SocksPort", ix + 100, y, 38, "0");
                 tSocksPort.TextAlign = HorizontalAlignment.Center;
 
                 RadioButton rb4 = pageConnect.Controls["PhBot_Socks4"] as RadioButton;
@@ -310,7 +340,7 @@ namespace xBot.App
                     rb4 = new RadioButton { Name = "PhBot_Socks4", Text = "4", AutoSize = true, Font = PhBotFont() };
                     pageConnect.Controls.Add(rb4);
                 }
-                rb4.SetBounds(ix + 156, y + 2, 38, 20);
+                rb4.SetBounds(ix + 142, y + 2, 28, 20);
                 rb4.Visible = true;
 
                 RadioButton rb5 = pageConnect.Controls["PhBot_Socks5"] as RadioButton;
@@ -319,7 +349,7 @@ namespace xBot.App
                     rb5 = new RadioButton { Name = "PhBot_Socks5", Text = "5", AutoSize = true, Checked = true, Font = PhBotFont() };
                     pageConnect.Controls.Add(rb5);
                 }
-                rb5.SetBounds(ix + 198, y + 2, 38, 20);
+                rb5.SetBounds(ix + 172, y + 2, 28, 20);
                 rb5.Visible = true;
                 y += rStep;
 
@@ -331,7 +361,7 @@ namespace xBot.App
 
                 // 9. SOCKS Şifre + Sıfırla
                 PhBotLabel(pageConnect, "lblSocksPass", isTR ? "SOCKS Şifre" : "SOCKS Pass", lx, y + 3);
-                TextBox tSocksPass = PhBotTodoNumber(pageConnect, "PhBot_SocksPass", ix, y, 105, "");
+                TextBox tSocksPass = PhBotTodoNumber(pageConnect, "PhBot_SocksPass", ix, y, 140, "");
                 tSocksPass.UseSystemPasswordChar = true;
                 tSocksPass.TextAlign = HorizontalAlignment.Left;
 
@@ -350,10 +380,8 @@ namespace xBot.App
                     pageConnect.Controls.Add(btnReset);
                 }
                 btnReset.Font = PhBotFont();
-                btnReset.BackColor = Color.FromArgb(246, 247, 248);
-                btnReset.ForeColor = Color.Black;
-                btnReset.FlatAppearance.BorderColor = Color.FromArgb(210, 212, 216);
-                btnReset.SetBounds(ix + 112, y - 1, 60, 24);
+                Theme.AppTheme.ComponentStyles.StyleActionButton(btnReset, true);
+                btnReset.SetBounds(ix + 144, y, 56, 22);
                 btnReset.Text = isTR ? "Sıfırla" : "Reset";
                 btnReset.Visible = true;
 
@@ -373,11 +401,12 @@ namespace xBot.App
                     Login_lstvServers.Location = new Point(rightX, 14);
                     Login_lstvServers.Size = new Size(rightW, 105);
                     Login_lstvServers.BackColor = Color.White;
-                    Login_lstvServers.ForeColor = Color.Black;
+                    Login_lstvServers.ForeColor = Theme.AppTheme.Colors.TextPrimary;
                     Login_lstvServers.BorderStyle = BorderStyle.FixedSingle;
                     Login_lstvServers.Font = PhBotFont();
                     Login_lstvServers.View = View.Details;
                     Login_lstvServers.FullRowSelect = true;
+                    Login_lstvServers.GridLines = false;
                     Login_lstvServers.HeaderStyle = ColumnHeaderStyle.Nonclickable;
                     Login_lstvServers.Visible = true;
 
@@ -393,13 +422,16 @@ namespace xBot.App
                     }
                 }
 
-                // Checkboxes below server list
+                // Checkboxes below server list: 3 subtle grouped sections
                 int col1X = rightX;
-                int col2X = rightX + 220;
-                int cy = 126;
+                int col2X = rightX + 215;
+                int colW = 200;
+
+                // Section 1: Bağlantı Davranışı
+                PhBotSectionDivider(pageConnect, "divConnBehavior", isTR ? "Bağlantı Davranışı" : "Connection Behavior", col1X, 126, colW);
+                int cy = 146;
                 const int cStep = 22;
 
-                // Col 1:
                 MoveToLogin(pageConnect, Login_cbxUseReturnScroll, col1X, cy);
                 SetCheckText(Login_cbxUseReturnScroll, isTR ? "Giriş Yapınca Şehre Dön" : "Return to town on login");
                 cy += cStep;
@@ -434,9 +466,24 @@ namespace xBot.App
                 cy += cStep;
 
                 PhBotTodoCheck(pageConnect, "PhBot_NoClientless", isTR ? "Clientless yok" : "No clientless", col1X, cy, false);
-                cy += cStep + 2;
 
-                PhBotLabel(pageConnect, "lblWaitDelay", isTR ? "DC sonrası bekle" : "Wait after DC", col1X, cy + 2);
+                // Section 2: İstemci Ayarları
+                PhBotSectionDivider(pageConnect, "divClientSettings", isTR ? "İstemci Ayarları" : "Client Settings", col2X, 126, colW);
+                int cy2 = 146;
+                PhBotTodoCheck(pageConnect, "PhBot_ClientMode", "Client", col2X, cy2, true);
+                cy2 += cStep;
+                PhBotTodoCheck(pageConnect, "PhBot_HideLogin", isTR ? "Bilgileri gizle" : "Hide login info", col2X, cy2, false);
+                cy2 += cStep;
+                PhBotTodoCheck(pageConnect, "PhBot_AllowXTrap", isTR ? "X-Trap'a İzin Ver" : "Allow X-Trap", col2X, cy2, false);
+                cy2 += cStep;
+                PhBotTodoCheck(pageConnect, "PhBot_InstantAccess", isTR ? "Anında erişim" : "Instant access", col2X, cy2, false);
+
+                // Section 3: Gecikmeler ve Limitler
+                int cy3 = 282;
+                PhBotSectionDivider(pageConnect, "divDelays", isTR ? "Gecikmeler ve Limitler" : "Delays & Limits", col1X, cy3, colW + 215);
+                int cy3Row = cy3 + 20;
+
+                PhBotLabel(pageConnect, "lblWaitDelay", isTR ? "DC sonrası bekle" : "Wait after DC", col1X, cy3Row + 2);
                 if (nudGeneralWaitAfterDC != null)
                 {
                     if (nudGeneralWaitAfterDC.Parent != pageConnect)
@@ -447,25 +494,15 @@ namespace xBot.App
                     nudGeneralWaitAfterDC.Font = PhBotFont();
                     nudGeneralWaitAfterDC.BackColor = Color.White;
                     nudGeneralWaitAfterDC.ForeColor = Color.Black;
-                    nudGeneralWaitAfterDC.SetBounds(col1X + (isTR ? 112 : 88), cy, 42, 22);
+                    nudGeneralWaitAfterDC.SetBounds(col1X + (isTR ? 112 : 88), cy3Row, 42, 22);
                     nudGeneralWaitAfterDC.Visible = true;
                 }
-                PhBotLabel(pageConnect, "lblWaitMin", isTR ? "dk" : "min", col1X + (isTR ? 158 : 134), cy + 2);
-                cy += cStep + 2;
+                PhBotLabel(pageConnect, "lblWaitMin", isTR ? "dk" : "min", col1X + (isTR ? 158 : 134), cy3Row + 2);
 
-                PhBotLabel(pageConnect, "lblBlockAfter", isTR ? "Sonra engelle" : "Block after", col1X, cy + 2);
-                PhBotTodoNumber(pageConnect, "PhBot_BlockAfter", col1X + (isTR ? 84 : 74), cy, 44, "200").TextAlign = HorizontalAlignment.Center;
-                PhBotLabel(pageConnect, "lblBlockQueue", isTR ? "Sıra denemesi" : "Queue attempts", col1X + (isTR ? 132 : 122), cy + 2);
+                PhBotLabel(pageConnect, "lblBlockAfter", isTR ? "Sonra engelle" : "Block after", col2X, cy3Row + 2);
+                PhBotTodoNumber(pageConnect, "PhBot_BlockAfter", col2X + (isTR ? 84 : 74), cy3Row, 44, "200").TextAlign = HorizontalAlignment.Center;
+                PhBotLabel(pageConnect, "lblBlockQueue", isTR ? "Sıra denemesi" : "Queue attempts", col2X + (isTR ? 132 : 122), cy3Row + 2);
 
-                // Col 2:
-                int cy2 = 126;
-                PhBotTodoCheck(pageConnect, "PhBot_ClientMode", "Client", col2X, cy2, true);
-                cy2 += cStep;
-                PhBotTodoCheck(pageConnect, "PhBot_HideLogin", isTR ? "Bilgileri gizle" : "Hide login info", col2X, cy2, false);
-                cy2 += cStep;
-                PhBotTodoCheck(pageConnect, "PhBot_AllowXTrap", isTR ? "X-Tap'a İzin Ver" : "Allow X-Trap", col2X, cy2, false);
-                cy2 += cStep;
-                PhBotTodoCheck(pageConnect, "PhBot_InstantAccess", isTR ? "Anında erişim" : "Instant access", col2X, cy2, false);
                 BindVisibleLoginOptions(pageConnect);
 
                 // =======================================================
@@ -475,14 +512,16 @@ namespace xBot.App
                 const int aStep = 26;
 
                 PhBotLabel(pageSettings, "lblCharSel", isTR ? "Karakter seçimi gecikmesi" : "Character select delay", 14, ay + 3);
-                PhBotTodoNumber(pageSettings, "PhBot_CharSelectDelay", 170, ay, 40, "5").TextAlign = HorizontalAlignment.Center;
+                var tCharSel = PhBotTodoNumber(pageSettings, "PhBot_CharSelectDelay", 170, ay, 40, "5");
+                tCharSel.TextAlign = HorizontalAlignment.Center;
+                DisableNotImplemented(tCharSel);
                 PhBotLabel(pageSettings, "lblCharSelSec", "s", 216, ay + 3);
                 ay += aStep + 4;
 
-                PhBotTodoCheck(pageSettings, "PhBot_ReduceMemSilk", isTR ? "Silkroad bellek kullanımını azalt" : "Reduce Silkroad memory usage", 14, ay, false);
+                DisableNotImplemented(PhBotTodoCheck(pageSettings, "PhBot_ReduceMemSilk", isTR ? "Silkroad bellek kullanımını azalt" : "Reduce Silkroad memory usage", 14, ay, false));
                 ay += aStep;
 
-                PhBotTodoCheck(pageSettings, "PhBot_LowLatency", isTR ? "Düşük gecikme" : "Low latency", 14, ay, false);
+                DisableNotImplemented(PhBotTodoCheck(pageSettings, "PhBot_LowLatency", isTR ? "Düşük gecikme" : "Low latency", 14, ay, false));
                 ay += aStep;
 
                 PhBotTodoCheck(pageSettings, "PhBot_CaptchaCheck", "Captcha", 14, ay, true);
@@ -509,14 +548,16 @@ namespace xBot.App
                 }
                 ay += aStep;
 
-                PhBotTodoCheck(pageSettings, "PhBot_Noel", "Noel", 14, ay, false);
+                DisableNotImplemented(PhBotTodoCheck(pageSettings, "PhBot_Noel", "Noel", 14, ay, false));
                 ay += aStep;
 
-                PhBotTodoCheck(pageSettings, "PhBot_Queue", isTR ? "Kuyruk" : "Queue", 14, ay, false);
+                DisableNotImplemented(PhBotTodoCheck(pageSettings, "PhBot_Queue", isTR ? "Kuyruk" : "Queue", 14, ay, false));
                 ay += aStep;
 
-                PhBotTodoCheck(pageSettings, "PhBot_IdleDisconnect", isTR ? "Boşta kopmayı kapat" : "Disable idle disconnect", 14, ay, false);
-                PhBotTodoNumber(pageSettings, "PhBot_IdleMinutes", 160, ay - 1, 40, "10").TextAlign = HorizontalAlignment.Center;
+                DisableNotImplemented(PhBotTodoCheck(pageSettings, "PhBot_IdleDisconnect", isTR ? "Boşta kopmayı kapat" : "Disable idle disconnect", 14, ay, false));
+                var tIdle = PhBotTodoNumber(pageSettings, "PhBot_IdleMinutes", 160, ay - 1, 40, "10");
+                tIdle.TextAlign = HorizontalAlignment.Center;
+                DisableNotImplemented(tIdle);
                 PhBotLabel(pageSettings, "lblIdleMin", isTR ? "Dk" : "Min", 206, ay + 2);
                 ay += aStep + 16;
 
@@ -541,10 +582,61 @@ namespace xBot.App
                 }
                 BuildVisibleClientPath(pageSettings);
 
+                // Re-exposed LoginStrategyManager Settings (Auto-Hide, Auto-Start, Static Captcha, Character Selection)
+                int stratX = 330;
+                int sy = 92;
+                const int sStep = 26;
+
+                MoveToLogin(pageSettings, cbxGeneralAutoHide, stratX, sy);
+                SetCheckText(cbxGeneralAutoHide, isTR ? "Silkroad İstemcisini Gizle" : "Hide Silkroad client");
+                sy += sStep;
+
+                MoveToLogin(pageSettings, cbxGeneralAutoStartClient, stratX, sy);
+                SetCheckText(cbxGeneralAutoStartClient, isTR ? "Açılışta Client Otomatik Başlat" : "Auto start client on launch");
+                sy += sStep;
+
+                MoveToLogin(pageSettings, cbxGeneralStaticCaptcha, stratX, sy);
+                SetCheckText(cbxGeneralStaticCaptcha, isTR ? "Sabit Captcha Kodu:" : "Static captcha code:");
+                if (tbxGeneralStaticCaptchaCode != null)
+                {
+                    if (tbxGeneralStaticCaptchaCode.Parent != pageSettings)
+                    {
+                        try { tbxGeneralStaticCaptchaCode.Parent?.Controls.Remove(tbxGeneralStaticCaptchaCode); } catch { }
+                        pageSettings.Controls.Add(tbxGeneralStaticCaptchaCode);
+                    }
+                    Classicize(tbxGeneralStaticCaptchaCode);
+                    tbxGeneralStaticCaptchaCode.SetBounds(stratX + (isTR ? 150 : 140), sy - 1, 60, 22);
+                    tbxGeneralStaticCaptchaCode.Visible = true;
+                }
+                sy += sStep + 6;
+
+                if (lblGeneralCharStrategy != null)
+                {
+                    if (lblGeneralCharStrategy.Parent != pageSettings)
+                    {
+                        try { lblGeneralCharStrategy.Parent?.Controls.Remove(lblGeneralCharStrategy); } catch { }
+                        pageSettings.Controls.Add(lblGeneralCharStrategy);
+                    }
+                    Classicize(lblGeneralCharStrategy);
+                    lblGeneralCharStrategy.Text = isTR ? "Karakter Seçim Stratejisi:" : "Character select strategy:";
+                    lblGeneralCharStrategy.Location = new Point(stratX, sy);
+                    lblGeneralCharStrategy.Visible = true;
+                }
+                sy += 22;
+
+                MoveToLogin(pageSettings, rbnGeneralFirstFound, stratX + 8, sy);
+                if (rbnGeneralFirstFound != null)
+                    rbnGeneralFirstFound.Text = isTR ? "İlk bulunan karakter" : "First found character";
+                sy += 22;
+
+                MoveToLogin(pageSettings, rbnGeneralHighestLevel, stratX + 8, sy);
+                if (rbnGeneralHighestLevel != null)
+                    rbnGeneralHighestLevel.Text = isTR ? "En yüksek seviyeli karakter" : "Highest level character";
+
                 // =======================================================
                 // TAB 3: CREDENTIALS
                 // =======================================================
-                PhBotLabel(pageCredentials, "lblCredSavedTitle", "Saved logins", 14, 14);
+                PhBotLabel(pageCredentials, "lblCredSavedTitle", isTR ? "Kayıtlı Girişler" : "Saved logins", 14, 14);
 
                 ListBox lbCred = pageCredentials.Controls["PhBot_CredList"] as ListBox;
                 if (lbCred == null)
@@ -567,11 +659,9 @@ namespace xBot.App
                     pageCredentials.Controls.Add(btnNew);
                 }
                 btnNew.Font = PhBotFont();
-                btnNew.BackColor = Color.FromArgb(246, 247, 248);
-                btnNew.ForeColor = Color.Black;
-                btnNew.FlatAppearance.BorderColor = Color.FromArgb(210, 212, 216);
+                Theme.AppTheme.ComponentStyles.StyleActionButton(btnNew, true);
                 btnNew.SetBounds(14, 246, 76, 25);
-                btnNew.Text = "New";
+                btnNew.Text = isTR ? "Yeni" : "New";
                 btnNew.Visible = true;
 
                 Button btnDel = pageCredentials.Controls["btnCredDelete"] as Button;
@@ -582,18 +672,16 @@ namespace xBot.App
                     pageCredentials.Controls.Add(btnDel);
                 }
                 btnDel.Font = PhBotFont();
-                btnDel.BackColor = Color.FromArgb(246, 247, 248);
-                btnDel.ForeColor = Color.Black;
-                btnDel.FlatAppearance.BorderColor = Color.FromArgb(210, 212, 216);
+                Theme.AppTheme.ComponentStyles.StyleActionButton(btnDel, true);
                 btnDel.SetBounds(98, 246, 76, 25);
-                btnDel.Text = "Delete";
+                btnDel.Text = isTR ? "Sil" : "Delete";
                 btnDel.Visible = true;
 
                 // Right fields of Credentials
                 int cry = 34;
                 const int crStep = 28;
 
-                PhBotLabel(pageCredentials, "lblCredName", "Name", 195, cry + 3);
+                PhBotLabel(pageCredentials, "lblCredName", isTR ? "Kayıt Adı" : "Name", 195, cry + 3);
                 TextBox tCredName = PhBotTodoNumber(pageCredentials, "PhBot_CredName", 280, cry, 180, "");
                 tCredName.TextAlign = HorizontalAlignment.Left;
                 cry += crStep;
@@ -609,7 +697,11 @@ namespace xBot.App
                 tCredPass.TextAlign = HorizontalAlignment.Left;
                 cry += crStep;
 
-                PhBotLabel(pageCredentials, "lblCredPin", "Passcode", 195, cry + 3);
+                Label lblCredPin = PhBotLabel(pageCredentials, "lblCredPin", isTR ? "PIN / Güvenlik Kodu" : "Passcode", 195, cry - 3);
+                // Wrap the full caption within this row, leaving 4px before the input.
+                lblCredPin.AutoSize = false;
+                lblCredPin.Size = new Size(81, crStep);
+                lblCredPin.TextAlign = ContentAlignment.MiddleLeft;
                 TextBox tCredPin = PhBotTodoNumber(pageCredentials, "PhBot_CredPin", 280, cry, 180, "");
                 tCredPin.UseSystemPasswordChar = true;
                 tCredPin.TextAlign = HorizontalAlignment.Left;
@@ -633,7 +725,7 @@ namespace xBot.App
                 }
                 cry += crStep;
 
-                PhBotLabel(pageCredentials, "lblCredChar", "Character", 195, cry + 3);
+                PhBotLabel(pageCredentials, "lblCredChar", isTR ? "Karakter" : "Character", 195, cry + 3);
                 TextBox tCredChar = PhBotTodoNumber(pageCredentials, "PhBot_CredChar", 280, cry, 180, "");
                 tCredChar.TextAlign = HorizontalAlignment.Left;
                 cry += crStep;
@@ -649,11 +741,9 @@ namespace xBot.App
                     pageCredentials.Controls.Add(btnSave);
                 }
                 btnSave.Font = PhBotFont();
-                btnSave.BackColor = Color.FromArgb(246, 247, 248);
-                btnSave.ForeColor = Color.Black;
-                btnSave.FlatAppearance.BorderColor = Color.FromArgb(210, 212, 216);
+                Theme.AppTheme.ComponentStyles.StyleActionButton(btnSave, true);
                 btnSave.SetBounds(280, cry, 75, 25);
-                btnSave.Text = "Save";
+                btnSave.Text = isTR ? "Kaydet" : "Save";
                 btnSave.Visible = true;
 
                 // UI senkronizasyonu
@@ -1378,7 +1468,7 @@ namespace xBot.App
                         PhBotLabel(sp, "PhBot_PlusSuccUnit", "ms    0%", 158, 38);
 
                         PhBotLabel(sp, "PhBot_PlusFailLbl", "Failure delay", 10, 62);
-                        PhBotTodoNumber(sp, "PhBot_PlusFailN", 105, 60, 48, "5000");
+                        DisableNotImplemented(PhBotTodoNumber(sp, "PhBot_PlusFailN", 105, 60, 48, "5000"));
                         PhBotLabel(sp, "PhBot_PlusFailUnit", "ms", 158, 62);
 
                         // Lucky Powder
@@ -1398,7 +1488,7 @@ namespace xBot.App
                             cbxAlchemyUsePowder.Visible = true;
                         }
                         PhBotLabel(sp, "PhBot_PowderPlus", "+", 98, cy + 2);
-                        PhBotTodoNumber(sp, "PhBot_PowderN", 108, cy, 26, "0");
+                        DisableNotImplemented(PhBotTodoNumber(sp, "PhBot_PowderN", 108, cy, 26, "0"));
                         ComboBox cPowder = sp.Controls["PhBot_PowderAuto"] as ComboBox;
                         if (cPowder == null)
                         {
@@ -1410,29 +1500,29 @@ namespace xBot.App
                         cPowder.Location = new Point(138, cy); cPowder.Size = new Size(50, 22); cPowder.Visible = true;
 
                         cy = 108;
-                        PhBotTodoCheck(sp, "PhBot_Astral", "Astral", 10, cy, false);
+                        DisableNotImplemented(PhBotTodoCheck(sp, "PhBot_Astral", "Astral", 10, cy, false));
                         PhBotLabel(sp, "PhBot_AstralPlus", "+", 98, cy + 2);
-                        PhBotTodoNumber(sp, "PhBot_AstralN", 108, cy, 26, "0");
-                        PhBotTodoCheck(sp, "PhBot_MoveOnFail", "Move on after plus failure", 180, cy, false);
+                        DisableNotImplemented(PhBotTodoNumber(sp, "PhBot_AstralN", 108, cy, 26, "0"));
+                        DisableNotImplemented(PhBotTodoCheck(sp, "PhBot_MoveOnFail", "Move on after plus failure", 180, cy, false));
 
                         cy = 130;
-                        PhBotTodoCheck(sp, "PhBot_Steady", "Steady", 10, cy, false);
+                        DisableNotImplemented(PhBotTodoCheck(sp, "PhBot_Steady", "Steady", 10, cy, false));
                         PhBotLabel(sp, "PhBot_SteadyPlus", "+", 98, cy + 2);
-                        PhBotTodoNumber(sp, "PhBot_SteadyN", 108, cy, 26, "0");
-                        PhBotTodoCheck(sp, "PhBot_StopDestroyed", "Stop all if destroyed", 180, cy, false);
+                        DisableNotImplemented(PhBotTodoNumber(sp, "PhBot_SteadyN", 108, cy, 26, "0"));
+                        DisableNotImplemented(PhBotTodoCheck(sp, "PhBot_StopDestroyed", "Stop all if destroyed", 180, cy, false));
 
                         cy = 152;
-                        PhBotTodoCheck(sp, "PhBot_Immortal", "Immortal", 10, cy, false);
+                        DisableNotImplemented(PhBotTodoCheck(sp, "PhBot_Immortal", "Immortal", 10, cy, false));
                         PhBotLabel(sp, "PhBot_ImmortalPlus", "+", 98, cy + 2);
-                        PhBotTodoNumber(sp, "PhBot_ImmortalN", 108, cy, 26, "0");
+                        DisableNotImplemented(PhBotTodoNumber(sp, "PhBot_ImmortalN", 108, cy, 26, "0"));
 
                         cy = 174;
-                        PhBotTodoCheck(sp, "PhBot_LuckyStone", "Lucky stone", 10, cy, false);
+                        DisableNotImplemented(PhBotTodoCheck(sp, "PhBot_LuckyStone", "Lucky stone", 10, cy, false));
                         PhBotLabel(sp, "PhBot_LuckyStonePlus", "+", 98, cy + 2);
-                        PhBotTodoNumber(sp, "PhBot_LuckyStoneN", 108, cy, 26, "0");
+                        DisableNotImplemented(PhBotTodoNumber(sp, "PhBot_LuckyStoneN", 108, cy, 26, "0"));
 
                         cy = 196;
-                        PhBotTodoCheck(sp, "PhBot_StopAttempt", "Stop after attempt", 10, cy, false);
+                        DisableNotImplemented(PhBotTodoCheck(sp, "PhBot_StopAttempt", "Stop after attempt", 10, cy, false));
                         if (nudAlchemyMaxAttempts != null)
                         {
                             if (nudAlchemyMaxAttempts.Parent != sp)

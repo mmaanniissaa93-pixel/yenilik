@@ -216,6 +216,7 @@ namespace xBot.Game.Navigation
 			{ "DOJI", new SRCoord(24993, 362, 72, 1761) },   // Ferry Ticket Seller Doji
 		};
 		int fixedCount = 0;
+		int triggerCount = 0;
 		foreach (var link in m_links)
 		{
 			try
@@ -243,12 +244,26 @@ namespace xBot.Game.Navigation
 						link.BoardCoord = gate;
 						fixedCount++;
 					}
+					// GATE_DUNGEON_DH_IN's DB spawn is the approach point.  The
+					// doorway itself is farther along the same corridor; keep this
+					// continuation out of BoardCoord so TransitionRoutePlanner can
+					// still find a route to the server spawn.
+					if (link.SourceId == 11)
+					{
+						// NavDataReader exposes world-space points. Let SRCoord derive
+						// the sector (the point is just across the 2496 X boundary,
+						// so forcing the board's 27027 region would encode it wrongly).
+						link.TriggerCoord = new SRCoord(2504.0, 2680.0, 452);
+						triggerCount++;
+					}
 				}
 			}
 			catch { }
 		}
 		if (fixedCount > 0)
 			Window.Get?.Log($"TeleportManager: {fixedCount} board koordinatı sabit kapı verisiyle düzeltildi.");
+		if (triggerCount > 0)
+			Window.Get?.Log($"TeleportManager: {triggerCount} walk-trigger devam noktası yüklendi.");
 	}
 
 		private void AddIfMissing(uint srcId, uint dstId, uint npcId, string srcName, string dstName,

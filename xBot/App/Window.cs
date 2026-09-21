@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Collections.Generic;
 using System.Drawing;
@@ -2136,6 +2136,12 @@ namespace xBot.App
 					return;
 				currentOption[0].BackColor = c.Parent.BackColor;
 				currentOption[1].BackColor = c.Parent.BackColor;
+				Button prevBtn = currentOption[0] as Button;
+				if (prevBtn != null)
+				{
+					prevBtn.Font = Theme.AppTheme.FontSidebar;
+					prevBtn.ForeColor = Theme.AppTheme.TextPrimary;
+				}
 				c.Parent.Parent.Controls[currentOption[0].Name + "_Panel"].Visible = false;
 			}
 			currentOption = new List<Control>();
@@ -2144,6 +2150,12 @@ namespace xBot.App
 			c.Parent.Tag = currentOption;
 			currentOption[0].BackColor = TabPageV_ColorSelected;
 			currentOption[1].BackColor = TabPageV_ColorSelected;
+			Button newBtn = currentOption[0] as Button;
+			if (newBtn != null)
+			{
+				newBtn.Font = Theme.AppTheme.FontSidebarActive;
+				newBtn.ForeColor = Theme.AppTheme.TextActive;
+			}
 			c.Parent.Parent.Controls[currentOption[1].Name.Replace("Icon", "Panel")].Visible = true;
 			try { c.Parent.Invalidate(); } catch { }
 		}

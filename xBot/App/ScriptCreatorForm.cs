@@ -207,6 +207,12 @@ namespace xBot.App
             btnUnequip.Click += (s, e) => AppendScriptLine("unequip");
             gbxControls.Controls.Add(btnUnequip);
 
+            // Keep the last command row inside the existing group at every size.
+            // The form scrolls when the complete group is taller than its viewport.
+            gbxControls.MinimumSize = new Size(334, yStart + (leftNames.Length - 1) * gapY + btnH + 12);
+            this.AutoScroll = true;
+            this.AutoScrollMinSize = new Size(0, gbxControls.Bottom + 12);
+
             // Right side: Script Editor
             txtScript = new TextBox();
             txtScript.Location = new Point(356, 16);

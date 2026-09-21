@@ -241,12 +241,12 @@ namespace xBot.App
                 }
 
                 int ty = 146;
-                PhBotTodoCheck(gbTrace, "PhBot_TraceAttack", "Attack monsters (uses training radius)", 12, ty, false); ty += 26;
-                PhBotTodoCheck(gbTrace, "PhBot_TraceClear", "Kill all monsters before tracing", 12, ty, false); ty += 26;
-                PhBotTodoCheck(gbTrace, "PhBot_TraceBuffs", "Buffs", 12, ty, false); ty += 26;
-                PhBotTodoCheck(gbTrace, "PhBot_TracePartyBuffs", "Party buffs", 12, ty, false); ty += 26;
-                PhBotTodoCheck(gbTrace, "PhBot_TracePick", "Pick items", 12, ty, false); ty += 26;
-                PhBotTodoCheck(gbTrace, "PhBot_TraceGame", "Game trace", 12, ty, false);
+                DisableNotImplemented(PhBotTodoCheck(gbTrace, "PhBot_TraceAttack", "Attack monsters (uses training radius)", 12, ty, false)); ty += 26;
+                DisableNotImplemented(PhBotTodoCheck(gbTrace, "PhBot_TraceClear", "Kill all monsters before tracing", 12, ty, false)); ty += 26;
+                DisableNotImplemented(PhBotTodoCheck(gbTrace, "PhBot_TraceBuffs", "Buffs", 12, ty, false)); ty += 26;
+                DisableNotImplemented(PhBotTodoCheck(gbTrace, "PhBot_TracePartyBuffs", "Party buffs", 12, ty, false)); ty += 26;
+                DisableNotImplemented(PhBotTodoCheck(gbTrace, "PhBot_TracePick", "Pick items", 12, ty, false)); ty += 26;
+                DisableNotImplemented(PhBotTodoCheck(gbTrace, "PhBot_TraceGame", "Game trace", 12, ty, false));
             }
             catch (Exception ex) { PhBotDebug("players inner: " + ex.Message); }
             finally { _innerLayout = false; }
@@ -422,10 +422,10 @@ namespace xBot.App
                 gbxInvite.SetBounds(8, by, 420, 115);
                 gbxInvite.Visible = true;
 
-                PhBotTodoCheck(gbxInvite, "PhBot_GuildShowInv", "Show guild invites", 14, 22, true);
-                PhBotTodoCheck(gbxInvite, "PhBot_GuildAutoInv", "Auto invite other players to the guild with level >", 14, 50, false);
-                PhBotTodoNumber(gbxInvite, "PhBot_GuildAutoInvN", 350, 48, 45, "0");
-                PhBotTodoCheck(gbxInvite, "PhBot_GuildAcceptAll", "Accept all guild invites", 14, 78, false);
+                DisableNotImplemented(PhBotTodoCheck(gbxInvite, "PhBot_GuildShowInv", "Show guild invites", 14, 22, true));
+                DisableNotImplemented(PhBotTodoCheck(gbxInvite, "PhBot_GuildAutoInv", "Auto invite other players to the guild with level >", 14, 50, false));
+                DisableNotImplemented(PhBotTodoNumber(gbxInvite, "PhBot_GuildAutoInvN", 350, 48, 45, "0"));
+                DisableNotImplemented(PhBotTodoCheck(gbxInvite, "PhBot_GuildAcceptAll", "Accept all guild invites", 14, 78, false));
 
                 // Alt sağ: View Notice butonu
                 Button bNotice = EnsurePlayerButton(p, "PhBot_GuildNoticeView", "View Notice", Math.Max(450, W - 140), by + 30, 120, 28);
@@ -577,18 +577,20 @@ namespace xBot.App
                 RadioButton rbInvList = new RadioButton { Name = "PhBot_AcInvList", Text = "Invite only from the list", Location = new Point(12, y), AutoSize = true, Font = PhBotFont() };
                 gbOpt.Controls.Add(rbInvList); y += 26;
 
-                PhBotTodoCheck(gbOpt, "PhBot_AcShowInv", "Show academy invites", 12, y, true); y += 22;
-                PhBotTodoCheck(gbOpt, "PhBot_AcAcceptJoin", "Accept join invitations", 12, y, false); y += 22;
-                PhBotTodoCheck(gbOpt, "PhBot_AcInvitePlayers", "Invite players to the academy", 12, y, false); y += 22;
-                PhBotTodoCheck(gbOpt, "PhBot_AcAutoGrad", "Auto graduate from academy", 12, y, false); y += 22;
-                PhBotTodoCheck(gbOpt, "PhBot_AcRefuse", "Refuse invites from players not in the list", 12, y, false); y += 26;
+                DisableNotImplemented(PhBotTodoCheck(gbOpt, "PhBot_AcShowInv", "Show academy invites", 12, y, true)); y += 22;
+                DisableNotImplemented(PhBotTodoCheck(gbOpt, "PhBot_AcAcceptJoin", "Accept join invitations", 12, y, false)); y += 22;
+                DisableNotImplemented(PhBotTodoCheck(gbOpt, "PhBot_AcInvitePlayers", "Invite players to the academy", 12, y, false)); y += 22;
+                DisableNotImplemented(PhBotTodoCheck(gbOpt, "PhBot_AcAutoGrad", "Auto graduate from academy", 12, y, false)); y += 22;
+                DisableNotImplemented(PhBotTodoCheck(gbOpt, "PhBot_AcRefuse", "Refuse invites from players not in the list", 12, y, false)); y += 26;
 
                 PhBotLabel(gbOpt, "PhBot_AcGradLevelLbl", "Graduate level", 12, y + 4);
                 TextBox tbGrad = new TextBox { Name = "PhBot_AcGradLevel", Text = "40", Location = new Point(120, y), Size = new Size(50, 22), Font = PhBotFont(), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+                DisableNotImplemented(tbGrad);
                 gbOpt.Controls.Add(tbGrad); y += 26;
 
-                PhBotTodoCheck(gbOpt, "PhBot_AcPassCheck", "Password", 12, y + 2, false);
+                DisableNotImplemented(PhBotTodoCheck(gbOpt, "PhBot_AcPassCheck", "Password", 12, y + 2, false));
                 TextBox tbPass = new TextBox { Name = "PhBot_AcPass", Location = new Point(120, y), Size = new Size(130, 22), Font = PhBotFont(), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+                DisableNotImplemented(tbPass);
                 gbOpt.Controls.Add(tbPass);
 
                 // Sağ: Accept / Invite List (Regex) GroupBox
@@ -635,7 +637,7 @@ namespace xBot.App
                 TextBox tbTitle = new TextBox { Name = "PhBot_AcMatchTitle", Text = "Academy", Location = new Point(65, y), Size = new Size(295, 22), Font = PhBotFont(), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
                 tp.Controls.Add(tbTitle); y += 32;
 
-                PhBotTodoCheck(tp, "PhBot_AcAutoForm", "Auto form academy matching", 12, y, false); y += 26;
+                DisableNotImplemented(PhBotTodoCheck(tp, "PhBot_AcAutoForm", "Auto form academy matching", 12, y, false)); y += 26;
 
                 RadioButton rbAppr = new RadioButton { Name = "PhBot_AcApprentice", Text = "Apprentice", Location = new Point(24, y), AutoSize = true, Checked = true, Font = PhBotFont() };
                 tp.Controls.Add(rbAppr); y += 22;
@@ -649,12 +651,14 @@ namespace xBot.App
                 tp.Controls.Add(tbJoin);
                 PhBotButton(tp, "PhBot_AcJoinBtn", "Join", 215, y - 1, 75); y += 32;
 
-                PhBotTodoCheck(tp, "PhBot_AcJoinNameCheck", "Join by name", 12, y + 2, false);
+                DisableNotImplemented(PhBotTodoCheck(tp, "PhBot_AcJoinNameCheck", "Join by name", 12, y + 2, false));
                 TextBox tbName = new TextBox { Name = "PhBot_AcJoinName", Location = new Point(125, y), Size = new Size(165, 22), Font = PhBotFont(), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+                DisableNotImplemented(tbName);
                 tp.Controls.Add(tbName); y += 32;
 
-                PhBotTodoCheck(tp, "PhBot_AcJoinTitleCheck", "Join by title", 12, y + 2, false);
+                DisableNotImplemented(PhBotTodoCheck(tp, "PhBot_AcJoinTitleCheck", "Join by title", 12, y + 2, false));
                 TextBox tbTitleMatch = new TextBox { Name = "PhBot_AcJoinTitle", Location = new Point(125, y), Size = new Size(235, 22), Font = PhBotFont(), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+                DisableNotImplemented(tbTitleMatch);
                 tp.Controls.Add(tbTitleMatch);
             }
             catch (Exception ex) { PhBotDebug("acmatch: " + ex.Message); }
@@ -797,8 +801,8 @@ namespace xBot.App
                     };
                     host.Controls.Add(gbOpt);
 
-                    PhBotTodoCheck(gbOpt, "PhBot_UnionAccept", "Accept union party invites", 12, 22, false);
-                    PhBotTodoCheck(gbOpt, "PhBot_UnionInvite", "Invite players to the union party", 12, 50, false);
+                    DisableNotImplemented(PhBotTodoCheck(gbOpt, "PhBot_UnionAccept", "Accept union party invites", 12, 22, false));
+                    DisableNotImplemented(PhBotTodoCheck(gbOpt, "PhBot_UnionInvite", "Invite players to the union party", 12, 50, false));
 
                     ComboBox cbDist = new ComboBox
                     {

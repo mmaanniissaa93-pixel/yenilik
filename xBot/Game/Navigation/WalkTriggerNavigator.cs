@@ -64,19 +64,70 @@ namespace xBot.Game.Navigation
                     if (!moved) break;
                 }
                 // The database point can sit on the near edge of the trigger volume.
-                // Continue through it along the observed approach, rather than stopping there.
+                // Walk through the gate in several bounded steps. A single 2m command
+                // can stop at the client collision edge without ever entering the
+                // server trigger, which is what happens at the Donwhang dungeon gate.
                 current = Position();
-                double approachDistance = approachOrigin.DistanceTo(link.BoardCoord);
-                if (Active() && !interrupted() && current != null && current.DistanceTo(link.BoardCoord) <= 0.5
-                    && approachDistance > 0.5)
+                var triggerTarget = link.TriggerCoord;
+                if (triggerTarget != null && current != null
+                    && TeleportTransitionPolicy.SameSpace(current, triggerTarget)
+                    && current.DistanceTo(triggerTarget) > 0.75
+                    && Active() && !interrupted())
                 {
-                    double dx = (link.BoardCoord.PosX - approachOrigin.PosX) / approachDistance;
-                    double dy = (link.BoardCoord.PosY - approachOrigin.PosY) / approachDistance;
-                    var crossing = current.inDungeon()
-                        ? new SRCoord(link.BoardCoord.PosX + dx * 2, link.BoardCoord.PosY + dy * 2, current.Region, link.BoardCoord.Z)
-                        : new SRCoord(link.BoardCoord.PosX + dx * 2, link.BoardCoord.PosY + dy * 2, link.BoardCoord.Z);
-                    Log($"[CAVE-TRANSITION] crossing trigger center target={crossing}");
-                    Walk(crossing, interrupted);
+                    // Keep each command short so a collision at the doorway cannot
+                    // turn the continuation point into another long blind move.
+                    for (int step = 0; step < 8 && Active() && !interrupted(); step++)
+                    {
+                        current = Position();
+                        if (current == null) break;
+                        double triggerDistance = current.DistanceTo(triggerTarget);
+                        if (triggerDistance <= 0.75) break;
+                        double k = Math.Min(3, triggerDistance) / triggerDistance;
+                        var point = current.inDungeon()
+                            ? new SRCoord(current.PosX + (triggerTarget.PosX - current.PosX) * k,
+                                current.PosY + (triggerTarget.PosY - current.PosY) * k,
+                                current.Region, triggerTarget.Z)
+                            : new SRCoord(current.PosX + (triggerTarget.PosX - current.PosX) * k,
+                                current.PosY + (triggerTarget.PosY - current.PosY) * k,
+                                triggerTarget.Z);
+                        Log($"[CAVE-TRANSITION] trigger approach step={step} target={point}");
+                        if (!Walk(point, interrupted)) break;
+                        if (!TeleportTransitionPolicy.SameSpace(Position(), link.BoardCoord)) break;
+                    }
+                    current = Position();
+                    if (WaitForArrival(arrived, 100)) return Success();
+                    if (current == null || !TeleportTransitionPolicy.SameSpace(current, link.BoardCoord)) return false;
+                }
+
+                double approachDistance = approachOrigin.DistanceTo(link.BoardCoord);
+                var directionOrigin = approachDistance > 0.5 ? approachOrigin : before;
+                var crossingBase = triggerTarget ?? link.BoardCoord;
+                if (triggerTarget != null)
+                    directionOrigin = link.BoardCoord;
+                double directionDistance = directionOrigin == null ? 0 : directionOrigin.DistanceTo(crossingBase);
+                if (Active() && !interrupted() && current != null && current.DistanceTo(crossingBase) <= 0.75
+                    && directionDistance > 0.5)
+                {
+                    double dx = (crossingBase.PosX - directionOrigin.PosX) / directionDistance;
+                    double dy = (crossingBase.PosY - directionOrigin.PosY) / directionDistance;
+                    var anchor = current;
+                    bool crossed = false;
+                    // Keep the sweep on the approach line. Side-to-side probing
+                    // makes the character visibly shuffle at the doorway and does
+                    // not help a directional trigger such as the DW entrance.
+                    foreach (int depth in new[] { 3, 6, 9, 12, 16, 20, 24 })
+                    {
+                        if (!Active() || interrupted()) break;
+                        var crossing = anchor.inDungeon()
+                            ? new SRCoord(crossingBase.PosX + dx * depth, crossingBase.PosY + dy * depth,
+                                anchor.Region, crossingBase.Z)
+                            : new SRCoord(crossingBase.PosX + dx * depth, crossingBase.PosY + dy * depth,
+                                crossingBase.Z);
+                        Log($"[CAVE-TRANSITION] crossing trigger depth={depth} target={crossing}");
+                        if (!Walk(crossing, interrupted)) break;
+                        crossed = !TeleportTransitionPolicy.SameSpace(Position(), link.BoardCoord);
+                        if (crossed) break;
+                    }
                 }
                 if (WaitForArrival(arrived, 100)) return Success();
                 Log($"[CAVE-TRANSITION] timeout attempt={attempt + 1}/2 afterRegion={Position()?.Region}");

@@ -147,12 +147,12 @@ namespace xBot.App.Theme
             }
         }
 
-        public static Color ColorTimestamp => DarkTheme.TextFaint;     // #64748B
-        public static Color ColorInfo      => DarkTheme.InfoBlue;      // #38BDF8
-        public static Color ColorSuccess   => DarkTheme.Success;       // #10B981
-        public static Color ColorWarning   => DarkTheme.Warning;       // #F59E0B
-        public static Color ColorError     => DarkTheme.Danger;        // #EF4444
-        public static Color ColorSystem    => DarkTheme.SystemPurple;  // #A855F7
+        public static Color ColorTimestamp => AppTheme.LogTimestamp;
+        public static Color ColorInfo      => AppTheme.LogInfo;
+        public static Color ColorSuccess   => AppTheme.LogSuccess;
+        public static Color ColorWarning   => AppTheme.LogWarning;
+        public static Color ColorError     => AppTheme.LogError;
+        public static Color ColorSystem    => AppTheme.LogSystem;
 
         public static Color GetLevelColor(LogLevel level)
         {

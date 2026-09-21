@@ -198,6 +198,23 @@ namespace xBot.App
             return t;
         }
 
+        private T DisableNotImplemented<T>(T c) where T : Control
+        {
+            if (c == null) return null;
+            try
+            {
+                c.Enabled = false;
+                c.ForeColor = Theme.AppTheme.TextDisabled;
+                bool isTR = LocalizationManager.CurrentLanguage == "TR";
+                if (ToolTips != null)
+                {
+                    ToolTips.SetToolTip(c, isTR ? "Henüz uygulanmadı" : "Not implemented yet");
+                }
+            }
+            catch { }
+            return c;
+        }
+
         private static CheckBox BindAttackCheck(Control p, string name, string text, int x, int y, bool currentVal, Action<bool> onValChanged)
         {
             if (p == null) return null;
@@ -579,7 +596,7 @@ namespace xBot.App
                 EnsureBuffUpDown(p, ux, uw);
 
                 int y = 8;
-                PhBotTodoCheck(p, "PhBot_BuffWhile", "Buff while attacking monsters", ox, y, true); y += 24;
+                DisableNotImplemented(PhBotTodoCheck(p, "PhBot_BuffWhile", "Buff while attacking monsters", ox, y, true)); y += 24;
                 try
                 {
                     if (cbxSkillDevil != null)
@@ -598,19 +615,19 @@ namespace xBot.App
                 }
                 catch { }
                 y += 24;
-                PhBotTodoCheck(p, "PhBot_Mirror", "Cast Mirror Reflect", ox, y, true); y += 24;
-                PhBotTodoCheck(p, "PhBot_NoSwitchWpn", "Do not switch weapons for buffing", ox, y, false); y += 24;
-                PhBotTodoCheck(p, "PhBot_EmergHP", "Emergency buff HP <", ox, y, false);
-                PhBotTodoNumber(p, "PhBot_EmergHPN", ox + 160, y - 2, 50, "50");
+                DisableNotImplemented(PhBotTodoCheck(p, "PhBot_Mirror", "Cast Mirror Reflect", ox, y, true)); y += 24;
+                DisableNotImplemented(PhBotTodoCheck(p, "PhBot_NoSwitchWpn", "Do not switch weapons for buffing", ox, y, false)); y += 24;
+                DisableNotImplemented(PhBotTodoCheck(p, "PhBot_EmergHP", "Emergency buff HP <", ox, y, false));
+                DisableNotImplemented(PhBotTodoNumber(p, "PhBot_EmergHPN", ox + 160, y - 2, 50, "50"));
                 PhBotLabel(p, "PhBot_EmergHPL", "%", ox + 216, y + 3); y += 24;
-                PhBotTodoCheck(p, "PhBot_EmergMP", "Emergency buff MP <", ox, y, false);
-                PhBotTodoNumber(p, "PhBot_EmergMPN", ox + 160, y - 2, 50, "50");
+                DisableNotImplemented(PhBotTodoCheck(p, "PhBot_EmergMP", "Emergency buff MP <", ox, y, false));
+                DisableNotImplemented(PhBotTodoNumber(p, "PhBot_EmergMPN", ox + 160, y - 2, 50, "50"));
                 PhBotLabel(p, "PhBot_EmergMPL", "%", ox + 216, y + 3); y += 24;
-                PhBotTodoCheck(p, "PhBot_MobAttacking", "Monsters attacking", ox, y, false);
-                PhBotTodoNumber(p, "PhBot_MobAttackingN", ox + 160, y - 2, 50, "0"); y += 24;
+                DisableNotImplemented(PhBotTodoCheck(p, "PhBot_MobAttacking", "Monsters attacking", ox, y, false));
+                DisableNotImplemented(PhBotTodoNumber(p, "PhBot_MobAttackingN", ox + 160, y - 2, 50, "0")); y += 24;
                 PhBotLabel(p, "PhBot_BadStatusL", "Bad status", ox, y + 3); y += 20;
                 ComboBox bad = EnsureBadStatusCombo(p, ox, y, 260); y += 28;
-                PhBotTodoCheck(p, "PhBot_RecastAll", "Recast all buffs when one buff ends if it\nrequires a weapon switch", ox, y, false);
+                DisableNotImplemented(PhBotTodoCheck(p, "PhBot_RecastAll", "Recast all buffs when one buff ends if it\nrequires a weapon switch", ox, y, false));
                 try
                 {
                     CheckBox rc = p.Controls["PhBot_RecastAll"] as CheckBox;
@@ -755,7 +772,7 @@ namespace xBot.App
 
                 // 2: HP grain kullan [ ] HP grain tercih et
                 PlacePotionCheck(p, Character_cbxUseHPGrain, isTR ? "HP grain kullan" : "Use HP grains", leftX, y, 108);
-                PhBotTodoCheck(p, "PhBot_PreferHPGrain", isTR ? "HP grain tercih et" : "Prefer HP grains", 125, y, false);
+                DisableNotImplemented(PhBotTodoCheck(p, "PhBot_PreferHPGrain", isTR ? "HP grain tercih et" : "Prefer HP grains", 125, y, false));
                 y += step;
 
                 // 3: Oto MP [ 0 ] % [ 1000 ]
@@ -764,20 +781,20 @@ namespace xBot.App
 
                 // 4: MP grain kullan [ ] MP grain tercih et
                 PlacePotionCheck(p, Character_cbxUseMPGrain, isTR ? "MP grain kullan" : "Use MP grains", leftX, y, 108);
-                PhBotTodoCheck(p, "PhBot_PreferMPGrain", isTR ? "MP grain tercih et" : "Prefer MP grains", 125, y, false);
+                DisableNotImplemented(PhBotTodoCheck(p, "PhBot_PreferMPGrain", isTR ? "MP grain tercih et" : "Prefer MP grains", 125, y, false));
                 y += step;
 
                 // 5: HP Otur [ 0 ] %
-                CheckBox cbSitHP = PhBotTodoCheck(p, "PhBot_SitHP", isTR ? "HP Otur" : "Auto sit HP", leftX, y, false);
+                CheckBox cbSitHP = DisableNotImplemented(PhBotTodoCheck(p, "PhBot_SitHP", isTR ? "HP Otur" : "Auto sit HP", leftX, y, false));
                 cbSitHP.Size = new Size(120, 20);
-                PhBotTodoNumber(p, "PhBot_SitHPN", 140, y - 1, 52, "0");
+                DisableNotImplemented(PhBotTodoNumber(p, "PhBot_SitHPN", 140, y - 1, 52, "0"));
                 PhBotLabel(p, "PhBot_SitHPL", "%", 196, y + 2);
                 y += step;
 
                 // 6: MP Otur [ 0 ] %
-                CheckBox cbSitMP = PhBotTodoCheck(p, "PhBot_SitMP", isTR ? "MP Otur" : "Auto sit MP", leftX, y, false);
+                CheckBox cbSitMP = DisableNotImplemented(PhBotTodoCheck(p, "PhBot_SitMP", isTR ? "MP Otur" : "Auto sit MP", leftX, y, false));
                 cbSitMP.Size = new Size(120, 20);
-                PhBotTodoNumber(p, "PhBot_SitMPN", 140, y - 1, 52, "0");
+                DisableNotImplemented(PhBotTodoNumber(p, "PhBot_SitMPN", 140, y - 1, 52, "0"));
                 PhBotLabel(p, "PhBot_SitMPL", "%", 196, y + 2);
                 y += step;
 
@@ -798,7 +815,7 @@ namespace xBot.App
                 y += step;
 
                 // 11: Invisibility Detection kullan
-                PlacePotionCheck(p, PhBotTodoCheck(p, "PhBot_InvisDetect", isTR ? "Invisibility Detection kullan" : "Auto use Invisibility Detection", leftX, y, false), isTR ? "Invisibility Detection kullan" : "Auto use Invisibility Detection", leftX, y, 220);
+                PlacePotionCheck(p, DisableNotImplemented(PhBotTodoCheck(p, "PhBot_InvisDetect", isTR ? "Invisibility Detection kullan" : "Auto use Invisibility Detection", leftX, y, false)), isTR ? "Invisibility Detection kullan" : "Auto use Invisibility Detection", leftX, y, 220);
 
                 // --- SAĞ SÜTUN (Pet / Kervan Potları) ---
                 int ry = 10;

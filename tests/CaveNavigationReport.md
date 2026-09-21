@@ -59,4 +59,10 @@ Debug session_debug.log içinde 07:19–07:21 kaydında DW girişinin BoardCoord
 - CaveWaypoints yalnız aynı bölgede, aynı düz çizgi ve yükseklik eğimi üzerindeki noktaları en fazla 12 m segmentler halinde birleştirir. 5 cm çizgi sapması sınırı köşeleri korur; dış alanın geniş toleranslı smoothing yöntemi uygulanmaz.
 - Mesh yürüyüşünde hedef bir kez gönderilir; hareket ilerliyorsa tekrar gönderilmez. En az 1.2 saniye ilerleme görülmezse sınırlı tekrar yapılır, mevcut 4 saniyelik takılma kontrolü korunur.
 
-Release/x86 ve Debug/AnyCPU derlemeleri başarılı. FerryNavigationScenarios: 79 kontrol; gerçek assembly entegrasyonu: 134 kontrol başarılı. Yeni testler yarım metre noktaları, dik köşe korumasını ve merkezin arkasında açılan giriş tetikleyicisini kapsar. Canlı sunucuda bu yeni davranış henüz denenmedi.
+Release/x86 ve Debug/AnyCPU derlemeleri başarılı. FerryNavigationScenarios: 81 kontrol; gerçek assembly entegrasyonu: 134 kontrol başarılı. Yeni testler yarım metre noktaları, dik köşe korumasını ve merkezin arkasında açılan giriş tetikleyicisini kapsar. Canlı sunucuda bu yeni davranış henüz denenmedi.
+
+## DW girişinde ek geçiş düzeltmesi — 18 Eylül 2026
+
+Canlı debug kaydında karakterin `GATE_DUNGEON_DH_IN` için DB merkezine (2485,2679) ulaştığı, ancak merkezdeki tek kısa hareketten sonra hâlâ 27027 bölgesinde kaldığı görüldü. `WalkTriggerNavigator` artık merkezde durmuyor: yaklaşma yönünde 3, 6, 9 ve 12 metrelik sınırlı geçiş komutları gönderiyor. Her adımda gerçek bölge değişimi varış koşulu olarak bekleniyor.
+
+Bu davranış, Roc yaklaşımındaki yeniden konumlandırma mantığıyla aynı yürüyüş kanalını kullanıyor ve navmesh dışına sınırsız hareket bırakmıyor. Canlı denemede yan tarama karakteri kapının önünde sağa-sola taşıdığı için kaldırıldı; artık yalnızca giriş doğrultusunda 3, 6, 9, 12, 16, 20 ve 24 metrelik kademeli geçiş deneniyor. Ham DB spawn noktası rota hedefi olarak korunuyor; `GATE_DUNGEON_DH_IN` için kapı koridorundaki (2504,2680) düğümü yalnızca merkezden sonraki devam noktası olarak kullanılıyor. `FerryNavigationScenarios` son çalıştırmada 81 kontrol verdi; testte merkez hareketi tetiklemediğinde ileri adımların devam ettiği ve ayrı devam noktasının kullanıldığı senaryolar eklendi. Canlı sunucuda yeniden denenmesi gerekiyor.

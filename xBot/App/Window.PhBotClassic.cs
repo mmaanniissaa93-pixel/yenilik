@@ -167,6 +167,7 @@ namespace xBot.App
                             status = isTR ? "Bağlantı kesildi" : "Disconnected";
                     }
                     this.Text = string.Format("xBot - {0} - {1}", charName, status);
+                    try { UpdateActionButtonsVisualState(); } catch { }
                 });
             }
             catch { }
@@ -930,6 +931,9 @@ namespace xBot.App
             };
             cmbxTheme.Items.AddRange(isTR ? new object[] { "Beyaz", "Koyu" } : new object[] { "White", "Dark" });
             cmbxTheme.SelectedIndex = 0;
+            cmbxTheme.Enabled = false;
+            if (ToolTips != null)
+                ToolTips.SetToolTip(cmbxTheme, isTR ? "Koyu tema desteği henüz mevcut değil." : "Dark theme is not available yet.");
 
             var cmbxFontSize = new ComboBox
             {
@@ -971,6 +975,33 @@ namespace xBot.App
             gbxLogin.Controls.Add(btnLogin);
             panel.Controls.Add(gbxLogin);
 
+            // 3. Komut Merkezi Butonu
+            var btnCommandCenter = new Button
+            {
+                Name = "ProjectHax_btnCommandCenter",
+                Text = isTR ? "Komut Merkezi" : "Command Center",
+                Font = Theme.AppTheme.FontButton,
+                BackColor = Theme.AppTheme.ActionSecondaryBg,
+                ForeColor = Theme.AppTheme.TextPrimary,
+                FlatStyle = FlatStyle.Flat,
+                Size = new Size(244, 28)
+            };
+            btnCommandCenter.FlatAppearance.BorderColor = Theme.AppTheme.BorderDefault;
+            btnCommandCenter.FlatAppearance.MouseOverBackColor = Theme.AppTheme.ActionSecondaryHoverBg;
+            btnCommandCenter.FlatAppearance.MouseDownBackColor = Theme.AppTheme.ActionSecondaryPressedBg;
+            btnCommandCenter.Click += (s, e) =>
+            {
+                try
+                {
+                    using (var form = new CommandCenter.CommandCenterForm())
+                    {
+                        form.ShowDialog(this);
+                    }
+                }
+                catch { }
+            };
+            panel.Controls.Add(btnCommandCenter);
+
             // Dil Değiştirme
             cmbxLang.SelectedIndexChanged += (s, e) =>
             {
@@ -983,9 +1014,13 @@ namespace xBot.App
                     lblUser.Text = tr ? "Kullanıcı" : "Username";
                     lblPass.Text = tr ? "Şifre" : "Password";
                     btnLogin.Text = tr ? "Bağlan" : "Login";
+                    btnCommandCenter.Text = tr ? "Komut Merkezi" : "Command Center";
                     cmbxTheme.Items.Clear();
                     cmbxTheme.Items.AddRange(tr ? new object[] { "Beyaz", "Koyu" } : new object[] { "White", "Dark" });
                     cmbxTheme.SelectedIndex = 0;
+                    cmbxTheme.Enabled = false;
+                    if (ToolTips != null)
+                        ToolTips.SetToolTip(cmbxTheme, tr ? "Koyu tema desteği henüz mevcut değil." : "Dark theme is not available yet.");
                 }
             };
 
@@ -996,7 +1031,9 @@ namespace xBot.App
                 cmbxTheme.Location = new Point(Math.Max(10, w - 124), 10);
                 cmbxFontSize.Location = new Point(Math.Max(10, w - 48), 10);
 
-                gbxLogin.Location = new Point(Math.Max(20, (w - gbxLogin.Width) / 2), Math.Max(30, (h - gbxLogin.Height) / 2 - 10));
+                gbxLogin.Location = new Point(Math.Max(20, (w - gbxLogin.Width) / 2), Math.Max(30, (h - (gbxLogin.Height + 40)) / 2 - 10));
+                btnCommandCenter.Location = new Point(gbxLogin.Left, gbxLogin.Bottom + 10);
+                btnCommandCenter.Width = gbxLogin.Width;
             };
             panel.SizeChanged += (s, e) => reposition();
             reposition();
@@ -1136,12 +1173,13 @@ namespace xBot.App
             var b = new Button();
             b.Name = name;
             b.Text = text;
-            b.Font = PhBotFont();
-            b.ForeColor = Color.Black;
-            b.BackColor = PhBotBg;
-            b.FlatStyle = FlatStyle.Standard;
-            b.UseVisualStyleBackColor = true;
-            b.Size = new Size(110, 26);
+            b.Font = Theme.AppTheme.FontButton;
+            b.ForeColor = Theme.AppTheme.TextPrimary;
+            b.BackColor = Theme.AppTheme.ActionSecondaryBg;
+            b.FlatStyle = FlatStyle.Flat;
+            b.FlatAppearance.BorderSize = 1;
+            b.FlatAppearance.BorderColor = Theme.AppTheme.BorderDefault;
+            b.Size = new Size(Theme.AppTheme.ActionButtonWidth, Theme.AppTheme.ActionButtonHeight);
             return b;
         }
 

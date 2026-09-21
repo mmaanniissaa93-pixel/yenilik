@@ -81,6 +81,15 @@ static class CaveScenarios
         current=new SRCoord(entry.BoardCoord.PosX+5,entry.BoardCoord.PosY);
         nav.Walk=(point,interrupt)=>{walks++;current=point;if(current.DistanceTo(entry.BoardCoord)<0.3)current=entry.ArriveCoord;return interrupt() || true;};
         check(nav.Execute(entry) && walks>1,"walk-trigger crosses the center and succeeds without NPC/entity interaction");
+        var savedTrigger=entry.TriggerCoord;
+        entry.TriggerCoord=new SRCoord(entry.BoardCoord.PosX+6,entry.BoardCoord.PosY,entry.BoardCoord.Region,entry.BoardCoord.Z);
+        current=new SRCoord(entry.BoardCoord.PosX+5,entry.BoardCoord.PosY);walks=0;loading=false;
+        nav.Walk=(point,interrupt)=>{walks++;current=point;if(current.DistanceTo(entry.TriggerCoord)<0.3)current=entry.ArriveCoord;return true;};
+        check(nav.Execute(entry) && walks>=3,"walk-trigger uses a separate doorway continuation after the DB board point");
+        entry.TriggerCoord=savedTrigger;
+        current=new SRCoord(entry.BoardCoord.PosX+5,entry.BoardCoord.PosY);walks=0;loading=false;
+        nav.Walk=(point,interrupt)=>{walks++;current=point;if(current.PosX < entry.BoardCoord.PosX-4) current=entry.ArriveCoord;return true;};
+        check(nav.Execute(entry) && walks >= 3,"walk-trigger keeps moving through the gate when the center alone does not fire");
         current=new SRCoord(entry.BoardCoord.PosX+5,entry.BoardCoord.PosY);walks=polls=0;
         nav.Walk=(point,interrupt)=>{walks++;current=point;if(point.PosX < entry.BoardCoord.PosX - 1)current=entry.ArriveCoord;return true;};
         check(nav.Execute(entry), "DW entry crosses beyond the DB center when the trigger starts behind it");

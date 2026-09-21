@@ -1,6 +1,7 @@
 param(
     [Parameter(Mandatory=$true)][string]$AssemblyPath,
-    [Parameter(Mandatory=$true)][string]$OutputDirectory
+    [Parameter(Mandatory=$true)][string]$OutputDirectory,
+    [switch]$AuditDpiDesigner
 )
 # Run with 32-bit Windows PowerShell -STA. Render in an isolated working
 # directory without Window_Load (accounts, proxy and auto-login).
@@ -44,11 +45,12 @@ $loadMethod = $window.GetType().GetMethod('Window_Load', $flags)
 $window.remove_Load([Delegate]::CreateDelegate([EventHandler], $window, $loadMethod))
 $select = $window.GetType().GetMethod('TabPageV_Option_Click', $flags)
 function Field($name) { $window.GetType().GetField($name, [Reflection.BindingFlags]'Instance,Public,NonPublic').GetValue($window) }
-function Capture($name) {
+$boundPotion = Field 'Character_cbxUseHP'
+function Capture($name, $form = $window) {
     [Windows.Forms.Application]::DoEvents()
-    $bitmap = New-Object Drawing.Bitmap($window.Width, $window.Height)
+    $bitmap = New-Object Drawing.Bitmap($form.Width, $form.Height)
     try {
-        $window.DrawToBitmap($bitmap, (New-Object Drawing.Rectangle(0,0,$window.Width,$window.Height)))
+        $form.DrawToBitmap($bitmap, (New-Object Drawing.Rectangle(0,0,$form.Width,$form.Height)))
         $bitmap.Save((Join-Path $outputPath ($name + '.png')), [Drawing.Imaging.ImageFormat]::Png)
     } finally { $bitmap.Dispose() }
 }
@@ -92,6 +94,61 @@ try {
     # Visual layout must not replace bound controls or change saved values.
     if ((Field 'Character_cbxUseHP').Parent -ne (Field 'TabPageH_Character_Option02_Panel')) { throw 'Potion control was detached' }
     Write-Output ('PASS: ' + $checks + ' tab transitions; all navigation entries; resize; bound potion control identity.')
+    # Regressions: scroll to the end at minimum size, then enlarge the viewport.
+    $failures = New-Object 'System.Collections.Generic.List[string]'
+    $window.Size = $window.MinimumSize
+    $wheel = $window.GetType().GetMethod('Sidebar_MouseWheel', $flags)
+    $wheelArgs = New-Object Windows.Forms.MouseEventArgs('None', 0, 0, 0, -12000)
+    $wheel.Invoke($window, @($sidebar.psobject.BaseObject, $wheelArgs.psobject.BaseObject)) | Out-Null
+    $window.ClientSize = New-Object Drawing.Size(1440,880)
+    [Windows.Forms.Application]::DoEvents()
+    if ((Field '_sidebarScrollOffset') -ne 0) { $failures.Add('Sidebar remains scrolled after all entries fit.') }
+    Capture 'Sidebar-after-grow'
+
+    # Keyboard navigation must reveal the focused entry in the custom sidebar.
+    $window.Size = $window.MinimumSize
+    $wheelArgs = New-Object Windows.Forms.MouseEventArgs('None', 0, 0, 0, 12000)
+    $wheel.Invoke($window, @($sidebar.psobject.BaseObject, $wheelArgs.psobject.BaseObject)) | Out-Null
+    $lastNav = @($sidebar.Controls | Where-Object { $_ -is [Windows.Forms.Button] } | Sort-Object TabIndex)[-1]
+    $lastNav.Focus() | Out-Null
+    [Windows.Forms.Application]::DoEvents()
+    if ($lastNav.Top -lt 0 -or $lastNav.Bottom -gt $sidebar.ClientSize.Height) {
+        $failures.Add('Focused sidebar entry is outside the viewport.')
+    }
+    Capture 'Sidebar-keyboard'
+
+    $scriptForm = New-Object xBot.App.ScriptCreatorForm -ArgumentList ([string]'')
+    try {
+        $scriptForm.StartPosition = 'Manual'
+        $scriptForm.Location = New-Object Drawing.Point(-20000,-20000)
+        $scriptForm.ShowInTaskbar = $false
+        $scriptForm.Show()
+        $group = @($scriptForm.Controls | Where-Object { $_ -is [Windows.Forms.GroupBox] })[0]
+        foreach ($size in @($scriptForm.Size, $scriptForm.MinimumSize, (New-Object Drawing.Size(1000,800)))) {
+            $scriptForm.Size = $size
+            [Windows.Forms.Application]::DoEvents()
+            foreach ($button in @($group.Controls | Where-Object { $_ -is [Windows.Forms.Button] })) {
+                if (!$group.ClientRectangle.Contains($button.Bounds)) {
+                    $failures.Add('Script command clipped by group at ' + $size + ': ' + $button.Text)
+                }
+            }
+            # ScrollControlIntoView is also the path used when tabbing to a command.
+            $lastCommand = @($group.Controls | Sort-Object Bottom)[-1]
+            $scriptForm.ScrollControlIntoView($lastCommand)
+            [Windows.Forms.Application]::DoEvents()
+            $commandRect = $scriptForm.RectangleToClient($group.RectangleToScreen($lastCommand.Bounds))
+            if (!$scriptForm.ClientRectangle.Contains($commandRect)) {
+                $failures.Add('Last script command is unreachable at ' + $size)
+            }
+            Capture ('Script-' + $size.Width + 'x' + $size.Height) $scriptForm
+        }
+    } finally { $scriptForm.Dispose() }
+    if ($failures.Count -gt 0) { throw ($failures -join [Environment]::NewLine) }
+    Write-Output 'PASS: sidebar scroll resize; keyboard visibility; script command containment and scroll reachability.'
+    if (![object]::ReferenceEquals($boundPotion, (Field 'Character_cbxUseHP'))) { throw 'Bound potion control instance changed' }
+    if ($AuditDpiDesigner) {
+        & (Join-Path $PSScriptRoot 'DpiDesignerChecks.ps1') -Window $window -OutputDirectory $outputPath -AssemblyPath $assemblyFile
+    }
     $tree = New-Object 'System.Collections.Generic.List[string]'
     function Dump($control, $depth) {
         $tree.Add((' ' * $depth) + $control.Name + ' [' + $control.GetType().Name + '] ' + $control.Bounds + ' visible=' + $control.Visible + ' text=' + $control.Text)
