@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>netstandard2.0;net48;net8.0-windows</TargetFrameworks>
+    <RootNamespace>xBot</RootNamespace>
+    <AssemblyName>xBot.Core</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' != 'net48'">
+    <PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0" />
+    <PackageReference Include="System.Memory" Version="4.5.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\xBot\SecurityAPI\*.cs" LinkBase="SecurityAPI" />
+    <Compile Include="..\xBot\App\SroDocsPolicy.cs" LinkBase="Policy" />
+    <Compile Include="..\xBot\App\QuestAutomationPolicy.cs" LinkBase="Policy" />
+  </ItemGroup>
+</Project>

@@ -79,8 +79,10 @@ namespace xBot.Network
 		}
 
 		private Thread ThreadProxyReconnection;
+		private readonly ManualResetEventSlim _reconnectCancelEvent = new ManualResetEventSlim(false);
 		private int CurrentAttemptReconnections;
 		private Thread PingHandler;
+		private readonly ManualResetEventSlim _pingCancelEvent = new ManualResetEventSlim(false);
 		public bool isRunning { get; private set; }
 		private int lastPortIndexSelected;
 		private int lastHostIndexSelected;
@@ -120,11 +122,7 @@ namespace xBot.Network
 		public void Start()
 		{
 			isRunning = true;
-			Window w = Window.Get;
-			w.Login_btnStart.InvokeIfRequired(()=> {
-				w.Login_btnStart.Text = "STOP";
-				w.Login_btnStart.Enabled = true;
-			});
+			UiNotifier.NotifyProxyState(true);
 
 			Thread gwThread = (new Thread(ThreadGateway));
 			gwThread.IsBackground = true;
@@ -256,13 +254,7 @@ namespace xBot.Network
 				{
 					gws.Add(Gateway.Local);
 				}
-				if (PingHandler != null && PingHandler.IsAlive)
-				{
-					try { PingHandler.Interrupt(); } catch { }
-				}
-				PingHandler = new Thread(ThreadPing);
-				PingHandler.IsBackground = true;
-				PingHandler.Start();
+				StartPingHandler();
 				// Running process
 				while (isRunning)
 				{
@@ -320,7 +312,7 @@ namespace xBot.Network
 									if (result == 1)
 									{
 										// Stop ping while switch
-										try { if (PingHandler != null) PingHandler.Interrupt(); } catch { }
+										StopPingHandler();
 
 										uint loginID = packet.ReadUInt();
 										string remoteAgentHost = packet.ReadAscii();
@@ -506,7 +498,7 @@ namespace xBot.Network
 		{
 			if (SRO_Client != null)
 			{
-				Window.Get?.Log("[Proxy] Terminating client process (PID: " + sro_client.Id + ")...");
+				BotLog.Log("[Proxy] Terminating client process (PID: " + sro_client.Id + ")...");
 				sro_client.Kill();
 				sro_client = null;
 			}
@@ -519,11 +511,11 @@ namespace xBot.Network
 				{
 					if (LoginStrategyManager.StayConnected)
 					{
-						Window.Get?.Log("[Failover] Client exited unexpectedly! Bot switched to Clientless mode and preserved session.");
+						BotLog.Log("[Failover] Client exited unexpectedly! Bot switched to Clientless mode and preserved session.");
 					}
 					else
 					{
-						Window.Get?.Log("Switched to clientless mode");
+						BotLog.Log("Switched to clientless mode");
 					}
 				}
 			}
@@ -582,13 +574,7 @@ namespace xBot.Network
 				{
 					ags.Add(Agent.Local);
 				}
-				if (PingHandler != null && PingHandler.IsAlive)
-				{
-					try { PingHandler.Interrupt(); } catch { }
-				}
-				PingHandler = new Thread(ThreadPing);
-				PingHandler.IsBackground = true;
-				PingHandler.Start();
+				StartPingHandler();
 				while (isRunning)
 				{
 					bool didWork = false;
@@ -772,6 +758,29 @@ namespace xBot.Network
 			return s;
 		}
 		/// <summary>
+		private void StartPingHandler()
+		{
+			StopPingHandler();
+			_pingCancelEvent.Reset();
+			PingHandler = new Thread(ThreadPing);
+			PingHandler.IsBackground = true;
+			PingHandler.Start();
+		}
+
+		private void StopPingHandler()
+		{
+			_pingCancelEvent.Set();
+			if (PingHandler != null)
+			{
+				if (PingHandler.IsAlive)
+				{
+					try { PingHandler.Join(200); } catch { }
+				}
+				PingHandler = null;
+			}
+		}
+
+		/// <summary>
 		/// Wait the time specified and try to reconnect the proxy if is necessary.
 		/// </summary>
 		/// <param name="Seconds">Maximum time for waiting</param>
@@ -779,48 +788,56 @@ namespace xBot.Network
 		/// <param name="MaxAttempts">Max connections to stop</param>
 		private void ProxyReconnection(int Seconds,ref int CurrentAttempts,int MaxAttempts)
 		{
+			ProxyReconnectionStop();
+			_reconnectCancelEvent.Reset();
 			int refCurrentAttempts = CurrentAttempts;
 			int refMaxAttempts = MaxAttempts;
 			ThreadProxyReconnection = (new Thread((ThreadStart)delegate {
 				try
 				{
-					while (true)
+					while (Seconds > 0)
 					{
-						if (Seconds == 0)
-						{
-							if(refCurrentAttempts < refMaxAttempts)
-							{
-								Reset();
-								Start();
-								refCurrentAttempts++;
-							}
+						if (_reconnectCancelEvent.Wait(1000))
 							return;
-						}
-						Thread.Sleep(1000);
 						Seconds--;
 					}
+					if (refCurrentAttempts < refMaxAttempts)
+					{
+						Reset();
+						Start();
+						refCurrentAttempts++;
+					}
 				}
-				catch (ThreadInterruptedException) { return; }
-				catch { return; }
+				catch (Exception ex)
+				{
+					ModernLogger.LogSwallowed(ex, "Proxy.ProxyReconnection");
+				}
 			}));
 			ThreadProxyReconnection.IsBackground = true;
 			ThreadProxyReconnection.Start();
 		}
 		private void ProxyReconnectionStop()
 		{
+			_reconnectCancelEvent.Set();
 			if (ThreadProxyReconnection != null)
 			{
-				try { ThreadProxyReconnection.Interrupt(); } catch { }
+				if (ThreadProxyReconnection.IsAlive)
+				{
+					try { ThreadProxyReconnection.Join(200); } catch { }
+				}
 				ThreadProxyReconnection = null;
 			}
 		}
 		private void ThreadPing()
 		{
-				while (isRunning)
-				{
-				try { Thread.Sleep(6666); }
-				catch (ThreadInterruptedException) { return; }
-				catch { return; }
+			while (isRunning)
+			{
+				if (_pingCancelEvent.Wait(6666))
+					return;
+
+				if (!isRunning)
+					return;
+
 				// Keep connection alive
 				if (Agent != null)
 				{
@@ -844,9 +861,9 @@ namespace xBot.Network
 		}
 		private void CloseGateway()
 		{
-			if (PingHandler != null && PingHandler.IsAlive && Agent == null)
+			if (Agent == null)
 			{
-				try { PingHandler.Interrupt(); } catch { }
+				StopPingHandler();
 			}
 			if (Gateway != null)
 			{
@@ -856,7 +873,10 @@ namespace xBot.Network
 					{
 						Gateway.Local.Socket.Close();
 					}
-					catch { }
+					catch (Exception ex)
+					{
+						ModernLogger.LogSwallowed(ex, "Proxy.CloseGateway.Local");
+					}
 				}
 				if (Gateway.Remote.Socket != null)
 				{
@@ -864,7 +884,10 @@ namespace xBot.Network
 					{
 						Gateway.Remote.Socket.Close();
 					}
-					catch { }
+					catch (Exception ex)
+					{
+						ModernLogger.LogSwallowed(ex, "Proxy.CloseGateway.Remote");
+					}
 				}
 			}
 		}
@@ -878,7 +901,10 @@ namespace xBot.Network
 					{
 						Agent.Local.Socket.Close();
 					}
-					catch { }
+					catch (Exception ex)
+					{
+						ModernLogger.LogSwallowed(ex, "Proxy.CloseAgent.Local");
+					}
 				}
 				if (Agent.Remote.Socket != null)
 				{
@@ -886,15 +912,17 @@ namespace xBot.Network
 					{
 						Agent.Remote.Socket.Close();
 					}
-					catch { }
+					catch (Exception ex)
+					{
+						ModernLogger.LogSwallowed(ex, "Proxy.CloseAgent.Remote");
+					}
 				}
 			}
 		}
 		private void Reset()
 		{
 			isRunning = false;
-			if (PingHandler != null)
-				try { PingHandler.Interrupt(); } catch { }
+			StopPingHandler();
 			CloseClient();
 			CloseGateway();
 			CloseAgent();
@@ -903,41 +931,35 @@ namespace xBot.Network
 		{
 			ProxyReconnectionStop();
 			Reset();
+			UiNotifier.NotifyProxyState(false);
 			Window w = Window.Get;
-			// Reset locket controls
-			w.Login_cmbxSilkroad.InvokeIfRequired(() => {
-				w.Login_cmbxSilkroad.Enabled = true;
-			});
-			w.Login_btnStart.InvokeIfRequired(() => {
-				w.Login_btnStart.Text = "START";
-				w.Login_btnStart.Enabled = true;
-			});
-			w.Login_btnLauncher.InvokeIfRequired(() => {
-				w.Login_btnLauncher.Enabled = true;
-			});
-			w.Login_gbxCharacters.InvokeIfRequired(() => {
-				w.Login_gbxCharacters.Visible = false;
-			});
-			w.Login_gbxServers.InvokeIfRequired(() => {
-				w.Login_gbxServers.Visible = true;
-			});
+			if (w != null && !w.IsDisposed)
+			{
+				w.Login_gbxCharacters.InvokeIfRequired(() => {
+					w.Login_gbxCharacters.Visible = false;
+				});
+				w.Login_gbxServers.InvokeIfRequired(() => {
+					w.Login_gbxServers.Visible = true;
+				});
+			}
 
 			if (InfoManager.inGame)
 				InfoManager.OnDisconnected();
 			DataManager.DisconnectDatabase();
-			w.Log("Disconnected");
-			w.LogProcess("Disconnected");
+			BotLog.Log("Disconnected");
+			BotLog.LogProcess("Disconnected");
 			// Relogin — SADECE açık onay varsa: login ekranındaki Relogin tiki
 			// veya ayarlardaki oto-yeniden-bağlanma. "Otomatik Giriş" tiki tek
 			// başına client açmaz (kullanıcı START'a basmadan işlem yok).
-			if (w.Login_cbxRelogin.Checked || LoginStrategyManager.AutoRelogin)
+			bool autoRelogin = LoginStrategyManager.AutoRelogin || (w != null && !w.IsDisposed && w.Login_cbxRelogin.Checked);
+			if (autoRelogin)
 			{
 				System.Timers.Timer Relogin = new System.Timers.Timer(1000);
 				Relogin.AutoReset = false;
 				Relogin.Elapsed += ReloginOnDisconnect;
 				ReloginCountdown = Math.Max(15, LoginStrategyManager.WaitAfterDCMinutes * 60);
 				Relogin.Start();
-				w.LogProcess("Relogin at " + ReloginCountdown + " seconds...");
+				BotLog.LogProcess("Relogin at " + ReloginCountdown + " seconds...");
 			}
 		}
 
@@ -947,33 +969,34 @@ namespace xBot.Network
 			try
 			{
 				Window w = Window.Get;
-				if ((w.Login_cbxRelogin.Checked || LoginStrategyManager.AutoRelogin) && !Bot.Get.Proxy.isRunning)
+				bool autoRelogin = LoginStrategyManager.AutoRelogin || (w != null && !w.IsDisposed && w.Login_cbxRelogin.Checked);
+				if (autoRelogin && !Bot.Get.Proxy.isRunning)
 				{
 					// Her tick tam 1 saniye: modulo kayması yok
 					ReloginCountdown--;
 					if(ReloginCountdown <= 0)
 					{
-						w.LogProcess("Relogin...");
-						w.InvokeIfRequired(() => {
+						BotLog.LogProcess("Relogin...");
+						w?.InvokeIfRequired(() => {
 							w.Control_Click(w.Login_btnStart, null);
 						});
 						timer.Dispose();
 					}
 					else
 					{
-						w.LogProcess("Relogin at " + ReloginCountdown + " seconds...");
+						BotLog.LogProcess("Relogin at " + ReloginCountdown + " seconds...");
 						timer.Start();
 					}
 				}
 				else
 				{
-					w.LogProcess("Automatic relogin canceled!");
+					BotLog.LogProcess("Automatic relogin canceled!");
 					timer.Dispose();
 				}
 			}
 			catch (Exception ex)
 			{
-				Window.Get?.Log("[Relogin] " + ex.Message);
+				BotLog.Log("[Relogin] " + ex.Message);
 				try { timer.Dispose(); } catch { }
 			}
 		}

@@ -21,7 +21,7 @@ namespace xBot.Network
 				if (!s_loggedUnknownOpcodes.Add(opcode))
 					return;
 			}
-			try { App.Window.Get?.LogPacket($"[A] Unhandled opcode 0x{opcode:X4}"); } catch { }
+			BotLog.LogPacket($"[A] Unhandled opcode 0x{opcode:X4}");
 		}
 		public static class Opcode
 		{
@@ -300,7 +300,7 @@ namespace xBot.Network
 			catch(Exception ex)
 			{
 				Bot.Get.LogError("Parsing Error", ex, packet);
-				App.Window.Get?.Log($"[PacketParser Warning] Error parsing opcode 0x{packet.Opcode:X4}: {ex.Message}");
+				BotLog.Log($"[PacketParser Warning] Error parsing opcode 0x{packet.Opcode:X4}: {ex.Message}", LogLevel.Warning);
 				return false;
 			}
 		}
@@ -374,7 +374,10 @@ namespace xBot.Network
 								System.Diagnostics.Debug.WriteLine($"[Item] Client kullanimi: slot={useSlot} ({Packet.ToStringHexadecimal(rawUse)}) ({rawUse.Length}B)");
 							}
 						}
-						catch { }
+						catch (Exception ex)
+						{
+							ModernLogger.LogSwallowed(ex, "Agent.Local.ItemUse");
+						}
 					}
 					break;
 			case Opcode.CLIENT_CHARACTER_ACTION_REQUEST:
@@ -405,7 +408,10 @@ namespace xBot.Network
 					byte[] rawSniff = packet.GetBytes();
 					Window.Get?.Log($"[Sniff][C->S] 0x{packet.Opcode:X4} ({Packet.ToStringHexadecimal(rawSniff)}) ({rawSniff.Length}B)");
 				}
-				catch { }
+				catch (Exception ex)
+				{
+					ModernLogger.LogSwallowed(ex, "Agent.Local.Sniff");
+				}
 				break;
 			case Opcode.CLIENT_QUEST_TALK_REQUEST:
 				try
@@ -413,7 +419,10 @@ namespace xBot.Network
 					byte[] rawQuestTalk = packet.GetBytes();
 					QuestAutomationManager.ObserveTalkChoice(rawQuestTalk.Length > 0 ? rawQuestTalk[0] : (byte)0, rawQuestTalk);
 				}
-				catch { }
+				catch (Exception ex)
+				{
+					ModernLogger.LogSwallowed(ex, "Agent.Local.QuestTalk");
+				}
 				break;
 			case Opcode.CLIENT_EVENT_QUEST_REWARD_REQUEST:
 				try
@@ -421,7 +430,10 @@ namespace xBot.Network
 					byte[] rawQuestReward = packet.GetBytes();
 					QuestAutomationManager.ObserveRewardSelection(rawQuestReward);
 				}
-				catch { }
+				catch (Exception ex)
+				{
+					ModernLogger.LogSwallowed(ex, "Agent.Local.QuestReward");
+				}
 				break;
 			}
 			return false;
@@ -431,442 +443,260 @@ namespace xBot.Network
 		/// </summary>
 		/// <param name="packet">Server packet</param>
 		/// <returns>True if the packet will be ignored by the client</returns>
+		public delegate bool RemotePacketHandlerDelegate(Agent agent, Packet packet);
+		private static readonly Dictionary<ushort, RemotePacketHandlerDelegate> s_remotePacketHandlers = new Dictionary<ushort, RemotePacketHandlerDelegate>();
+
+		static Agent()
+		{
+			RegisterRemotePacketHandlers();
+		}
+
+		private static void RegisterRemotePacketHandlers()
+		{
+			void Register(ushort opcode, Action<Packet> parser)
+			{
+				s_remotePacketHandlers[opcode] = (agent, packet) =>
+				{
+					parser(packet);
+					return false;
+				};
+			}
+
+			s_remotePacketHandlers[Opcode.GLOBAL_IDENTIFICATION] = (agent, packet) =>
+			{
+				if (Bot.Get.LoggedFromBot)
+				{
+					string service = packet.ReadAscii();
+					if (service == "AgentServer")
+					{
+						Packet protocol = new Packet(Opcode.CLIENT_AUTH_REQUEST, true);
+						protocol.WriteUInt(agent.id);
+
+						string username = !string.IsNullOrEmpty(AccountManager.SelectedAccountUsername)
+							? (AccountManager.GetAccount(AccountManager.SelectedAccountUsername)?.Username ?? "")
+							: "";
+						if (string.IsNullOrEmpty(username) && Window.Get != null)
+							username = Window.Get.Login_tbxUsername.Text;
+
+						string password = !string.IsNullOrEmpty(AccountManager.SelectedAccountUsername)
+							? (AccountManager.GetAccount(AccountManager.SelectedAccountUsername)?.Password ?? "")
+							: "";
+						if (string.IsNullOrEmpty(password) && Window.Get != null)
+							password = Window.Get.Login_tbxPassword.Text;
+
+						protocol.WriteAscii(username);
+						protocol.WriteAscii(password);
+						protocol.WriteUShort(DataManager.Locale);
+						// "MAC"
+						protocol.WriteUInt(0u);
+						protocol.WriteUShort(0);
+						agent.InjectToServer(protocol);
+					}
+				}
+				return false;
+			};
+
+			s_remotePacketHandlers[Opcode.SERVER_AUTH_RESPONSE] = (agent, packet) =>
+			{
+				byte success = packet.ReadByte();
+				if (success == 1)
+				{
+					if (agent.ClientlessMode)
+						PacketBuilder.RequestCharacterList();
+
+					InfoManager.OnConnected();
+				}
+				else
+				{
+					byte error = packet.ReadByte();
+					BotLog.Log(SroDocsPolicy.GetAuthErrorMessage(error));
+				}
+				return false;
+			};
+
+			Register(Opcode.SERVER_CHARACTER_SELECTION_ACTION_RESPONSE, PacketParser.CharacterSelectionActionResponse);
+			Register(Opcode.SERVER_CHARACTER_SELECTION_JOIN_RESPONSE, PacketParser.CharacterSelectionJoinResponse);
+			Register(Opcode.SERVER_SECONDARY_PASSCODE_REQUEST, PacketParser.SecondaryPasscodeResponse);
+			Register(Opcode.SERVER_SECONDARY_PASSCODE_RESPONSE, PacketParser.SecondaryPasscodeResponse);
+			Register(Opcode.SERVER_ALCHEMY_RESPONSE, PacketParser.AlchemyResponse);
+			Register(Opcode.SERVER_CHARACTER_DATA_BEGIN, PacketParser.CharacterDataBegin);
+			Register(Opcode.SERVER_CHARACTER_DATA, PacketParser.CharacterData);
+
+			s_remotePacketHandlers[Opcode.SERVER_CHARACTER_DATA_END] = (agent, packet) =>
+			{
+				PacketParser.CharacterDataEnd();
+				if (agent.ClientlessMode)
+				{
+					Packet protocol = new Packet(Opcode.CLIENT_CHARACTER_CONFIRM_SPAWN);
+					agent.InjectToServer(protocol);
+
+					InfoManager.OnTeleported();
+
+					protocol = new Packet(Opcode.CLIENT_CONSIGNMENT_LIST_REQUEST);
+					agent.InjectToServer(protocol);
+				}
+				else
+				{
+					InfoManager.OnTeleported();
+				}
+				return false;
+			};
+
+			Register(Opcode.SERVER_CHARACTER_STATS_UPDATE, PacketParser.CharacterStatsUpdate);
+			Register(Opcode.SERVER_CHARACTER_EXPERIENCE_UPDATE, PacketParser.CharacterExperienceUpdate);
+			Register(Opcode.SERVER_CHARACTER_INFO_UPDATE, PacketParser.CharacterInfoUpdate);
+			Register(Opcode.SERVER_CHARACTER_DIED, PacketParser.CharacterDied);
+
+			s_remotePacketHandlers[Opcode.GLOBAL_XTRAP_IDENTIFICATION] = (agent, packet) =>
+			{
+				if (agent.ClientlessMode)
+				{
+					Packet protocol = new Packet(Opcode.GLOBAL_XTRAP_IDENTIFICATION);
+					protocol.WriteByte(2);
+					protocol.WriteByte(2);
+					protocol.WriteUInt64Array(new ulong[128]);
+					agent.InjectToServer(protocol);
+				}
+				return false;
+			};
+
+			Register(Opcode.SERVER_ENTITY_SPAWN, PacketParser.EntitySpawn);
+			Register(Opcode.SERVER_ENTITY_DESPAWN, PacketParser.EntityDespawn);
+			Register(Opcode.SERVER_ENTITY_GROUPSPAWN_BEGIN, PacketParser.EntityGroupSpawnBegin);
+			Register(Opcode.SERVER_ENTITY_GROUPSPAWN_DATA, PacketParser.EntityGroupSpawnData);
+			Register(Opcode.SERVER_ENTITY_GROUPSPAWN_END, PacketParser.EntityGroupSpawnEnd);
+			Register(Opcode.SERVER_ENTITY_SELECTION, PacketParser.EntitySelection);
+			Register(Opcode.SERVER_ENTITY_LEVEL_UP, PacketParser.EntityLevelUp);
+			Register(Opcode.SERVER_ENTITY_STATUS_UPDATE, PacketParser.EntityStatusUpdate);
+			Register(Opcode.SERVER_ENTITY_MOVEMENT, PacketParser.EntityMovement);
+			Register(Opcode.SERVER_ENTITY_MOVEMENT_STUCK, PacketParser.EntityMovementStuck);
+			Register(Opcode.SERVER_ENTITY_MOVEMENT_ANGLE, PacketParser.EntityMovementAngle);
+			Register(Opcode.SERVER_ENTITY_SPEED_UPDATE, PacketParser.EntitySpeedUpdate);
+			Register(Opcode.SERVER_ENTITY_STATE_UPDATE, PacketParser.EntityStateUpdate);
+			Register(Opcode.SERVER_ENTITY_STALL_CREATE, PacketParser.EntityStallCreate);
+			Register(Opcode.SERVER_ENTITY_STALL_DESTROY, PacketParser.EntityStallDestroy);
+			Register(Opcode.SERVER_ENTITY_STALL_TITLE_UPDATE, PacketParser.EntityStallTitleUpdate);
+			Register(Opcode.SERVER_ENTITY_SKILL_START, PacketParser.EntitySkillStart);
+			Register(Opcode.SERVER_ENTITY_SKILL_END, PacketParser.EntitySkillEnd);
+			Register(Opcode.SERVER_ENTITY_SKILL_BUFF_ADDED, PacketParser.EntitySkillBuffAdded);
+			Register(Opcode.SERVER_ENTITY_SKILL_BUFF_REMOVED, PacketParser.EntitySkillBuffRemoved);
+			Register(Opcode.SERVER_ENVIRONMENT_CELESTIAL_POSITION, PacketParser.EnvironmentCelestialPosition);
+			Register(Opcode.SERVER_ENVIRONMENT_CELESTIAL_UPDATE, PacketParser.EnvironmentCelestialUpdate);
+			Register(Opcode.SERVER_ENVIRONMENT_WEATHER_UPDATE, PacketParser.EnvironmentWeatherUpdate);
+			Register(Opcode.SERVER_CHAT_UPDATE, PacketParser.ChatUpdate);
+			Register(Opcode.SERVER_NOTICE_UPDATE, PacketParser.NoticeUniqueUpdate);
+			Register(Opcode.SERVER_PLAYER_PETITION_REQUEST, PacketParser.PlayerPetitionRequest);
+			Register(Opcode.SERVER_EXCHANGE_STARTED, PacketParser.ExchangeStarted);
+			Register(Opcode.SERVER_EXCHANGE_PLAYER_CONFIRMED, PacketParser.ExchangePlayerConfirmed);
+			Register(Opcode.SERVER_EXCHANGE_COMPLETED, PacketParser.ExchangeCompleted);
+			Register(Opcode.SERVER_EXCHANGE_CANCELED, PacketParser.ExchangeCanceled);
+			Register(Opcode.SERVER_EXCHANGE_ITEMS_UPDATE, PacketParser.ExchangeItemsUpdate);
+			Register(Opcode.SERVER_EXCHANGE_GOLD_UPDATE, PacketParser.ExchangeGoldUpdate);
+			Register(Opcode.SERVER_EXCHANGE_INVITATION_RESPONSE, PacketParser.ExchangeInvitationResponse);
+			Register(Opcode.SERVER_EXCHANGE_CONFIRM_RESPONSE, PacketParser.ExchangeConfirmResponse);
+			Register(Opcode.SERVER_EXCHANGE_APPROVE_RESPONSE, PacketParser.ExchangeApproveResponse);
+			Register(Opcode.SERVER_EXCHANGE_EXIT_RESPONSE, PacketParser.ExchangeExitResponse);
+			Register(Opcode.SERVER_PARTY_DATA, PacketParser.PartyData);
+			Register(Opcode.SERVER_PARTY_UPDATE, PacketParser.PartyUpdate);
+			Register(Opcode.SERVER_PARTY_MATCH_LIST_RESPONSE, PacketParser.PartyMatchListResponse);
+			Register(Opcode.SERVER_PARTY_MATCH_DELETE_RESPONSE, PacketParser.PartyMatchDeleteResponse);
+			Register(Opcode.SERVER_PARTY_MATCH_JOIN_REQUEST, PacketParser.PartyMatchJoinRequest);
+			Register(Opcode.SERVER_GUILD_CREATED_DATA, PacketParser.GuildCreatedData);
+			s_remotePacketHandlers[Opcode.SERVER_GUILD_DATA_BEGIN] = (agent, packet) => { PacketParser.GuildDataBegin(); return false; };
+			Register(Opcode.SERVER_GUILD_DATA, PacketParser.GuildData);
+			s_remotePacketHandlers[Opcode.SERVER_GUILD_DATA_END] = (agent, packet) => { PacketParser.GuildDataEnd(); return false; };
+			Register(Opcode.SERVER_GUILD_UPDATE, PacketParser.GuildUpdate);
+			Register(Opcode.SERVER_GUILD_STORAGE_DATA_BEGIN, PacketParser.GuildStorageDataBegin);
+			Register(Opcode.SERVER_GUILD_STORAGE_DATA, PacketParser.GuildStorageData);
+			Register(Opcode.SERVER_GUILD_STORAGE_DATA_END, PacketParser.GuildStorageDataEnd);
+			Register(Opcode.SERVER_ACADEMY_DATA, PacketParser.AcademyData);
+			Register(Opcode.SERVER_ACADEMY_MATCH_LIST_RESPONSE, PacketParser.AcademyMatchList);
+			Register(Opcode.SERVER_CHARACTER_ADD_INT_RESPONSE, PacketParser.CharacterAddStatPointResponse);
+			Register(Opcode.SERVER_CHARACTER_ADD_STR_RESPONSE, PacketParser.CharacterAddStatPointResponse);
+			Register(Opcode.SERVER_INVENTORY_ITEM_USE, PacketParser.InventoryItemUse);
+
+			s_remotePacketHandlers[Opcode.SERVER_INVENTORY_ITEM_MOVEMENT] = (agent, packet) => PacketParser.InventoryItemMovement(packet);
+
+			Register(Opcode.SERVER_REPAIR_ALL_EQUIPMENTS_RESPONSE, PacketParser.RepairAllEquipmentsResponse);
+			Register(Opcode.SERVER_INVENTORY_ITEM_DURABILITY_UPDATE, PacketParser.InventoryItemDurabilityUpdate);
+			Register(Opcode.SERVER_INVENTORY_ITEM_UPDATE, PacketParser.InventoryItemUpdate);
+			Register(Opcode.SERVER_INVENTORY_CAPACITY_UPDATE, PacketParser.InventoryCapacityUpdate);
+			Register(Opcode.SERVER_STORAGE_DATA_BEGIN, PacketParser.StorageDataBegin);
+			Register(Opcode.SERVER_STORAGE_DATA, PacketParser.StorageData);
+			Register(Opcode.SERVER_STORAGE_DATA_END, PacketParser.StorageDataEnd);
+			Register(Opcode.SERVER_CONSIGNMENT_REGISTER_RESPONSE, PacketParser.ConsignmentRegisterResponse);
+			Register(Opcode.SERVER_CONSIGNMENT_UNREGISTER_RESPONSE, PacketParser.ConsignmentUnregisterResponse);
+			Register(Opcode.SERVER_CONSIGNMENT_LIST_RESPONSE, PacketParser.ConsignmentListResponse);
+			Register(Opcode.SERVER_CONSIGNMENT_SETTLE_RESPONSE, PacketParser.ConsignmentSettleResponse);
+			Register(Opcode.SERVER_STALL_CREATE_RESPONSE, PacketParser.StallCreateResponse);
+			Register(Opcode.SERVER_STALL_DESTROY_RESPONSE, PacketParser.StallDestroyResponse);
+			Register(Opcode.SERVER_STALL_TALK_RESPONSE, PacketParser.StallTalkResponse);
+			Register(Opcode.SERVER_STALL_BUY_RESPONSE, PacketParser.StallBuyResponse);
+			Register(Opcode.SERVER_STALL_LEAVE_RESPONSE, PacketParser.StallLeaveResponse);
+			Register(Opcode.SERVER_STALL_UPDATE_RESPONSE, PacketParser.StallUpdateResponse);
+			Register(Opcode.SERVER_STALL_ENTITY_ACTION, PacketParser.StalleEntityAction);
+			Register(Opcode.SERVER_PET_DATA, PacketParser.PetData);
+			Register(Opcode.SERVER_PET_UPDATE, PacketParser.PetUpdate);
+			Register(Opcode.SERVER_PET_SETTINGS_CHANGE_RESPONSE, PacketParser.PetSettingsChangeResponse);
+			Register(Opcode.SERVER_PET_PLAYER_MOUNTED, PacketParser.PetPlayerMounted);
+			Register(Opcode.SERVER_MASTERY_SKILL_LEVELUP_RESPONSE, PacketParser.MasterySkillLevelUpResponse);
+			Register(Opcode.SERVER_MASTERY_SKILL_LEVELDOWN_RESPONSE, PacketParser.MasterySkillLevelDownResponse);
+			Register(Opcode.SERVER_MASTERY_LEVELUP_RESPONSE, PacketParser.MasteryLevelUpResponse);
+			Register(Opcode.SERVER_MASTERY_LEVELDOWN_RESPONSE, PacketParser.MasteryLevelDownResponse);
+
+			s_remotePacketHandlers[Opcode.SERVER_TELEPORT_READY_REQUEST] = (agent, packet) =>
+			{
+				if (agent.ClientlessMode)
+				{
+					Packet protocol = new Packet(Opcode.CLIENT_TELEPORT_READY_RESPONSE);
+					agent.InjectToServer(protocol);
+				}
+				return false;
+			};
+
+			Register(Opcode.SERVER_ENTITY_TALK_RESPONSE, PacketParser.EntityTalkResponse);
+			Register(Opcode.SERVER_NPC_CLOSE_RESPONSE, PacketParser.NpcCloseResponse);
+			Register(Opcode.SERVER_LOGOUT_RESPONSE, PacketParser.LogoutResponse);
+			Register(Opcode.SERVER_LOGOUT_CANCEL_RESPONSE, PacketParser.LogoutCancelResponse);
+			Register(Opcode.SERVER_LOGOUT_SUCCESS, PacketParser.LogoutSuccess);
+			Register(Opcode.SERVER_RENAME_RESPONSE, PacketParser.RenameResponse);
+			Register(Opcode.SERVER_CHAT_RESPONSE, PacketParser.ChatAck);
+			Register(Opcode.SERVER_CHAT_RESTRICT, PacketParser.ChatRestrict);
+			Register(Opcode.SERVER_EVENT_QUEST_ID_RESPONSE, PacketParser.EventQuestIdResponse);
+			Register(Opcode.SERVER_QUEST_TALK, PacketParser.QuestTalk);
+			Register(Opcode.SERVER_QUEST_UPDATE, PacketParser.QuestUpdate);
+			Register(Opcode.SERVER_QUEST_ABANDON_RESPONSE, PacketParser.QuestAbandonResponse);
+			Register(Opcode.SERVER_QUEST_SCRIPT, PacketParser.QuestScript);
+			Register(Opcode.SERVER_TELEPORT_USE_RESPONSE, PacketParser.TeleportUseResponse);
+			Register(Opcode.SERVER_TELEPORT_RECALL_RESPONSE, PacketParser.TeleportRecallResponse);
+			Register(Opcode.SERVER_PARTY_INVITATION_RESPONSE, PacketParser.PartyInvitationResponse);
+			Register(Opcode.SERVER_PARTY_MATCH_CREATION_RESPONSE, PacketParser.PartyMatchCreationResponse);
+			Register(Opcode.SERVER_PARTY_MATCH_EDITED_RESPONSE, PacketParser.PartyMatchEditedResponse);
+			Register(Opcode.SERVER_GUILD_STORAGE_RESPONSE, PacketParser.GuildStorageResponse);
+			Register(Opcode.SERVER_GUILD_PLAYER_LOG, PacketParser.GuildPlayerLog);
+			Register(Opcode.SERVER_MAIL_SEND_RESPONSE, PacketParser.MailSendResponse);
+			Register(Opcode.SERVER_ENTITY_DISPLAY_EFFECT, PacketParser.EntityDisplayEffect);
+			Register(Opcode.SERVET_ENTITY_INVENTORY_EQUIP, PacketParser.EntityInventoryEquip);
+			Register(Opcode.SERVER_ENTITY_EMOTE_USE, PacketParser.EntityEmoteUse);
+			Register(Opcode.SERVER_DROP_UNLOCKED, PacketParser.DropUnlocked);
+
+			s_remotePacketHandlers[Opcode.SERVER_CHARACTER_ACTION_RESPONSE] = (agent, packet) => false;
+		}
+
+		/// <summary>
+		/// Analyze server packets using the registered opcode handler dictionary.
+		/// </summary>
+		/// <param name="packet">Server packet</param>
+		/// <returns>True if the packet will be ignored by the client</returns>
 		private bool Remote_PacketHandler(Packet packet)
 		{
-			// Opcode filter
-			switch (packet.Opcode)
+			if (s_remotePacketHandlers.TryGetValue(packet.Opcode, out var handler))
 			{
-				case Opcode.GLOBAL_IDENTIFICATION:
-					if (Bot.Get.LoggedFromBot)
-					{
-						string service = packet.ReadAscii();
-						if (service == "AgentServer")
-						{
-							Packet protocol = new Packet(Opcode.CLIENT_AUTH_REQUEST, true);
-							protocol.WriteUInt(id);
-							protocol.WriteAscii(Window.Get.Login_tbxUsername.Text);
-							protocol.WriteAscii(Window.Get.Login_tbxPassword.Text);
-							protocol.WriteUShort(DataManager.Locale);
-							// "MAC"
-							protocol.WriteUInt(0u);
-							protocol.WriteUShort(0);
-							this.InjectToServer(protocol);
-						}
-					}
-					break;
-				case Opcode.SERVER_AUTH_RESPONSE:
-					{
-						byte success = packet.ReadByte();
-						if (success == 1)
-						{
-							// Protocol
-							if (ClientlessMode)
-								PacketBuilder.RequestCharacterList();
+				return handler(this, packet);
+			}
 
-							InfoManager.OnConnected();
-						}
-						else
-						{
-							byte error = packet.ReadByte();
-							Window.Get.Log(SroDocsPolicy.GetAuthErrorMessage(error));
-						}
-					}
-					break;
-				case Opcode.SERVER_CHARACTER_SELECTION_ACTION_RESPONSE:
-					PacketParser.CharacterSelectionActionResponse(packet);
-					break;
-				case Opcode.SERVER_CHARACTER_SELECTION_JOIN_RESPONSE:
-					PacketParser.CharacterSelectionJoinResponse(packet);
-					break;
-				case Opcode.SERVER_SECONDARY_PASSCODE_REQUEST:
-				case Opcode.SERVER_SECONDARY_PASSCODE_RESPONSE:
-					PacketParser.SecondaryPasscodeResponse(packet);
-					break;
-				case Opcode.SERVER_ALCHEMY_RESPONSE:
-					PacketParser.AlchemyResponse(packet);
-					break;
-				case Opcode.SERVER_CHARACTER_DATA_BEGIN:
-					PacketParser.CharacterDataBegin(packet);
-					break;
-				case Opcode.SERVER_CHARACTER_DATA:
-					PacketParser.CharacterData(packet);
-					break;
-				case Opcode.SERVER_CHARACTER_DATA_END:
-					PacketParser.CharacterDataEnd();
-					if (ClientlessMode)
-					{
-						// Confirm spawn after loading with some delay
-						Packet protocol = new Packet(Opcode.CLIENT_CHARACTER_CONFIRM_SPAWN);
-						InjectToServer(protocol);
-
-						// Generating Bot Events to keep methods clean
-						InfoManager.OnTeleported();
-
-						protocol = new Packet(Opcode.CLIENT_CONSIGNMENT_LIST_REQUEST);
-						InjectToServer(protocol);
-					}
-					else
-					{
-						InfoManager.OnTeleported();
-					}
-					break;
-				case Opcode.SERVER_CHARACTER_STATS_UPDATE:
-					PacketParser.CharacterStatsUpdate(packet);
-					break;
-				case Opcode.SERVER_CHARACTER_EXPERIENCE_UPDATE:
-					PacketParser.CharacterExperienceUpdate(packet);
-					break;
-				case Opcode.SERVER_CHARACTER_INFO_UPDATE:
-					PacketParser.CharacterInfoUpdate(packet);
-					break;
-				case Opcode.SERVER_CHARACTER_DIED:
-					PacketParser.CharacterDied(packet);
-					break;
-				case Opcode.GLOBAL_XTRAP_IDENTIFICATION:
-					if (ClientlessMode)
-					{
-						Packet protocol = new Packet(Opcode.GLOBAL_XTRAP_IDENTIFICATION);
-						protocol.WriteByte(2);
-						protocol.WriteByte(2);
-						//p.WriteUInt8Array(new byte[1024]);
-						protocol.WriteUInt64Array(new ulong[128]);
-						InjectToServer(protocol);
-					}
-					break;
-				case Opcode.SERVER_ENTITY_SPAWN:
-					PacketParser.EntitySpawn(packet);
-					break;
-				case Opcode.SERVER_ENTITY_DESPAWN:
-					PacketParser.EntityDespawn(packet);
-					break;
-				case Opcode.SERVER_ENTITY_GROUPSPAWN_BEGIN:
-					PacketParser.EntityGroupSpawnBegin(packet);
-					break;
-				case Opcode.SERVER_ENTITY_GROUPSPAWN_DATA:
-					PacketParser.EntityGroupSpawnData(packet);
-					break;
-				case Opcode.SERVER_ENTITY_GROUPSPAWN_END:
-					PacketParser.EntityGroupSpawnEnd(packet);
-					break;
-				case Opcode.SERVER_ENTITY_SELECTION:
-					PacketParser.EntitySelection(packet);
-					break;
-				case Opcode.SERVER_ENTITY_LEVEL_UP:
-					PacketParser.EntityLevelUp(packet);
-					break;
-				case Opcode.SERVER_ENTITY_STATUS_UPDATE:
-					PacketParser.EntityStatusUpdate(packet);
-					break;
-				case Opcode.SERVER_ENTITY_MOVEMENT:
-					PacketParser.EntityMovement(packet);
-					break;
-				case Opcode.SERVER_ENTITY_MOVEMENT_STUCK:
-					PacketParser.EntityMovementStuck(packet);
-					break;
-				case Opcode.SERVER_ENTITY_MOVEMENT_ANGLE:
-					PacketParser.EntityMovementAngle(packet);
-					break;
-				case Opcode.SERVER_ENTITY_SPEED_UPDATE:
-					PacketParser.EntitySpeedUpdate(packet);
-					break;
-				case Opcode.SERVER_ENTITY_STATE_UPDATE:
-					PacketParser.EntityStateUpdate(packet);
-					break;
-				case Opcode.SERVER_ENTITY_STALL_CREATE:
-					PacketParser.EntityStallCreate(packet);
-					break;
-				case Opcode.SERVER_ENTITY_STALL_DESTROY:
-					PacketParser.EntityStallDestroy(packet);
-					break;
-				case Opcode.SERVER_ENTITY_STALL_TITLE_UPDATE:
-					PacketParser.EntityStallTitleUpdate(packet);
-					break;
-				case Opcode.SERVER_ENTITY_SKILL_START:
-					PacketParser.EntitySkillStart(packet);
-					break;
-				case Opcode.SERVER_ENTITY_SKILL_END:
-					PacketParser.EntitySkillEnd(packet);
-					break;
-				case Opcode.SERVER_ENTITY_SKILL_BUFF_ADDED:
-					PacketParser.EntitySkillBuffAdded(packet);
-					break;
-				case Opcode.SERVER_ENTITY_SKILL_BUFF_REMOVED:
-					PacketParser.EntitySkillBuffRemoved(packet);
-					break;
-				case Opcode.SERVER_ENVIRONMENT_CELESTIAL_POSITION:
-					PacketParser.EnvironmentCelestialPosition(packet);
-					break;
-				case Opcode.SERVER_ENVIRONMENT_CELESTIAL_UPDATE:
-					PacketParser.EnvironmentCelestialUpdate(packet);
-					break;
-				case Opcode.SERVER_ENVIRONMENT_WEATHER_UPDATE:
-					PacketParser.EnvironmentWeatherUpdate(packet);
-					break;
-				case Opcode.SERVER_CHAT_UPDATE:
-					PacketParser.ChatUpdate(packet);
-					break;
-				case Opcode.SERVER_NOTICE_UPDATE:
-					PacketParser.NoticeUniqueUpdate(packet);
-					break;
-				case Opcode.SERVER_PLAYER_PETITION_REQUEST:
-					PacketParser.PlayerPetitionRequest(packet);
-					break;
-				case Opcode.SERVER_EXCHANGE_STARTED:
-					PacketParser.ExchangeStarted(packet);
-					break;
-				case Opcode.SERVER_EXCHANGE_PLAYER_CONFIRMED:
-					PacketParser.ExchangePlayerConfirmed(packet);
-					break;
-				case Opcode.SERVER_EXCHANGE_COMPLETED:
-					PacketParser.ExchangeCompleted(packet);
-					break;
-				case Opcode.SERVER_EXCHANGE_CANCELED:
-					PacketParser.ExchangeCanceled(packet);
-					break;
-				case Opcode.SERVER_EXCHANGE_ITEMS_UPDATE:
-					PacketParser.ExchangeItemsUpdate(packet);
-					break;
-				case Opcode.SERVER_EXCHANGE_GOLD_UPDATE:
-					PacketParser.ExchangeGoldUpdate(packet);
-					break;
-				case Opcode.SERVER_EXCHANGE_INVITATION_RESPONSE:
-					PacketParser.ExchangeInvitationResponse(packet);
-					break;
-				case Opcode.SERVER_EXCHANGE_CONFIRM_RESPONSE:
-					PacketParser.ExchangeConfirmResponse(packet);
-					break;
-				case Opcode.SERVER_EXCHANGE_APPROVE_RESPONSE:
-					PacketParser.ExchangeApproveResponse(packet);
-					break;
-				case Opcode.SERVER_EXCHANGE_EXIT_RESPONSE:
-					PacketParser.ExchangeExitResponse(packet);
-					break;
-				case Opcode.SERVER_PARTY_DATA:
-					PacketParser.PartyData(packet);
-					break;
-				case Opcode.SERVER_PARTY_UPDATE:
-					PacketParser.PartyUpdate(packet);
-					break;
-				case Opcode.SERVER_PARTY_MATCH_LIST_RESPONSE:
-					PacketParser.PartyMatchListResponse(packet);
-					break;
-				case Opcode.SERVER_PARTY_MATCH_DELETE_RESPONSE:
-					PacketParser.PartyMatchDeleteResponse(packet);
-					break;
-				case Opcode.SERVER_PARTY_MATCH_JOIN_REQUEST:
-					PacketParser.PartyMatchJoinRequest(packet);
-					break;
-				case Opcode.SERVER_GUILD_CREATED_DATA:
-					PacketParser.GuildCreatedData(packet);
-					break;	
-				case Opcode.SERVER_GUILD_DATA_BEGIN:
-					PacketParser.GuildDataBegin();
-					break;
-				case Opcode.SERVER_GUILD_DATA:
-					PacketParser.GuildData(packet);
-					break;
-				case Opcode.SERVER_GUILD_DATA_END:
-					PacketParser.GuildDataEnd();
-					break;
-				case Opcode.SERVER_GUILD_UPDATE:
-					PacketParser.GuildUpdate(packet);
-					break;
-				case Opcode.SERVER_GUILD_STORAGE_DATA_BEGIN:
-					PacketParser.GuildStorageDataBegin(packet);
-					break;
-				case Opcode.SERVER_GUILD_STORAGE_DATA:
-					PacketParser.GuildStorageData(packet);
-					break;
-				case Opcode.SERVER_GUILD_STORAGE_DATA_END:
-					PacketParser.GuildStorageDataEnd(packet);
-					break;
-				case Opcode.SERVER_ACADEMY_DATA:
-					PacketParser.AcademyData(packet);
-					break;
-				case Opcode.SERVER_ACADEMY_MATCH_LIST_RESPONSE:
-					PacketParser.AcademyMatchList(packet);
-					break;
-				case Opcode.SERVER_CHARACTER_ADD_INT_RESPONSE:
-					PacketParser.CharacterAddStatPointResponse(packet);
-					break;
-				case Opcode.SERVER_CHARACTER_ADD_STR_RESPONSE:
-					PacketParser.CharacterAddStatPointResponse(packet);
-					break;
-				case Opcode.SERVER_INVENTORY_ITEM_USE:
-					PacketParser.InventoryItemUse(packet);
-					break;
-				case Opcode.SERVER_INVENTORY_ITEM_MOVEMENT:
-					return PacketParser.InventoryItemMovement(packet);
-				case Opcode.SERVER_REPAIR_ALL_EQUIPMENTS_RESPONSE:
-					PacketParser.RepairAllEquipmentsResponse(packet);
-					break;
-				case Opcode.SERVER_INVENTORY_ITEM_DURABILITY_UPDATE:
-					PacketParser.InventoryItemDurabilityUpdate(packet);
-					break;
-				case Opcode.SERVER_INVENTORY_ITEM_UPDATE:
-					PacketParser.InventoryItemUpdate(packet);
-					break;
-				case Opcode.SERVER_INVENTORY_CAPACITY_UPDATE:
-					PacketParser.InventoryCapacityUpdate(packet);
-					break;
-				case Opcode.SERVER_STORAGE_DATA_BEGIN:
-					PacketParser.StorageDataBegin(packet);
-					break;
-				case Opcode.SERVER_STORAGE_DATA:
-					PacketParser.StorageData(packet);
-					break;
-				case Opcode.SERVER_STORAGE_DATA_END:
-					PacketParser.StorageDataEnd(packet);
-					break;
-				case Opcode.SERVER_CONSIGNMENT_REGISTER_RESPONSE:
-					PacketParser.ConsignmentRegisterResponse(packet);
-					break;
-				case Opcode.SERVER_CONSIGNMENT_UNREGISTER_RESPONSE:
-					PacketParser.ConsignmentUnregisterResponse(packet);
-					break;
-				case Opcode.SERVER_CONSIGNMENT_LIST_RESPONSE:
-					PacketParser.ConsignmentListResponse(packet);
-					break;
-				case Opcode.SERVER_CONSIGNMENT_SETTLE_RESPONSE:
-					PacketParser.ConsignmentSettleResponse(packet);
-					break;
-				case Opcode.SERVER_STALL_CREATE_RESPONSE:
-					PacketParser.StallCreateResponse(packet);
-					break;
-				case Opcode.SERVER_STALL_DESTROY_RESPONSE:
-					PacketParser.StallDestroyResponse(packet);
-					break;
-				case Opcode.SERVER_STALL_TALK_RESPONSE:
-					PacketParser.StallTalkResponse(packet);
-					break;
-				case Opcode.SERVER_STALL_BUY_RESPONSE:
-					PacketParser.StallBuyResponse(packet);
-					break;
-				case Opcode.SERVER_STALL_LEAVE_RESPONSE:
-					PacketParser.StallLeaveResponse(packet);
-					break;
-				case Opcode.SERVER_STALL_UPDATE_RESPONSE:
-					PacketParser.StallUpdateResponse(packet);
-					break;
-				case Opcode.SERVER_STALL_ENTITY_ACTION:
-					PacketParser.StalleEntityAction(packet);
-					break;
-				case Opcode.SERVER_PET_DATA:
-					PacketParser.PetData(packet);
-					break;
-				case Opcode.SERVER_PET_UPDATE:
-					PacketParser.PetUpdate(packet);
-					break;
-				case Opcode.SERVER_PET_SETTINGS_CHANGE_RESPONSE:
-					PacketParser.PetSettingsChangeResponse(packet);
-					break;
-				case Opcode.SERVER_PET_PLAYER_MOUNTED:
-					PacketParser.PetPlayerMounted(packet);
-					break;
-				case Opcode.SERVER_MASTERY_SKILL_LEVELUP_RESPONSE:
-					PacketParser.MasterySkillLevelUpResponse(packet);
-					break;
-				case Opcode.SERVER_MASTERY_SKILL_LEVELDOWN_RESPONSE:
-					PacketParser.MasterySkillLevelDownResponse(packet);
-					break;
-				case Opcode.SERVER_MASTERY_LEVELUP_RESPONSE:
-					PacketParser.MasteryLevelUpResponse(packet);
-					break;
-				case Opcode.SERVER_MASTERY_LEVELDOWN_RESPONSE:
-					PacketParser.MasteryLevelDownResponse(packet);
-					break;
-				case Opcode.SERVER_TELEPORT_READY_REQUEST:
-					if (ClientlessMode)
-					{
-						Packet protocol = new Packet(Opcode.CLIENT_TELEPORT_READY_RESPONSE);
-						this.InjectToServer(protocol);
-					}
-					break;
-				case Opcode.SERVER_ENTITY_TALK_RESPONSE:
-					PacketParser.EntityTalkResponse(packet);
-					break;
-				case Opcode.SERVER_NPC_CLOSE_RESPONSE:
-					PacketParser.NpcCloseResponse(packet);
-					break;
-				case Opcode.SERVER_LOGOUT_RESPONSE:
-					PacketParser.LogoutResponse(packet);
-					break;
-				case Opcode.SERVER_LOGOUT_CANCEL_RESPONSE:
-					PacketParser.LogoutCancelResponse(packet);
-					break;
-				case Opcode.SERVER_LOGOUT_SUCCESS:
-					PacketParser.LogoutSuccess(packet);
-					break;
-				case Opcode.SERVER_RENAME_RESPONSE:
-					PacketParser.RenameResponse(packet);
-					break;
-				case Opcode.SERVER_CHAT_RESPONSE:
-					PacketParser.ChatAck(packet);
-					break;
-				case Opcode.SERVER_CHAT_RESTRICT:
-					PacketParser.ChatRestrict(packet);
-					break;
-				case Opcode.SERVER_EVENT_QUEST_ID_RESPONSE:
-					PacketParser.EventQuestIdResponse(packet);
-					break;
-				case Opcode.SERVER_QUEST_TALK:
-					PacketParser.QuestTalk(packet);
-					break;
-				case Opcode.SERVER_QUEST_UPDATE:
-					PacketParser.QuestUpdate(packet);
-					break;
-				case Opcode.SERVER_QUEST_ABANDON_RESPONSE:
-					PacketParser.QuestAbandonResponse(packet);
-					break;
-				case Opcode.SERVER_QUEST_SCRIPT:
-					PacketParser.QuestScript(packet);
-					break;
-				case Opcode.SERVER_TELEPORT_USE_RESPONSE:
-					PacketParser.TeleportUseResponse(packet);
-					break;
-				case Opcode.SERVER_TELEPORT_RECALL_RESPONSE:
-					PacketParser.TeleportRecallResponse(packet);
-					break;
-				case Opcode.SERVER_PARTY_INVITATION_RESPONSE:
-					PacketParser.PartyInvitationResponse(packet);
-					break;
-				case Opcode.SERVER_PARTY_MATCH_CREATION_RESPONSE:
-					PacketParser.PartyMatchCreationResponse(packet);
-					break;
-				case Opcode.SERVER_PARTY_MATCH_EDITED_RESPONSE:
-					PacketParser.PartyMatchEditedResponse(packet);
-					break;
-				case Opcode.SERVER_GUILD_STORAGE_RESPONSE:
-					PacketParser.GuildStorageResponse(packet);
-					break;
-				case Opcode.SERVER_GUILD_PLAYER_LOG:
-					PacketParser.GuildPlayerLog(packet);
-					break;
-				case Opcode.SERVER_MAIL_SEND_RESPONSE:
-					PacketParser.MailSendResponse(packet);
-					break;
-				case Opcode.SERVER_ENTITY_DISPLAY_EFFECT:
-					PacketParser.EntityDisplayEffect(packet);
-					break;
-				case Opcode.SERVET_ENTITY_INVENTORY_EQUIP:
-					PacketParser.EntityInventoryEquip(packet);
-					break;
-				case Opcode.SERVER_ENTITY_EMOTE_USE:
-					PacketParser.EntityEmoteUse(packet);
-					break;
-				case Opcode.SERVER_DROP_UNLOCKED:
-					PacketParser.DropUnlocked(packet);
-					break;
-				case Opcode.SERVER_CHARACTER_ACTION_RESPONSE:
-					// B074 reports action state/recurrence, not a skill result.
-					// Only B070 can acknowledge or reject a cast. Reading the
-					// state payload as an error produced spurious 0x0400 failures.
-					break;
-				default:
-					// Tanımlı ama işlenmeyen opcode'lar sessizce yutulmasın — teşhis için seyrek logla
-					LogUnknownOpcode(packet.Opcode);
-					break;
-            }
+			// Tanımlı ama işlenmeyen opcode'lar sessizce yutulmasın — teşhis için seyrek logla
+			LogUnknownOpcode(packet.Opcode);
 			return false;
 		}
 		/// <summary>

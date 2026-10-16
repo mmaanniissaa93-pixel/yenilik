@@ -5,11 +5,9 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
-#include <iphlpapi.h>
 #include "detours.h"
 #include "PayloadHelper.h"
 
-#pragma comment(lib, "IPHLPAPI.lib")
 #pragma comment(lib, "ws2_32.lib")
 
 using namespace std;
@@ -21,10 +19,13 @@ BYTE g_IsDebug;
 string g_RedirectIP = "127.0.0.1";
 WORD g_RedirectPort = 1500;
 bool g_Activated = false;
-bool g_RandomizeMac = false; // Config flag for MAC randomization (GetAdaptersInfo detour)
 
 vector<string> g_RealGatewayAddresses;
+vector<u_long> g_ResolvedGatewayIPs;
 WORD g_RealGatewayPort = 15779;
+WORD g_RealGatewayPortNet = 0;
+u_long g_RedirectIPAddr = 0;
+WORD g_RedirectPortNet = 0;
 
 #define DBG_PRINT(...) do { if (g_IsDebug) { printf(__VA_ARGS__); } } while(0)
 #define DBG_WPRINT(...) do { if (g_IsDebug) { wprintf(__VA_ARGS__); } } while(0)
@@ -160,67 +161,49 @@ HANDLE WINAPI User_CreateMutexA(LPSECURITY_ATTRIBUTES lpMutexAttributes, BOOL bI
 extern "C" int (WINAPI* Real_bind)(SOCKET s, const struct sockaddr* name, int namelen) = bind;
 int WINAPI User_bind(SOCKET s, const struct sockaddr* name, int namelen)
 {
-	if (name && namelen >= 16)
+	if (name != nullptr && namelen >= static_cast<int>(sizeof(sockaddr_in)) && name->sa_family == AF_INET)
 	{
-		sockaddr_in* inaddr = (sockaddr_in*)name;
-		if (inaddr->sin_port == ntohs(g_RealGatewayPort))
+		const sockaddr_in* inaddr = reinterpret_cast<const sockaddr_in*>(name);
+		if (inaddr->sin_port == htons(g_RealGatewayPort))
 		{
-			inaddr->sin_port = 0;
+			sockaddr_in localAddr = *inaddr;
+			localAddr.sin_port = 0;
+			return Real_bind(s, reinterpret_cast<const sockaddr*>(&localAddr), namelen);
 		}
 	}
 	return Real_bind(s, name, namelen);
 }
 
-extern "C" DWORD(WINAPI* Real_GetAdaptersInfo)(PIP_ADAPTER_INFO pAdapterInfo, PULONG pOutBufLen) = GetAdaptersInfo;
-DWORD WINAPI User_GetAdaptersInfo(PIP_ADAPTER_INFO pAdapterInfo, PULONG pOutBufLen)
-{
-	DWORD dwResult = Real_GetAdaptersInfo(pAdapterInfo, pOutBufLen);
-	if (dwResult == ERROR_SUCCESS && pAdapterInfo != NULL)
-	{
-		srand((unsigned int)(__rdtsc() & 0xFFFFFFFF));
-
-		PIP_ADAPTER_INFO pAdapter = pAdapterInfo;
-		while (pAdapter)
-		{
-			UINT maxLen = min((UINT)pAdapter->AddressLength, (UINT)MAX_ADAPTER_ADDRESS_LENGTH);
-			for (UINT i = 1; i < maxLen; i++)
-			{
-				pAdapter->Address[i] = (BYTE)(rand() % 256);
-			}
-			pAdapter = pAdapter->Next;
-		}
-	}
-	return dwResult;
-}
-
 extern "C" int (WINAPI* Real_connect)(SOCKET, const struct sockaddr*, int) = connect;
 int WINAPI Detour_connect(SOCKET s, const struct sockaddr* name, int len)
 {
-	auto* editing = reinterpret_cast<sockaddr_in*>(const_cast<sockaddr*>(name));
-
-	DBG_PRINT("[Detour_connect] ip: %s, port: %d \n", inet_ntoa(editing->sin_addr), htons(editing->sin_port));
-
-	for (auto& gatewayAddress : g_RealGatewayAddresses)
+	if (name != nullptr && len >= static_cast<int>(sizeof(sockaddr_in)) && name->sa_family == AF_INET)
 	{
-		struct hostent* remoteHost = gethostbyname(gatewayAddress.c_str());
-		if (remoteHost == NULL || remoteHost->h_addr_list[0] == NULL) continue;
+		const sockaddr_in* inaddr = reinterpret_cast<const sockaddr_in*>(name);
 
-		bool ipMatches = false;
-		for (int k = 0; remoteHost->h_addr_list[k] != NULL; k++)
+		DBG_PRINT("[Detour_connect] ip: %s, port: %d \n", inet_ntoa(inaddr->sin_addr), htons(inaddr->sin_port));
+
+		if (inaddr->sin_port == g_RealGatewayPortNet)
 		{
-			if (editing->sin_addr.s_addr == *(u_long*)remoteHost->h_addr_list[k])
+			bool ipMatches = false;
+			for (u_long gwIP : g_ResolvedGatewayIPs)
 			{
-				ipMatches = true;
-				break;
+				if (inaddr->sin_addr.s_addr == gwIP)
+				{
+					ipMatches = true;
+					break;
+				}
 			}
-		}
 
-		if (ipMatches && htons(editing->sin_port) == g_RealGatewayPort)
-		{
-			editing->sin_addr.S_un.S_addr = inet_addr(g_RedirectIP.c_str());
-			editing->sin_port = htons(g_RedirectPort);
+			if (ipMatches)
+			{
+				sockaddr_in redirected = *inaddr;
+				redirected.sin_addr.s_addr = g_RedirectIPAddr;
+				redirected.sin_port = g_RedirectPortNet;
 
-			DBG_PRINT("[connect] redirected gateway %s:%d\n", g_RedirectIP.c_str(), g_RedirectPort);
+				DBG_PRINT("[connect] redirected gateway %s:%d\n", g_RedirectIP.c_str(), g_RedirectPort);
+				return Real_connect(s, reinterpret_cast<const sockaddr*>(&redirected), len);
+			}
 		}
 	}
 
@@ -238,9 +221,6 @@ void Install()
 	//Multiclient
 	DetourAttach(&(PVOID&)Real_CreateMutexA,     User_CreateMutexA);
 	DetourAttach(&(PVOID&)Real_bind,             User_bind);
-	if (g_RandomizeMac) {
-		DetourAttach(&(PVOID&)Real_GetAdaptersInfo,  User_GetAdaptersInfo);
-	}
 	DetourAttach(&(PVOID&)Real_CreateSemaphoreA, User_CreateSemaphoreA);
 	DetourAttach(&(PVOID&)Real_CreateSemaphoreW, User_CreateSemaphoreW);
 	DetourAttach(&(PVOID&)Real_connect,          Detour_connect);
@@ -254,9 +234,6 @@ void Uninstall()
 
 	DetourDetach(&(PVOID&)Real_CreateMutexA,     User_CreateMutexA);
 	DetourDetach(&(PVOID&)Real_bind,             User_bind);
-	if (g_RandomizeMac) {
-		DetourDetach(&(PVOID&)Real_GetAdaptersInfo,  User_GetAdaptersInfo);
-	}
 	DetourDetach(&(PVOID&)Real_CreateSemaphoreA, User_CreateSemaphoreA);
 	DetourDetach(&(PVOID&)Real_CreateSemaphoreW, User_CreateSemaphoreW);
 	DetourDetach(&(PVOID&)Real_connect,          Detour_connect);
@@ -264,105 +241,135 @@ void Uninstall()
 	DetourTransactionCommit();
 }
 
-void LoadConfig()
+bool ParseAndApplyPayload(const char* buffer, size_t bufferLength)
 {
-	char* tempFolder = NULL;
-	_dupenv_s(&tempFolder, NULL, "TMP");
-	if (!tempFolder) return;
+	if (buffer == nullptr || bufferLength < 14)
+		return false;
 
-	stringstream payloadPath;
-	payloadPath << tempFolder << "\\xBot_" << GetCurrentProcessId() << ".tmp";
+	string payloadBytes(buffer, bufferLength);
+	istringstream stream(payloadBytes, ios::in | ios::binary);
 
-	// FIX: tempFolder is allocated by _dupenv_s and must be freed with free().
-	// Previously it was never freed, leaking heap memory on every LoadConfig call.
-	free(tempFolder);
-	tempFolder = NULL;
+	DWORD magic = 0;
+	WORD version = 0;
+	DWORD payloadLength = 0;
+	DWORD expectedChecksum = 0;
+	bool headerValid = PayloadRead(stream, magic)
+		&& PayloadRead(stream, version)
+		&& PayloadRead(stream, payloadLength)
+		&& PayloadRead(stream, expectedChecksum)
+		&& magic == 0x544F4258
+		&& version == 1
+		&& payloadLength > 0
+		&& payloadLength <= 65536
+		&& (14 + payloadLength <= bufferLength);
 
-	for (int i = 0; i < 30; i++) {
-		ifstream stream(payloadPath.str(), ifstream::binary);
-		if (stream.is_open()) {
-			DWORD magic = 0;
-			WORD version = 0;
-			DWORD payloadLength = 0;
-			DWORD expectedChecksum = 0;
-			bool headerValid = PayloadRead(stream, magic)
-				&& PayloadRead(stream, version)
-				&& PayloadRead(stream, payloadLength)
-				&& PayloadRead(stream, expectedChecksum)
-				&& magic == 0x544F4258
-				&& version == 1
-				&& payloadLength > 0
-				&& payloadLength <= 65536;
+	if (!headerValid)
+		return false;
 
-			vector<char> payload;
-			if (headerValid)
-			{
-				payload.resize(payloadLength);
-				headerValid = static_cast<bool>(stream.read(payload.data(), payloadLength));
-				headerValid = headerValid && stream.peek() == ifstream::traits_type::eof();
-			}
+	vector<char> payload(payloadLength);
+	if (!stream.read(payload.data(), payloadLength))
+		return false;
 
-			DWORD checksum = 2166136261u;
-			for (size_t j = 0; headerValid && j < payload.size(); j++)
-			{
-				checksum ^= static_cast<unsigned char>(payload[j]);
-				checksum *= 16777619u;
-			}
-			headerValid = headerValid && checksum == expectedChecksum;
-
-			string payloadBytes(payload.begin(), payload.end());
-			istringstream payloadStream(payloadBytes, ios::in | ios::binary);
-			BYTE isDebug = 0;
-			string redirectIP;
-			WORD redirectPort = 0;
-			DWORD gatewayAddressCount = 0;
-			vector<string> gatewayAddresses;
-			WORD gatewayPort = 0;
-			bool randomizeMac = false;
-
-			bool valid = headerValid
-				&& PayloadRead(payloadStream, isDebug)
-				&& PayloadReadString(payloadStream, redirectIP, 255)
-				&& PayloadRead(payloadStream, redirectPort)
-				&& PayloadRead(payloadStream, gatewayAddressCount)
-				&& gatewayAddressCount <= 64;
-
-			for (size_t j = 0; valid && j < gatewayAddressCount; j++)
-			{
-				string address;
-				valid = PayloadReadString(payloadStream, address, 255) && !address.empty();
-				if (valid)
-					gatewayAddresses.push_back(address);
-			}
-			valid = valid
-				&& PayloadRead(payloadStream, gatewayPort)
-				&& PayloadRead(payloadStream, randomizeMac)
-				&& !redirectIP.empty()
-				&& redirectPort != 0
-				&& gatewayPort != 0;
-
-			stream.close();
-			DeleteFileA(payloadPath.str().c_str());
-			if (!valid)
-				return;
-
-			g_IsDebug = isDebug;
-			g_RedirectIP = redirectIP;
-			g_RedirectPort = redirectPort;
-			g_RealGatewayAddresses.swap(gatewayAddresses);
-			g_RealGatewayPort = gatewayPort;
-			g_RandomizeMac = randomizeMac;
-			g_Activated = true;
-			return;
-		}
-		Sleep(100);
+	DWORD checksum = 2166136261u;
+	for (size_t j = 0; j < payload.size(); j++)
+	{
+		checksum ^= static_cast<unsigned char>(payload[j]);
+		checksum *= 16777619u;
 	}
+	if (checksum != expectedChecksum)
+		return false;
+
+	string innerBytes(payload.begin(), payload.end());
+	istringstream payloadStream(innerBytes, ios::in | ios::binary);
+	BYTE isDebug = 0;
+	string redirectIP;
+	WORD redirectPort = 0;
+	DWORD gatewayAddressCount = 0;
+	vector<string> gatewayAddresses;
+	WORD gatewayPort = 0;
+	bool legacyMac = false;
+
+	bool valid = PayloadRead(payloadStream, isDebug)
+		&& PayloadReadString(payloadStream, redirectIP, 255)
+		&& PayloadRead(payloadStream, redirectPort)
+		&& PayloadRead(payloadStream, gatewayAddressCount)
+		&& gatewayAddressCount <= 64;
+
+	for (size_t j = 0; valid && j < gatewayAddressCount; j++)
+	{
+		string address;
+		valid = PayloadReadString(payloadStream, address, 255) && !address.empty();
+		if (valid)
+			gatewayAddresses.push_back(address);
+	}
+	valid = valid
+		&& PayloadRead(payloadStream, gatewayPort)
+		&& PayloadRead(payloadStream, legacyMac)
+		&& !redirectIP.empty()
+		&& redirectPort != 0
+		&& gatewayPort != 0;
+
+	if (!valid)
+		return false;
+
+	vector<u_long> resolvedIPs;
+	for (const auto& addrStr : gatewayAddresses)
+	{
+		u_long ip = inet_addr(addrStr.c_str());
+		if (ip != INADDR_NONE)
+		{
+			resolvedIPs.push_back(ip);
+		}
+		else
+		{
+			struct hostent* remoteHost = gethostbyname(addrStr.c_str());
+			if (remoteHost != nullptr && remoteHost->h_addr_list != nullptr)
+			{
+				for (int k = 0; remoteHost->h_addr_list[k] != nullptr; k++)
+				{
+					resolvedIPs.push_back(*(u_long*)remoteHost->h_addr_list[k]);
+				}
+			}
+		}
+	}
+
+	g_IsDebug = isDebug;
+	g_RedirectIP = redirectIP;
+	g_RedirectPort = redirectPort;
+	g_RealGatewayAddresses.swap(gatewayAddresses);
+	g_ResolvedGatewayIPs.swap(resolvedIPs);
+	g_RealGatewayPort = gatewayPort;
+	g_RealGatewayPortNet = htons(gatewayPort);
+	g_RedirectIPAddr = inet_addr(g_RedirectIP.c_str());
+	g_RedirectPortNet = htons(g_RedirectPort);
+	g_Activated = true;
+	return true;
 }
 
-DWORD WINAPI Initialize(LPVOID lpParam) {
-	LoadConfig();
+extern "C" __declspec(dllexport) DWORD WINAPI InitializeWithMemory(LPVOID lpParam)
+{
+	if (g_Activated) {
+		return 1;
+	}
 
-	if (!g_Activated) {
+	if (lpParam == nullptr) {
+		return 0;
+	}
+
+	const BYTE* raw = reinterpret_cast<const BYTE*>(lpParam);
+	DWORD magic = 0;
+	WORD version = 0;
+	DWORD payloadLength = 0;
+	memcpy(&magic, raw, 4);
+	memcpy(&version, raw + 4, 2);
+	memcpy(&payloadLength, raw + 6, 4);
+
+	if (magic != 0x544F4258 || version != 1 || payloadLength == 0 || payloadLength > 65536) {
+		return 0;
+	}
+
+	size_t totalSize = 14 + payloadLength;
+	if (!ParseAndApplyPayload(reinterpret_cast<const char*>(raw), totalSize)) {
 		return 0;
 	}
 
@@ -372,13 +379,49 @@ DWORD WINAPI Initialize(LPVOID lpParam) {
 	}
 
 	Install();
-	return 0;
+	return 1;
+}
+#pragma comment(linker, "/EXPORT:InitializeWithMemory=_InitializeWithMemory@4")
+
+void LoadConfigLegacy()
+{
+	char* tempFolder = NULL;
+	_dupenv_s(&tempFolder, NULL, "TMP");
+	if (!tempFolder) return;
+
+	stringstream payloadPath;
+	payloadPath << tempFolder << "\\xBot_" << GetCurrentProcessId() << ".tmp";
+	free(tempFolder);
+
+	ifstream stream(payloadPath.str(), ifstream::binary | ifstream::ate);
+	if (stream.is_open()) {
+		streamsize size = stream.tellg();
+		stream.seekg(0, ios::beg);
+		if (size >= 14 && size <= 65536 + 14) {
+			vector<char> buf(static_cast<size_t>(size));
+			if (stream.read(buf.data(), size)) {
+				stream.close();
+				DeleteFileA(payloadPath.str().c_str());
+				if (ParseAndApplyPayload(buf.data(), buf.size())) {
+					if (g_IsDebug) {
+						AllocConsole();
+						freopen_s((FILE**)stdout, "CONOUT$", "w", stdout);
+					}
+					Install();
+				}
+				return;
+			}
+		}
+		stream.close();
+		DeleteFileA(payloadPath.str().c_str());
+	}
 }
 
 extern "C" _declspec(dllexport) BOOL APIENTRY DllMain(HMODULE hModule, DWORD ulReason, LPVOID lpReserved)
 {
 	if (ulReason == DLL_PROCESS_ATTACH) {
-		CloseHandle(CreateThread(NULL, 0, Initialize, NULL, 0, NULL));
+		DisableThreadLibraryCalls(hModule);
+		g_Instance = hModule;
 	}
 	return TRUE;
 }

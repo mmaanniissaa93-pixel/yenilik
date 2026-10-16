@@ -112,6 +112,25 @@ namespace xBot.App.Splash
 		}
 
 		/// <summary>
+		/// Extracts a frame region from an atlas/sprite image into a 32bpp Premultiplied ARGB bitmap.
+		/// </summary>
+		public static Bitmap ExtractPremultipliedFrame(Image atlas, Rectangle srcRect)
+		{
+			if (atlas == null || srcRect.Width <= 0 || srcRect.Height <= 0)
+				return null;
+
+			Bitmap pArgbBitmap = new Bitmap(srcRect.Width, srcRect.Height, PixelFormat.Format32bppPArgb);
+			using (Graphics g = Graphics.FromImage(pArgbBitmap))
+			{
+				g.CompositingMode = CompositingMode.SourceCopy;
+				g.InterpolationMode = InterpolationMode.NearestNeighbor;
+				g.PixelOffsetMode = PixelOffsetMode.Half;
+				g.DrawImage(atlas, new Rectangle(0, 0, srcRect.Width, srcRect.Height), srcRect, GraphicsUnit.Pixel);
+			}
+			return pArgbBitmap;
+		}
+
+		/// <summary>
 		/// Updates the layered window frame using per-pixel alpha blending.
 		/// GDI handles are released immediately in a finally block to eliminate leaks.
 		/// </summary>

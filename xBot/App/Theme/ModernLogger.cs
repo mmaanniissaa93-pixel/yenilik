@@ -57,6 +57,19 @@ namespace xBot.App.Theme
         private static long _currentLogBytes = -1;
         private static int _writesSinceLastStatCheck = 0;
 
+        /// <summary>
+        /// Logs a swallowed exception to file for diagnostics without interrupting execution.
+        /// </summary>
+        public static void LogSwallowed(Exception ex, string context)
+        {
+            if (ex == null) return;
+            try
+            {
+                LogToFile($"[{DateTime.Now:HH:mm:ss.fff}] [SWALLOWED] [{context}] {ex.GetType().Name}: {ex.Message}");
+            }
+            catch { }
+        }
+
         public static void LogToFile(string line)
         {
             try

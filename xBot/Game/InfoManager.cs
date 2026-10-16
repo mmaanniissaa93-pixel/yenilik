@@ -18,166 +18,179 @@ namespace xBot.Game
 	/// </summary>
 	public static class InfoManager
 	{
+		#region (GameState Container)
+		private static GameState s_currentState = new GameState();
+
+		/// <summary>
+		/// Gets or sets the active session game state. Enables multi-client sessions and testing isolation.
+		/// </summary>
+		public static GameState Current
+		{
+			get => s_currentState;
+			set => s_currentState = value ?? new GameState();
+		}
+		#endregion
+
 		#region (Information handled)
-		private static xDictionary<uint, SREntity> m_Entities = new xDictionary<uint, SREntity>();
-		private static xDictionary<string, SRPlayer> m_Players = new xDictionary<string, SRPlayer>();
-		private static xDictionary<uint, SRCoService> m_PetsOwned = new xDictionary<uint, SRCoService>();
-		private static xDictionary<uint, SRTeleport> m_TeleportAndBuildings = new xDictionary<uint, SRTeleport>();
-		private static xDictionary<uint, SRMob> m_Mobs = new xDictionary<uint, SRMob>();
-		private static xDictionary<uint, SRNpc> m_Npcs = new xDictionary<uint, SRNpc>();
-		private static xDictionary<uint, SRBuff> m_Buffs = new xDictionary<uint, SRBuff>();
-		private static SRTimeStamp m_SRTimeStamp;
-		private static DateTime m_SRTimeStampDate;
-		private static AutoResetEvent m_MonitorEntitySelected = new AutoResetEvent(false);
-		private static AutoResetEvent m_MonitorInventoryMovement = new AutoResetEvent(false);
-		private static AutoResetEvent m_MonitorRepairResponse = new AutoResetEvent(false);
-		private static AutoResetEvent m_MonitorConsignmentList = new AutoResetEvent(false);
-		private static AutoResetEvent m_MonitorConsignmentRegister = new AutoResetEvent(false);
-		private static AutoResetEvent m_MonitorConsignmentUnregister = new AutoResetEvent(false);
-		private static AutoResetEvent m_MonitorConsignmentSettle = new AutoResetEvent(false);
-		private static AutoResetEvent m_MonitorStallCreate = new AutoResetEvent(false);
-		private static AutoResetEvent m_MonitorStallUpdate = new AutoResetEvent(false);
-		private static AutoResetEvent m_MonitorWeaponChanged = new AutoResetEvent(false);
-		private static AutoResetEvent m_MonitorBuffRemoved = new AutoResetEvent(false);
-		private static AutoResetEvent m_MonitorSkillCast = new AutoResetEvent(false);
-		private static AutoResetEvent m_MonitorMobSpawnChanged = new AutoResetEvent(false);
-		private static AutoResetEvent m_MonitorNpcTalk = new AutoResetEvent(false);
-		private static AutoResetEvent m_MonitorGuildStorageResponse = new AutoResetEvent(false);
-		private static AutoResetEvent m_MonitorGuildStorageData = new AutoResetEvent(false);
-		private static AutoResetEvent m_MonitorPetMountResponse = new AutoResetEvent(false);
-		private static AutoResetEvent m_MonitorPetRemoved = new AutoResetEvent(false);
-		private static AutoResetEvent m_MonitorEventQuestId = new AutoResetEvent(false);
-		private static AutoResetEvent m_MonitorQuestAbandon = new AutoResetEvent(false);
-		private static int m_stallViewsCount;
-		private static ulong m_stallEarnings;
+		private static xDictionary<uint, SREntity> m_Entities => Current.Entities;
+		private static xDictionary<string, SRPlayer> m_Players => Current.Players;
+		private static xDictionary<uint, SRCoService> m_PetsOwned => Current.MyPets;
+		private static xDictionary<uint, SRTeleport> m_TeleportAndBuildings => Current.TeleportAndBuildings;
+		private static xDictionary<uint, SRMob> m_Mobs => Current.Mobs;
+		private static xDictionary<uint, SRNpc> m_Npcs => Current.Npcs;
+		private static xDictionary<uint, SRBuff> m_Buffs => Current.Buffs;
+		private static SRTimeStamp m_SRTimeStamp { get => Current.TimeStamp; set => Current.TimeStamp = value; }
+		private static DateTime m_SRTimeStampDate { get => Current.TimeStampDate; set => Current.TimeStampDate = value; }
+		private static AutoResetEvent m_MonitorEntitySelected => Current.MonitorEntitySelected;
+		private static AutoResetEvent m_MonitorInventoryMovement => Current.MonitorInventoryMovement;
+		private static AutoResetEvent m_MonitorRepairResponse => Current.MonitorRepairResponse;
+		private static AutoResetEvent m_MonitorConsignmentList => Current.MonitorConsignmentList;
+		private static AutoResetEvent m_MonitorConsignmentRegister => Current.MonitorConsignmentRegister;
+		private static AutoResetEvent m_MonitorConsignmentUnregister => Current.MonitorConsignmentUnregister;
+		private static AutoResetEvent m_MonitorConsignmentSettle => Current.MonitorConsignmentSettle;
+		private static AutoResetEvent m_MonitorStallCreate => Current.MonitorStallCreate;
+		private static AutoResetEvent m_MonitorStallUpdate => Current.MonitorStallUpdate;
+		private static AutoResetEvent m_MonitorWeaponChanged => Current.MonitorWeaponChanged;
+		private static AutoResetEvent m_MonitorBuffRemoved => Current.MonitorBuffRemoved;
+		private static AutoResetEvent m_MonitorSkillCast => Current.MonitorSkillCast;
+		private static AutoResetEvent m_MonitorMobSpawnChanged => Current.MonitorMobSpawnChanged;
+		private static AutoResetEvent m_MonitorNpcTalk => Current.MonitorNpcTalk;
+		private static AutoResetEvent m_MonitorGuildStorageResponse => Current.MonitorGuildStorageResponse;
+		private static AutoResetEvent m_MonitorGuildStorageData => Current.MonitorGuildStorageData;
+		private static AutoResetEvent m_MonitorPetMountResponse => Current.MonitorPetMountResponse;
+		private static AutoResetEvent m_MonitorPetRemoved => Current.MonitorPetRemoved;
+		private static AutoResetEvent m_MonitorEventQuestId => Current.MonitorEventQuestId;
+		private static AutoResetEvent m_MonitorQuestAbandon => Current.MonitorQuestAbandon;
+		private static int m_stallViewsCount { get => Current.StallViewsCount; set => Current.StallViewsCount = value; }
+		private static ulong m_stallEarnings { get => Current.StallEarnings; set => Current.StallEarnings = value; }
 		#endregion
 
 		#region (Public Information)
 		/// <summary>
 		/// Server name.
 		/// </summary>
-		public static string ServerName { get; set; }
+		public static string ServerName { get => Current.ServerName; set => Current.ServerName = value; }
 		/// <summary>
 		/// Server ID. Returns an empty string if is not selected yet.
 		/// </summary>
-		public static string ServerID { get; set; }
+		public static string ServerID { get => Current.ServerID; set => Current.ServerID = value; }
 		/// <summary>
 		/// Gets the character name, available right before the character is selected.
 		/// </summary>
-		public static string CharName { get; internal set; }
+		public static string CharName { get => Current.CharName; internal set => Current.CharName = value; }
 		/// <summary>
 		/// Gets the character name, available right before the character is selected.
 		/// </summary>
-		public static SRCharacter Character { get; private set; }
+		public static SRCharacter Character { get => Current.Character; internal set => Current.Character = value; }
 		/// <summary>
 		/// Check if the character is in teleport.
 		/// </summary>
-		public static bool inTeleport { get; private set; }
+		public static bool inTeleport { get => Current.inTeleport; internal set => Current.inTeleport = value; }
 		/// <summary>
 		/// Check if the character is in game.
 		/// </summary>
-		public static bool inGame { get; private set; }
+		public static bool inGame { get => Current.inGame; internal set => Current.inGame = value; }
 		/// <summary>
 		/// Dunyaya ilk giris zamani (UTC). Giris sonrasi spawn penceresinde bot
 		/// kaynakli item kullanimi serverca reddedilip DC'ye yol acabiliyor.
 		/// </summary>
-		public static DateTime JoinedGameUtc { get; private set; } = DateTime.MinValue;
+		public static DateTime JoinedGameUtc { get => Current.JoinedGameUtc; internal set => Current.JoinedGameUtc = value; }
 		/// <summary>
 		/// Get the last entity unique ID selected.
 		/// </summary>
-		public static uint SelectedEntityUniqueID { get; private set; }
-		public static uint LastNpcTalkEntityUniqueID { get; private set; }
-		public static byte LastNpcTalkID { get; private set; }
-		public static bool LastRepairSuccess { get; private set; }
-		public static ushort LastRepairErrorCode { get; private set; }
-		public static byte[] LastConsignmentListPayload { get; private set; } = new byte[0];
-		public static DateTime LastConsignmentListTime { get; private set; } = DateTime.MinValue;
-		public static bool LastConsignmentRegisterSuccess { get; private set; }
-		public static ushort LastConsignmentRegisterError { get; private set; }
-		public static DateTime LastConsignmentRegisterTime { get; private set; } = DateTime.MinValue;
-		public static List<ConsignmentListing> LastConsignmentListings { get; private set; } = new List<ConsignmentListing>();
-		public static bool LastConsignmentUnregisterSuccess { get; private set; }
-		public static bool LastConsignmentSettleSuccess { get; private set; }
-		public static bool LastStallCreateSuccess { get; private set; }
-		public static bool LastStallUpdateSuccess { get; private set; }
-		public static SRTypes.StallUpdate LastStallUpdateType { get; private set; }
+		public static uint SelectedEntityUniqueID { get => Current.SelectedEntityUniqueID; internal set => Current.SelectedEntityUniqueID = value; }
+		public static uint LastNpcTalkEntityUniqueID { get => Current.LastNpcTalkEntityUniqueID; internal set => Current.LastNpcTalkEntityUniqueID = value; }
+		public static byte LastNpcTalkID { get => Current.LastNpcTalkID; internal set => Current.LastNpcTalkID = value; }
+		public static bool LastRepairSuccess { get => Current.LastRepairSuccess; internal set => Current.LastRepairSuccess = value; }
+		public static ushort LastRepairErrorCode { get => Current.LastRepairErrorCode; internal set => Current.LastRepairErrorCode = value; }
+		public static byte[] LastConsignmentListPayload { get => Current.LastConsignmentListPayload; internal set => Current.LastConsignmentListPayload = value; }
+		public static DateTime LastConsignmentListTime { get => Current.LastConsignmentListTime; internal set => Current.LastConsignmentListTime = value; }
+		public static bool LastConsignmentRegisterSuccess { get => Current.LastConsignmentRegisterSuccess; internal set => Current.LastConsignmentRegisterSuccess = value; }
+		public static ushort LastConsignmentRegisterError { get => Current.LastConsignmentRegisterError; internal set => Current.LastConsignmentRegisterError = value; }
+		public static DateTime LastConsignmentRegisterTime { get => Current.LastConsignmentRegisterTime; internal set => Current.LastConsignmentRegisterTime = value; }
+		public static List<ConsignmentListing> LastConsignmentListings { get => Current.LastConsignmentListings; internal set => Current.LastConsignmentListings = value; }
+		public static bool LastConsignmentUnregisterSuccess { get => Current.LastConsignmentUnregisterSuccess; internal set => Current.LastConsignmentUnregisterSuccess = value; }
+		public static bool LastConsignmentSettleSuccess { get => Current.LastConsignmentSettleSuccess; internal set => Current.LastConsignmentSettleSuccess = value; }
+		public static bool LastStallCreateSuccess { get => Current.LastStallCreateSuccess; internal set => Current.LastStallCreateSuccess = value; }
+		public static bool LastStallUpdateSuccess { get => Current.LastStallUpdateSuccess; internal set => Current.LastStallUpdateSuccess = value; }
+		public static SRTypes.StallUpdate LastStallUpdateType { get => Current.LastStallUpdateType; internal set => Current.LastStallUpdateType = value; }
 		/// <summary>
 		/// Gets all entities around.
 		/// </summary>
-		public static xDictionary<uint, SREntity> Entities { get { return m_Entities; } }
+		public static xDictionary<uint, SREntity> Entities => Current.Entities;
 		/// <summary>
 		/// Gets all players around.
 		/// </summary>
-		public static xDictionary<string,SRPlayer> Players { get { return m_Players; } }
+		public static xDictionary<string,SRPlayer> Players => Current.Players;
 		/// <summary>
 		/// Gets all pets owned.
 		/// </summary>
-		public static xDictionary<uint, SRCoService> MyPets { get { return m_PetsOwned; } }
+		public static xDictionary<uint, SRCoService> MyPets => Current.MyPets;
 		/// <summary>
 		/// Gets all pets owned.
 		/// </summary>
-		public static xDictionary<uint, SRNpc> Npcs { get { return m_Npcs; } }
+		public static xDictionary<uint, SRNpc> Npcs => Current.Npcs;
 		/// <summary>
 		/// Gets all teleports and buildings around.
 		/// </summary>
-		public static xDictionary<uint, SRTeleport> TeleportAndBuildings { get { return m_TeleportAndBuildings; } }
+		public static xDictionary<uint, SRTeleport> TeleportAndBuildings => Current.TeleportAndBuildings;
 		/// <summary>
 		/// Gets all mobs around.
 		/// </summary>
-		public static xDictionary<uint, SRMob> Mobs { get { return m_Mobs; } }
+		public static xDictionary<uint, SRMob> Mobs => Current.Mobs;
 		/// <summary>
 		/// Gets the party information.
 		/// </summary>
-		public static SRParty Party { get; private set; }
+		public static SRParty Party { get => Current.Party; internal set => Current.Party = value; }
 		/// <summary>
 		/// Check if the character is in Party.
 		/// </summary>
-		public static bool inParty { get { return Party != null; } }
+		public static bool inParty => Current.inParty;
 		/// <summary>
 		/// Gets the guild information.
 		/// </summary>
-		public static SRGuild Guild { get; private set; }
+		public static SRGuild Guild { get => Current.Guild; internal set => Current.Guild = value; }
 		/// <summary>
 		/// Check if the character is in guild.
 		/// </summary>
-		public static bool inGuild { get { return Guild != null; } }
+		public static bool inGuild => Current.inGuild;
 		/// <summary>
 		/// Check if the character is in academy.
 		/// </summary>
-		public static bool inAcademy { get; private set; }
+		public static bool inAcademy { get => Current.inAcademy; internal set => Current.inAcademy = value; }
 		/// <summary>
 		/// Check if the character is inside of stall, including his own.
 		/// </summary>
-		public static bool inStall { get; private set; }
+		public static bool inStall { get => Current.inStall; internal set => Current.inStall = value; }
 		/// <summary>
 		/// True when the character's own stall is in the public/open state.
 		/// </summary>
-		public static bool IsOwnStallOpen { get; private set; }
+		public static bool IsOwnStallOpen { get => Current.IsOwnStallOpen; internal set => Current.IsOwnStallOpen = value; }
 		/// <summary>
 		/// Get the owner from stall or null.
 		/// </summary>
-		public static SRPlayer StallerPlayer { get; private set; }
+		public static SRPlayer StallerPlayer { get => Current.StallerPlayer; internal set => Current.StallerPlayer = value; }
 		/// <summary>
 		/// Check if the character is exchanging with another player.
 		/// </summary>
-		public static bool inExchange { get { return ExchangerPlayer != null; } }
+		public static bool inExchange => Current.inExchange;
 		/// <summary>
 		/// Get the entity from exchange or null.
 		/// </summary>
-		public static SRPlayer ExchangerPlayer { get; private set; }
+		public static SRPlayer ExchangerPlayer { get => Current.ExchangerPlayer; internal set => Current.ExchangerPlayer = value; }
 		/// <summary>
 		/// Check if the exchanger has confirmed.
 		/// </summary>
-		public static bool isExchangerConfirmed { get; private set; }
+		public static bool isExchangerConfirmed { get => Current.isExchangerConfirmed; internal set => Current.isExchangerConfirmed = value; }
 		#region (Environment: srodevs-docs 0x3020/0x3027/0x3809)
 		/// <summary>
 		/// Oyun içi saat (0x3020/0x3027 celestial paketlerinden).
 		/// </summary>
-		public static byte GameHour { get; private set; }
-		public static byte GameMinute { get; private set; }
-		public static ushort Moonphase { get; private set; }
-		public static byte WeatherType { get; private set; }
-		public static byte WeatherIntensity { get; private set; }
+		public static byte GameHour { get => Current.GameHour; internal set => Current.GameHour = value; }
+		public static byte GameMinute { get => Current.GameMinute; internal set => Current.GameMinute = value; }
+		public static ushort Moonphase { get => Current.Moonphase; internal set => Current.Moonphase = value; }
+		public static byte WeatherType { get => Current.WeatherType; internal set => Current.WeatherType = value; }
+		public static byte WeatherIntensity { get => Current.WeatherIntensity; internal set => Current.WeatherIntensity = value; }
 		internal static void OnEnvironmentCelestial(ushort moonphase, byte hour, byte minute)
 		{
 			Moonphase = moonphase;
@@ -193,53 +206,51 @@ namespace xBot.Game
 		/// <summary>
 		/// Check if the storage has been requested at least once after teleport.
 		/// </summary>
-		public static bool isStorageLoaded { get; private set; }
+		public static bool isStorageLoaded { get => Current.isStorageLoaded; internal set => Current.isStorageLoaded = value; }
 		/// <summary>
 		/// Check if the character is with storage open.
 		/// </summary>
-		public static bool inStorage { get; private set; }
+		public static bool inStorage { get => Current.inStorage; internal set => Current.inStorage = value; }
 		/// <summary>
-		/// Son taze depo verisinin (0x3047/0x3049/0x3048) geliş zamanı. Bot, OpenStorage
-		/// sonrası bu zaman ilerlemediyse depo penceresi açılmamış demektir ve eşya
-		/// taşıma paketi GÖNDERMEMELİ (kapalı pencereye MoveItem = kick).
+		/// Son taze depo verisinin (0x3047/0x3049/0x3048) geliş zamanı.
 		/// </summary>
-		public static DateTime LastStorageInfoTime { get; private set; } = DateTime.MinValue;
-		public static DateTime LastGuildStorageInfoTime { get; private set; } = DateTime.MinValue;
-		public static byte LastGuildStorageResult { get; private set; } = byte.MaxValue;
-		public static bool LastPetMountSuccess { get; private set; }
-		public static bool LastPetMountState { get; private set; }
-		public static uint LastPetMountUniqueID { get; private set; }
-		public static uint LastPetRemovedUniqueID { get; private set; }
-		public static uint LastEventQuestId { get; private set; }
-		public static bool LastQuestAbandonSuccess { get; private set; }
-		public static uint LastQuestAbandonId { get; private set; }
-		public static DateTime LastQuestUpdateTime { get; private set; } = DateTime.MinValue;
+		public static DateTime LastStorageInfoTime { get => Current.LastStorageInfoTime; internal set => Current.LastStorageInfoTime = value; }
+		public static DateTime LastGuildStorageInfoTime { get => Current.LastGuildStorageInfoTime; internal set => Current.LastGuildStorageInfoTime = value; }
+		public static byte LastGuildStorageResult { get => Current.LastGuildStorageResult; internal set => Current.LastGuildStorageResult = value; }
+		public static bool LastPetMountSuccess { get => Current.LastPetMountSuccess; internal set => Current.LastPetMountSuccess = value; }
+		public static bool LastPetMountState { get => Current.LastPetMountState; internal set => Current.LastPetMountState = value; }
+		public static uint LastPetMountUniqueID { get => Current.LastPetMountUniqueID; internal set => Current.LastPetMountUniqueID = value; }
+		public static uint LastPetRemovedUniqueID { get => Current.LastPetRemovedUniqueID; internal set => Current.LastPetRemovedUniqueID = value; }
+		public static uint LastEventQuestId { get => Current.LastEventQuestId; internal set => Current.LastEventQuestId = value; }
+		public static bool LastQuestAbandonSuccess { get => Current.LastQuestAbandonSuccess; internal set => Current.LastQuestAbandonSuccess = value; }
+		public static uint LastQuestAbandonId { get => Current.LastQuestAbandonId; internal set => Current.LastQuestAbandonId = value; }
+		public static DateTime LastQuestUpdateTime { get => Current.LastQuestUpdateTime; internal set => Current.LastQuestUpdateTime = value; }
 		#endregion
 
 		#region (Monitors)
-		public static AutoResetEvent MonitorEntitySelected { get { return m_MonitorEntitySelected; } }
-		public static AutoResetEvent MonitorWeaponChanged { get { return m_MonitorWeaponChanged; } }
-		public static AutoResetEvent MonitorInventoryMovement { get { return m_MonitorInventoryMovement; } }
-		public static AutoResetEvent MonitorRepairResponse { get { return m_MonitorRepairResponse; } }
-		public static AutoResetEvent MonitorConsignmentList { get { return m_MonitorConsignmentList; } }
-		public static AutoResetEvent MonitorConsignmentRegister { get { return m_MonitorConsignmentRegister; } }
-		public static AutoResetEvent MonitorConsignmentUnregister { get { return m_MonitorConsignmentUnregister; } }
-		public static AutoResetEvent MonitorConsignmentSettle { get { return m_MonitorConsignmentSettle; } }
-		public static AutoResetEvent MonitorStallCreate { get { return m_MonitorStallCreate; } }
-		public static AutoResetEvent MonitorStallUpdate { get { return m_MonitorStallUpdate; } }
-		public static AutoResetEvent MonitorBuffRemoved { get { return m_MonitorBuffRemoved; } }
-		public static AutoResetEvent MonitorSkillCast { get { return m_MonitorSkillCast; } }
-		public static bool LastSkillCastSuccess { get; set; } = true;
-		public static ushort LastSkillCastErrorCode { get; set; } = 0;
-		public static CharacterActionTracker CharacterActions { get; } = new CharacterActionTracker();
-		public static AutoResetEvent MonitorMobSpawnChanged { get { return m_MonitorMobSpawnChanged; } }
-		public static AutoResetEvent MonitorNpcTalk { get { return m_MonitorNpcTalk; } }
-		public static AutoResetEvent MonitorGuildStorageResponse { get { return m_MonitorGuildStorageResponse; } }
-		public static AutoResetEvent MonitorGuildStorageData { get { return m_MonitorGuildStorageData; } }
-		public static AutoResetEvent MonitorPetMountResponse { get { return m_MonitorPetMountResponse; } }
-		public static AutoResetEvent MonitorPetRemoved { get { return m_MonitorPetRemoved; } }
-		public static AutoResetEvent MonitorEventQuestId { get { return m_MonitorEventQuestId; } }
-		public static AutoResetEvent MonitorQuestAbandon { get { return m_MonitorQuestAbandon; } }
+		public static AutoResetEvent MonitorEntitySelected => Current.MonitorEntitySelected;
+		public static AutoResetEvent MonitorWeaponChanged => Current.MonitorWeaponChanged;
+		public static AutoResetEvent MonitorInventoryMovement => Current.MonitorInventoryMovement;
+		public static AutoResetEvent MonitorRepairResponse => Current.MonitorRepairResponse;
+		public static AutoResetEvent MonitorConsignmentList => Current.MonitorConsignmentList;
+		public static AutoResetEvent MonitorConsignmentRegister => Current.MonitorConsignmentRegister;
+		public static AutoResetEvent MonitorConsignmentUnregister => Current.MonitorConsignmentUnregister;
+		public static AutoResetEvent MonitorConsignmentSettle => Current.MonitorConsignmentSettle;
+		public static AutoResetEvent MonitorStallCreate => Current.MonitorStallCreate;
+		public static AutoResetEvent MonitorStallUpdate => Current.MonitorStallUpdate;
+		public static AutoResetEvent MonitorBuffRemoved => Current.MonitorBuffRemoved;
+		public static AutoResetEvent MonitorSkillCast => Current.MonitorSkillCast;
+		public static bool LastSkillCastSuccess { get => Current.LastSkillCastSuccess; set => Current.LastSkillCastSuccess = value; }
+		public static ushort LastSkillCastErrorCode { get => Current.LastSkillCastErrorCode; set => Current.LastSkillCastErrorCode = value; }
+		public static CharacterActionTracker CharacterActions => Current.CharacterActions;
+		public static AutoResetEvent MonitorMobSpawnChanged => Current.MonitorMobSpawnChanged;
+		public static AutoResetEvent MonitorNpcTalk => Current.MonitorNpcTalk;
+		public static AutoResetEvent MonitorGuildStorageResponse => Current.MonitorGuildStorageResponse;
+		public static AutoResetEvent MonitorGuildStorageData => Current.MonitorGuildStorageData;
+		public static AutoResetEvent MonitorPetMountResponse => Current.MonitorPetMountResponse;
+		public static AutoResetEvent MonitorPetRemoved => Current.MonitorPetRemoved;
+		public static AutoResetEvent MonitorEventQuestId => Current.MonitorEventQuestId;
+		public static AutoResetEvent MonitorQuestAbandon => Current.MonitorQuestAbandon;
 		#endregion
 
 		#region (Methods)

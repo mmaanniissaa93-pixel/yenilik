@@ -11,24 +11,6 @@ namespace xBot
 	static class Program
 	{
 		private const string SingleInstanceMutexName = @"Local\xBot.WinForms.SingleInstance";
-		private const int SW_RESTORE = 9;
-
-		[DllImport("user32.dll")]
-		private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-
-		[DllImport("user32.dll")]
-		private static extern bool SetForegroundWindow(IntPtr hWnd);
-
-		private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
-
-		[DllImport("user32.dll")]
-		private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
-
-		[DllImport("user32.dll")]
-		private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
-
-		[DllImport("user32.dll")]
-		private static extern int GetWindowTextLength(IntPtr hWnd);
 
 		private static void ActivateExistingInstance()
 		{
@@ -44,11 +26,11 @@ namespace xBot
 					if (windowHandle == IntPtr.Zero)
 					{
 						uint targetProcessId = (uint)process.Id;
-						EnumWindows(delegate(IntPtr candidate, IntPtr state)
+						NativeMethods.EnumWindows(delegate(IntPtr candidate, IntPtr state)
 						{
 							uint ownerProcessId;
-							GetWindowThreadProcessId(candidate, out ownerProcessId);
-							if (ownerProcessId == targetProcessId && GetWindowTextLength(candidate) > 0)
+							NativeMethods.GetWindowThreadProcessId(candidate, out ownerProcessId);
+							if (ownerProcessId == targetProcessId && NativeMethods.GetWindowTextLength(candidate) > 0)
 							{
 								windowHandle = candidate;
 								return false;
@@ -59,12 +41,15 @@ namespace xBot
 
 					if (windowHandle == IntPtr.Zero)
 						continue;
-					ShowWindow(windowHandle, SW_RESTORE);
-					SetForegroundWindow(windowHandle);
+					NativeMethods.ShowWindow(windowHandle, NativeMethods.SW_RESTORE);
+					NativeMethods.SetForegroundWindow(windowHandle);
 					break;
 				}
 			}
-			catch { }
+			catch (Exception ex)
+			{
+				App.Theme.ModernLogger.LogSwallowed(ex, "Program.ActivateExistingInstance");
+			}
 		}
 
 		/// <summary>

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -2385,7 +2385,10 @@ namespace xBot.App
                     try { CheckPartyMatchAutoReform(); } catch { }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Theme.ModernLogger.LogSwallowed(ex, "Bot.IA.PartyAutoTick");
+            }
         }
 
         public bool ExecuteStorageDeposit(uint npcUniqueID)
@@ -2533,7 +2536,10 @@ namespace xBot.App
 					WaitMovement(transport.GetRealtimePosition(), 8);
 				}
 			}
-			catch { }
+			catch (Exception ex)
+			{
+				Theme.ModernLogger.LogSwallowed(ex, "Bot.IA.TradeTransportFollow");
+			}
 
 			if (!TradeLoopManager.AttackSpawnedThieves || TradeLoopManager.MountMode == TradeMountMode.StayMounted)
 				return;
@@ -2564,7 +2570,10 @@ namespace xBot.App
 					if (playerDistance > GetWeaponAttackRange(GetMyWeaponType()))
 						WaitMovement(thief.GetRealtimePosition(), 5);
 				}
-				catch { }
+				catch (Exception ex)
+				{
+					Theme.ModernLogger.LogSwallowed(ex, "Bot.IA.TradeThiefApproach");
+				}
 				PacketBuilder.SelectEntity(thief.UniqueID);
 				InfoManager.MonitorEntitySelected.WaitOne(100);
 				int attackGuard = 40;

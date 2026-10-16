@@ -1,8 +1,8 @@
-﻿using System.IO;
+using System.IO;
 
 namespace SecurityAPI
 {
-    internal class PacketReader : BinaryReader
+    public class PacketReader : BinaryReader
     {
         byte[] m_input;
 

@@ -1,4 +1,4 @@
-﻿using SecurityAPI;
+using SecurityAPI;
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
@@ -285,7 +285,10 @@ namespace xBot.App
 							}
 						}
 					}
-					catch { }
+					catch (Exception ex)
+					{
+						Theme.ModernLogger.LogSwallowed(ex, "Bot.Events.AutoSelectUniqueOrTitan");
+					}
 				}
 			}
 			JoinedLoopCounter++;

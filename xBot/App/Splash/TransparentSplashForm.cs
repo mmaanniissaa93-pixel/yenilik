@@ -158,40 +158,50 @@ namespace xBot.App.Splash
 		}
 
 		/// <summary>
-		/// Shows the transparent splash window if frames are available.
+		/// Shows the transparent splash window if frames or sprite atlas are available.
 		/// Safe against exceptions; does not block application startup on failure.
 		/// </summary>
 		public static void ShowSplash()
 		{
 			try
 			{
-				string framesDirectory = ResolveFramesDirectory();
-				if (string.IsNullOrEmpty(framesDirectory) || !Directory.Exists(framesDirectory))
-					return;
-
-				string[] pngFiles = Directory.GetFiles(framesDirectory, "*.png");
-				if (pngFiles == null || pngFiles.Length == 0)
-					return;
-
-				// Sort files alphanumerically (e.g. frame_001.png ... frame_048.png)
-				Array.Sort(pngFiles, StringComparer.OrdinalIgnoreCase);
-
-				List<Bitmap> loadedFrames = new List<Bitmap>(pngFiles.Length);
-				for (int i = 0; i < pngFiles.Length; i++)
+				string atlasFile = ResolveAtlasFile();
+				List<Bitmap> loadedFrames = null;
+				if (!string.IsNullOrEmpty(atlasFile))
 				{
-					try
+					try { loadedFrames = LoadAtlasFrames(atlasFile); } catch { }
+				}
+
+				if (loadedFrames == null || loadedFrames.Count == 0)
+				{
+					string framesDirectory = ResolveFramesDirectory();
+					if (string.IsNullOrEmpty(framesDirectory) || !Directory.Exists(framesDirectory))
+						return;
+
+					string[] pngFiles = Directory.GetFiles(framesDirectory, "*.png");
+					if (pngFiles == null || pngFiles.Length == 0)
+						return;
+
+					// Sort files alphanumerically (e.g. frame_001.png ... frame_048.png)
+					Array.Sort(pngFiles, StringComparer.OrdinalIgnoreCase);
+
+					loadedFrames = new List<Bitmap>(pngFiles.Length);
+					for (int i = 0; i < pngFiles.Length; i++)
 					{
-						Bitmap frame = LayeredWindowRenderer.LoadPremultipliedFrame(pngFiles[i]);
-						if (frame != null)
-							loadedFrames.Add(frame);
-					}
-					catch
-					{
-						// Skip corrupted single frame safely
+						try
+						{
+							Bitmap frame = LayeredWindowRenderer.LoadPremultipliedFrame(pngFiles[i]);
+							if (frame != null)
+								loadedFrames.Add(frame);
+						}
+						catch
+						{
+							// Skip corrupted single frame safely
+						}
 					}
 				}
 
-				if (loadedFrames.Count == 0)
+				if (loadedFrames == null || loadedFrames.Count == 0)
 					return;
 
 				using (TransparentSplashForm splash = new TransparentSplashForm(loadedFrames.ToArray()))
@@ -203,6 +213,56 @@ namespace xBot.App.Splash
 			{
 				// Failsafe: Continue startup smoothly if splash encounters unexpected error
 			}
+		}
+
+		/// <summary>
+		/// Loads animation frames from a single sprite atlas image.
+		/// </summary>
+		public static List<Bitmap> LoadAtlasFrames(string atlasPath, int frameWidth = 1280, int frameHeight = 720, int frameCount = 48)
+		{
+			if (string.IsNullOrEmpty(atlasPath) || !File.Exists(atlasPath))
+				return null;
+
+			using (FileStream fs = new FileStream(atlasPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+			using (Image atlas = Image.FromStream(fs, false, false))
+			{
+				int cols = Math.Max(1, atlas.Width / frameWidth);
+				List<Bitmap> frames = new List<Bitmap>(frameCount);
+				for (int i = 0; i < frameCount; i++)
+				{
+					int col = i % cols;
+					int row = i / cols;
+					Rectangle rect = new Rectangle(col * frameWidth, row * frameHeight, frameWidth, frameHeight);
+					Bitmap frame = LayeredWindowRenderer.ExtractPremultipliedFrame(atlas, rect);
+					if (frame != null)
+						frames.Add(frame);
+				}
+				return frames;
+			}
+		}
+
+		private static string ResolveAtlasFile()
+		{
+			string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+			string[] candidates = new string[]
+			{
+				Path.Combine(baseDir, "splash_atlas.png"),
+				Path.Combine(baseDir, "splash_sprite.png"),
+				Path.Combine(baseDir, OutputFolderName, "splash_atlas.png"),
+				Path.Combine(baseDir, SourceFolderName, "splash_atlas.png"),
+				Path.GetFullPath(Path.Combine(baseDir, @"..\..\splash_atlas.png")),
+				Path.GetFullPath(Path.Combine(baseDir, @"..\..\..\splash_atlas.png"))
+			};
+			foreach (string c in candidates)
+			{
+				try
+				{
+					if (File.Exists(c))
+						return c;
+				}
+				catch { }
+			}
+			return null;
 		}
 
 		/// <summary>

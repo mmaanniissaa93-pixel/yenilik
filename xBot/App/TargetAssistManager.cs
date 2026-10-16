@@ -11,9 +11,6 @@ namespace xBot.App
 {
     public static class TargetAssistManager
     {
-        [DllImport("user32.dll")]
-        private static extern short GetAsyncKeyState(int vKey);
-
         private static readonly TargetAssistSettings _settings = new TargetAssistSettings();
         private static bool _initialized = false;
         private static Timer _tickTimer;
@@ -129,7 +126,7 @@ namespace xBot.App
             }
 
             Keys key = ParseKey(_settings.TargetCycleKey);
-            short keyState = GetAsyncKeyState((int)key);
+            short keyState = NativeMethods.GetAsyncKeyState((int)key);
             bool isKeyDown = (keyState & 0x8000) != 0;
 
             if (!isKeyDown)

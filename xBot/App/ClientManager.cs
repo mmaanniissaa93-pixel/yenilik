@@ -19,6 +19,7 @@ namespace xBot.App
         public const uint MEM_RESERVE = 0x00002000;
         public const uint MEM_RELEASE = 0x00008000;
         public const uint PAGE_READWRITE = 0x04;
+        public const uint DONT_RESOLVE_DLL_REFERENCES = 0x00000001;
 
         public const uint SW_HIDE = 0x00;
         public const uint SW_SHOW = 0x05;
@@ -95,6 +96,12 @@ namespace xBot.App
             uint nSize,
             out IntPtr lpNumberOfBytesWritten
         );
+
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        public static extern IntPtr LoadLibraryEx(string lpLibFileName, IntPtr hFile, uint dwFlags);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern bool FreeLibrary(IntPtr hLibModule);
 
         [DllImport("kernel32.dll")]
         public static extern IntPtr GetProcAddress(IntPtr hModule, string procName);
@@ -182,7 +189,10 @@ namespace xBot.App
                     Theme.ModernLogger.LogToFile("[Loader] " + msg);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Theme.ModernLogger.LogSwallowed(ex, "ClientManager.LogInfo");
+            }
         }
 
         private static void LogWarn(string msg)
@@ -196,7 +206,10 @@ namespace xBot.App
                     Theme.ModernLogger.LogToFile("[Loader Warning] " + msg);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Theme.ModernLogger.LogSwallowed(ex, "ClientManager.LogWarn");
+            }
         }
 
         private static void LogError(string msg)
@@ -210,7 +223,10 @@ namespace xBot.App
                     w.Log("[Loader Error] " + msg);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Theme.ModernLogger.LogSwallowed(ex, "ClientManager.LogError");
+            }
         }
 
         public static void WriteAscii(this BinaryWriter writer, string value)
@@ -302,8 +318,10 @@ namespace xBot.App
 
                 try
                 {
-                    if (!PrepareTempConfigFile(pi.dwProcessId, redirectIp, redirectPort, gatewayHosts, gatewayPort, isDebug, false))
+                    byte[] payload = BuildPayload(redirectIp, redirectPort, gatewayHosts, gatewayPort, isDebug);
+                    if (payload == null || payload.Length == 0)
                     {
+                        LogError("Failed to build client redirect payload.");
                         CleanupProcess(pi);
                         return null;
                     }
@@ -335,9 +353,18 @@ namespace xBot.App
                     _process = sroProcess;
 
                     LogInfo("Injecting client library (Client.Library.dll)...");
-                    if (!InjectClientLibrary(pi, buffer, pathLen))
+                    IntPtr remoteModuleBase;
+                    if (!InjectClientLibrary(pi, buffer, pathLen, out remoteModuleBase))
                     {
                         LogError("DLL injection failed, terminating client.");
+                        CleanupProcess(pi);
+                        return null;
+                    }
+
+                    LogInfo("Initializing client library hooks synchronously via remote memory...");
+                    if (!InitializeRemoteClientLibrary(pi, remoteModuleBase, fullPath, payload))
+                    {
+                        LogError("DLL hook initialization failed, terminating client.");
                         CleanupProcess(pi);
                         return null;
                     }
@@ -347,10 +374,24 @@ namespace xBot.App
                         ResumeThread(pi.hThread);
                     }
 
+                    // Release the process creation thread and process handles to prevent kernel handle leaks.
+                    // The managed Process instance (_process) maintains its own process handle.
+                    if (pi.hThread != IntPtr.Zero)
+                    {
+                        CloseHandle(pi.hThread);
+                        pi.hThread = IntPtr.Zero;
+                    }
+                    if (pi.hProcess != IntPtr.Zero)
+                    {
+                        CloseHandle(pi.hProcess);
+                        pi.hProcess = IntPtr.Zero;
+                    }
+
                     _process.Refresh();
                     if (_process.HasExited)
                     {
                         LogError($"Process exited immediately after start (exit code: 0x{_process.ExitCode:X})");
+                        CleanupProcess(pi);
                         return null;
                     }
 
@@ -384,14 +425,12 @@ namespace xBot.App
             }
         }
 
-private static bool PrepareTempConfigFile(
-            uint processId,
+        private static byte[] BuildPayload(
             string redirectIp,
             ushort redirectPort,
             List<string> gatewayHosts,
             ushort gatewayPort,
-            bool isDebug,
-            bool randomizeMac = false)
+            bool isDebug)
         {
             try
             {
@@ -402,7 +441,6 @@ private static bool PrepareTempConfigFile(
 				if (gatewayHosts != null && gatewayHosts.Exists(host => string.IsNullOrWhiteSpace(host) || host.Length > 255))
 					throw new ArgumentException("Gateway host is empty or too long.");
 
-                string tmpConfigFile = Path.Combine(Path.GetTempPath(), $"xBot_{processId}.tmp");
 				byte[] payload;
 				using (MemoryStream payloadStream = new MemoryStream())
 				using (BinaryWriter payloadWriter = new BinaryWriter(payloadStream))
@@ -423,26 +461,27 @@ private static bool PrepareTempConfigFile(
                     }
 
 					payloadWriter.Write(gatewayPort); // 2 bytes WORD
-					payloadWriter.Write(randomizeMac); // 1 byte - MAC randomization flag
+					payloadWriter.Write(false); // 1 byte - legacy randomizeMac flag (reserved)
 					payloadWriter.Flush();
 					payload = payloadStream.ToArray();
                 }
 
-				using (FileStream fs = new FileStream(tmpConfigFile, FileMode.Create, FileAccess.Write, FileShare.None))
-				using (BinaryWriter writer = new BinaryWriter(fs))
+				using (MemoryStream ms = new MemoryStream())
+				using (BinaryWriter writer = new BinaryWriter(ms))
 				{
 					writer.Write(0x544F4258u); // "XBOT" in little-endian
 					writer.Write((ushort)1);
 					writer.Write(payload.Length);
 					writer.Write(ComputePayloadChecksum(payload));
 					writer.Write(payload);
+					writer.Flush();
+					return ms.ToArray();
 				}
-				return true;
             }
             catch (Exception ex)
             {
-                LogError($"Failed to prepare temp config file: {ex.Message}");
-				return false;
+                LogError($"Failed to build client redirect payload: {ex.Message}");
+				return null;
             }
         }
 
@@ -459,8 +498,131 @@ private static bool PrepareTempConfigFile(
 			return hash;
 		}
 
-        private static bool InjectClientLibrary(PROCESS_INFORMATION pi, byte[] buffer, uint pathLen)
+        private static long _initProcRva = -1;
+
+        private static IntPtr GetRemoteInitProcAddress(string dllPath, IntPtr remoteModuleBase)
         {
+            if (_initProcRva < 0)
+            {
+                IntPtr localMod = LoadLibraryEx(dllPath, IntPtr.Zero, DONT_RESOLVE_DLL_REFERENCES);
+                if (localMod == IntPtr.Zero)
+                {
+                    LogError("Failed to load local Client.Library.dll for RVA resolution.");
+                    return IntPtr.Zero;
+                }
+
+                try
+                {
+                    IntPtr localProc = GetProcAddress(localMod, "InitializeWithMemory");
+                    if (localProc == IntPtr.Zero)
+                    {
+                        LogError("InitializeWithMemory export not found in Client.Library.dll.");
+                        return IntPtr.Zero;
+                    }
+
+                    _initProcRva = localProc.ToInt64() - localMod.ToInt64();
+                }
+                finally
+                {
+                    FreeLibrary(localMod);
+                }
+            }
+
+            return new IntPtr(remoteModuleBase.ToInt64() + _initProcRva);
+        }
+
+        private static bool InitializeRemoteClientLibrary(
+            PROCESS_INFORMATION pi,
+            IntPtr remoteModuleBase,
+            string libraryDllPath,
+            byte[] payloadData)
+        {
+            IntPtr remoteInitProc = GetRemoteInitProcAddress(libraryDllPath, remoteModuleBase);
+            if (remoteInitProc == IntPtr.Zero)
+            {
+                LogError("Failed to resolve remote InitializeWithMemory address.");
+                return false;
+            }
+
+            IntPtr remotePayloadAddr = VirtualAllocEx(
+                pi.hProcess,
+                IntPtr.Zero,
+                (uint)payloadData.Length,
+                MEM_COMMIT | MEM_RESERVE,
+                PAGE_READWRITE
+            );
+
+            if (remotePayloadAddr == IntPtr.Zero)
+            {
+                LogError("Failed to allocate remote memory for client payload.");
+                return false;
+            }
+
+            try
+            {
+                IntPtr bytesWritten;
+                if (!WriteProcessMemory(pi.hProcess, remotePayloadAddr, payloadData, (uint)payloadData.Length, out bytesWritten) ||
+                    bytesWritten.ToInt64() != payloadData.Length)
+                {
+                    LogError("Failed to write client payload to remote process memory.");
+                    return false;
+                }
+
+                IntPtr remoteThread = CreateRemoteThread(
+                    pi.hProcess,
+                    IntPtr.Zero,
+                    0,
+                    remoteInitProc,
+                    remotePayloadAddr,
+                    0,
+                    IntPtr.Zero
+                );
+
+                if (remoteThread == IntPtr.Zero)
+                {
+                    LogError("Failed to create remote thread for InitializeWithMemory.");
+                    return false;
+                }
+
+                try
+                {
+                    uint waitResult = WaitForSingleObject(remoteThread, 5000);
+                    if (waitResult != 0)
+                    {
+                        LogError("InitializeWithMemory timed out after 5 seconds.");
+                        return false;
+                    }
+
+                    uint exitCode;
+                    if (!GetExitCodeThread(remoteThread, out exitCode))
+                    {
+                        LogError("Failed to get InitializeWithMemory thread exit code.");
+                        return false;
+                    }
+
+                    if (exitCode != 1)
+                    {
+                        LogError($"InitializeWithMemory failed (exit code: 0x{exitCode:X}).");
+                        return false;
+                    }
+
+                    LogInfo("Client library hooks initialized synchronously in remote process.");
+                    return true;
+                }
+                finally
+                {
+                    CloseHandle(remoteThread);
+                }
+            }
+            finally
+            {
+                VirtualFreeEx(pi.hProcess, remotePayloadAddr, 0, MEM_RELEASE);
+            }
+        }
+
+        private static bool InjectClientLibrary(PROCESS_INFORMATION pi, byte[] buffer, uint pathLen, out IntPtr remoteModuleBase)
+        {
+            remoteModuleBase = IntPtr.Zero;
             IntPtr handle = pi.hProcess;
             if (handle == IntPtr.Zero)
             {
@@ -545,6 +707,7 @@ private static bool PrepareTempConfigFile(
                             return false;
                         }
 
+                        remoteModuleBase = new IntPtr((int)exitCode);
                         LogInfo($"Client library injected successfully (module: 0x{exitCode:X}).");
                         return true;
                     }
@@ -774,7 +937,10 @@ private static bool PrepareTempConfigFile(
                     proc.WaitForExit(5000);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Theme.ModernLogger.LogSwallowed(ex, "ClientManager.Kill");
+            }
             finally
             {
                 try { proc.Dispose(); } catch { }
@@ -815,7 +981,10 @@ private static bool PrepareTempConfigFile(
             try
             {
                 if (pi.hThread != IntPtr.Zero)
+                {
                     CloseHandle(pi.hThread);
+                    pi.hThread = IntPtr.Zero;
+                }
 
                 if (pi.hProcess != IntPtr.Zero)
                 {
@@ -824,12 +993,31 @@ private static bool PrepareTempConfigFile(
                         Process proc = Process.GetProcessById((int)pi.dwProcessId);
                         proc?.Kill();
                     }
-                    catch { }
+                    catch (Exception exKill)
+                    {
+                        Theme.ModernLogger.LogSwallowed(exKill, "ClientManager.CleanupProcess.Kill");
+                    }
 
                     CloseHandle(pi.hProcess);
+                    pi.hProcess = IntPtr.Zero;
+                }
+                else if (pi.dwProcessId != 0)
+                {
+                    try
+                    {
+                        Process proc = Process.GetProcessById((int)pi.dwProcessId);
+                        proc?.Kill();
+                    }
+                    catch (Exception exKillPid)
+                    {
+                        Theme.ModernLogger.LogSwallowed(exKillPid, "ClientManager.CleanupProcess.KillPid");
+                    }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Theme.ModernLogger.LogSwallowed(ex, "ClientManager.CleanupProcess");
+            }
         }
     }
 }

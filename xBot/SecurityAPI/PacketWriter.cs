@@ -1,8 +1,8 @@
-﻿using System.IO;
+using System.IO;
 
 namespace SecurityAPI
 {
-    internal class PacketWriter : BinaryWriter
+    public class PacketWriter : BinaryWriter
     {
         MemoryStream m_ms;
 

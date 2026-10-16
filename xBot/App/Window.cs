@@ -26,7 +26,7 @@ namespace xBot.App
 	/// <summary>
 	/// Main bot window GUI that handle all bot events.
 	/// </summary>
-	public partial class Window : Form
+	public partial class Window : Form, IBotLogger, IUiNotifier
 	{
 		/// <summary>
 		/// Unique instance of this class.
@@ -44,6 +44,8 @@ namespace xBot.App
 			// those events call Settings.Save* while the constructor is still running;
 			// leaving _this null there recursively creates another Window/NotifyIcon.
 			_this = this;
+			BotLog.Instance = this;
+			UiNotifier.Instance = this;
 			_isInitializing = true;
 			try
 			{
@@ -146,6 +148,33 @@ namespace xBot.App
 			Settings_rbnPacketOnlyShow.CheckedChanged += (s, e) => Network.Proxy.SyncAnalyzerSettings();
 			Settings_rbnPacketNotShow.CheckedChanged += (s, e) => Network.Proxy.SyncAnalyzerSettings();
 			Network.Proxy.SyncAnalyzerSettings();
+
+			// Initialize Modular Tab UserControls
+			InitializeModularTabControls();
+		}
+
+		public Controls.AttackPanel AttackPanelControl { get; private set; }
+		public Controls.BuffsPanel BuffsPanelControl { get; private set; }
+		public Controls.PotionsPanel PotionsPanelControl { get; private set; }
+		public Controls.TownPanel TownPanelControl { get; private set; }
+
+		private void InitializeModularTabControls()
+		{
+			try
+			{
+				AttackPanelControl = new Controls.AttackPanel();
+				AttackPanelControl.BindToWindow(this);
+				BuffsPanelControl = new Controls.BuffsPanel();
+				BuffsPanelControl.BindToWindow(this);
+				PotionsPanelControl = new Controls.PotionsPanel();
+				PotionsPanelControl.BindToWindow(this);
+				TownPanelControl = new Controls.TownPanel();
+				TownPanelControl.BindToWindow(this);
+			}
+			catch (Exception ex)
+			{
+				Theme.ModernLogger.LogSwallowed(ex, "Window.InitializeModularTabControls");
+			}
 		}
 		/// <summary>
 		/// Load command arguments to the App.
@@ -322,6 +351,48 @@ namespace xBot.App
 			{
 				System.Diagnostics.Debug.WriteLine("[Window.Log] " + ex.Message);
 			}
+		}
+
+		public void LogError(string message, Exception ex, SecurityAPI.Packet packet = null)
+		{
+			Bot.Get?.LogError(message, ex, packet);
+		}
+
+		public void LogSwallowed(Exception ex, string context)
+		{
+			Theme.ModernLogger.LogSwallowed(ex, context);
+		}
+
+		public void NotifyProxyState(bool running)
+		{
+			this.InvokeIfRequired(() => {
+				Login_btnStart.Text = running ? "STOP" : "START";
+				Login_btnStart.Enabled = true;
+				Login_cmbxSilkroad.Enabled = !running;
+				Login_btnLauncher.Enabled = !running;
+			});
+		}
+
+		public void NotifyBotState(bool isBotting)
+		{
+			this.InvokeIfRequired(() => {
+				try { UpdateActionButtonsVisualState(); } catch { }
+				SetTitle();
+			});
+		}
+
+		public void NotifyCharacterSelected(string characterName)
+		{
+			this.InvokeIfRequired(() => {
+				SetTitle();
+			});
+		}
+
+		public void NotifyTitleUpdated()
+		{
+			this.InvokeIfRequired(() => {
+				SetTitle();
+			});
 		}
 		public 		void SetTitle()
 		{

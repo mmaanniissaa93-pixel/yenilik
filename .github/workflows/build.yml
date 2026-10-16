@@ -1,0 +1,65 @@
+name: CI Build & Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup NuGet
+        uses: nuget/setup-nuget@v2
+
+      - name: Restore NuGet Packages
+        run: nuget restore xBot.sln
+
+      - name: Build Native Hook Library (Win32)
+        run: msbuild xBot.Loader.Library\xBot.Loader.Library.vcxproj /p:Configuration=Release /p:Platform=Win32
+
+      - name: Build xBot.Core Library
+        run: dotnet build xBot.Core\xBot.Core.csproj -c Release
+
+      - name: Build xBot Application (x86)
+        run: msbuild xBot\xBot.csproj /p:Configuration=Release /p:Platform=x86
+
+      - name: Sign Binaries with Authenticode
+        run: powershell -ExecutionPolicy Bypass -File scripts\Sign-Binaries.ps1
+
+      - name: Run SQLite Interop Smoke Test
+        run: powershell -ExecutionPolicy Bypass -File tests\SQLiteInteropSmoke.ps1 -OutputDirectory xBot\bin\x86\Release
+
+      - name: Run ProtectionScenarios
+        run: dotnet run --project tests\ProtectionScenarios\ProtectionScenarios.csproj -c Release
+
+      - name: Run BotEngineScenarios
+        run: dotnet run --project tests\BotEngineScenarios\BotEngineScenarios.csproj -c Release
+
+      - name: Run FerryNavigationScenarios
+        run: dotnet run --project tests\FerryNavigationScenarios\FerryNavigationScenarios.csproj -c Release
+
+      - name: Run CollisionScenarios
+        run: dotnet run --project tests\CollisionScenarios\CollisionScenarios.csproj -c Release
+
+      - name: Run QuestAutomationScenarios
+        run: dotnet run --project tests\QuestAutomationScenarios\QuestAutomationScenarios.csproj -c Release
+
+      - name: Run MemoryScenarios
+        run: dotnet run --project tests\MemoryScenarios\MemoryScenarios.csproj -c Release
+
+      - name: Run PacketParserScenarios
+        run: dotnet run --project tests\PacketParserScenarios\PacketParserScenarios.csproj -c Release
