@@ -54,3 +54,5 @@ docs/
 
 # Splash sprite atlası (isteğe bağlı üretilir)
 splash_atlas.png
+tests/PacketParserScenarios/PacketParserScenarios.csproj
+tests/PacketParserScenarios/Program.cs
