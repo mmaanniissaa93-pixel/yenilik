@@ -261,7 +261,8 @@ namespace xBot.Network
 					bool didWork = false;
 					bool gwShowServer = AnalyzerShowServer;
 					bool gwOnlyShow = AnalyzerOnlyShow;
-					HashSet<string> gwFilter = gwShowServer ? m_analyzerFilter : null;
+					bool gwShowClient = AnalyzerShowClient;
+					HashSet<string> gwFilter = (gwShowServer || gwShowClient) ? m_analyzerFilter : null;
 					// Network input event processing
 					foreach (Context context in gws)
 					{
@@ -449,9 +450,9 @@ namespace xBot.Network
 									byte[] packet_bytes = packet.GetBytes();
 									didWork = true;
 									// Show outcoming packets on analizer
-									if (context == Gateway.Remote && gwShowServer)
+									if (context == Gateway.Remote && gwShowClient)
 									{
-										bool opcodeFound = gwFilter != null && gwFilter.Contains(packet.Opcode.ToString());
+										bool opcodeFound = gwFilter != null && gwFilter.Count > 0 && gwFilter.Contains(packet.Opcode.ToString("X4"));
 										if (opcodeFound && gwOnlyShow
 											|| !opcodeFound && !gwOnlyShow)
 										{
@@ -805,7 +806,7 @@ namespace xBot.Network
 					{
 						Reset();
 						Start();
-						refCurrentAttempts++;
+						CurrentAttemptReconnections = refCurrentAttempts + 1;
 					}
 				}
 				catch (Exception ex)

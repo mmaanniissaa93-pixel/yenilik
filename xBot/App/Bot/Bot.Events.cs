@@ -1,4 +1,4 @@
-using SecurityAPI;
+﻿using SecurityAPI;
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
@@ -649,10 +649,12 @@ namespace xBot.App
 				SREntity entity = InfoManager.GetEntity(uniqueID);
 				if (w.Character_cbxAcceptExchangeLeaderOnly.Checked)
 				{
+					if (entity == null || string.IsNullOrEmpty(entity.Name))
+						return;
 					bool found = false;
 					w.Party_lstvLeaderList.InvokeIfRequired(()=> {
 						found = w.Party_lstvLeaderList.Items.ContainsKey(entity.Name.ToUpper());
-          });
+					});
 					if (found)
 						PacketBuilder.PlayerPetitionResponse(true, SRTypes.PlayerPetition.ExchangeRequest);
 				}
@@ -703,7 +705,10 @@ namespace xBot.App
 			// Check party list
 			if (w.Party_cbxAcceptPartyList.Checked)
 			{
-				string playerName = InfoManager.GetEntity(uniqueID).Name.ToUpper();
+				SREntity inviter = InfoManager.GetEntity(uniqueID);
+				if (inviter == null || string.IsNullOrEmpty(inviter.Name))
+					return;
+				string playerName = inviter.Name.ToUpper();
 
 				bool found = false;
 				w.Party_lstvPartyList.InvokeIfRequired(() => {
@@ -729,13 +734,14 @@ namespace xBot.App
 			// Check leader list
 			if (w.Party_cbxAcceptLeaderList.Checked)
 			{
-				string playerName = InfoManager.GetEntity(uniqueID).Name.ToUpper();
+				SREntity inviter = InfoManager.GetEntity(uniqueID);
+				if (inviter == null || string.IsNullOrEmpty(inviter.Name))
+					return;
+				string playerName = inviter.Name.ToUpper();
 
 				bool found = false;
 				w.Party_lstvLeaderList.InvokeIfRequired(() => {
-					w.Party_lstvLeaderList.InvokeIfRequired(() => {
-						found = w.Party_lstvLeaderList.Items.ContainsKey(playerName);
-					});
+					found = w.Party_lstvLeaderList.Items.ContainsKey(playerName);
 				});
 				if (found)
 				{
@@ -880,7 +886,7 @@ namespace xBot.App
 					if (w.Training_cbxTraceDistance.Checked)
 					{
 						w.Training_tbxTraceDistance.InvokeIfRequired(() => {
-							distance = byte.Parse(w.Training_tbxTraceDistance.Text);
+							byte.TryParse(w.Training_tbxTraceDistance.Text, out distance);
 						});
 					}
 					// Follow blind movement

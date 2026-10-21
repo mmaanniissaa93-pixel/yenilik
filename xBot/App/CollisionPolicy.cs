@@ -144,9 +144,15 @@ namespace xBot.App
 
         public static bool IsTaklamakanRegion(int regionId)
         {
+            // SBot navdata referansı (Bölüm 7.2.B): nav04.dat (RegionId == 4) doğrudan Taklamakan bölgesidir [-8868..-2708]x[960..4416]
+            if (regionId == 4)
+                return true;
+
             byte secX = (byte)(regionId & 0xFF);
             byte secY = (byte)((regionId >> 8) & 0xFF);
-            return (secX >= 16 && secX <= 25 && secY >= 25 && secY <= 33);
+            // Hem ham sektör ofseti (16..25, 25..33) hem de +135/+92 dünya sektör koordinatı (88..121, 97..115) desteklenir
+            return (secX >= 16 && secX <= 25 && secY >= 25 && secY <= 33)
+                || (secX >= 88 && secX <= 121 && secY >= 97 && secY <= 115);
         }
 
         public static int GetMinLevelForDestination(uint destId, string destName)

@@ -114,6 +114,7 @@ namespace xBot.Network
 				SERVER_SECONDARY_PASSCODE_REQUEST = 0x3625,
 				SERVER_SECONDARY_PASSCODE_RESPONSE = 0xB625,
 				SERVER_ALCHEMY_RESPONSE = 0xB150,
+				SERVER_ALCHEMY_STONE_RESPONSE = 0xB151,
 				SERVER_CHARACTER_SELECTION_JOIN_RESPONSE = 0xB001,
 				SERVER_CHARACTER_SELECTION_ACTION_RESPONSE = 0xB007,
 				SERVER_CHARACTER_DATA_BEGIN = 0x34A5,
@@ -519,6 +520,7 @@ namespace xBot.Network
 			Register(Opcode.SERVER_SECONDARY_PASSCODE_REQUEST, PacketParser.SecondaryPasscodeResponse);
 			Register(Opcode.SERVER_SECONDARY_PASSCODE_RESPONSE, PacketParser.SecondaryPasscodeResponse);
 			Register(Opcode.SERVER_ALCHEMY_RESPONSE, PacketParser.AlchemyResponse);
+			Register(Opcode.SERVER_ALCHEMY_STONE_RESPONSE, PacketParser.AlchemyResponse);
 			Register(Opcode.SERVER_CHARACTER_DATA_BEGIN, PacketParser.CharacterDataBegin);
 			Register(Opcode.SERVER_CHARACTER_DATA, PacketParser.CharacterData);
 

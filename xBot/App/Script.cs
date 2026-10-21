@@ -322,10 +322,25 @@ namespace xBot.App
 			Window w = Window.Get;
 			if (startIndex < 0 || startIndex >= m_lines.Count)
 				startIndex = m_lines.Count - 1;
+			// SBot referansı (Bölüm 7.3.4): İçinde npc-teleport komutu olan script tersten yürütülemez
+			for (int k = 0; k <= startIndex && k < m_lines.Count; k++)
+			{
+				string raw = (m_lines[k] ?? "").Trim();
+				if (!raw.StartsWith("//") && raw.StartsWith("teleport", StringComparison.OrdinalIgnoreCase))
+				{
+					w?.Log("* Geri yürünemiyor: Script içinde npc-teleport komutu var! (Cannot walk back, because script contains npc-teleport command!)");
+					Completed = false;
+					return;
+				}
+			}
 			m_stopSignal.Reset();
+			Completed = false;
 			Running = true;
+			try
+			{
 			int consecutiveStepBacks = 0;
-			for (int j = startIndex; j >= 0 && Running && b.isBotting && (ContinueCondition == null || ContinueCondition()); j--)
+			int j;
+			for (j = startIndex; j >= 0 && Running && b.isBotting && (ContinueCondition == null || ContinueCondition()); j--)
 			{
 				b.RunScriptBerserk();
 				ScriptStepResult res = ExecuteLine(j);
@@ -351,7 +366,9 @@ namespace xBot.App
 					consecutiveStepBacks = 0;
 				}
 			}
-			Running = false;
+			Completed = j < 0 && Running && b.isBotting;
+			}
+			finally { Running = false; }
 		}
 		/// <summary>
 		/// Tek script satırını çalıştırır (düz ve ters koşu ortak).
@@ -520,7 +537,9 @@ namespace xBot.App
 						double edy = myPos.PosY - sPos.PosY;
 						double len = Math.Sqrt(edx * edx + edy * edy);
 						if (len < 0.1) { edx = 1; len = 1; }
-						SRCoord evade = new SRCoord(myPos.PosX + (edx / len) * 15.0, myPos.PosY + (edy / len) * 15.0);
+						double ex = myPos.PosX + (edx / len) * 15.0;
+						double ey = myPos.PosY + (edy / len) * 15.0;
+						SRCoord evade = myPos.inDungeon() ? new SRCoord(ex, ey, myPos.Region, myPos.Z) : new SRCoord(ex, ey);
 						b.MoveTo(evade);
 						Thread.Sleep(800);
 					}

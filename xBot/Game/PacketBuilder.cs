@@ -54,6 +54,16 @@ namespace xBot.Game
 			}
 			Bot.Get.Proxy.Agent.InjectToServer(p);
 		}
+		public static void FuseStone(byte targetSlot, byte stoneSlot)
+		{
+			Packet p = new Packet(Agent.Opcode.CLIENT_ALCHEMY_STONE);
+			p.WriteByte(2); // Action: Fuse Stone
+			p.WriteByte(3); // Type: Magic/Attr Stone
+			p.WriteByte(2); // Slot count (target + stone)
+			p.WriteByte(targetSlot);
+			p.WriteByte(stoneSlot);
+			Bot.Get.Proxy.Agent.InjectToServer(p);
+		}
 		public static void SubmitCaptcha(string code)
 		{
 			if (string.IsNullOrWhiteSpace(code))

@@ -899,6 +899,27 @@ namespace xBot.App
                     }
                     List<SRMob> mobs = m_cachedMobsInRange;
 
+                    // SBot referansı (Bölüm 8.1.1): Kasılma alanında Statue of Justice varsa ve saldırı izni kapalıysa botu durdur
+                    if (!TrainingOptionsPolicy.AttackStatueOfJustice && mobs != null)
+                    {
+                        for (int si = 0; si < mobs.Count; si++)
+                        {
+                            var sm = mobs[si];
+                            if (sm != null && IsLiveCombatTarget(sm) &&
+                                ((sm.Name != null && (sm.Name.IndexOf("Statue of Justice", StringComparison.OrdinalIgnoreCase) >= 0 || sm.Name.IndexOf("Adalet", StringComparison.OrdinalIgnoreCase) >= 0))
+                                || (sm.ServerName != null && sm.ServerName.IndexOf("STATUE_OF_JUSTICE", StringComparison.OrdinalIgnoreCase) >= 0)))
+                            {
+                                var sPos = sm.GetRealtimePosition();
+                                if (sPos != null && ((trainingPosition != null && trainingRadius > 0 && trainingPosition.DistanceTo(sPos) <= trainingRadius) || myPosition.DistanceTo(sPos) <= 25.0))
+                                {
+                                    w.Log("* DİKKAT: Kasılma alanında bot öldüren Statue of Justice tespit edildi! Karakteri korumak için bot durduruluyor. (* ATTENTION: Bot will stop now, because a botkilling statue contaminates trainplace)");
+                                    Stop();
+                                    return;
+                                }
+                            }
+                        }
+                    }
+
                     // Combat AI: Check Berserker activation (canonical state: CombatAIEngine.IsBerserkEnabled)
                     if (CombatAIEngine.IsBerserkEnabled)
                     {
@@ -2513,6 +2534,11 @@ namespace xBot.App
                 }
             }
 
+            // SBot referansı (Bölüm 8.3.3): Depodaki bölünmüş yığınları birleştir (* Sorting whole storage...)
+            if (completed && isBotting && InfoManager.inGame)
+            {
+                try { StorageSort(); } catch { }
+            }
             ReportUnhandledFilterItems(w);
             return completed && isBotting && InfoManager.inGame && Proxy != null && Proxy.isRunning;
         }
@@ -2761,6 +2787,11 @@ namespace xBot.App
 						if (amount > available)
 							amount = available;
 					}
+					if (amount > 1000000000UL)
+					{
+						w.Log("Guild Storage: Tek seferde aktarım 1 milyar altın ile sınırlandırıldı (limiting to 1 billion).");
+						amount = 1000000000UL;
+					}
 					if (amount > 0)
 					{
 						w.Log($"Guild Storage: {amount} gold depolanıyor...");
@@ -2780,6 +2811,11 @@ namespace xBot.App
 					{
 						ulong need = options.GoldKeepAmount - inventoryGold;
 						ulong amount = need < guildGold ? need : guildGold;
+						if (amount > 1000000000UL)
+						{
+							w.Log("Guild Storage: Tek seferde aktarım 1 milyar altın ile sınırlandırıldı (limiting to 1 billion).");
+							amount = 1000000000UL;
+						}
 						w.Log($"Guild Storage: {amount} gold alınıyor...");
 						InfoManager.MonitorInventoryMovement.Reset();
 						PacketBuilder.MoveGold(SRTypes.InventoryItemMovement.GuildGoldToInventory, amount);
@@ -2859,6 +2895,11 @@ namespace xBot.App
                         else
                             amount = opt.StoreGoldMax - storGold;
                     }
+                    if (amount > 1000000000UL)
+                    {
+                        w.Log("Store Gold: Tek seferde aktarım 1 milyar altın ile sınırlandırıldı (limiting to 1 billion).");
+                        amount = 1000000000UL;
+                    }
                     if (amount > 0)
                     {
                         w.Log($"Store Gold: depoya {amount} altın konuyor...");
@@ -2887,7 +2928,17 @@ namespace xBot.App
                     {
                         ulong need = opt.GoldKeepAmount - invGold;
                         ulong amount = need < storGold ? need : storGold;
-                        if (amount > 0)
+                        if (amount > 1000000000UL)
+                        {
+                            w.Log("Store Gold: Tek seferde aktarım 1 milyar altın ile sınırlandırıldı (limiting to 1 billion).");
+                            amount = 1000000000UL;
+                        }
+                        if (amount > 1000000000UL)
+                    {
+                        w.Log("Store Gold: Tek seferde aktarım 1 milyar altın ile sınırlandırıldı (limiting to 1 billion).");
+                        amount = 1000000000UL;
+                    }
+                    if (amount > 0)
                         {
                             w.Log($"Store Gold: depodan {amount} altın alınıyor...");
                             InfoManager.MonitorInventoryMovement.Reset();
@@ -2900,7 +2951,10 @@ namespace xBot.App
                 }
 
                 if (opt.TakeGoldFromGuildStorage || opt.StoreGoldInGuildStorage)
-                    w.Log("Store Gold: guild deposu altını bu sürümde desteklenmiyor, atlandı.");
+                {
+                    if (InfoManager.inGuild && InfoManager.Guild?.Storage != null)
+                        ExecuteGuildStorageGold();
+                }
             }
             catch (Exception ex)
             {
@@ -3701,7 +3755,9 @@ namespace xBot.App
                                 double edy = myPosition.PosY - sPos.PosY;
                                 double len = Math.Sqrt(edx * edx + edy * edy);
                                 if (len < 0.1) { edx = 1; len = 1; }
-                                SRCoord evade = new SRCoord(myPosition.PosX + (edx / len) * 15.0, myPosition.PosY + (edy / len) * 15.0);
+                                double ex = myPosition.PosX + (edx / len) * 15.0;
+                                double ey = myPosition.PosY + (edy / len) * 15.0;
+                                SRCoord evade = myPosition.inDungeon() ? new SRCoord(ex, ey, myPosition.Region, myPosition.Z) : new SRCoord(ex, ey);
                                 Window.Get?.LogProcess("WaitMovement: Statue of Justice algılandı! Güvenli mesafeye kaçılıyor...");
                                 MoveTo(evade);
                                 Thread.Sleep(600);

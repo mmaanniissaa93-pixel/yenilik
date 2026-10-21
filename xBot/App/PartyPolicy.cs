@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace xBot.App
 {
@@ -46,13 +46,14 @@ namespace xBot.App
                 return false;
 
             string upper = serverName.ToUpperInvariant();
-            return upper.Contains("CLERIC") && (
+            return (upper.Contains("CLERIC") && (
                 upper.Contains("HEAL") ||
                 upper.Contains("RECOVERY") ||
                 upper.Contains("DIVISION") ||
                 upper.Contains("ORBIT") ||
                 upper.Contains("GROUP") ||
-                upper.Contains("CYCLE"));
+                upper.Contains("CYCLE")))
+                || (upper.Contains("CH_WATER") && upper.Contains("HEAL"));
         }
 
         public static bool IsClericRessSkill(string serverName)
@@ -61,10 +62,19 @@ namespace xBot.App
                 return false;
 
             string upper = serverName.ToUpperInvariant();
-            return upper.Contains("CLERIC") && (
+            return (upper.Contains("CLERIC") || upper.Contains("CH_WATER")) && (
                 upper.Contains("RESURRECTION") ||
                 upper.Contains("REBIRTH") ||
                 upper.Contains("GRAND_REBIRTH"));
+        }
+
+        public static bool IsGroupRessSkill(string serverName)
+        {
+            if (string.IsNullOrEmpty(serverName))
+                return false;
+
+            string upper = serverName.ToUpperInvariant();
+            return IsClericRessSkill(upper) && upper.Contains("GROUP");
         }
 
         public static bool IsClericCureSkill(string serverName)
@@ -73,10 +83,12 @@ namespace xBot.App
                 return false;
 
             string upper = serverName.ToUpperInvariant();
-            return upper.Contains("CLERIC") && (
+            return (upper.Contains("CLERIC") && (
                 upper.Contains("PURIFY") ||
                 upper.Contains("INTEGRITY") ||
-                upper.Contains("CURE"));
+                upper.Contains("CURE")))
+                || (upper.Contains("CH_WATER") && upper.Contains("CURE"))
+                || (upper.Contains("BARD") && upper.Contains("CURE"));
         }
 
         public static bool IsPartyBuffSkill(string serverName)
@@ -86,8 +98,8 @@ namespace xBot.App
 
             string upper = serverName.ToUpperInvariant();
             return (upper.Contains("BARD") && (upper.Contains("SPEED") || upper.Contains("GUARD") || upper.Contains("MANA") || upper.Contains("DANCE")))
-                || (upper.Contains("WARRIOR") && (upper.Contains("PAIN") || upper.Contains("FENCE") || upper.Contains("SCREEN")))
-                || (upper.Contains("CLERIC") && (upper.Contains("BLESS") || upper.Contains("BODY_ARMOR") || upper.Contains("SOUL_ARMOR")));
+                || (upper.Contains("WARRIOR") && (upper.Contains("PAIN") || upper.Contains("FENCE") || upper.Contains("SCREEN") || upper.Contains("PROTECT")))
+                || (upper.Contains("CLERIC") && (upper.Contains("BLESS") || upper.Contains("BODY_ARMOR") || upper.Contains("SOUL_ARMOR") || upper.Contains("DEITY") || upper.Contains("FORCE_A") || upper.Contains("MENTAL_A")));
         }
     }
 }

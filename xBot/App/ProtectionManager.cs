@@ -743,6 +743,8 @@ namespace xBot.App
             json["HPLowThreshold"] = HPLowThreshold;
             json["ReturnMPLow"] = ReturnMPLow;
             json["MPLowThreshold"] = MPLowThreshold;
+            json["ReturnDurabilityLow"] = ReturnDurabilityLow;
+            json["DurabilityLowThreshold"] = DurabilityLowThreshold;
             json["UseReturnScrolls"] = UseReturnScrolls;
             json["UseReverseOnDeath"] = UseReverseOnDeath;
             json["UseReverseAfterTown"] = UseReverseAfterTown;

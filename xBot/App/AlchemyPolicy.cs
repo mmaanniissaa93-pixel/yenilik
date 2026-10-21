@@ -20,6 +20,8 @@ namespace xBot.App
         public const ushort CLIENT_ALCHEMY = 0x7150;
         public const ushort CLIENT_ALCHEMY_STONE = 0x7151;
         public const ushort SERVER_ALCHEMY_RESPONSE = 0xB150;
+        public const ushort SERVER_ALCHEMY_STONE_RESPONSE = 0xB151;
+        public const byte MaxSupportedPlusDegree = 11;
 
         /// <summary>
         /// Calculates the Silkroad item Degree (1 to 14+) based on required item level.
@@ -72,19 +74,23 @@ namespace xBot.App
                 return false;
 
             string upper = serverName.ToUpperInvariant();
-            if (!upper.Contains("ARCHEMY_POTION") && !upper.Contains("ELIXIR"))
+            if (!upper.Contains("ARCHEMY_POTION") && !upper.Contains("ELIXIR") && !upper.Contains("REINFORCE_RECIPE_"))
+                return false;
+
+            // Exclude Lucky Powder which may contain REINFORCE_RECIPE_
+            if (upper.Contains("PROB_UP") || upper.Contains("POWDER"))
                 return false;
 
             switch (requiredType)
             {
                 case ElixirType.Weapon:
-                    return upper.Contains("WEAPON");
+                    return upper.Contains("WEAPON") || upper.Contains("_WE_");
                 case ElixirType.Shield:
-                    return upper.Contains("SHIELD");
+                    return upper.Contains("SHIELD") || upper.Contains("_SH_");
                 case ElixirType.Protector:
-                    return upper.Contains("ARMOR") || upper.Contains("GUARD") || upper.Contains("PROTECTOR");
+                    return upper.Contains("ARMOR") || upper.Contains("GUARD") || upper.Contains("PROTECTOR") || upper.Contains("_AR_");
                 case ElixirType.Accessory:
-                    return upper.Contains("ACCESSORY");
+                    return upper.Contains("ACCESSORY") || upper.Contains("_AC_");
                 default:
                     return false;
             }
@@ -92,6 +98,7 @@ namespace xBot.App
 
         /// <summary>
         /// Checks if Lucky Powder matches the target equipment Degree.
+        /// Supports ITEM_ETC_ARCHEMY_REINFORCE_PROB_UP_A_01..12 and REINFORCE_RECIPE / POWDER naming.
         /// </summary>
         public static bool IsLuckyPowderMatching(string serverName, byte itemDegree)
         {
@@ -99,11 +106,37 @@ namespace xBot.App
                 return false;
 
             string upper = serverName.ToUpperInvariant();
-            if (!upper.Contains("REINFORCE_RECIPE") && !upper.Contains("POWDER"))
+            if (!upper.Contains("REINFORCE_PROB_UP") && !upper.Contains("REINFORCE_RECIPE") && !upper.Contains("POWDER"))
                 return false;
 
             string degreeStr = itemDegree.ToString("D2"); // e.g. "01", "08", "11"
-            return upper.EndsWith(degreeStr) || upper.Contains("_" + degreeStr) || upper.Contains(itemDegree.ToString());
+            if (upper.EndsWith("_" + degreeStr) || upper.Contains("_" + degreeStr + "_") || upper.EndsWith(degreeStr))
+                return true;
+
+            return false;
+        }
+
+        /// <summary>
+        /// Checks if a Magic Stone (Immortal/Steady/Astral/Luck) in inventory matches the requested attribute and equipment Degree.
+        /// </summary>
+        public static bool IsProtectionStoneMatching(string serverName, string stoneKeyword, byte itemDegree)
+        {
+            if (string.IsNullOrWhiteSpace(serverName) || string.IsNullOrWhiteSpace(stoneKeyword) || itemDegree == 0)
+                return false;
+
+            string upper = serverName.ToUpperInvariant();
+            if (!upper.Contains("MAGICSTONE") && !upper.Contains("ATTRSTONE"))
+                return false;
+
+            string kw = stoneKeyword.ToUpperInvariant();
+            bool keywordMatch = upper.Contains(kw)
+                || (kw == "ATHANASIA" && upper.Contains("IMMORTAL"))
+                || (kw == "SOLID" && upper.Contains("STEADY"));
+            if (!keywordMatch)
+                return false;
+
+            string degreeStr = itemDegree.ToString("D2");
+            return upper.EndsWith("_" + degreeStr) || upper.Contains("_" + degreeStr + "_") || upper.EndsWith(degreeStr);
         }
 
         /// <summary>

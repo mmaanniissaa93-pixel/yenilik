@@ -448,6 +448,38 @@ namespace xBot.Game
 		public static void AlchemyResponse(Packet packet)
 		{
 			byte result = packet.ReadByte();
+			if (result == 1 && packet.RemainingRead() >= 3)
+			{
+				byte action = packet.ReadByte();
+				if (action == 2)
+				{
+					byte fuseSuccess = packet.ReadByte();
+					byte slot = packet.ReadByte();
+					if (fuseSuccess == 1)
+					{
+						if (packet.RemainingRead() >= 4)
+						{
+							try
+							{
+								SRItem updated = ItemParsing(packet);
+								if (updated != null && InfoManager.Character?.Inventory != null && slot < InfoManager.Character.Inventory.Capacity)
+									InfoManager.Character.Inventory[slot] = updated;
+							}
+							catch { }
+						}
+						AlchemyManager.OnAlchemyResult(1);
+						return;
+					}
+					else
+					{
+						byte destroyed = packet.RemainingRead() > 0 ? packet.ReadByte() : (byte)0;
+						if (destroyed == 2 && InfoManager.Character?.Inventory != null && slot < InfoManager.Character.Inventory.Capacity)
+							InfoManager.Character.Inventory[slot] = null;
+						AlchemyManager.OnAlchemyResult(destroyed == 2 ? (byte)3 : (byte)2);
+						return;
+					}
+				}
+			}
 			AlchemyManager.OnAlchemyResult(result);
 		}
 		private static Packet characterDataPacket;
@@ -2368,7 +2400,9 @@ namespace xBot.Game
 				case 6: // Member update
 					{
 						uint ID = packet.ReadUInt();
-						SRPartyMember member = InfoManager.Party.Members[ID];
+						SRPartyMember member = InfoManager.Party?.Members?[ID];
+						if (member == null)
+							return;
 
 						Window w = Window.Get;
 						byte memberUpdateType = packet.ReadByte();
@@ -2378,7 +2412,9 @@ namespace xBot.Game
 								member.Level = packet.ReadByte();
 
 								w.Party_lstvPartyMembers.InvokeIfRequired(() => {
-									w.Party_lstvPartyMembers.Items[ID.ToString()].SubItems[2].Text = member.Level.ToString();
+									var lvi = w.Party_lstvPartyMembers.Items[ID.ToString()];
+									if (lvi != null && lvi.SubItems.Count > 2)
+										lvi.SubItems[2].Text = member.Level.ToString();
 								});
 								break;
 							case 4: // HP & MP
@@ -2387,7 +2423,9 @@ namespace xBot.Game
 								byte fixedHP = member.HPPercent;
 
 								w.Party_lstvPartyMembers.InvokeIfRequired(() => {
-									w.Party_lstvPartyMembers.Items[ID.ToString()].SubItems[3].Text = string.Format("{0}% / {1}%", fixedHP > 100 ? 100 : fixedHP, member.MPPercent);
+									var lvi = w.Party_lstvPartyMembers.Items[ID.ToString()];
+									if (lvi != null && lvi.SubItems.Count > 3)
+										lvi.SubItems[3].Text = string.Format("{0}% / {1}%", fixedHP > 100 ? 100 : fixedHP, member.MPPercent);
 								});
 								break;
 							case 0x20: // Map position
@@ -2400,7 +2438,9 @@ namespace xBot.Game
 									string regionName = DataManager.GetRegion(region);
 
 									w.Party_lstvPartyMembers.InvokeIfRequired(() => {
-										w.Party_lstvPartyMembers.Items[ID.ToString()].SubItems[4].Text = regionName;
+										var lvi = w.Party_lstvPartyMembers.Items[ID.ToString()];
+										if (lvi != null && lvi.SubItems.Count > 4)
+											lvi.SubItems[4].Text = regionName;
 									});
 								}
 								break;
@@ -2468,7 +2508,9 @@ namespace xBot.Game
 		private static Packet StorageDataPacket;
 		public static void StorageDataBegin(Packet packet)
 		{
-			InfoManager.Character.StorageGold = packet.ReadULong();
+			ulong gold = packet.ReadULong();
+			if (InfoManager.Character != null)
+				InfoManager.Character.StorageGold = gold;
 			StorageDataPacket = new Packet(Agent.Opcode.SERVER_STORAGE_DATA);
 		}
 		public static void StorageData(Packet packet)
@@ -2565,7 +2607,8 @@ namespace xBot.Game
 		{
 			ulong gold = packet.ReadULong();
 			// End of Packet
-			InfoManager.Guild.StorageGold = gold;
+			if (InfoManager.Guild != null)
+				InfoManager.Guild.StorageGold = gold;
 			GuildStorageDataPacket = new Packet(Agent.Opcode.SERVER_GUILD_STORAGE_DATA);
 		}
 		public static void GuildStorageData(Packet packet)
@@ -2816,6 +2859,8 @@ namespace xBot.Game
             ushort quantityMoved = p.ReadUShort();
             // End of Packet
 
+            if (InfoManager.Character?.Storage == null)
+                return;
             // Make movement
             InventoryItemMovement_FromSameInventory(InfoManager.Character.Storage, slotSrc, slotDst, quantityMoved);
         }
@@ -2825,8 +2870,10 @@ namespace xBot.Game
 			byte slotStorage = p.ReadByte();
 			// End of Packet
 
-			xList<SRItem> inventory = InfoManager.Character.Inventory;
-			xList<SRItem> storage = InfoManager.Character.Storage;
+			xList<SRItem> inventory = InfoManager.Character?.Inventory;
+			xList<SRItem> storage = InfoManager.Character?.Storage;
+			if (inventory == null || storage == null)
+				return;
 
 			// Just move it leaving an empty space at inventory
 			storage[slotStorage] = inventory[slotInventory];
@@ -2839,8 +2886,10 @@ namespace xBot.Game
 			byte slotInventory = p.ReadByte();
 			// End of Packet
 
-			xList<SRItem> inventory = InfoManager.Character.Inventory;
-			xList<SRItem> storage = InfoManager.Character.Storage;
+			xList<SRItem> inventory = InfoManager.Character?.Inventory;
+			xList<SRItem> storage = InfoManager.Character?.Storage;
+			if (inventory == null || storage == null)
+				return;
 
 			// Just move it leaving an empty space at storage
 			inventory[slotInventory] = storage[slotStorage];
@@ -2868,13 +2917,17 @@ namespace xBot.Game
 			// Gold
 			if( slotInventory == 0xFE)
 			{
-				InfoManager.Character.Gold += p.ReadUInt();
+				uint gold = p.ReadUInt();
+				if (InfoManager.Character != null)
+					InfoManager.Character.Gold += gold;
 				return;
             }
 			SRItem item = ItemParsing(p);
 			// End of Packet
 
-			xList<SRItem> inventory = InfoManager.Character.Inventory;
+			xList<SRItem> inventory = InfoManager.Character?.Inventory;
+			if (inventory == null)
+				return;
 
 			// Check quantity picked up
 			ushort quantity = 1;
@@ -2940,7 +2993,9 @@ namespace xBot.Game
 			byte slotBuyBack = p.ReadByte();
 			// End of Packet
 
-			xList<SRItem> inventory = InfoManager.Character.Inventory;
+			xList<SRItem> inventory = InfoManager.Character?.Inventory;
+			if (inventory == null || inventory[slotInventory] == null)
+				return;
 
 			if (InfoManager.Character.ShopBuyBack == null)
 				InfoManager.Character.ShopBuyBack = new xList<SRItem>();
@@ -2953,14 +3008,17 @@ namespace xBot.Game
 			if (inventory[slotInventory].Quantity == quantitySold)
 			{
 				// Check if action can be revert as buy back
-				if (slotBuyBack != byte.MaxValue)
+				if (slotBuyBack != byte.MaxValue && slotBuyBack > 0)
 					buyBack[slotBuyBack - 1] = inventory[slotInventory];
 				inventory[slotInventory] = null;
 			}
 			else
 			{
-				buyBack[slotBuyBack - 1] = inventory[slotInventory].Clone();
-				buyBack[slotBuyBack - 1].Quantity = quantitySold;
+				if (slotBuyBack != byte.MaxValue && slotBuyBack > 0)
+				{
+					buyBack[slotBuyBack - 1] = inventory[slotInventory].Clone();
+					buyBack[slotBuyBack - 1].Quantity = quantitySold;
+				}
 				inventory[slotInventory].Quantity -= quantitySold;
 			}
 		}
@@ -2972,14 +3030,16 @@ namespace xBot.Game
 		{
 			ulong gold =  p.ReadULong();
 			// End of Packet
-			InfoManager.Character.StorageGold -= gold;
+			if (InfoManager.Character != null)
+				InfoManager.Character.StorageGold -= gold;
 			InfoManager.OnInventoryMovementAck();
 		}
 		private static void InventoryItemMovement_InventoryGoldToStorage(Packet p)
 		{
 			ulong gold =  p.ReadULong();
 			// End of Packet
-			InfoManager.Character.StorageGold += gold;
+			if (InfoManager.Character != null)
+				InfoManager.Character.StorageGold += gold;
 			InfoManager.OnInventoryMovementAck();
 		}
 		private static void InventoryItemMovement_InventoryGoldToExchange(Packet p)
@@ -2995,14 +3055,16 @@ namespace xBot.Game
 			byte unkByte01 = p.ReadByte();
 			SRItem item = ItemParsing(p);
 			// End of Packet
-			InfoManager.Character.Inventory[slotInventory] = item;
+			if (InfoManager.Character?.Inventory != null)
+				InfoManager.Character.Inventory[slotInventory] = item;
 		}
 		private static void InventoryItemMovement_InventoryToQuest(Packet p)
 		{
 			byte slotInventory = p.ReadByte();
 			//byte unkByte01 = p.ReadByte();
 			// End of Packet
-			InfoManager.Character.Inventory[slotInventory] = null;
+			if (InfoManager.Character?.Inventory != null)
+				InfoManager.Character.Inventory[slotInventory] = null;
 		}
 		private static void InventoryItemMovement_TransportToTransport(Packet p)
 		{
@@ -3183,6 +3245,8 @@ namespace xBot.Game
 			byte slotDst = p.ReadByte();
 			ushort quantityMoved = p.ReadUShort();
 
+			if (InfoManager.Guild?.Storage == null)
+				return;
             // Make movement
             InventoryItemMovement_FromSameInventory(InfoManager.Guild.Storage, slotSrc, slotDst, quantityMoved);
 		}
@@ -3192,8 +3256,10 @@ namespace xBot.Game
 			byte slotStorage = p.ReadByte();
 			// End of Packet
 			
-			xList<SRItem> inventory = InfoManager.Character.Inventory;
-			xList<SRItem> storage = InfoManager.Guild.Storage;
+			xList<SRItem> inventory = InfoManager.Character?.Inventory;
+			xList<SRItem> storage = InfoManager.Guild?.Storage;
+			if (inventory == null || storage == null)
+				return;
 
 			// Just move it leaving an empty space at inventory
 			storage[slotStorage] = inventory[slotInventory];
@@ -3206,8 +3272,10 @@ namespace xBot.Game
 			byte slotInventory = p.ReadByte();
 			// End of Packet
 
-			xList<SRItem> inventory = InfoManager.Character.Inventory;
-			xList<SRItem> storage = InfoManager.Guild.Storage;
+			xList<SRItem> inventory = InfoManager.Character?.Inventory;
+			xList<SRItem> storage = InfoManager.Guild?.Storage;
+			if (inventory == null || storage == null)
+				return;
 
 			// Just move it leaving an empty space at storage
 			inventory[slotInventory] = storage[slotStorage];
@@ -3218,14 +3286,16 @@ namespace xBot.Game
 		{
 			ulong gold = p.ReadULong();
 			// End of Packet
-			InfoManager.Guild.StorageGold += gold;
+			if (InfoManager.Guild != null)
+				InfoManager.Guild.StorageGold += gold;
 			InfoManager.OnInventoryMovementAck();
 		}
 		private static void InventoryItemMovement_GuildGoldToInventory(Packet p)
 		{
 			ulong gold = p.ReadULong();
 			// End of Packet
-			InfoManager.Guild.StorageGold -= gold;
+			if (InfoManager.Guild != null)
+				InfoManager.Guild.StorageGold -= gold;
 			InfoManager.OnInventoryMovementAck();
 		}
 		private static void InventoryItemMovement_ShopBuyBack(Packet p)
@@ -3235,8 +3305,10 @@ namespace xBot.Game
 			ushort quantitySold = p.ReadUShort();
 			// End of Packet
 
-			xList<SRItem> inventory = InfoManager.Character.Inventory;
-			xList<SRItem> buyBack = InfoManager.Character.ShopBuyBack;
+			xList<SRItem> inventory = InfoManager.Character?.Inventory;
+			xList<SRItem> buyBack = InfoManager.Character?.ShopBuyBack;
+			if (inventory == null || buyBack == null || slotBuyBack >= buyBack.Count)
+				return;
 
 			inventory[slotInventory] = buyBack[slotBuyBack];
 			buyBack.RemoveAt(slotBuyBack);
@@ -3535,7 +3607,9 @@ namespace xBot.Game
 			uint uniqueID = packet.ReadUInt();
 			uint modelID = packet.ReadUInt();
 
-			SRCoService cos = (SRCoService)InfoManager.GetEntity(uniqueID);
+			SRCoService cos = InfoManager.GetEntity(uniqueID) as SRCoService;
+			if (cos == null)
+				return;
 			if (cos.isHorse() || cos.isTransport())
 			{
 				cos.HP = packet.ReadUInt();
@@ -3600,7 +3674,9 @@ namespace xBot.Game
 			uint uniqueID = packet.ReadUInt();
 			byte updateType = packet.ReadByte();
 
-			SRCoService cos = (SRCoService)InfoManager.GetEntity(uniqueID);
+			SRCoService cos = InfoManager.GetEntity(uniqueID) as SRCoService;
+			if (cos == null)
+				return;
 			switch (updateType)
 			{
 				case 1: // Unsummoned
@@ -3638,11 +3714,12 @@ namespace xBot.Game
 				uint uniqueID = packet.ReadUInt();
 				byte settingsType = packet.ReadByte();
 				
-				SREntity cos = InfoManager.GetEntity(uniqueID);
+				SRAttackPet atkPet = InfoManager.GetEntity(uniqueID) as SRAttackPet;
 				switch (settingsType)
 				{
 					case 1: // Pet Attack settings
-						((SRAttackPet)cos).SettingsFlags = (SRAttackPet.Settings)packet.ReadUInt();
+						if (atkPet != null)
+							atkPet.SettingsFlags = (SRAttackPet.Settings)packet.ReadUInt();
 						break;
 				}
 			}
@@ -3683,7 +3760,7 @@ namespace xBot.Game
 			if (packet.ReadBool())
 			{
 				// identification
-				SRPlayer player = (SRPlayer)InfoManager.GetEntity(packet.ReadUInt());
+				SRPlayer player = InfoManager.GetEntity(packet.ReadUInt()) as SRPlayer;
 				string note = packet.ReadAscii();
 				bool isOpen = packet.ReadBool();
 				byte mode = packet.ReadByte();
@@ -3698,6 +3775,10 @@ namespace xBot.Game
 					item.Price = packet.ReadULong();
 					inventoryStall[slotStall] = item;
 				}
+				if (player == null)
+					return;
+				if (player.Stall == null)
+					player.Stall = new SRStall();
 				player.Stall.Inventory = inventoryStall;
 				// player.Stall.StallViewersID = packet.ReadUIntArray(packet.ReadByte());
 				// End of Packet
@@ -3821,7 +3902,9 @@ namespace xBot.Game
 			stall.DecorationID = packet.ReadUInt();
 			// End of Packet
 
-			SRPlayer player = (SRPlayer)InfoManager.GetEntity(uniqueID);
+			SRPlayer player = InfoManager.GetEntity(uniqueID) as SRPlayer;
+			if (player == null)
+				return;
 			player.Stall = stall;
 			player.InteractionType = SRPlayer.Interaction.OnStall;
 		}
@@ -3830,7 +3913,9 @@ namespace xBot.Game
 			uint uniqueID = packet.ReadUInt();
 			//ushort unkUshort01 = packet.ReadUShort();
 
-			SRPlayer player = (SRPlayer)InfoManager.GetEntity(uniqueID);
+			SRPlayer player = InfoManager.GetEntity(uniqueID) as SRPlayer;
+			if (player == null)
+				return;
 			player.InteractionType = SRPlayer.Interaction.None;
 
 			if (InfoManager.inStall && InfoManager.StallerPlayer == player)
@@ -3838,8 +3923,10 @@ namespace xBot.Game
 		}
 		public static void EntityStallTitleUpdate(Packet packet)
 		{
-			SRPlayer player = (SRPlayer)InfoManager.GetEntity(packet.ReadUInt());
-			player.Stall.Title = packet.ReadAscii();
+			SRPlayer player = InfoManager.GetEntity(packet.ReadUInt()) as SRPlayer;
+			string title = packet.ReadAscii();
+			if (player?.Stall != null)
+				player.Stall.Title = title;
 		}
 		public static void EntitySkillStart(Packet p)
 		{

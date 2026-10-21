@@ -337,7 +337,9 @@ namespace xBot.Game
 			Window w = Window.Get;
 			w.LogProcess("Login...");
 			Bot.Get.LoggedFromBot = true;
-			PacketBuilder.Login(Username,Password,ushort.Parse(ServerID));
+			ushort srvId;
+			if (ushort.TryParse(ServerID, out srvId))
+				PacketBuilder.Login(Username, Password, srvId);
 		}
 		public static void SetServerTime(SRTimeStamp SRTimeStamp)
 		{
@@ -393,7 +395,7 @@ namespace xBot.Game
 				Item.SubItems.Add(CharacterList[j].Level.ToString());
 				Item.SubItems.Add(CharacterList[j].GetExpPercent() + " %");
 				if (CharacterList[j].isDeleting)
-					Item.SubItems.Add(CharacterList[j].DeletingDate.ToString("dd/mm/yyyy hh:mm"));
+					Item.SubItems.Add(CharacterList[j].DeletingDate.ToString("dd/MM/yyyy HH:mm"));
 
 				// Add to view
 				w.Login_lstvCharacters.InvokeIfRequired(() => {
@@ -705,6 +707,8 @@ namespace xBot.Game
 		}
 		internal static void OnCharacterStatsUpdated()
 		{
+			if (Character == null)
+				return;
 			if (Character.LifeStateType == SRModel.LifeState.Unknown)
 				Character.LifeStateType = SRModel.LifeState.Alive;
 
@@ -743,6 +747,8 @@ namespace xBot.Game
 		}
 		internal static void OnExpReceived(long ExpReceived, long Exp, long ExpMax, byte Level)
 		{
+			if (Character == null)
+				return;
 			Window w = Window.Get;
 			if (ExpReceived + Exp >= ExpMax)
 			{
@@ -793,6 +799,8 @@ namespace xBot.Game
 		}
 		internal static void OnCharacterDead(byte ReasonType)
 		{
+			if (Character == null)
+				return;
 			Character.LifeStateType = SRModel.LifeState.Dead;
 			Character.Buffs.Clear();
 			if (inStall)
@@ -812,7 +820,8 @@ namespace xBot.Game
 				SRModel model = (SRModel)entity;
 				if (model.isPlayer())
 				{
-					m_Players[entity.Name.ToUpper()] = (SRPlayer)model;
+					if (!string.IsNullOrEmpty(entity.Name))
+						m_Players[entity.Name.ToUpper()] = (SRPlayer)model;
 				}
 				else if (model.isNPC())
 				{
@@ -933,7 +942,10 @@ namespace xBot.Game
 		}
 		internal static void OnPartyMemberLeft(uint ID)
 		{
-			if (Party.Members[ID].Name == CharName)
+			if (Party?.Members == null)
+				return;
+			SRPartyMember member = Party.Members[ID];
+			if (member != null && member.Name == CharName)
 			{
 				OnPartyLeft();
 			}
@@ -943,7 +955,7 @@ namespace xBot.Game
 
 				Window w = Window.Get;
 				w.Party_lstvPartyMembers.InvokeIfRequired(() => {
-					w.Party_lstvPartyMembers.Items[ID.ToString()].Remove();
+					w.Party_lstvPartyMembers.Items[ID.ToString()]?.Remove();
 				});
 
 				Bot.Get.OnMemberLeaved();
@@ -987,7 +999,7 @@ namespace xBot.Game
 					{
 						// Update owner position
 						SRPlayer owner;
-						if(Character.isRiding && Character.RidingUniqueID == CoS.UniqueID)
+						if(Character != null && Character.isRiding && Character.RidingUniqueID == CoS.UniqueID)
 							owner = Character;
 						else
 							owner = m_Players.Find(o => o.isRiding && o.RidingUniqueID == CoS.UniqueID);
@@ -1111,6 +1123,8 @@ namespace xBot.Game
 				if (npc.isCOS())
 				{
 					SRCoService cos = (SRCoService)npc;
+					if (Character == null)
+						return;
 					if(cos.isHorse() )
 					{
 						if(cos.UniqueID == Character.RidingUniqueID)
@@ -1127,7 +1141,9 @@ namespace xBot.Game
 
 		internal static void OnExchangeStart(uint uniqueID)
 		{
-			ExchangerPlayer = (SRPlayer)GetEntity(uniqueID);
+			ExchangerPlayer = GetEntity(uniqueID) as SRPlayer;
+			if (ExchangerPlayer == null || Character == null)
+				return;
 
 			// GUI
 			Window w = Window.Get;
@@ -1207,20 +1223,25 @@ namespace xBot.Game
 		internal static void OnExchangeCompleted()
 		{
 			// Exchanger - Add new items to my inventory
-			if (ExchangerPlayer.InventoryExchange != null)
+			if (ExchangerPlayer?.InventoryExchange != null && Character?.Inventory != null)
 			{
 				for (byte j = 0; j < ExchangerPlayer.InventoryExchange.Capacity; j++)
 				{
-					byte emptySlot = (byte)Character.Inventory.FindIndex(item => item == null, 13);
-					Character.Inventory[emptySlot] = ExchangerPlayer.InventoryExchange[j].Item;
+					if (ExchangerPlayer.InventoryExchange[j] == null)
+						continue;
+					int emptySlot = Character.Inventory.FindIndex(item => item == null, 13);
+					if (emptySlot != -1)
+						Character.Inventory[(byte)emptySlot] = ExchangerPlayer.InventoryExchange[j].Item;
 				}
 				ExchangerPlayer.InventoryExchange.Clear();
 			}
 			// Me - Remove exchanging items from my inventory
-			if (Character.InventoryExchange != null)
+			if (Character?.InventoryExchange != null && Character.Inventory != null)
 			{
 				for (byte j = 0; j < Character.InventoryExchange.Capacity; j++)
 				{
+					if (Character.InventoryExchange[j] == null)
+						continue;
 					byte SlotInventory = Character.InventoryExchange[j].SlotInventory;
 					Character.Inventory[SlotInventory] = null;
 				}
@@ -1333,10 +1354,10 @@ namespace xBot.Game
 			if (inExchange)
 			{
 				// Exchanger
-				if (ExchangerPlayer.InventoryExchange != null)
+				if (ExchangerPlayer?.InventoryExchange != null)
 					ExchangerPlayer.InventoryExchange.Clear();
 				// Me
-				if (Character.InventoryExchange != null)
+				if (Character?.InventoryExchange != null)
 					Character.InventoryExchange.Clear();
 				// Update GUI
 				Window w = Window.Get;
@@ -1387,7 +1408,7 @@ namespace xBot.Game
 					Item.SubItems.Add(match.MemberCount + "/" + match.MemberMax);
 					Item.SubItems.Add(match.Purpose.ToString());
 					Item.ToolTipText = match.GetTooltip();
-					if ( (inParty && match.MasterName == Party.Master.Name) || match.MasterName == CharName)
+					if ( (inParty && Party?.Master != null && match.MasterName == Party.Master.Name) || match.MasterName == CharName)
 					{
 						myMatch = match;
 						Item.BackColor = w.ColorItemHighlight;
@@ -1433,12 +1454,14 @@ namespace xBot.Game
 		internal static void OnInventoryMovement(byte slotInitial, byte slotFinal)
 		{
 			// Check if is a weapon movement
-			if (slotInitial == 6 || slotFinal == 6)
-				m_MonitorWeaponChanged.Set();
+			if (slotInitial == 6 || slotFinal == 6 || slotInitial == 7 || slotFinal == 7) { if (Bot.Get != null) Bot.Get.IsSwitchingWeapon = false; m_MonitorWeaponChanged.Set(); }
+			if (Bot.Get != null) Bot.Get.IsSwitchingWeapon = false;
+			if (Bot.Get != null) Bot.Get.IsSwitchingWeapon = false;
 			m_MonitorInventoryMovement.Set();
 		}
 		internal static void OnInventoryMovementAck()
 		{
+			if (Bot.Get != null) Bot.Get.IsSwitchingWeapon = false;
 			m_MonitorInventoryMovement.Set();
 		}
 
@@ -1745,7 +1768,9 @@ namespace xBot.Game
 				m_stallEarnings += item.Price;
 
 				// GUI
-				w.Stall_lstvInventoryStall.Items.RemoveByKey(item.SlotInventory.ToString());
+				w.Stall_lstvInventoryStall.InvokeIfRequired(() => {
+					w.Stall_lstvInventoryStall.Items.RemoveByKey(item.SlotInventory.ToString());
+				});
 
 				w.InvokeIfRequired(() => {
 					w.ToolTips.SetToolTip(w.Stall_lblState, "Earnings : " + m_stallEarnings.ToString("#,0"));
@@ -1757,12 +1782,13 @@ namespace xBot.Game
 			}
 			else
 			{
-				SRItemStall item = StallerPlayer.Stall.Inventory[slotStall];
-				if (playerName == CharName)
+				SRItemStall item = StallerPlayer.Stall?.Inventory?[slotStall];
+				if (item != null && playerName == CharName)
 				{
 					// Add to my inventory
-					byte emptySlot = (byte)Character.Inventory.FindIndex(i => i == null, 13);
-					Character.Inventory[emptySlot] = item.Item;
+					int emptySlot = Character?.Inventory != null ? Character.Inventory.FindIndex(i => i == null, 13) : -1;
+					if (emptySlot != -1)
+						Character.Inventory[(byte)emptySlot] = item.Item;
 
 					// GUI
 					// Add to preview inventory 

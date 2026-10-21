@@ -25,10 +25,29 @@ namespace xBot.App
             tUsingHGP,
             tCycleAutoParty;
 
-        
         public bool IsSwitchingWeapon { get; set; }
         public Timer TimerSwitchingWeapon { get; set; } = null;
         public SRTypes.Weapon MainWeaponType { get; set; } = SRTypes.Weapon.None;
+        private bool m_mainWeaponUsesShield = false;
+
+        private static readonly SRTypes.Weapon[] s_shieldCompatibleWeapons = new SRTypes.Weapon[]
+        {
+            SRTypes.Weapon.Sword,
+            SRTypes.Weapon.Blade,
+            SRTypes.Weapon.OneHandSword,
+            SRTypes.Weapon.Warlock,
+            SRTypes.Weapon.Cleric
+        };
+
+        private static bool IsShieldCompatibleWeapon(SRTypes.Weapon weapon)
+        {
+            for (int i = 0; i < s_shieldCompatibleWeapons.Length; i++)
+            {
+                if (s_shieldCompatibleWeapons[i] == weapon)
+                    return true;
+            }
+            return false;
+        }
 
         private static byte ParsePercentSafe(string text, byte fallback = 50)
         {
@@ -366,7 +385,7 @@ namespace xBot.App
             tUsingHP.AutoReset = tUsingMP.AutoReset = tUsingVigor.AutoReset =
             tUsingUniversal.AutoReset = tUsingPurification.AutoReset =
             tUsingRecoveryKit.AutoReset = tUsingAbnormalPill.AutoReset =
-            tCycleAutoParty.AutoReset = false;
+            tUsingHGP.AutoReset = tCycleAutoParty.AutoReset = false;
 
             // Potion & pill cooldowns: EU 15s, CH 1s, Vigor 15s, pills 12s.
             bool isEu = InfoManager.Character != null && InfoManager.Character.IsEuropean();
@@ -376,6 +395,7 @@ namespace xBot.App
             tUsingUniversal.Interval = tUsingPurification.Interval = 12000;
             tUsingRecoveryKit.Interval = 1000;
             tUsingAbnormalPill.Interval = 12000;
+            tUsingHGP.Interval = 1000;
 
             tCycleAutoParty.Interval = 5000;
 
@@ -778,7 +798,7 @@ namespace xBot.App
                     if (pet.GetHPPercent() <= useHP)
                     {
                         byte slot = 0;
-                        if (FindItem(3, 1, 4, ref slot))
+                        if (InfoManager.Character?.Inventory != null && FindItem(3, 1, 4, ref slot))
                         {
                             if (PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot, pet.UniqueID))
                                 tUsingRecoveryKit.Start();
@@ -802,7 +822,7 @@ namespace xBot.App
                     if (pet.GetHPPercent() <= useHP)
                     {
                         byte slot = 0;
-                        if (FindItem(3, 1, 4, ref slot))
+                        if (InfoManager.Character?.Inventory != null && FindItem(3, 1, 4, ref slot))
                         {
                             if (PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot, pet.UniqueID))
                                 tUsingRecoveryKit.Start();
@@ -832,7 +852,7 @@ namespace xBot.App
                 if (pet != null)
                 {
                     byte slot = 0; // dummy
-                    if (FindItem(3, 2, 7, ref slot))
+                    if (InfoManager.Character?.Inventory != null && FindItem(3, 2, 7, ref slot))
                     {
                         if (PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot, pet.UniqueID))
                             tUsingAbnormalPill.Start();
@@ -866,7 +886,7 @@ namespace xBot.App
                     if (HGPPercent <= usePercent)
                     {
                         byte slot = 0;
-                        if (FindItem(3, 1, 9, ref slot))
+                        if (InfoManager.Character?.Inventory != null && FindItem(3, 1, 9, ref slot))
                         {
                             if (PacketBuilder.UseItem(InfoManager.Character.Inventory[slot], slot, pet.UniqueID))
                             {
@@ -896,6 +916,47 @@ namespace xBot.App
         }
         public void DetectAndSetMainWeapon()
         {
+            if (MainWeaponType != SRTypes.Weapon.None)
+                return;
+
+            // SBot referansı (Bölüm 8.1.2): Ana silahı önce saldırı listesindeki ilk skill'den çıkar
+            try
+            {
+                Window w = Window.Get;
+                if (w != null)
+                {
+                    SRMob.Mob[] mobTypes = new SRMob.Mob[]
+                    {
+                        SRMob.Mob.General,
+                        SRMob.Mob.Champion,
+                        SRMob.Mob.Giant,
+                        SRMob.Mob.PartyGeneral,
+                        SRMob.Mob.Unique
+                    };
+                    for (int m = 0; m < mobTypes.Length && MainWeaponType == SRTypes.Weapon.None; m++)
+                    {
+                        SRSkill[] skills = w.Skills_GetSkillShots(mobTypes[m]);
+                        if (skills == null) continue;
+                        for (int i = 0; i < skills.Length; i++)
+                        {
+                            SRSkill s = skills[i];
+                            if (s == null || s.ID <= 1) continue;
+                            if (s.RequiredWeaponPrimary != SRTypes.Weapon.None)
+                            {
+                                MainWeaponType = s.RequiredWeaponPrimary;
+                                break;
+                            }
+                            if (s.RequiredWeaponSecondary != SRTypes.Weapon.None)
+                            {
+                                MainWeaponType = s.RequiredWeaponSecondary;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            catch { }
+
             if (MainWeaponType == SRTypes.Weapon.None)
             {
                 var current = GetMyWeaponType();
@@ -904,6 +965,60 @@ namespace xBot.App
                     MainWeaponType = current;
                 }
             }
+
+            if (MainWeaponType != SRTypes.Weapon.None && IsShieldCompatibleWeapon(MainWeaponType))
+            {
+                if (GetMySecondaryEquipableType() == SREquipable.Equipable.Shield)
+                {
+                    m_mainWeaponUsesShield = true;
+                }
+            }
+        }
+
+        private void WaitWeaponChangeAck(int timeoutMs = 1000)
+        {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            while (IsSwitchingWeapon && sw.ElapsedMilliseconds < timeoutMs)
+            {
+                if (InfoManager.MonitorWeaponChanged.WaitOne(50))
+                    break;
+            }
+            IsSwitchingWeapon = false;
+        }
+
+        private void TryReequipShieldIfAllowed()
+        {
+            if (InfoManager.Character?.Inventory == null)
+                return;
+            if (GetMySecondaryEquipableType() == SREquipable.Equipable.Shield)
+                return;
+
+            bool useShield = m_mainWeaponUsesShield;
+            try
+            {
+                if (!useShield && Window.Get?.Character_cbxPVPModeUseShield != null)
+                {
+                    Window.Get.Character_cbxPVPModeUseShield.InvokeIfRequired(() =>
+                    {
+                        useShield = Window.Get.Character_cbxPVPModeUseShield.Checked;
+                    });
+                }
+            }
+            catch { }
+
+            if (!useShield)
+                return;
+
+            var myRace = InfoManager.Character.GetRace();
+            int shieldSlot = InfoManager.Character.Inventory.FindIndex(
+                i => i != null && i.isEquipable() && ((SREquipable)i).IsShield() && ((SREquipable)i).GetRace() == myRace, 13);
+            if (shieldSlot != -1)
+            {
+                IsSwitchingWeapon = true;
+                InfoManager.MonitorWeaponChanged.Reset();
+                PacketBuilder.MoveItem((byte)shieldSlot, 7, SRTypes.InventoryItemMovement.InventoryToInventory);
+                WaitWeaponChangeAck(800);
+            }
         }
 
         public void EnsureMainWeapon()
@@ -911,29 +1026,52 @@ namespace xBot.App
             if (MainWeaponType == SRTypes.Weapon.None)
             {
                 DetectAndSetMainWeapon();
-                return;
+                if (MainWeaponType == SRTypes.Weapon.None)
+                    return;
             }
-
-            var current = GetMyWeaponType();
-            if (current == MainWeaponType || IsSwitchingWeapon)
-                return;
 
             if (InfoManager.Character == null || InfoManager.Character.Inventory == null)
                 return;
 
-            int slot = InfoManager.Character.Inventory.FindIndex(i => i != null && i.isEquipable() && ((SREquipable)i).IsWeapon() && (SRTypes.Weapon)i.ID4 == MainWeaponType, 13);
-            if (slot != -1)
+            try
             {
-                Window.Get?.LogProcess($"Weapon Swap: Reverting back to main weapon ({MainWeaponType})...");
-                IsSwitchingWeapon = true;
-                PacketBuilder.MoveItem((byte)slot, 6, SRTypes.InventoryItemMovement.InventoryToInventory);
-                System.Threading.Thread.Sleep(500);
+                var current = GetMyWeaponType();
+                if (current != MainWeaponType)
+                {
+                    int slot = InfoManager.Character.Inventory.FindIndex(
+                        i => i != null && i.isEquipable() && ((SREquipable)i).IsWeapon() && (SRTypes.Weapon)i.ID4 == MainWeaponType, 13);
+                    if (slot != -1)
+                    {
+                        Window.Get?.LogProcess($"Weapon Swap: Reverting back to main weapon ({MainWeaponType})...");
+                        IsSwitchingWeapon = true;
+                        InfoManager.MonitorWeaponChanged.Reset();
+                        PacketBuilder.MoveItem((byte)slot, 6, SRTypes.InventoryItemMovement.InventoryToInventory);
+                        WaitWeaponChangeAck(1000);
+                    }
+                    else if (isBotting)
+                    {
+                        // SBot referansı (Bölüm 8.1.2): Ana silah envanterde yoksa karaktere zarar gelmemesi için botu durdur
+                        Window.Get?.Log($"* DİKKAT: Ana silahınız ({MainWeaponType}) kuşanılı değil ve envanterde bulunamadı! Karakterin ölmesini önlemek için bot durduruluyor.");
+                        Stop();
+                        return;
+                    }
+                }
+
+                // SBot referansı (switch_reequip_shield): Tek elli ana silaha dönüldüğünde kalkanı slot 7'ye geri tak
+                if (GetMyWeaponType() == MainWeaponType && IsShieldCompatibleWeapon(MainWeaponType))
+                {
+                    TryReequipShieldIfAllowed();
+                }
+            }
+            finally
+            {
+                IsSwitchingWeapon = false;
             }
         }
 
         public void CheckWeaponSwitch(SRSkill skill)
         {
-            if (IsSwitchingWeapon || skill == null)
+            if (skill == null || InfoManager.Character?.Inventory == null)
                 return;
 
             DetectAndSetMainWeapon();
@@ -942,122 +1080,134 @@ namespace xBot.App
             if (skill.RequiredWeaponPrimary == SRTypes.Weapon.None && skill.RequiredWeaponSecondary == SRTypes.Weapon.None && skill.RequiredItems.Count == 0)
                 return;
 
-            // Check my weapon being used
-            var myWeapon = GetMyWeaponType();
-            if (myWeapon == SRTypes.Weapon.None || (myWeapon != skill.RequiredWeaponPrimary && myWeapon != skill.RequiredWeaponSecondary))
+            try
             {
-                // Find the item used to switch weapon
-                var slot = InfoManager.Character.Inventory.FindIndex(i => i != null && i.isEquipable() && ((skill.RequiredWeaponPrimary != SRTypes.Weapon.None && ((SREquipable)i).IsWeapon() && (SRTypes.Weapon)i.ID4 == skill.RequiredWeaponPrimary) || (skill.RequiredWeaponSecondary != SRTypes.Weapon.None && ((SREquipable)i).IsWeapon() && (SRTypes.Weapon)i.ID4 == skill.RequiredWeaponSecondary)), 13);
-                if (slot != -1)
+                // Check my weapon being used
+                var myWeapon = GetMyWeaponType();
+                if (myWeapon == SRTypes.Weapon.None ||
+                    ((skill.RequiredWeaponPrimary != SRTypes.Weapon.None || skill.RequiredWeaponSecondary != SRTypes.Weapon.None)
+                     && myWeapon != skill.RequiredWeaponPrimary && myWeapon != skill.RequiredWeaponSecondary))
                 {
-                    IsSwitchingWeapon = true;
-                    PacketBuilder.MoveItem((byte)slot, 6, SRTypes.InventoryItemMovement.InventoryToInventory);
-
-                    // Check if the skill can equip a shield: sword (ch), blade, sword (eu), dark staff, cleric
-                    var shieldWeapons = new SRTypes.Weapon[] { SRTypes.Weapon.Sword, SRTypes.Weapon.Blade, SRTypes.Weapon.OneHandSword, SRTypes.Weapon.Warlock, SRTypes.Weapon.Cleric };
-                    var itemWeaponType = (SRTypes.Weapon)InfoManager.Character.Inventory[slot].ID4;
-                    if (shieldWeapons.Any(any => any == itemWeaponType))
+                    // Find the item used to switch weapon
+                    var slot = InfoManager.Character.Inventory.FindIndex(
+                        i => i != null && i.isEquipable() &&
+                        ((skill.RequiredWeaponPrimary != SRTypes.Weapon.None && ((SREquipable)i).IsWeapon() && (SRTypes.Weapon)i.ID4 == skill.RequiredWeaponPrimary)
+                        || (skill.RequiredWeaponSecondary != SRTypes.Weapon.None && ((SREquipable)i).IsWeapon() && (SRTypes.Weapon)i.ID4 == skill.RequiredWeaponSecondary)), 13);
+                    if (slot != -1)
                     {
-                        // Check if Auto-Shield feature is enabled
-                        bool useShield = false;
-                        Window.Get.Character_cbxPVPModeUseShield.InvokeIfRequired(() => { useShield = Window.Get.Character_cbxPVPModeUseShield.Checked; });
-                        if (useShield)
+                        var itemWeaponType = (SRTypes.Weapon)InfoManager.Character.Inventory[slot].ID4;
+                        IsSwitchingWeapon = true;
+                        InfoManager.MonitorWeaponChanged.Reset();
+                        PacketBuilder.MoveItem((byte)slot, 6, SRTypes.InventoryItemMovement.InventoryToInventory);
+                        WaitWeaponChangeAck(1000);
+
+                        // Check if the skill can equip a shield: sword (ch), blade, sword (eu), dark staff, cleric
+                        if (IsShieldCompatibleWeapon(itemWeaponType))
                         {
-                            var myRace = InfoManager.Character.GetRace();
-                            slot = InfoManager.Character.Inventory.FindIndex(i => i != null && i.isEquipable() && ((SREquipable)i).IsShield() && ((SREquipable)i).GetRace() == myRace, 13);
-                            if (slot != -1)
-                                PacketBuilder.MoveItem((byte)slot, 7, SRTypes.InventoryItemMovement.InventoryToInventory);
+                            TryReequipShieldIfAllowed();
                         }
+                        return;
                     }
-                    return;
                 }
-            }
 
-            // Check if the skill requires an item
-            if (skill.RequiredItems.Count != 0)
-            {
-                // Warrior forced filter
-                if (skill.ServerName.StartsWith("SKILL_EU_WARRIOR"))
+                // Check if the skill requires an item
+                if (skill.RequiredItems.Count != 0)
                 {
-                    // Check if is a shield skill
-                    if (skill.ServerName.Contains("_SHIELD"))
+                    // Warrior forced filter
+                    if (skill.ServerName.StartsWith("SKILL_EU_WARRIOR"))
                     {
-                        // Ignore if has shield equiped already
-                        if(GetMySecondaryEquipableType() == SREquipable.Equipable.Shield)
-                            return;
-
-                        var myRace = InfoManager.Character.GetRace();
-                        var slot = InfoManager.Character.Inventory.FindIndex(i => i != null && i.isEquipable() && ((SREquipable)i).IsShield() && ((SREquipable)i).GetRace() == myRace, 13);
-                        if (slot != -1)
+                        // Check if is a shield skill
+                        if (skill.ServerName.Contains("_SHIELD"))
                         {
-                            IsSwitchingWeapon = true;
-                            PacketBuilder.MoveItem((byte)slot, 7, SRTypes.InventoryItemMovement.InventoryToInventory);
+                            // Ignore if has shield equiped already
+                            if (GetMySecondaryEquipableType() == SREquipable.Equipable.Shield)
+                                return;
+
+                            var myRace = InfoManager.Character.GetRace();
+                            var slot = InfoManager.Character.Inventory.FindIndex(i => i != null && i.isEquipable() && ((SREquipable)i).IsShield() && ((SREquipable)i).GetRace() == myRace, 13);
+                            if (slot != -1)
+                            {
+                                IsSwitchingWeapon = true;
+                                InfoManager.MonitorWeaponChanged.Reset();
+                                PacketBuilder.MoveItem((byte)slot, 7, SRTypes.InventoryItemMovement.InventoryToInventory);
+                                WaitWeaponChangeAck(1000);
+                            }
                         }
-                    }
-                    else
-                    {
-                        List<SRTypes.Weapon> weapons = new List<SRTypes.Weapon>();
-                        if (skill.ServerName.StartsWith("SKILL_EU_WARRIOR_FRENZYA_DAMAGE"))
-                            weapons.Add(SRTypes.Weapon.TwoHandSword);
                         else
                         {
-                            weapons.Add(SRTypes.Weapon.OneHandSword);
-                            weapons.Add(SRTypes.Weapon.TwoHandSword);
-                            weapons.Add(SRTypes.Weapon.DualAxes);
+                            List<SRTypes.Weapon> weapons = new List<SRTypes.Weapon>();
+                            if (skill.ServerName.StartsWith("SKILL_EU_WARRIOR_FRENZYA_DAMAGE"))
+                                weapons.Add(SRTypes.Weapon.TwoHandSword);
+                            else
+                            {
+                                weapons.Add(SRTypes.Weapon.OneHandSword);
+                                weapons.Add(SRTypes.Weapon.TwoHandSword);
+                                weapons.Add(SRTypes.Weapon.DualAxes);
+                            }
+
+                            // Ignore if weapon is equiped already
+                            if (weapons.Any(any => any == myWeapon))
+                                return;
+
+                            // Find weapon
+                            var slot = InfoManager.Character.Inventory.FindIndex(i => i != null && i.isEquipable() && ((SREquipable)i).IsWeapon() && weapons.Any(any => any == (SRTypes.Weapon)i.ID4), 13);
+                            if (slot != -1)
+                            {
+                                IsSwitchingWeapon = true;
+                                InfoManager.MonitorWeaponChanged.Reset();
+                                PacketBuilder.MoveItem((byte)slot, 6, SRTypes.InventoryItemMovement.InventoryToInventory);
+                                WaitWeaponChangeAck(1000);
+                            }
                         }
-
-                        // Ignore if weapon is equiped already
-                        if (weapons.Any(any => any == myWeapon))
-                            return;
-
-                        // Find weapon
-                        var slot = InfoManager.Character.Inventory.FindIndex(i => i != null && i.isEquipable() && ((SREquipable)i).IsWeapon() && weapons.Any(any => any == (SRTypes.Weapon)i.ID4), 13);
-                        if (slot != -1)
+                    }
+                    // Bicheon forced filter
+                    else if (skill.ServerName.StartsWith("SKILL_CH_SWORD"))
+                    {
+                        // Check if is a shield skill
+                        if (skill.ServerName.Contains("_SHIELD"))
                         {
-                            IsSwitchingWeapon = true;
-                            PacketBuilder.MoveItem((byte)slot, 6, SRTypes.InventoryItemMovement.InventoryToInventory);
+                            // Ignore if has shield equiped already
+                            if (GetMySecondaryEquipableType() == SREquipable.Equipable.Shield)
+                                return;
+
+                            var myRace = InfoManager.Character.GetRace();
+                            var slot = InfoManager.Character.Inventory.FindIndex(i => i != null && i.isEquipable() && ((SREquipable)i).IsShield() && ((SREquipable)i).GetRace() == myRace, 13);
+                            if (slot != -1)
+                            {
+                                IsSwitchingWeapon = true;
+                                InfoManager.MonitorWeaponChanged.Reset();
+                                PacketBuilder.MoveItem((byte)slot, 7, SRTypes.InventoryItemMovement.InventoryToInventory);
+                                WaitWeaponChangeAck(1000);
+                            }
+                        }
+                        else
+                        {
+                            List<SRTypes.Weapon> weapons = new List<SRTypes.Weapon>()
+                            {
+                                SRTypes.Weapon.Sword,
+                                SRTypes.Weapon.Blade,
+                            };
+
+                            // Ignore if weapon is equiped already
+                            if (weapons.Any(any => any == myWeapon))
+                                return;
+
+                            // Find weapon
+                            var slot = InfoManager.Character.Inventory.FindIndex(i => i != null && i.isEquipable() && ((SREquipable)i).IsWeapon() && weapons.Any(any => any == (SRTypes.Weapon)i.ID4), 13);
+                            if (slot != -1)
+                            {
+                                IsSwitchingWeapon = true;
+                                InfoManager.MonitorWeaponChanged.Reset();
+                                PacketBuilder.MoveItem((byte)slot, 6, SRTypes.InventoryItemMovement.InventoryToInventory);
+                                WaitWeaponChangeAck(1000);
+                            }
                         }
                     }
                 }
-                // Bicheon forced filter
-                else if (skill.ServerName.StartsWith("SKILL_CH_SWORD"))
-                {
-                    // Check if is a shield skill
-                    if (skill.ServerName.Contains("_SHIELD"))
-                    {
-                        // Ignore if has shield equiped already
-                        if (GetMySecondaryEquipableType() == SREquipable.Equipable.Shield)
-                            return;
-                        
-                        var myRace = InfoManager.Character.GetRace();
-                        var slot = InfoManager.Character.Inventory.FindIndex(i => i != null && i.isEquipable() && ((SREquipable)i).IsShield() && ((SREquipable)i).GetRace() == myRace, 13);
-                        if (slot != -1)
-                        {
-                            IsSwitchingWeapon = true;
-                            PacketBuilder.MoveItem((byte)slot, 7, SRTypes.InventoryItemMovement.InventoryToInventory);
-                        }
-                    }
-                    else
-                    {
-                        List<SRTypes.Weapon> weapons = new List<SRTypes.Weapon>()
-                        {
-                            SRTypes.Weapon.Sword,
-                            SRTypes.Weapon.Blade,
-                        };
-
-                        // Ignore if weapon is equiped already
-                        if (weapons.Any(any => any == myWeapon))
-                            return;
-
-                        // Find weapon
-                        var slot = InfoManager.Character.Inventory.FindIndex(i => i != null && i.isEquipable() && ((SREquipable)i).IsWeapon() && weapons.Any(any => any == (SRTypes.Weapon)i.ID4), 13);
-                        if (slot != -1)
-                        {
-                            IsSwitchingWeapon = true;
-                            PacketBuilder.MoveItem((byte)slot, 6, SRTypes.InventoryItemMovement.InventoryToInventory);
-                        }
-                    }
-                }
+            }
+            finally
+            {
+                IsSwitchingWeapon = false;
             }
         }
         #endregion

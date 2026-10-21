@@ -85,10 +85,10 @@ namespace xBot.App
 		/// </summary>
 		public void LogError(string message,Exception ex,Packet packet = null)
 		{
-			string msg = DateTime.Now.ToString("[dd/MM/yyyy|HH:mm:ss]") +"[" + message + "][" + ex.Message + "][" + ex.StackTrace + "]" + Environment.NewLine;
+			string msg = DateTime.Now.ToString("[dd/MM/yyyy|HH:mm:ss]") + "[" + message + "][" + (ex?.Message ?? "") + "][" + (ex?.StackTrace ?? "") + "]" + Environment.NewLine;
 			if (packet != null)
 				msg += packet.ToString() + Environment.NewLine;
-			File.AppendAllText("erros.log", msg);
+			try { File.AppendAllText("errors.log", msg); } catch { }
 		}
 
 		#region (Extended Protocol Setup)
@@ -127,7 +127,8 @@ namespace xBot.App
 					{
 						// Increase or reset
 						Number = w.Settings_tbxCustomSequence.Text;
-						string NextNumber = (int.Parse(Number) + 1).ToString();
+						int seqVal;
+						string NextNumber = ((int.TryParse(Number, out seqVal) ? seqVal : 0) + 1).ToString();
 						if (NextNumber.Length > w.Settings_tbxCustomSequence.MaxLength)
 						{
 							// Reset
@@ -243,11 +244,11 @@ namespace xBot.App
 		/// </summary>
 		public SRTypes.Weapon GetMyWeaponType()
 		{
-			return InfoManager.Character.Inventory[6] == null ? SRTypes.Weapon.None : (SRTypes.Weapon)InfoManager.Character.Inventory[6].ID4;
+			return InfoManager.Character?.Inventory == null || InfoManager.Character.Inventory.Capacity <= 6 || InfoManager.Character.Inventory[6] == null ? SRTypes.Weapon.None : (SRTypes.Weapon)InfoManager.Character.Inventory[6].ID4;
         }
         public SREquipable.Equipable GetMySecondaryEquipableType()
         {
-			if (InfoManager.Character.Inventory[7] == null || !InfoManager.Character.Inventory[7].isEquipable())
+			if (InfoManager.Character?.Inventory == null || InfoManager.Character.Inventory.Capacity <= 7 || InfoManager.Character.Inventory[7] == null || !InfoManager.Character.Inventory[7].isEquipable())
 				return SREquipable.Equipable.Unknown;
 			return ((SREquipable)InfoManager.Character.Inventory[7]).ItemType;
 		}
@@ -262,6 +263,8 @@ namespace xBot.App
         /// <param name="excludeServername">Exclude items whose servername contains this string</param>
 		public bool FindItem(byte ID2, byte ID3, byte ID4, ref byte slot, string servername = "", string excludeServername = "")
 		{
+			if (InfoManager.Character?.Inventory == null)
+				return false;
 			int index = InfoManager.Character.Inventory.FindIndex(i => i != null 
 				&& i.isType(ID2, ID3, ID4) 
 				&& (string.IsNullOrEmpty(servername) || i.ServerName.Contains(servername))
@@ -406,7 +409,12 @@ namespace xBot.App
 			if (inTrace)
 			{
 				// Check if player is around and move it
-				SRPlayer player = InfoManager.Players[TracePlayerName];
+				SRPlayer player = InfoManager.Players[TracePlayerName] ?? InfoManager.Players?.Find(p => p != null && string.Equals(p.Name, TracePlayerName, StringComparison.OrdinalIgnoreCase));
+				if (player != null && (player.PVPCapeType != SRPlayer.PVPCape.None || player.PVPStateType != SRPlayer.PVPState.Neutral))
+				{
+					Window.Get?.Log("NOTE: To prevent abuse, tracing is not possible for players in PVP or in certain areas.");
+					return;
+				}
 				if (player != null){
 					MoveTo(player.GetRealtimePosition());
 				}
@@ -442,7 +450,9 @@ namespace xBot.App
 			if ((DateTime.Now - m_lastTraceMove).TotalSeconds < 2.0)
 				return;
 			SRPlayer player = null;
-			try { player = InfoManager.Players[TracePlayerName]; } catch { return; }
+			try { player = InfoManager.Players[TracePlayerName] ?? InfoManager.Players?.Find(p => p != null && string.Equals(p.Name, TracePlayerName, StringComparison.OrdinalIgnoreCase)); } catch { return; }
+			if (player != null && (player.PVPCapeType != SRPlayer.PVPCape.None || player.PVPStateType != SRPlayer.PVPState.Neutral))
+				return;
 			if (player == null)
 				return;
 			SRCoord target = null, me = null;
@@ -481,7 +491,9 @@ namespace xBot.App
 		/// </summary>
 		public bool UseItem(byte slotInventory)
 		{
-			xList<SRItem> inventory = InfoManager.Character.Inventory;
+			xList<SRItem> inventory = InfoManager.Character?.Inventory;
+			if (inventory == null)
+				return false;
 			if (slotInventory >= 13 && slotInventory < inventory.Capacity)
 			{
 				if (inventory[slotInventory] != null)
@@ -489,8 +501,7 @@ namespace xBot.App
 					switch (inventory[slotInventory].ID2)
 					{
 						case 2: // Summon scroll
-							PacketBuilder.UseItem(inventory[slotInventory], slotInventory);
-							return true;
+							return PacketBuilder.UseItem(inventory[slotInventory], slotInventory);
 						case 3: // Usable
 							switch(inventory[slotInventory].ID3)
 							{
@@ -500,8 +511,7 @@ namespace xBot.App
 										case 1: // HP
 										case 3: // MP
 										case 2: // Vigor
-											PacketBuilder.UseItem(inventory[slotInventory], slotInventory);
-											return true;
+											return PacketBuilder.UseItem(inventory[slotInventory], slotInventory);
 									}
 									break;
 								case 2: // Pills
@@ -509,8 +519,7 @@ namespace xBot.App
 									{
 										case 1: // Universal
 										case 6: // Purification
-											PacketBuilder.UseItem(inventory[slotInventory], slotInventory);
-											return true;
+											return PacketBuilder.UseItem(inventory[slotInventory], slotInventory);
 									}
 									break;
 								case 3: // Event, vehicles, etc.
@@ -524,16 +533,13 @@ namespace xBot.App
 										case 10: // Exp/SP scroll
 										case 11: // Fortress summon unique
 										case 12: // Skill Points scroll
-											PacketBuilder.UseItem(inventory[slotInventory], slotInventory);
-											return true;
+											return PacketBuilder.UseItem(inventory[slotInventory], slotInventory);
 									}
 									break;
 								case 13: // Buff scroll
-									PacketBuilder.UseItem(inventory[slotInventory], slotInventory);
-									return true;
+									return PacketBuilder.UseItem(inventory[slotInventory], slotInventory);
 								case 15: // Monster scroll
-									PacketBuilder.UseItem(inventory[slotInventory], slotInventory);
-									return true;
+									return PacketBuilder.UseItem(inventory[slotInventory], slotInventory);
 							}
 							break;
 					}
@@ -546,6 +552,8 @@ namespace xBot.App
 		/// </summary>
 		public bool EquipItem(byte slotInventory,bool useInventoryAvatar = false)
 		{
+			if (InfoManager.Character?.Inventory == null || slotInventory >= InfoManager.Character.Inventory.Capacity)
+				return false;
 			SRItem item = InfoManager.Character.Inventory[slotInventory];
 			if(item != null && item.isEquipable())
 			{
@@ -691,10 +699,13 @@ namespace xBot.App
 			Window w = Window.Get;
 
 			bool sort = true;
+			try {
 			while (InfoManager.inGame && sort && !m_stopSortingRequested)
 			{
 				sort = false;
-				xList<SRItem> inventory =InfoManager.Character.Inventory;
+				xList<SRItem> inventory = InfoManager.Character?.Inventory;
+				if (inventory == null)
+					break;
 				for (byte j = (byte)(inventory.Capacity - 1); j >= 13; j--)
 				{
 					if (inventory[j] != null && inventory[j].QuantityMax != 1)
@@ -735,13 +746,15 @@ namespace xBot.App
 				}
 			}
 
+			} finally {
 			w.Inventory_btnItemsSort.InvokeIfRequired(() => {
-				w.Inventory_btnItemsSort.ForeColor = (System.Drawing.Color)w.Inventory_btnItemsSort.Tag;
+			if (w.Inventory_btnItemsSort.Tag != null) w.Inventory_btnItemsSort.ForeColor = (System.Drawing.Color)w.Inventory_btnItemsSort.Tag;
 				w.Inventory_btnItemsSort.Tag = null;
 			});
 
 			w.LogProcess("Sorting completed");
 			tSorting = null;
+			/* sorting done */ }
 		}
 		public bool StopInventorySort()
 		{
@@ -753,7 +766,7 @@ namespace xBot.App
 				Window w = Window.Get;
 				w.LogProcess("Sorting stopped");
 				w.Inventory_btnItemsSort.InvokeIfRequired(() => {
-					w.Inventory_btnItemsSort.ForeColor = (System.Drawing.Color)w.Inventory_btnItemsSort.Tag;
+				if (w.Inventory_btnItemsSort.Tag != null) w.Inventory_btnItemsSort.ForeColor = (System.Drawing.Color)w.Inventory_btnItemsSort.Tag;
 					w.Inventory_btnItemsSort.Tag = null;
 				});
 				w.Inventory_btnStorageSort.InvokeIfRequired(() => {
@@ -773,7 +786,7 @@ namespace xBot.App
 		/// </summary>
 		public bool StartStorageSort()
 		{
-			if (InfoManager.inGame && !isSorting && InfoManager.Character.Storage != null)
+			if (InfoManager.inGame && !isSorting && InfoManager.Character?.Storage != null)
 			{
 				m_stopSortingRequested = false;
 				tSorting = new Thread(StorageSort);
@@ -794,10 +807,11 @@ namespace xBot.App
 		{
 			Window w = Window.Get;
 			bool sort = true;
+			try {
 			while (InfoManager.inGame && sort && !m_stopSortingRequested)
 			{
 				sort = false;
-				xList<SRItem> storage = InfoManager.Character.Storage;
+				xList<SRItem> storage = InfoManager.Character?.Storage;
 				if (storage == null)
 					break;
 				for (int j = storage.Capacity - 1; j >= 0; j--)
@@ -837,6 +851,7 @@ namespace xBot.App
 					}
 				}
 			}
+			} finally {
 			w.Inventory_btnStorageSort.InvokeIfRequired(() => {
 				if (w.Inventory_btnStorageSort.Tag != null)
 				{
@@ -846,6 +861,7 @@ namespace xBot.App
 			});
 			w.LogProcess("Storage sorting completed");
 			tSorting = null;
+			/* sorting done */ }
 		}
 		/// <summary>
 		/// Yürüme kaydı (Training > Script sekmesindeki START/PAUSE/STOP).

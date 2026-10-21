@@ -101,7 +101,7 @@ namespace xBot.Game.Objects.Entity
 		}
 		public override SRCoord GetRealtimePosition()
 		{
-			if (MovementPosition != null)
+			if (MovementPosition != null && Position != null && PositionUpdateTimer != null)
 			{
 				SRCoord P = Position;
 				SRCoord Q = MovementPosition;
@@ -124,13 +124,14 @@ namespace xBot.Game.Objects.Entity
 					{
 						// Create vector unit
 						double PQMod = P.DistanceTo(Q);
-						SRCoord PQUnit = new SRCoord((Q.PosX - P.PosX) / PQMod, (Q.PosY - P.PosY) / PQMod);
+						double PQUnitPosX = PQMod > 0.0001 ? (Q.PosX - P.PosX) / PQMod : 0.0;
+						double PQUnitPosY = PQMod > 0.0001 ? (Q.PosY - P.PosY) / PQMod : 0.0;
 
 						double DistanceTillNow = milisecondsTranscurred * MilisecondsPerUnit;
 						if (P.inDungeon())
-							Position = new SRCoord(PQUnit.PosX * DistanceTillNow + P.PosX, PQUnit.PosY * DistanceTillNow + P.PosY, P.Region, P.Z);
+							Position = new SRCoord(PQUnitPosX * DistanceTillNow + P.PosX, PQUnitPosY * DistanceTillNow + P.PosY, P.Region, P.Z);
 						else
-							Position = new SRCoord(PQUnit.PosX * DistanceTillNow + P.PosX, PQUnit.PosY * DistanceTillNow + P.PosY, P.Z);
+							Position = new SRCoord(PQUnitPosX * DistanceTillNow + P.PosX, PQUnitPosY * DistanceTillNow + P.PosY, P.Z);
 					}
 					PositionUpdateTimer.Restart();
 				}
@@ -141,7 +142,7 @@ namespace xBot.Game.Objects.Entity
 		{
 			TreeNode root = base.ToTreeNode();
 			root.Nodes.Add("MovementSpeedType: " + MovementSpeedType);
-			if (MovementPosition != null)
+			if (MovementPosition != null && Position != null && PositionUpdateTimer != null)
 				root.Nodes.Add("MovementPosition: " + MovementPosition);
 			root.Nodes.Add("MovementActionType: " + MovementActionType);
 			root.Nodes.Add("LifeStateType: " + LifeStateType);

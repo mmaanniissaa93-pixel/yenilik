@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Data.SQLite;
@@ -145,15 +145,18 @@ namespace xBot.App
 		public List<NameValueCollection> GetResultFromQuery(string sql)
 		{
 			List<NameValueCollection> result = new List<NameValueCollection>();
-			if (db != null)
+			lock (m_sync)
 			{
-				using (SQLiteCommand cmd = new SQLiteCommand(sql, db))
+				if (db != null)
 				{
-					cmd.CommandTimeout = 30;
-					using (SQLiteDataReader reader = cmd.ExecuteReader())
+					using (SQLiteCommand cmd = new SQLiteCommand(sql, db))
 					{
-						while (reader.Read())
-							result.Add(reader.GetValues());
+						cmd.CommandTimeout = 30;
+						using (SQLiteDataReader reader = cmd.ExecuteReader())
+						{
+							while (reader.Read())
+								result.Add(reader.GetValues());
+						}
 					}
 				}
 			}
@@ -166,20 +169,23 @@ namespace xBot.App
 		public List<NameValueCollection> GetResultFromQuery(string sql, params object[] args)
 		{
 			List<NameValueCollection> result = new List<NameValueCollection>();
-			if (db != null)
+			lock (m_sync)
 			{
-				using (SQLiteCommand cmd = new SQLiteCommand(sql, db))
+				if (db != null)
 				{
-					cmd.CommandTimeout = 30;
-					if (args != null)
+					using (SQLiteCommand cmd = new SQLiteCommand(sql, db))
 					{
-						for (int i = 0; i < args.Length; i++)
-							cmd.Parameters.AddWithValue("@p" + i, args[i] ?? DBNull.Value);
-					}
-					using (SQLiteDataReader reader = cmd.ExecuteReader())
-					{
-						while (reader.Read())
-							result.Add(reader.GetValues());
+						cmd.CommandTimeout = 30;
+						if (args != null)
+						{
+							for (int i = 0; i < args.Length; i++)
+								cmd.Parameters.AddWithValue("@p" + i, args[i] ?? DBNull.Value);
+						}
+						using (SQLiteDataReader reader = cmd.ExecuteReader())
+						{
+							while (reader.Read())
+								result.Add(reader.GetValues());
+						}
 					}
 				}
 			}

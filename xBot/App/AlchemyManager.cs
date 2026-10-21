@@ -18,6 +18,10 @@ namespace xBot.App
         public static byte TargetSlot { get; set; } = 13;
         public static byte TargetPlus { get; set; } = 3;
         public static bool UseLuckyPowder { get; set; } = true;
+        public static bool KeepImmortal { get; set; } = true;
+        public static bool KeepSteady { get; set; } = true;
+        public static bool UseAstral { get; set; } = false;
+        public static bool AllowHighDegree { get; set; } = false;
         public static int MaxAttempts { get; set; } = 50;
         public static int CurrentAttempts { get; private set; } = 0;
         public static int SuccessCount { get; private set; } = 0;
@@ -31,6 +35,7 @@ namespace xBot.App
         private static DateTime lastAttemptUtc = DateTime.MinValue;
         private static DateTime requestSentUtc = DateTime.MinValue;
         private static bool awaitingResult;
+        private static bool lastActionWasStone;
         private static uint targetItemId;
         private static SREquipable targetItemReference;
         private const int ResultTimeoutMs = 15000;
@@ -65,6 +70,7 @@ namespace xBot.App
                 SuccessCount = 0;
                 FailCount = 0;
                 awaitingResult = false;
+                lastActionWasStone = false;
                 requestSentUtc = DateTime.MinValue;
                 lastAttemptUtc = DateTime.MinValue;
                 targetItemId = GetItemIdAtSlot(slot);
@@ -107,6 +113,7 @@ namespace xBot.App
                 stopped = IsRunning;
                 IsRunning = false;
                 awaitingResult = false;
+                lastActionWasStone = false;
                 requestSentUtc = DateTime.MinValue;
                 targetItemId = 0;
                 targetItemReference = null;
@@ -119,6 +126,61 @@ namespace xBot.App
                 Window.Get?.Log(msg);
                 OnLogMessage?.Invoke(msg);
                 OnStatusChanged?.Invoke();
+            }
+        }
+
+        private static bool HasMagicOption(SREquipable item, string attrKeyword)
+        {
+            if (item?.MagicOptions == null || string.IsNullOrEmpty(attrKeyword))
+                return false;
+
+            for (int i = 0; i < item.MagicOptions.Count; i++)
+            {
+                SRMagicOption opt = item.MagicOptions[i];
+                if (opt == null || string.IsNullOrEmpty(opt.ServerName))
+                    continue;
+                if (opt.ServerName.IndexOf(attrKeyword, StringComparison.OrdinalIgnoreCase) >= 0 && opt.Value > 0)
+                    return true;
+            }
+            return false;
+        }
+
+        private static int FindMatchingStoneSlot(string stoneKeyword, byte degree)
+        {
+            var inv = InfoManager.Character?.Inventory;
+            if (inv == null) return -1;
+
+            for (byte i = 13; i < inv.Capacity; i++)
+            {
+                SRItem item = inv[i];
+                if (item != null && item.isEtc() && AlchemyPolicy.IsProtectionStoneMatching(item.ServerName, stoneKeyword, degree))
+                    return i;
+            }
+            return -1;
+        }
+
+        private static bool TryFuseProtectionStone(byte stoneSlot, string stoneLabel, SREquipable item, DateTime nowUtc)
+        {
+            lastAttemptUtc = nowUtc;
+            requestSentUtc = nowUtc;
+            awaitingResult = true;
+            lastActionWasStone = true;
+
+            string msg = $"[Auto Alchemy] Fusing {stoneLabel} stone onto [{item.Name} (+{item.Plus})]...";
+            Window.Get?.Log(msg);
+            OnLogMessage?.Invoke(msg);
+            try
+            {
+                PacketBuilder.FuseStone(TargetSlot, stoneSlot);
+                return true;
+            }
+            catch
+            {
+                awaitingResult = false;
+                lastActionWasStone = false;
+                requestSentUtc = DateTime.MinValue;
+                Stop();
+                throw;
             }
         }
 
@@ -172,11 +234,16 @@ namespace xBot.App
                     targetItemId = item.ID;
                     targetItemReference = item;
                 }
-                else if (item.ID != targetItemId || (targetItemReference != null && !ReferenceEquals(item, targetItemReference)))
+                else if (item.ID != targetItemId)
                 {
                     Window.Get?.Log($"[Auto Alchemy] Target item in slot {TargetSlot} changed. Stopping.");
                     Stop();
                     return;
+                }
+                else
+                {
+                    // PacketParser 0xB150 sonrası yeni SREquipable nesnesi oluşturmuş olabilir; referansı güncelle
+                    targetItemReference = item;
                 }
 
                 // Check if target plus is reached
@@ -205,6 +272,75 @@ namespace xBot.App
 
                 byte degree = AlchemyPolicy.CalculateDegree(item.LevelRequired);
 
+                // SBot: Yalnızca Degree <= 11 eşyalar standart Elixir plussing için desteklenir
+                if (!AllowHighDegree && degree > AlchemyPolicy.MaxSupportedPlusDegree)
+                {
+                    Window.Get?.Log("* AutoAlchemy: Degree > 11 not supported for plussing.");
+                    Stop();
+                    return;
+                }
+
+                // SBot Akıllı Taş Koruma Kuralları (0x008CB898..0x008CC03C):
+                // 1) curPlus >= 4 ve Astral seçiliyse: önce Immortal, sonra Astral kontrolü
+                if (item.Plus >= 4 && UseAstral)
+                {
+                    if (KeepImmortal && !HasMagicOption(item, "ATHANASIA"))
+                    {
+                        Window.Get?.Log("* AutoAlchemy: Should add Astral on item and curPlus >= 4, but no Immortal on item. Adding Immortal now as specified.");
+                        int immoSlot = FindMatchingStoneSlot("ATHANASIA", degree);
+                        if (immoSlot == -1)
+                        {
+                            Window.Get?.Log("* AutoAlchemy: Cannot keep Immortal on item because no stone left. Quitting as specified!");
+                            Stop();
+                            return;
+                        }
+                        TryFuseProtectionStone((byte)immoSlot, "Immortal", item, nowUtc);
+                        return;
+                    }
+                    if (!HasMagicOption(item, "ASTRAL"))
+                    {
+                        int astralSlot = FindMatchingStoneSlot("ASTRAL", degree);
+                        if (astralSlot == -1)
+                        {
+                            Window.Get?.Log("* AutoAlchemy: Cannot add Astral on item because no Astral stone left. Quitting as specified!");
+                            Stop();
+                            return;
+                        }
+                        TryFuseProtectionStone((byte)astralSlot, "Astral", item, nowUtc);
+                        return;
+                    }
+                }
+
+                // 2) curPlus >= 5: Eşyanın kırılmasını/bozulmasını önlemek için Immortal (MATTR_ATHANASIA) ve Steady (MATTR_SOLID) kontrolü
+                if (item.Plus >= 5)
+                {
+                    if (KeepImmortal && !HasMagicOption(item, "ATHANASIA"))
+                    {
+                        int immoSlot = FindMatchingStoneSlot("ATHANASIA", degree);
+                        if (immoSlot == -1)
+                        {
+                            Window.Get?.Log("* AutoAlchemy: Cannot keep Immortal on item (+5 or higher) because no stone left. Quitting as specified!");
+                            Stop();
+                            return;
+                        }
+                        TryFuseProtectionStone((byte)immoSlot, "Immortal", item, nowUtc);
+                        return;
+                    }
+
+                    if (KeepSteady && !HasMagicOption(item, "SOLID"))
+                    {
+                        int steadySlot = FindMatchingStoneSlot("SOLID", degree);
+                        if (steadySlot == -1)
+                        {
+                            Window.Get?.Log("* AutoAlchemy: Cannot keep Steady on item (+5 or higher) because no stone left. Quitting as specified!");
+                            Stop();
+                            return;
+                        }
+                        TryFuseProtectionStone((byte)steadySlot, "Steady", item, nowUtc);
+                        return;
+                    }
+                }
+
                 // Find matching Elixir in inventory
                 int elixirSlot = FindMatchingElixirSlot(requiredType);
                 if (elixirSlot == -1)
@@ -229,6 +365,7 @@ namespace xBot.App
                 lastAttemptUtc = nowUtc;
                 requestSentUtc = nowUtc;
                 awaitingResult = true;
+                lastActionWasStone = false;
 
                 string powderLog = powderSlot != 0xFF ? $" + Lucky Powder D{degree}" : "";
                 Window.Get?.Log($"[Auto Alchemy] Attempt #{CurrentAttempts}: Fusing [{item.Name} (+{item.Plus}) -> Target +{TargetPlus}] with Elixir {requiredType}{powderLog}...");
@@ -253,7 +390,7 @@ namespace xBot.App
         }
 
         /// <summary>
-        /// Called when the server responds with an alchemy result (0xB150).
+        /// Called when the server responds with an alchemy result (0xB150 / 0xB151).
         /// </summary>
         public static void OnAlchemyResult(byte resultByte)
         {
@@ -262,7 +399,9 @@ namespace xBot.App
                 if (!IsRunning || !awaitingResult)
                     return;
 
+                bool wasStone = lastActionWasStone;
                 awaitingResult = false;
+                lastActionWasStone = false;
                 requestSentUtc = DateTime.MinValue;
                 wakeSignal.Set();
 
@@ -270,6 +409,17 @@ namespace xBot.App
                 {
                     Window.Get?.Log($"[Auto Alchemy] Unknown result 0x{resultByte:X2}. Stopping to avoid an unsafe retry.");
                     Stop();
+                    return;
+                }
+
+                if (wasStone)
+                {
+                    string stoneMsg = isSuccess
+                        ? "[Auto Alchemy] Protection stone fused successfully."
+                        : "[Auto Alchemy] Protection stone fuse failed; will retry if stone remains.";
+                    Window.Get?.Log(stoneMsg);
+                    OnLogMessage?.Invoke(stoneMsg);
+                    OnStatusChanged?.Invoke();
                     return;
                 }
 
@@ -299,16 +449,16 @@ namespace xBot.App
 
         private static uint GetItemIdAtSlot(byte slot)
         {
-			return GetItemAtSlot(slot)?.ID ?? 0;
-		}
+            return GetItemAtSlot(slot)?.ID ?? 0;
+        }
 
-		private static SREquipable GetItemAtSlot(byte slot)
-		{
-			var inventory = InfoManager.Character?.Inventory;
-			if (inventory == null || slot >= inventory.Capacity)
-				return null;
-			return inventory[slot] as SREquipable;
-		}
+        private static SREquipable GetItemAtSlot(byte slot)
+        {
+            var inventory = InfoManager.Character?.Inventory;
+            if (inventory == null || slot >= inventory.Capacity)
+                return null;
+            return inventory[slot] as SREquipable;
+        }
 
         public class UpgradeableItemInfo
         {
@@ -422,6 +572,10 @@ namespace xBot.App
             json["TargetSlot"] = TargetSlot;
             json["TargetPlus"] = TargetPlus;
             json["UseLuckyPowder"] = UseLuckyPowder;
+            json["KeepImmortal"] = KeepImmortal;
+            json["KeepSteady"] = KeepSteady;
+            json["UseAstral"] = UseAstral;
+            json["AllowHighDegree"] = AllowHighDegree;
             json["MaxAttempts"] = MaxAttempts;
             json["DelayMs"] = DelayMs;
             return json;
@@ -433,6 +587,10 @@ namespace xBot.App
             if (json.ContainsKey("TargetSlot")) TargetSlot = (byte)json["TargetSlot"];
             if (json.ContainsKey("TargetPlus")) TargetPlus = (byte)json["TargetPlus"];
             if (json.ContainsKey("UseLuckyPowder")) UseLuckyPowder = (bool)json["UseLuckyPowder"];
+            if (json.ContainsKey("KeepImmortal")) KeepImmortal = (bool)json["KeepImmortal"];
+            if (json.ContainsKey("KeepSteady")) KeepSteady = (bool)json["KeepSteady"];
+            if (json.ContainsKey("UseAstral")) UseAstral = (bool)json["UseAstral"];
+            if (json.ContainsKey("AllowHighDegree")) AllowHighDegree = (bool)json["AllowHighDegree"];
             if (json.ContainsKey("MaxAttempts")) MaxAttempts = (int)json["MaxAttempts"];
             if (json.ContainsKey("DelayMs")) DelayMs = (int)json["DelayMs"];
         }

@@ -167,7 +167,12 @@ namespace xBot.Game.Navigation
 						continue;
 
 					NavPoint neighborPt = region.Points[neighbor];
-					double tentativeG = gScore[current] + currentPt.DistanceTo(neighborPt);
+					// SBot referansı (Bölüm 7.1): EdgeFlag (area_flags) dar geçit/duvar kenarı (1) düğümlerine
+					// hafif maliyet katsayısı uygulayarak koridorun ortasındaki geniş düğümleri (>= 4) tercih et.
+					double stepCost = currentPt.DistanceTo(neighborPt);
+					if (neighborPt.EdgeFlag <= 1)
+						stepCost *= 1.04;
+					double tentativeG = gScore[current] + stepCost;
 
 					if (tentativeG < gScore[neighbor])
 					{
@@ -259,12 +264,6 @@ namespace xBot.Game.Navigation
 		/// <summary>
 		/// Simplifies the node chain by skipping unnecessary collinear nodes,
 		/// BUT only when the straight shortcut stays on the walkable mesh.
-		/// Eski kod sadece mesafeye (25m) bakıp ara düğümleri atlıyordu; viraj/dağ
-		/// etrafından dolaşan ham yolu düz çizgiyle kesip duvarın içinden geçiriyordu.
-		/// Bu yüzden karakter waypoint'e giderken takılıp geri çıkıyordu.
-		/// Yeni kod: kestirme en fazla 15m olur, aradaki ham düğümlerin hepsi
-		/// kestirme çizgisine en fazla ~4.5m uzakta olmalı (koridor testi) ve Z
-		/// farkı küçük olmalı (uçurum/duvar kesmesi engellenir).
 		/// </summary>
 		private List<NavPoint> SmoothPath(List<NavPoint> path, NavRegion region)
 		{
@@ -288,13 +287,10 @@ namespace xBot.Game.Navigation
 					if (dist > MaxStep)
 						break;
 
-					// Z sıçraması varsa (kat/duvar) kestirme yapma
+					// Z sıçraması varsa (kat/duvar) kestirme yapma (Z artık işaretli short)
 					if (System.Math.Abs((int)path[currentIndex].Z - (int)path[lookAhead].Z) > MaxZDiff)
 						break;
 
-					// Koridor testi: aradaki tüm ham düğümler kestirme çizgisine yakın olmalı.
-					// Virajda/dönemeçte ara düğüm çizgiden uzaklaşır -> kestirme reddedilir,
-					// viraj korunur ve karakter duvara girmez.
 					bool insideCorridor = true;
 					for (int k = currentIndex + 1; k < lookAhead; k++)
 					{
@@ -314,7 +310,7 @@ namespace xBot.Game.Navigation
 					if (insideCorridor)
 						nextIndex = lookAhead;
 					else
-						break; // Daha uzak düğüm daha da sapacağı için dur
+						break;
 				}
 
 				smoothed.Add(path[nextIndex]);

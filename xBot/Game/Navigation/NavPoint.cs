@@ -7,16 +7,21 @@ namespace xBot.Game.Navigation
 		public int Index;
 		public float X;
 		public float Y;
-		public ushort Z;
+		public short Z;
 		public ushort EdgeFlag;
 
-		public NavPoint(int index, float x, float y, ushort z, ushort edgeFlag)
+		public NavPoint(int index, float x, float y, short z, ushort edgeFlag)
 		{
 			Index = index;
 			X = x;
 			Y = y;
 			Z = z;
 			EdgeFlag = edgeFlag;
+		}
+
+		public NavPoint(int index, float x, float y, ushort z, ushort edgeFlag)
+			: this(index, x, y, unchecked((short)z), edgeFlag)
+		{
 		}
 
 		public double DistanceTo(float targetX, float targetY)

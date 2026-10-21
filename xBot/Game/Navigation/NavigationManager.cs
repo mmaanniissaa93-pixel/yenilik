@@ -35,70 +35,37 @@ namespace xBot.Game.Navigation
 			}
 
 			/// <summary>
-			/// Checks if this region borders another region (overlapping edges with small gap tolerance).
+			/// Checks if this region borders or overlaps another region.
+			/// SBot referansı (Bölüm 7.2.B): nav01/nav02 (1192m), nav04/nav20 (1379m) gibi bölgeler
+			/// geniş örtüşmeye sahiptir; nav03/nav04 arasında ise 24m boşluk vardır.
 			/// </summary>
-			public bool Borders(RegionBoundsEntry other, float tolerance = 20f)
+			public bool Borders(RegionBoundsEntry other, float tolerance = 30f)
 			{
 				if (RegionId == other.RegionId)
 					return false;
 
-				// Check if rectangles are adjacent (touching edges within tolerance)
-				bool xOverlap = MaxX + tolerance >= other.MinX && MinX - tolerance <= other.MaxX;
-				bool yOverlap = MaxY + tolerance >= other.MinY && MinY - tolerance <= other.MaxY;
-				
-				// Check for edge adjacency (not just corner touching)
-				bool xTouch = Math.Abs(MaxX - other.MinX) <= tolerance || Math.Abs(MinX - other.MaxX) <= tolerance;
-				bool yTouch = Math.Abs(MaxY - other.MinY) <= tolerance || Math.Abs(MinY - other.MaxY) <= tolerance;
+				float xOverlapWidth = Math.Min(MaxX + tolerance, other.MaxX + tolerance) - Math.Max(MinX - tolerance, other.MinX - tolerance);
+				float yOverlapHeight = Math.Min(MaxY + tolerance, other.MaxY + tolerance) - Math.Max(MinY - tolerance, other.MinY - tolerance);
 
-				return (xTouch && yOverlap) || (yTouch && xOverlap);
+				return xOverlapWidth >= 0f && yOverlapHeight >= 0f && (xOverlapWidth > tolerance * 2f || yOverlapHeight > tolerance * 2f);
 			}
 
 			/// <summary>
-			/// Gets the approximate crossing point from this region to another.
-			/// Returns the midpoint of the shared edge.
+			/// Gets the approximate crossing point from this region to another (center of overlap/border).
 			/// </summary>
 			public SRCoord GetCrossingPoint(RegionBoundsEntry other)
 			{
-				float cx = 0, cy = 0;
-				
-				// Right edge of this touches left edge of other
-				if (Math.Abs(MaxX - other.MinX) <= 20f)
-				{
-					cx = (MaxX + other.MinX) / 2f;
-					float yOverlapMin = Math.Max(MinY, other.MinY);
-					float yOverlapMax = Math.Min(MaxY, other.MaxY);
-					cy = (yOverlapMin + yOverlapMax) / 2f;
-				}
-				// Left edge of this touches right edge of other
-				else if (Math.Abs(MinX - other.MaxX) <= 20f)
-				{
-					cx = (MinX + other.MaxX) / 2f;
-					float yOverlapMin = Math.Max(MinY, other.MinY);
-					float yOverlapMax = Math.Min(MaxY, other.MaxY);
-					cy = (yOverlapMin + yOverlapMax) / 2f;
-				}
-				// Top edge touches bottom
-				else if (Math.Abs(MaxY - other.MinY) <= 20f)
-				{
-					cy = (MaxY + other.MinY) / 2f;
-					float xOverlapMin = Math.Max(MinX, other.MinX);
-					float xOverlapMax = Math.Min(MaxX, other.MaxX);
-					cx = (xOverlapMin + xOverlapMax) / 2f;
-				}
-				// Bottom edge touches top
-				else if (Math.Abs(MinY - other.MaxY) <= 20f)
-				{
-					cy = (MinY + other.MaxY) / 2f;
-					float xOverlapMin = Math.Max(MinX, other.MinX);
-					float xOverlapMax = Math.Min(MaxX, other.MaxX);
-					cx = (xOverlapMin + xOverlapMax) / 2f;
-				}
-				else
-				{
-					// Fallback: center of this region
-					cx = (MinX + MaxX) / 2f;
-					cy = (MinY + MaxY) / 2f;
-				}
+				float xMin = Math.Max(MinX, other.MinX);
+				float xMax = Math.Min(MaxX, other.MaxX);
+				float yMin = Math.Max(MinY, other.MinY);
+				float yMax = Math.Min(MaxY, other.MaxY);
+
+				float cx = (xMin <= xMax)
+					? (xMin + xMax) / 2f
+					: (MaxX < other.MinX ? (MaxX + other.MinX) / 2f : (MinX + other.MaxX) / 2f);
+				float cy = (yMin <= yMax)
+					? (yMin + yMax) / 2f
+					: (MaxY < other.MinY ? (MaxY + other.MinY) / 2f : (MinY + other.MaxY) / 2f);
 
 				return new SRCoord(cx, cy);
 			}
@@ -221,7 +188,11 @@ namespace xBot.Game.Navigation
 					if ((entry.RegionId & 0x8000) == 0 && (other.RegionId & 0x8000) == 0 && entry.Borders(other))
 					{
 						var crossingPoint = entry.GetCrossingPoint(other);
-						double weight = entry.DistanceTo(other.MinX, other.MinY); // Approximate weight
+						double cx1 = (entry.MinX + entry.MaxX) / 2.0;
+						double cy1 = (entry.MinY + entry.MaxY) / 2.0;
+						double cx2 = (other.MinX + other.MaxX) / 2.0;
+						double cy2 = (other.MinY + other.MaxY) / 2.0;
+						double weight = Math.Sqrt((cx1 - cx2) * (cx1 - cx2) + (cy1 - cy2) * (cy1 - cy2));
 						
 						connections.Add(new RegionConnection
 						{
@@ -432,7 +403,7 @@ namespace xBot.Game.Navigation
                 var region = GetOrLoadRegion(entry);
                 var next = GetOrLoadRegion(nextEntry);
                 if (region == null || next == null) return null;
-                var nextPoints = new HashSet<Tuple<float, float, ushort>>(
+                var nextPoints = new HashSet<Tuple<float, float, short>>(
                     next.Points.Select(p => Tuple.Create(p.X, p.Y, p.Z)));
                 var shared = region.Points.Where(p => nextPoints.Contains(Tuple.Create(p.X, p.Y, p.Z)))
                     .OrderBy(p => p.DistanceTo((float)current.PosX, (float)current.PosY)
@@ -440,7 +411,7 @@ namespace xBot.Game.Navigation
                 List<SRCoord> leg = null;
                 foreach (var node in shared)
                 {
-                    var crossing = start.inDungeon() ? new SRCoord(node.X, node.Y, start.Region, node.Z)
+                    var crossing = start.inDungeon() ? new SRCoord(node.X, node.Y, start.Region, (int)node.Z)
                         : new SRCoord(node.X, node.Y, (int)node.Z);
                     var candidate = FindMeshLeg(entry, current, crossing, failed);
                     if (candidate != null && candidate.Last().DistanceTo(crossing) < 0.1)
@@ -545,6 +516,48 @@ namespace xBot.Game.Navigation
 		}
 
 		/// <summary>
+		/// Finds a walkable crossing point between two adjacent/overlapping regions by snapping
+		/// to a NavPoint that lies within the overlap/border of both regions.
+		/// </summary>
+		private SRCoord FindBestSharedCrossingPoint(RegionBoundsEntry currentEntry, RegionBoundsEntry nextEntry, SRCoord currentPos, SRCoord targetPos)
+		{
+			SRCoord approx = currentEntry.GetCrossingPoint(nextEntry);
+			NavRegion r1 = GetOrLoadRegion(currentEntry);
+			NavRegion r2 = GetOrLoadRegion(nextEntry);
+			if (r1?.Points == null || r2?.Points == null)
+				return approx;
+
+			// Önce her iki bölgenin sınır kutusu içinde kalan ve r2'de de karşılığı olan en uygun düğümü ara
+			NavPoint? bestNode = null;
+			double bestCost = double.MaxValue;
+
+			for (int i = 0; i < r1.Points.Length; i++)
+			{
+				NavPoint p = r1.Points[i];
+				if (!nextEntry.Contains(p.X, p.Y, 30f))
+					continue;
+				int idx2 = r2.FindNearestPointIndex(p.X, p.Y);
+				if (idx2 < 0)
+					continue;
+				if (r2.Points[idx2].DistanceSquaredTo(p.X, p.Y) > 25.0 * 25.0)
+					continue;
+
+				double cost = p.DistanceTo((float)currentPos.PosX, (float)currentPos.PosY)
+				            + p.DistanceTo((float)targetPos.PosX, (float)targetPos.PosY);
+				if (cost < bestCost)
+				{
+					bestCost = cost;
+					bestNode = p;
+				}
+			}
+
+			if (bestNode.HasValue)
+				return new SRCoord(bestNode.Value.X, bestNode.Value.Y, (int)bestNode.Value.Z);
+
+			return approx;
+		}
+
+		/// <summary>
 		/// Finds a multi-region path by computing region sequence via graph A*
 		/// and stitching together intra-region paths through crossing points.
 		/// </summary>
@@ -598,7 +611,12 @@ namespace xBot.Game.Navigation
 
             if (meshOnly) return FindMeshRegionRoute(start, target, regionPath, failedPoints);
 
-			// Build the complete route by stitching intra-region paths
+			// Önce tam ortak düğüm üzerinden bağlanan FindMeshRegionRoute'u dene
+			var exactMeshRoute = FindMeshRegionRoute(start, target, regionPath, failedPoints);
+			if (exactMeshRoute != null && !exactMeshRoute.IsEmpty)
+				return exactMeshRoute;
+
+			// Build the complete route by stitching intra-region paths through shared walkable nodes
 			var route = new NavigationRoute();
 			SRCoord currentPos = start;
 
@@ -613,8 +631,8 @@ namespace xBot.Game.Navigation
 				if (currentEntry == null || nextEntry == null)
 					return null;
 
-				// Get crossing point between regions
-				SRCoord crossingPoint = currentEntry.GetCrossingPoint(nextEntry);
+				// Get walkable crossing point between regions
+				SRCoord crossingPoint = FindBestSharedCrossingPoint(currentEntry, nextEntry, currentPos, target);
 
 				// Path from current position to crossing point
 				var segmentPath = FindPath(currentPos, crossingPoint);
@@ -843,12 +861,7 @@ namespace xBot.Game.Navigation
 			}
 		}
 
-		/// <summary>
-	/// Kapı/NPC'nin tam üstüne değil standDist metre yakınına durma noktası
-	/// (oyundan hedefe bakınca hedefin gerisi). Collision takılmasını önler.
-	/// </summary>
-
-	private static int ParseRegionId(string fileName)
+		private static int ParseRegionId(string fileName)
 		{
 			try
 			{

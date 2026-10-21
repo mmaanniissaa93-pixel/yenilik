@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Text;
 using System.IO;
 
@@ -496,7 +496,7 @@ namespace SecurityAPI
 		}
 		public string[] ReadAsciiArray(int count)
 		{
-			return ReadAsciiArray(1252);
+			return ReadAsciiArray(1252, count);
 		}
 		public string[] ReadAsciiArray(int codepage, int count)
 		{
@@ -553,7 +553,7 @@ namespace SecurityAPI
 				{
 					throw new Exception("Cannot Write to a locked Packet.");
 				}
-				m_writer.Write(value ? 1 : 0);
+				m_writer.Write(value ? (byte)1 : (byte)0);
 			}
 		}
 		public void WriteByte(byte value)
@@ -702,6 +702,7 @@ namespace SecurityAPI
 					throw new Exception("Cannot Write to a locked Packet.");
 				}
 
+				if (value == null) value = "";
 				byte[] bytes = Encoding.Unicode.GetBytes(value);
 
 				m_writer.Write((ushort)value.ToString().Length);
@@ -847,7 +848,8 @@ namespace SecurityAPI
 					throw new Exception("Cannot Write to a locked Packet.");
 				}
 
-				byte[] bytes = Encoding.Unicode.GetBytes(value.ToString());
+				string uStr = value == null ? "" : value.ToString();
+				byte[] bytes = Encoding.Unicode.GetBytes(uStr);
 
 				m_writer.Write((ushort)value.ToString().Length);
 				m_writer.Write(bytes);

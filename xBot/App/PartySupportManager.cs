@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using Newtonsoft.Json.Linq;
@@ -36,7 +36,8 @@ namespace xBot.App
         public static bool BuffProximityStop { get; set; } = true;
         public static List<string> BuffProximityPlayers { get; } = new List<string>();
 
-        private static readonly Dictionary<string, (DateTime FirstDeadTime, int Retries)> DeadPlayerTracker = new Dictionary<string, (DateTime, int)>();
+        private static readonly Dictionary<string, (DateTime FirstDeadTime, int Retries)> DeadPlayerTracker = new Dictionary<string, (DateTime, int)>(StringComparer.OrdinalIgnoreCase);
+        private static readonly Dictionary<string, DateTime> TemporarilyDisabledResPlayers = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
         private static readonly Dictionary<string, DateTime> recentBuffs = new Dictionary<string, DateTime>();
         private static DateTime lastSupportActionUtc = DateTime.MinValue;
         private static readonly object supportLock = new object();
@@ -45,8 +46,51 @@ namespace xBot.App
         {
             lock (supportLock)
             {
-                recentBuffs.Clear(); DeadPlayerTracker.Clear(); lastSupportActionUtc = DateTime.MinValue;
+                recentBuffs.Clear();
+                DeadPlayerTracker.Clear();
+                TemporarilyDisabledResPlayers.Clear();
+                lastSupportActionUtc = DateTime.MinValue;
             }
+        }
+
+        private static bool IsNearStatueOfJustice(SRCoord pos, double dangerRadius = 25.0)
+        {
+            if (pos == null || InfoManager.Mobs == null)
+                return false;
+
+            try
+            {
+                for (int i = 0; i < InfoManager.Mobs.Count; i++)
+                {
+                    SRMob m = InfoManager.Mobs.GetAt(i);
+                    if (m == null) continue;
+                    string sn = m.ServerName ?? "";
+                    string nm = m.Name ?? "";
+                    bool isStatue = sn.IndexOf("STATUE_OF_JUSTICE", StringComparison.OrdinalIgnoreCase) >= 0
+                        || sn.IndexOf("BOTKILL", StringComparison.OrdinalIgnoreCase) >= 0
+                        || nm.IndexOf("Statue of Justice", StringComparison.OrdinalIgnoreCase) >= 0;
+                    if (!isStatue) continue;
+
+                    SRCoord mPos = m.GetRealtimePosition() ?? m.Position;
+                    if (mPos != null && pos.DistanceTo(mPos) <= dangerRadius)
+                        return true;
+                }
+            }
+            catch { }
+            return false;
+        }
+
+        private static bool IsPlayerResTemporarilyDisabled(string playerName, DateTime nowUtc)
+        {
+            if (string.IsNullOrEmpty(playerName))
+                return false;
+            if (TemporarilyDisabledResPlayers.TryGetValue(playerName, out DateTime untilUtc))
+            {
+                if (nowUtc < untilUtc)
+                    return true;
+                TemporarilyDisabledResPlayers.Remove(playerName);
+            }
+            return false;
         }
 
         public static void RunTick()
@@ -83,6 +127,25 @@ namespace xBot.App
                     DateTime now = DateTime.UtcNow;
                     double resRange = Math.Max(10.0, (double)ResurrectPolicy.ResurrectRange);
 
+                    // Count dead party members in range (SBot: >1 dead in range -> Group Resurrect)
+                    int deadPartyInRangeCount = 0;
+                    if (InfoManager.Party != null && InfoManager.Party.Members != null)
+                    {
+                        for (int i = 0; i < InfoManager.Party.Members.Count; i++)
+                        {
+                            SRPartyMember m = InfoManager.Party.Members.GetAt(i);
+                            if (m == null || m.Name == InfoManager.Character.Name || m.HPPercent != 0)
+                                continue;
+                            if (IsPlayerResTemporarilyDisabled(m.Name, now))
+                                continue;
+                            SRPlayer lp = InfoManager.Players.Find(p => p != null && string.Equals(p.Name, m.Name, StringComparison.OrdinalIgnoreCase));
+                            if (lp != null && lp.Position != null && myPos.DistanceTo(lp.Position) <= resRange)
+                                deadPartyInRangeCount++;
+                        }
+                    }
+
+                    bool preferGroupRess = deadPartyInRangeCount > 1;
+
                     // A) Parti üyelerini tara
                     if (InfoManager.Party != null && InfoManager.Party.Members != null)
                     {
@@ -94,25 +157,46 @@ namespace xBot.App
 
                             if (member.HPPercent == 0)
                             {
+                                if (IsPlayerResTemporarilyDisabled(member.Name, now))
+                                    continue;
+
                                 bool allowRes = ResurrectPolicy.ResurrectAllParty || ResurrectPolicy.MatchesRegex(member.Name);
                                 if (allowRes)
                                 {
-                                    SRPlayer livePlayer = InfoManager.Players.Find(p => p != null && p.Name == member.Name);
+                                    SRPlayer livePlayer = InfoManager.Players.Find(p => p != null && string.Equals(p.Name, member.Name, StringComparison.OrdinalIgnoreCase));
                                     if (livePlayer != null && livePlayer.Position != null && myPos.DistanceTo(livePlayer.Position) <= resRange)
                                     {
+                                        // SBot Statue of Justice trap protection
+                                        if (IsNearStatueOfJustice(livePlayer.Position) || IsNearStatueOfJustice(myPos))
+                                        {
+                                            TemporarilyDisabledResPlayers[member.Name] = now.AddMinutes(15);
+                                            DeadPlayerTracker.Remove(member.Name);
+                                            Window.Get?.Log($"* Autores: Player [{member.Name}] to be resurrected is too close to a statue, deactivating autores for the player (15m).");
+                                            continue;
+                                        }
+
                                         if (!DeadPlayerTracker.TryGetValue(member.Name, out var track))
                                         {
                                             track = (now, 0);
                                             DeadPlayerTracker[member.Name] = track;
                                         }
 
-                                        if ((now - track.FirstDeadTime).TotalMilliseconds >= ResurrectPolicy.ResurrectDelayMs
-                                            && (ResurrectPolicy.RetryLimit <= 0 || track.Retries < ResurrectPolicy.RetryLimit))
+                                        if (ResurrectPolicy.RetryLimit > 0 && track.Retries >= ResurrectPolicy.RetryLimit)
                                         {
-                                            SRSkill ressSkill = FindResurrectSkill();
+                                            TemporarilyDisabledResPlayers[member.Name] = now.AddMinutes(15);
+                                            DeadPlayerTracker.Remove(member.Name);
+                                            Window.Get?.Log($"* Autores: Deactivating autores for [{member.Name}] temporarily (for 15 minutes).");
+                                            continue;
+                                        }
+
+                                        if ((now - track.FirstDeadTime).TotalMilliseconds >= ResurrectPolicy.ResurrectDelayMs)
+                                        {
+                                            SRSkill ressSkill = FindResurrectSkill(preferGroupRess);
                                             if (ressSkill != null && ressSkill.isCastingEnabled)
                                             {
-                                                pendingSkill = ressSkill; pendingTarget = livePlayer.UniqueID;
+                                                bool isGroupSkill = PartyPolicy.IsGroupRessSkill(ressSkill.ServerName);
+                                                pendingSkill = ressSkill;
+                                                pendingTarget = isGroupSkill && !ressSkill.isTargetRequired ? 0u : livePlayer.UniqueID;
                                                 pendingSleep = Math.Max(500, ressSkill.CastingTime + 200);
                                                 pendingLog = $"Party Support: Resurrecting [{member.Name}] with {ressSkill.Name}...";
                                                 DeadPlayerTracker[member.Name] = (track.FirstDeadTime, track.Retries + 1);
@@ -125,8 +209,8 @@ namespace xBot.App
                             }
                             else
                             {
-                                if (DeadPlayerTracker.ContainsKey(member.Name))
-                                    DeadPlayerTracker.Remove(member.Name);
+                                DeadPlayerTracker.Remove(member.Name);
+                                TemporarilyDisabledResPlayers.Remove(member.Name);
                             }
                         }
                     }
@@ -138,24 +222,48 @@ namespace xBot.App
                         {
                             SRPlayer p = InfoManager.Players.GetAt(i);
                             if (p == null || p.Name == InfoManager.Character.Name) continue;
-                            if (p.LifeStateType != SRModel.LifeState.Dead) DeadPlayerTracker.Remove(p.Name);
+                            if (p.LifeStateType != SRModel.LifeState.Dead)
+                            {
+                                DeadPlayerTracker.Remove(p.Name);
+                                TemporarilyDisabledResPlayers.Remove(p.Name);
+                                continue;
+                            }
+                            if (IsPlayerResTemporarilyDisabled(p.Name, now))
+                                continue;
+
                             if (p.LifeStateType == SRModel.LifeState.Dead && ResurrectPolicy.MatchesRegex(p.Name))
                             {
                                 if (p.Position != null && myPos.DistanceTo(p.Position) <= resRange)
                                 {
+                                    if (IsNearStatueOfJustice(p.Position) || IsNearStatueOfJustice(myPos))
+                                    {
+                                        TemporarilyDisabledResPlayers[p.Name] = now.AddMinutes(15);
+                                        DeadPlayerTracker.Remove(p.Name);
+                                        Window.Get?.Log($"* Autores: Player [{p.Name}] to be resurrected is too close to a statue, deactivating autores for the player (15m).");
+                                        continue;
+                                    }
+
                                     if (!DeadPlayerTracker.TryGetValue(p.Name, out var track))
                                     {
                                         track = (now, 0);
                                         DeadPlayerTracker[p.Name] = track;
                                     }
 
-                                    if ((now - track.FirstDeadTime).TotalMilliseconds >= ResurrectPolicy.ResurrectDelayMs
-                                        && (ResurrectPolicy.RetryLimit <= 0 || track.Retries < ResurrectPolicy.RetryLimit))
+                                    if (ResurrectPolicy.RetryLimit > 0 && track.Retries >= ResurrectPolicy.RetryLimit)
                                     {
-                                        SRSkill ressSkill = FindResurrectSkill();
+                                        TemporarilyDisabledResPlayers[p.Name] = now.AddMinutes(15);
+                                        DeadPlayerTracker.Remove(p.Name);
+                                        Window.Get?.Log($"* Autores: Deactivating autores for [{p.Name}] temporarily (for 15 minutes).");
+                                        continue;
+                                    }
+
+                                    if ((now - track.FirstDeadTime).TotalMilliseconds >= ResurrectPolicy.ResurrectDelayMs)
+                                    {
+                                        SRSkill ressSkill = FindResurrectSkill(false);
                                         if (ressSkill != null && ressSkill.isCastingEnabled)
                                         {
-                                            pendingSkill = ressSkill; pendingTarget = p.UniqueID;
+                                            pendingSkill = ressSkill;
+                                            pendingTarget = p.UniqueID;
                                             pendingSleep = Math.Max(500, ressSkill.CastingTime + 200);
                                             pendingLog = $"Party Support: Resurrecting non-party [{p.Name}] with {ressSkill.Name}...";
                                             DeadPlayerTracker[p.Name] = (track.FirstDeadTime, track.Retries + 1);
@@ -180,7 +288,7 @@ namespace xBot.App
 
                         if (PartyPolicy.ShouldHealPartyMember(member.HPPercent, PartyHealHPPercent))
                         {
-                            SRPlayer livePlayer = InfoManager.Players.Find(p => p != null && p.Name == member.Name);
+                            SRPlayer livePlayer = InfoManager.Players.Find(p => p != null && string.Equals(p.Name, member.Name, StringComparison.OrdinalIgnoreCase));
                             if (livePlayer != null && livePlayer.Position != null && myPos.DistanceTo(livePlayer.Position) <= 35.0)
                             {
                                 SRSkill healSkill = FindPartyHealSkill();
@@ -208,7 +316,7 @@ namespace xBot.App
                         {
                             var m = InfoManager.Party.Members.GetAt(i);
                             if (m == null || m.Name == InfoManager.Character.Name) continue;
-                            var lp = InfoManager.Players.Find(p => p != null && p.Name == m.Name);
+                            var lp = InfoManager.Players.Find(p => p != null && string.Equals(p.Name, m.Name, StringComparison.OrdinalIgnoreCase));
                             if (lp != null && lp.BadStatusFlags != SRModel.BadStatus.None
                                 && lp.Position != null && InfoManager.Character.GetRealtimePosition() != null
                                 && InfoManager.Character.GetRealtimePosition().DistanceTo(lp.Position) <= 35.0)
@@ -331,10 +439,24 @@ namespace xBot.App
             return null;
         }
 
-        private static SRSkill FindResurrectSkill()
+        private static SRSkill FindResurrectSkill(bool preferGroupRess = false)
         {
-            // Kullanıcı özel skill seçmişse öncelikle onu ara
-            if (ResurrectPolicy.SelectedResSkills.Count > 0 && InfoManager.Character?.Skills != null)
+            if (InfoManager.Character?.Skills == null)
+                return null;
+
+            // SBot: Menzilde >1 ölü parti üyesi varsa önce Group Resurrect dene
+            if (preferGroupRess)
+            {
+                for (int i = 0; i < InfoManager.Character.Skills.Count; i++)
+                {
+                    SRSkill sk = InfoManager.Character.Skills.GetAt(i);
+                    if (sk != null && sk.Enabled && sk.isCastingEnabled && PartyPolicy.IsGroupRessSkill(sk.ServerName))
+                        return sk;
+                }
+            }
+
+            // Kullanıcı özel skill seçmişse sırasıyla (Primary -> Backup -> Secondary Backup) dene
+            if (ResurrectPolicy.SelectedResSkills.Count > 0)
             {
                 for (int s = 0; s < ResurrectPolicy.SelectedResSkills.Count; s++)
                 {
@@ -347,6 +469,7 @@ namespace xBot.App
                     }
                 }
             }
+
             return FindPartyRessSkill();
         }
 
@@ -371,15 +494,24 @@ namespace xBot.App
             if (InfoManager.Character == null || InfoManager.Character.Skills == null)
                 return null;
 
+            // Önce tekli diriltme, o beklemedeyse grup diriltme (SBot fallback sırası)
+            SRSkill groupFallback = null;
             for (int i = 0; i < InfoManager.Character.Skills.Count; i++)
             {
                 SRSkill skill = InfoManager.Character.Skills.GetAt(i);
                 if (skill != null && skill.Enabled && skill.isCastingEnabled && PartyPolicy.IsClericRessSkill(skill.ServerName))
                 {
-                    return skill;
+                    if (PartyPolicy.IsGroupRessSkill(skill.ServerName))
+                    {
+                        if (groupFallback == null) groupFallback = skill;
+                    }
+                    else
+                    {
+                        return skill;
+                    }
                 }
             }
-            return null;
+            return groupFallback;
         }
 
         private static SRSkill FindPartyCureSkill()

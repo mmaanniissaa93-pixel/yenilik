@@ -64,7 +64,8 @@ namespace xBot.Game.Navigation
 			{
 				float x = BitConverter.ToSingle(decompressed, offset);
 				float y = BitConverter.ToSingle(decompressed, offset + 4);
-				ushort z = BitConverter.ToUInt16(decompressed, offset + 8);
+				// SBot referansı (Bölüm 7.1): +0x08 z_layer işaretli 16-bit tamsayıdır (int16_t)
+				short z = BitConverter.ToInt16(decompressed, offset + 8);
 				ushort flag = BitConverter.ToUInt16(decompressed, offset + 10);
 
 				points[i] = new NavPoint(i, x, y, z, flag);

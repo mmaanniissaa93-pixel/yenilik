@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using xBot.Game.Objects.Common;
 using xBot.Game.Objects.Item;
 
@@ -78,15 +78,15 @@ namespace xBot.Game.Objects.Entity
 		#region (Methods)
 		public int GetHPPercent()
 		{
-			return (int)Math.Round(HP * 100f / HPMax);
+			return HPMax == 0 ? 100 : (int)Math.Round(HP * 100f / HPMax);
 		}
 		public int GetMPPercent()
 		{
-			return (int)Math.Round(MP * 100f / MPMax);
+			return MPMax == 0 ? 100 : (int)Math.Round(MP * 100f / MPMax);
 		}
 		public override bool hasJobMode()
 		{
-			return Inventory.FindIndex(item => item != null && item.isEquipable() && ((SREquipable)item).isJob(),0,13) != -1;
+			return Inventory != null && Inventory.FindIndex(item => item != null && item.isEquipable() && ((SREquipable)item).isJob(),0,13) != -1;
 		}
 		#endregion
 	}
