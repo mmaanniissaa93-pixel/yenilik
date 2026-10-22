@@ -123,6 +123,8 @@ namespace xBot.App
 						server["Locale"] = (byte)item.SubItems[1].Tag;
 						server["Version"] = (uint)item.SubItems[2].Tag;
 						server["Port"] = (ushort)item.SubItems[3].Tag;
+						if (item.Tag is Game.Profiles.ServerType sType)
+							server["ServerType"] = sType.ToString();
 
 						JArray gateways = new JArray();
 						foreach (string gw in (System.Collections.Generic.List<string>)item.SubItems[4].Tag)
@@ -305,6 +307,20 @@ namespace xBot.App
 						subitem = new ListViewItem.ListViewSubItem();
 						subitem.Tag = server.ContainsKey("ClientPath") ? (string)server["ClientPath"] : "";
 						item.SubItems.Add(subitem);
+
+						Game.Profiles.ServerType serverType = Game.Profiles.ServerType.vSRO;
+						if (server.ContainsKey("ServerType") && Enum.TryParse((string)server["ServerType"], out Game.Profiles.ServerType parsedType))
+						{
+							serverType = parsedType;
+						}
+						else
+						{
+							byte loc = (byte)server["Locale"];
+							uint ver = server.ContainsKey("Version") ? (uint)server["Version"] : 0;
+							string cPath = server.ContainsKey("ClientPath") ? (string)server["ClientPath"] : "";
+							serverType = Game.Profiles.ServerProfileManager.AutoDetect(loc, ver, key.Name, cPath);
+						}
+						item.Tag = serverType;
 
 						w.Settings_lstvSilkroads.Items.Add(item);
 						w.Login_cmbxSilkroad.Items.Add(item.Name);

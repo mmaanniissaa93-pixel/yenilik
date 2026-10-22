@@ -451,7 +451,7 @@ namespace xBot.App
             if (b == null) return;
             b.Text = text;
             b.Font = PhBotFont();
-            b.ForeColor = Color.Black;
+            b.ForeColor = Theme.AppTheme.TextPrimary;
         }
 
         private void RenamePhBotSubTabs()
@@ -611,7 +611,7 @@ namespace xBot.App
                     b.Name = btnName;
                     b.Text = isTR ? trText : name;
                     b.Font = PhBotFont();
-                    b.ForeColor = Color.Black;
+                    b.ForeColor = Theme.AppTheme.TextPrimary;
                     b.BackColor = PhBotTabInactive;
                     b.FlatStyle = FlatStyle.Standard;
                     b.UseVisualStyleBackColor = true;
@@ -665,8 +665,8 @@ namespace xBot.App
                 lv.Name = "PhBot_AttackLog";
                 lv.View = View.Details;
                 lv.FullRowSelect = true;
-                lv.GridLines = true;
-                lv.BackColor = Color.White;
+                lv.GridLines = false;
+                lv.BackColor = Theme.AppTheme.Surface;
                 lv.Location = new Point(6, 6);
                 lv.Size = new Size(Math.Max(400, p.Width - 12), Math.Max(200, p.Height - 12));
                 lv.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
@@ -722,7 +722,7 @@ namespace xBot.App
                 p.Controls.Add(chkSelf);
                 p.Controls.Add(nudSelf);
                 var lv = new ListView();
-                lv.View = View.Details; lv.FullRowSelect = true; lv.GridLines = true; lv.BackColor = Color.White;
+                lv.View = View.Details; lv.FullRowSelect = true; lv.GridLines = false; lv.BackColor = Theme.AppTheme.Surface;
                 lv.Location = new Point(10, 100); lv.Size = new Size(420, 170);
                 lv.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
                 lv.Columns.Add("Heal skill", 250); lv.Columns.Add("Target", 150);
@@ -763,8 +763,8 @@ namespace xBot.App
             lv.Name = "PhBot_PickList";
             lv.View = View.Details;
             lv.FullRowSelect = true;
-            lv.GridLines = true;
-            lv.BackColor = Color.White;
+            lv.GridLines = false;
+            lv.BackColor = Theme.AppTheme.Surface;
             lv.Location = new Point(6, 6);
             lv.Size = new Size(770, 330);
             lv.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
@@ -875,7 +875,7 @@ namespace xBot.App
             lbl.Font = PhBotFont(); lbl.AutoSize = true; lbl.Location = new Point(10, 10);
             tp.Controls.Add(lbl);
             var lv = new ListView();
-            lv.View = View.Details; lv.FullRowSelect = true; lv.GridLines = true; lv.BackColor = Color.White;
+            lv.View = View.Details; lv.FullRowSelect = true; lv.GridLines = false; lv.BackColor = Theme.AppTheme.Surface;
             lv.Location = new Point(10, 36); lv.Size = new Size(500, 250);
             lv.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             lv.Columns.Add("Degree", 80); lv.Columns.Add("Type", 150); lv.Columns.Add("NPC", 200);
@@ -890,7 +890,7 @@ namespace xBot.App
         private Panel BuildPhBotUnionPanel(Panel panel)
         {
             var lv = new ListView();
-            lv.View = View.Details; lv.FullRowSelect = true; lv.GridLines = true; lv.BackColor = Color.White;
+            lv.View = View.Details; lv.FullRowSelect = true; lv.GridLines = false; lv.BackColor = Theme.AppTheme.Surface;
             lv.Location = new Point(6, 6); lv.Size = new Size(500, 300);
             lv.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             lv.Columns.Add("Union member", 200); lv.Columns.Add("Level", 70); lv.Columns.Add("Guild", 200);
@@ -914,7 +914,7 @@ namespace xBot.App
                 DropDownStyle = ComboBoxStyle.DropDownList,
                 Font = PhBotFont(),
                 FlatStyle = FlatStyle.Popup,
-                BackColor = Color.White,
+                BackColor = Theme.AppTheme.Surface,
                 Size = new Size(80, 22)
             };
             cmbxLang.Items.AddRange(new object[] { "Türkçe", "English" });
@@ -926,14 +926,20 @@ namespace xBot.App
                 DropDownStyle = ComboBoxStyle.DropDownList,
                 Font = PhBotFont(),
                 FlatStyle = FlatStyle.Popup,
-                BackColor = Color.White,
+                BackColor = Theme.AppTheme.Surface,
                 Size = new Size(70, 22)
             };
             cmbxTheme.Items.AddRange(isTR ? new object[] { "Beyaz", "Koyu" } : new object[] { "White", "Dark" });
-            cmbxTheme.SelectedIndex = 0;
-            cmbxTheme.Enabled = false;
+            cmbxTheme.SelectedIndex = Theme.AppTheme.IsDark ? 1 : 0;
+            cmbxTheme.Enabled = true;
             if (ToolTips != null)
-                ToolTips.SetToolTip(cmbxTheme, isTR ? "Koyu tema desteği henüz mevcut değil." : "Dark theme is not available yet.");
+                ToolTips.SetToolTip(cmbxTheme, isTR ? "Uygulama teması" : "Application theme");
+            cmbxTheme.SelectedIndexChanged += (s, e) =>
+            {
+                if (cmbxTheme.SelectedIndex < 0) return;
+                Theme.ThemeMode mode = cmbxTheme.SelectedIndex == 1 ? Theme.ThemeMode.Dark : Theme.ThemeMode.Light;
+                if (mode != Theme.AppTheme.Mode) Theme.ThemeManager.SetMode(mode);
+            };
 
             var cmbxFontSize = new ComboBox
             {
@@ -941,7 +947,7 @@ namespace xBot.App
                 DropDownStyle = ComboBoxStyle.DropDownList,
                 Font = PhBotFont(),
                 FlatStyle = FlatStyle.Popup,
-                BackColor = Color.White,
+                BackColor = Theme.AppTheme.Surface,
                 Size = new Size(46, 22)
             };
             cmbxFontSize.Items.AddRange(new object[] { "8", "9", "10", "11", "12" });
@@ -965,7 +971,7 @@ namespace xBot.App
             var tbxUser = new TextBox { Name = "ProjectHax_tbxUser", Text = "", Font = PhBotFont(), Location = new Point(78, 22), Size = new Size(152, 22), BorderStyle = BorderStyle.FixedSingle };
             var lblPass = new Label { Name = "ProjectHax_lblPass", Text = isTR ? "Şifre" : "Password", Font = PhBotFont(), AutoSize = true, Location = new Point(12, 54) };
             var tbxPass = new TextBox { Name = "ProjectHax_tbxPass", Font = PhBotFont(), Location = new Point(78, 52), Size = new Size(152, 22), BorderStyle = BorderStyle.FixedSingle, UseSystemPasswordChar = true };
-            var btnLogin = new Button { Name = "ProjectHax_btnLogin", Text = isTR ? "Bağlan" : "Login", Font = PhBotFont(), Location = new Point(12, 86), Size = new Size(218, 26), BackColor = Color.White, FlatStyle = FlatStyle.Flat };
+            var btnLogin = new Button { Name = "ProjectHax_btnLogin", Text = isTR ? "Bağlan" : "Login", Font = PhBotFont(), Location = new Point(12, 86), Size = new Size(218, 26), BackColor = Theme.AppTheme.Surface, FlatStyle = FlatStyle.Flat };
             btnLogin.FlatAppearance.BorderColor = Color.FromArgb(220, 220, 220);
 
             gbxLogin.Controls.Add(lblUser);
@@ -1017,10 +1023,10 @@ namespace xBot.App
                     btnCommandCenter.Text = tr ? "Komut Merkezi" : "Command Center";
                     cmbxTheme.Items.Clear();
                     cmbxTheme.Items.AddRange(tr ? new object[] { "Beyaz", "Koyu" } : new object[] { "White", "Dark" });
-                    cmbxTheme.SelectedIndex = 0;
-                    cmbxTheme.Enabled = false;
+                    cmbxTheme.SelectedIndex = Theme.AppTheme.IsDark ? 1 : 0;
+                    cmbxTheme.Enabled = true;
                     if (ToolTips != null)
-                        ToolTips.SetToolTip(cmbxTheme, tr ? "Koyu tema desteği henüz mevcut değil." : "Dark theme is not available yet.");
+                        ToolTips.SetToolTip(cmbxTheme, tr ? "Uygulama teması" : "Application theme");
                 }
             };
 
@@ -1085,7 +1091,7 @@ namespace xBot.App
         private Panel BuildPhBotMasteriesPanel(Panel panel)
         {
             var lv = new ListView();
-            lv.View = View.Details; lv.FullRowSelect = true; lv.GridLines = true; lv.BackColor = Color.White;
+            lv.View = View.Details; lv.FullRowSelect = true; lv.GridLines = false; lv.BackColor = Theme.AppTheme.Surface;
             lv.Location = new Point(6, 6); lv.Size = new Size(500, 300);
             lv.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             lv.Columns.Add("Mastery", 250); lv.Columns.Add("Level", 80); lv.Columns.Add("Auto up", 80);
@@ -1099,7 +1105,7 @@ namespace xBot.App
         private Panel BuildPhBotSimpleListPanel(Panel panel, string key)
         {
             var lv = new ListView();
-            lv.View = View.Details; lv.FullRowSelect = true; lv.GridLines = true; lv.BackColor = Color.White;
+            lv.View = View.Details; lv.FullRowSelect = true; lv.GridLines = false; lv.BackColor = Theme.AppTheme.Surface;
             lv.Location = new Point(6, 6); lv.Size = new Size(600, 320);
             lv.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             if (key == "Conditions")
@@ -1188,7 +1194,7 @@ namespace xBot.App
             var c = new CheckBox();
             c.Text = text;
             c.Font = PhBotFont();
-            c.ForeColor = Color.Black;
+            c.ForeColor = Theme.AppTheme.TextPrimary;
             c.AutoSize = true;
             c.UseMnemonic = false;
             c.Location = new Point(x, y);
@@ -1202,14 +1208,14 @@ namespace xBot.App
             var l = new Label();
             l.Text = label;
             l.Font = PhBotFont();
-            l.ForeColor = Color.Black;
+            l.ForeColor = Theme.AppTheme.TextPrimary;
             l.AutoSize = true;
             l.Location = new Point(x, y + 3);
             parent.Controls.Add(l);
             var n = new NumericUpDown();
             n.Value = Math.Max(n.Minimum, Math.Min(n.Maximum, value));
             n.Font = PhBotFont();
-            n.BackColor = Color.White;
+            n.BackColor = Theme.AppTheme.Surface;
             n.Location = new Point(x + Math.Max(180, TextRenderer.MeasureText(label, l.Font).Width + 10), y);
             n.Size = new Size(70, 22);
             parent.Controls.Add(n);

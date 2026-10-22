@@ -13,16 +13,19 @@ namespace xBot.App
         private readonly Action<int> wait;
         private readonly Func<bool> canContinue;
         private readonly Func<SRCoord, bool> allowed;
+        private readonly int stuckTimeoutMs;
         public bool WasBlocked { get; private set; }
 
         public LocalObstacleNavigator(Func<SRCoord> position, Action<SRCoord> move,
-            Action<int> wait, Func<bool> canContinue, Func<SRCoord, bool> allowed)
+            Action<int> wait, Func<bool> canContinue, Func<SRCoord, bool> allowed,
+            int stuckTimeoutMs = 1200)
         {
             this.position = position;
             this.move = move;
             this.wait = wait;
             this.canContinue = canContinue;
             this.allowed = allowed;
+            this.stuckTimeoutMs = Math.Max(1200, Math.Min(10000, stuckTimeoutMs));
         }
 
         public bool MoveTo(SRCoord destination, double tolerance)
@@ -71,7 +74,7 @@ namespace xBot.App
                 }
                 // Measure a full interval after issuing movement; never count
                 // the initial standing position as a collision.
-                if (elapsed - lastProgress >= 1200) { WasBlocked = true; break; }
+                if (elapsed - lastProgress >= stuckTimeoutMs) { WasBlocked = true; break; }
             }
 
             SRCoord stopped = position();
@@ -111,28 +114,24 @@ namespace xBot.App
 
     public sealed class CombatObstacleRecovery
     {
-        private int failures;
         private int attempts;
 
         public void OnSuccess()
         {
-            failures = 0;
             attempts = 0;
         }
 
         // True means retry combat; false means release this target.
         public bool OnFailure(bool enabled, ushort skillError, Func<int, bool> tryDetour)
         {
-            if (++failures < 3) return true;
-            // A timeout, cooldown, busy state or invalid target says nothing
-            // about geometry. Only an explicit B070 obstacle error permits
-            // an in-range detour; approach recovery separately observes stalls.
+            // A cast failure is not evidence that the mob is unreachable. Only
+            // the explicit B070 obstacle response authorizes a geometry detour.
+            // Timeouts and other rejections release the target immediately.
             if (!enabled || skillError != 0x10) return false;
             while (attempts < LocalObstacleNavigator.MaxDetours)
             {
                 if (tryDetour(attempts++))
                 {
-                    failures = 0;
                     return true;
                 }
             }

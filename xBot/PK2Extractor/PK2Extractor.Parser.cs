@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.IO;
+using System.Text;
 using xBot.App;
 using xBot.Game;
 
@@ -186,30 +187,68 @@ namespace xBot.PK2Extractor
 		}
 		private void LoadNameReferences()
 		{
-			NameReferences = new Dictionary<string, string>();
-			// short file, load all lines to memory
-			string[] files = pk2.GetFileText("server_dep\\silkroad\\textdata\\TextDataName.txt").Split(new string[] { pk2_lineSplit }, StringSplitOptions.RemoveEmptyEntries);
-			foreach (string file in files)
+			NameReferences = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+			string textDataName = pk2.GetFileText("server_dep\\silkroad\\textdata\\TextDataName.txt");
+			string[] files = !string.IsNullOrWhiteSpace(textDataName) ? textDataName.Split(new string[] { pk2_lineSplit }, StringSplitOptions.RemoveEmptyEntries) : new string[0];
+			if (files.Length > 0)
 			{
-				// Keep memory safe
-				using (StreamReader reader = new StreamReader(pk2.GetFileStream("server_dep\\silkroad\\textdata\\"+file)))
+				foreach (string file in files)
 				{
-					while (!reader.EndOfStream)
+					var stream = pk2.GetFileStream("server_dep\\silkroad\\textdata\\" + file);
+					if (stream == null) continue;
+					using (StreamReader reader = new StreamReader(stream))
 					{
-						if ((line = reader.ReadLine()) == null)
-							continue;
-
-						// Data enabled in game
-						if (line.StartsWith(pk2_lineEnabled))
+						while (!reader.EndOfStream)
 						{
-							data = line.Split(pk2_split, StringSplitOptions.None);
-
-							// 10% display
-							if (rand.Next(1, 1000) <= 100)
-								LogState("Loading " + data[1]);
-
-							if (data.Length > LanguageIndex && data[LanguageIndex] != "0")
-								NameReferences[data[1]] = data[LanguageIndex];
+							if ((line = reader.ReadLine()) == null) continue;
+							if (line.StartsWith(pk2_lineEnabled))
+							{
+								data = line.Split(pk2_split, StringSplitOptions.None);
+								if (data.Length > LanguageIndex && data[LanguageIndex] != "0")
+									NameReferences[data[1]] = data[LanguageIndex];
+							}
+						}
+					}
+				}
+			}
+			else
+			{
+				// Silkroad-R veya TextDataName.txt bos olan clientler: textdata_* dosyalarini dogrudan tara
+				foreach (var file in pk2.Files)
+				{
+					if (file.Name.StartsWith("textdata_", StringComparison.OrdinalIgnoreCase) ||
+						file.Name.StartsWith("textquest_", StringComparison.OrdinalIgnoreCase) ||
+						file.Name.StartsWith("textzonename_", StringComparison.OrdinalIgnoreCase) ||
+						file.Name.StartsWith("textuisystem_", StringComparison.OrdinalIgnoreCase))
+					{
+						byte[] bytes = pk2.GetFileBytes(file);
+						if (bytes == null || bytes.Length == 0) continue;
+						string text = (bytes.Length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE)
+							? Encoding.Unicode.GetString(bytes)
+							: Encoding.Default.GetString(bytes);
+						using (StringReader sr = new StringReader(text))
+						{
+							string rLine;
+							while ((rLine = sr.ReadLine()) != null)
+							{
+								if (!rLine.StartsWith("1\t")) continue;
+								string[] p = rLine.Split('\t');
+								if (p.Length < 4) continue;
+								string key = null;
+								int langIdx = (LanguageIndex == 8) ? 9 : LanguageIndex;
+								if (int.TryParse(p[1], out _))
+								{
+									key = p[2];
+									langIdx = (LanguageIndex == 8) ? 9 : LanguageIndex;
+								}
+								else
+								{
+									key = p[1];
+									langIdx = LanguageIndex;
+								}
+								if (!string.IsNullOrEmpty(key) && p.Length > langIdx && !string.IsNullOrWhiteSpace(p[langIdx]) && p[langIdx] != "0")
+									NameReferences[key] = p[langIdx].Trim();
+							}
 						}
 					}
 				}
@@ -872,7 +911,8 @@ namespace xBot.PK2Extractor
 			sql += "weapon_second INTEGER,";
 			sql += "target_required BOOLEAN,";
 			sql += "params VARCHAR(256),";
-			sql += "icon VARCHAR(64)";
+			sql += "icon VARCHAR(64),";
+			sql += "action_range INTEGER NOT NULL DEFAULT 0";
 			sql += ");";
 			db.ExecuteQuery(sql);
 
@@ -974,13 +1014,13 @@ namespace xBot.PK2Extractor
 							if (db.GetResult().Count == 0)
 							{
 								// New
-								db.Prepare("INSERT INTO skills (id,servername,name,description,casttime,duration,cooldown,mana,level,mastery_id,sp,group_id,group_name,skill_chain_id,weapon_first,weapon_second,target_required,params,icon) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+								db.Prepare("INSERT INTO skills (id,servername,name,description,casttime,duration,cooldown,mana,level,mastery_id,sp,group_id,group_name,skill_chain_id,weapon_first,weapon_second,target_required,params,icon,action_range) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
 								db.Bind("id", data[DSKILL.ID]);
 							}
 							else
 							{
 								// Override
-								db.Prepare("UPDATE skills SET servername=?,name=?,description=?,casttime=?,duration=?,cooldown=?,mana=?,level=?,mastery_id=?,sp=?,group_id=?,group_name=?,skill_chain_id=?,weapon_first=?,weapon_second=?,target_required=?,params=?,icon=? WHERE id=" + data[DSKILL.ID]);
+								db.Prepare("UPDATE skills SET servername=?,name=?,description=?,casttime=?,duration=?,cooldown=?,mana=?,level=?,mastery_id=?,sp=?,group_id=?,group_name=?,skill_chain_id=?,weapon_first=?,weapon_second=?,target_required=?,params=?,icon=?,action_range=? WHERE id=" + data[DSKILL.ID]);
 							}
 							db.Bind("servername", data[DSKILL.Basic_Code]);
 							db.Bind("name", name);
@@ -1004,6 +1044,7 @@ namespace xBot.PK2Extractor
 							db.Bind("target_required", data[DSKILL.Target_Required]);
 							db.Bind("params", string.Join("|", skillparams));
 							db.Bind("icon", data[DSKILL.UI_IconFile].ToLower());
+							db.Bind("action_range", data[DSKILL.Action_Range]);
 							db.ExecuteQuery();
 						}
 					}

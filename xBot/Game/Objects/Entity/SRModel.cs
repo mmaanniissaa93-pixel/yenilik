@@ -36,6 +36,8 @@ namespace xBot.Game.Objects.Entity
 			{
 				if (PositionUpdateTimer == null)
 					PositionUpdateTimer = Stopwatch.StartNew();
+				else
+					PositionUpdateTimer.Restart();
 				m_MovementPosition = value;
 			}
 		}

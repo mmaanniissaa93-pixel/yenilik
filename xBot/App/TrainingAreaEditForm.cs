@@ -25,6 +25,7 @@ namespace xBot.App
         {
             AreaInfo = info ?? new TrainingAreaInfo();
             InitializeComponent();
+            Theme.ThemeManager.Apply(this);
         }
 
         private void InitializeComponent()
@@ -35,8 +36,11 @@ namespace xBot.App
             this.MinimizeBox = false;
             this.StartPosition = FormStartPosition.CenterParent;
             this.ClientSize = new Size(340, 250);
-            this.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
-            this.BackColor = Color.FromArgb(245, 245, 245);
+            this.Font = Theme.AppTheme.FontBody;
+            this.BackColor = Theme.AppTheme.Background;
+            this.ForeColor = Theme.AppTheme.TextPrimary;
+            this.AutoScaleDimensions = new SizeF(96f, 96f);
+            this.AutoScaleMode = AutoScaleMode.Dpi;
 
             int y = 16;
             var lblName = new Label { Text = "Adı:", Location = new Point(16, y + 2), AutoSize = true };
@@ -91,6 +95,28 @@ namespace xBot.App
             this.Controls.AddRange(new Control[] { btnSave, btnCancel });
             this.AcceptButton = btnSave;
             this.CancelButton = btnCancel;
+
+            foreach (Control control in this.Controls)
+            {
+                control.Font = Theme.AppTheme.FontBody;
+                var label = control as Label;
+                if (label != null)
+                {
+                    label.ForeColor = Theme.AppTheme.Colors.TextSecondary;
+                }
+                var text = control as TextBox;
+                if (text != null) Theme.AppTheme.ComponentStyles.StyleTextBox(text);
+                var combo = control as ComboBox;
+                if (combo != null) Theme.AppTheme.ComponentStyles.StyleComboBox(combo);
+            }
+            Theme.AppTheme.ComponentStyles.StyleSecondaryButton(btnBrowseScript);
+            Theme.AppTheme.ComponentStyles.StyleSecondaryButton(btnCancel);
+            btnSave.FlatStyle = FlatStyle.Flat;
+            btnSave.FlatAppearance.BorderSize = 0;
+            btnSave.BackColor = Theme.AppTheme.Colors.Neutral.TextPrimary;
+            btnSave.ForeColor = Color.White;
+            btnSave.Font = Theme.AppTheme.FontBodyBold;
+            btnSave.Cursor = Cursors.Hand;
 
             try
             {

@@ -95,7 +95,11 @@ namespace xBot.App
         /// </summary>
         public static void RunTick()
         {
-            if (InfoManager.Character == null || !InfoManager.inGame || !Bot.Get.isBotting)
+            if (InfoManager.Character == null || !InfoManager.inGame || InfoManager.inTeleport || !Bot.Get.isBotting)
+                return;
+            if (InfoManager.JoinedGameUtc != DateTime.MinValue && (DateTime.UtcNow - InfoManager.JoinedGameUtc).TotalSeconds < 5.0)
+                return;
+            if (InfoManager.LastTeleportUtc != DateTime.MinValue && (DateTime.UtcNow - InfoManager.LastTeleportUtc).TotalSeconds < 5.0)
                 return;
 
             if (!Monitor.TryEnter(RuntimeLock))
@@ -149,7 +153,7 @@ namespace xBot.App
             lock (RuntimeLock)
             {
                 if (characterDeadSinceUtc == DateTime.MinValue)
-                    characterDeadSinceUtc = DateTime.UtcNow;
+                    characterDeadSinceUtc = DateTime.UtcNow; CombatAIEngine.SessionDiedCount++; Window.Get?.Log($"[Protection] Karakter öldü. Oturumdaki toplam ölüm sayısı: {CombatAIEngine.SessionDiedCount}.");
             }
         }
 
@@ -433,7 +437,7 @@ namespace xBot.App
                 ReturnOutOfPetRevive = ReturnOutOfPetRevive,
                 ReturnOutOfPetFeed = ReturnOutOfPetFeed,
                 ReturnOutOfPetAbnormalPill = ReturnOutOfPetAbnormalPill,
-                ReturnOutOfTransportRecoveryKits = ReturnOutOfTransportRecoveryKits
+                ReturnOutOfTransportRecoveryKits = ReturnOutOfTransportRecoveryKits, DiedStop = CombatAIEngine.DiedStop, DiedStopCount = CombatAIEngine.DiedStopCount
             };
         }
 
@@ -461,7 +465,7 @@ namespace xBot.App
                 OutOfPetRevive = ReturnOutOfPetRevive && HasNoPetItem(inventory, "REVIVAL", "GRASS"),
                 OutOfPetFeed = ReturnOutOfPetFeed && HasNoPetItem(inventory, "FEED", "FOOD"),
                 OutOfPetAbnormalPill = ReturnOutOfPetAbnormalPill && HasNoPetItem(inventory, "PILL", "CURE"),
-                OutOfTransportRecoveryKits = ReturnOutOfTransportRecoveryKits && HasNoPetItem(inventory, "TRANSPORT", "RECOVERY")
+                OutOfTransportRecoveryKits = ReturnOutOfTransportRecoveryKits && HasNoPetItem(inventory, "TRANSPORT", "RECOVERY"), DiedStopTriggered = CombatAIEngine.DiedStop && CombatAIEngine.SessionDiedCount >= CombatAIEngine.DiedStopCount, SessionDiedCount = CombatAIEngine.SessionDiedCount
             };
         }
 

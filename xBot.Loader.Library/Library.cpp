@@ -185,7 +185,7 @@ int WINAPI Detour_connect(SOCKET s, const struct sockaddr* name, int len)
 
 		if (inaddr->sin_port == g_RealGatewayPortNet)
 		{
-			bool ipMatches = false;
+			bool ipMatches = g_ResolvedGatewayIPs.empty();
 			for (u_long gwIP : g_ResolvedGatewayIPs)
 			{
 				if (inaddr->sin_addr.s_addr == gwIP)
@@ -351,6 +351,9 @@ extern "C" __declspec(dllexport) DWORD WINAPI InitializeWithMemory(LPVOID lpPara
 	if (g_Activated) {
 		return 1;
 	}
+
+	WSADATA wsaData;
+	WSAStartup(MAKEWORD(2, 2), &wsaData);
 
 	if (lpParam == nullptr) {
 		return 0;

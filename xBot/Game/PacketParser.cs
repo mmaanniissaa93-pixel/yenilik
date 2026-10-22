@@ -54,7 +54,8 @@ namespace xBot.Game
 					// Format check:
 					// Legacy vSRO format has: ushort players, ushort maxPlayers, byte isAvailable, byte farmID (>= 6 bytes)
 					// Modern iSRO/Silkroad-R format has: byte traffic, byte isOperating (>= 2 bytes)
-					if (packet.RemainingRead() >= 6 && DataManager.Version < 300)
+					bool modernTraffic = DataManager.CurrentProfile?.ModernTrafficFormat ?? (DataManager.Version >= 300);
+					if (!modernTraffic && packet.RemainingRead() >= 6)
 					{
 						players = packet.ReadUShort();
 						maxPlayers = packet.ReadUShort();
@@ -526,10 +527,11 @@ namespace xBot.Game
 				character.BerserkLevel = p.ReadByte();
 				character.PVPCapeType = (SRPlayer.PVPCape)p.ReadByte();
 
-				bool isSilkroadR = (DataManager.Locale == 65);
+				var profile = DataManager.CurrentProfile;
+				bool isSilkroadR = profile?.HasSilkroadRHeader21 ?? (DataManager.Locale == 65);
 				if (isSilkroadR)
 				{
-					p.ReadByteArray(21); // Silkroad-R header between PVPCape and inventory
+					p.ReadByteArray(21); // Silkroad-R / Modern header between PVPCape and inventory
 				}
 
 				byte invCapacity = p.ReadByte();
@@ -558,7 +560,9 @@ namespace xBot.Game
 				}
 				character.InventoryAvatar = inventory;
 
-				if (isSilkroadR)
+				bool hasJobPouch = profile?.HasJobPouchByte ?? isSilkroadR;
+				ResyncToMasteries(p, hasJobPouch);
+				if (hasJobPouch)
 				{
 					p.ReadByte(); // Silkroad-R extra job pouch / inventory byte
 				}
@@ -591,7 +595,9 @@ namespace xBot.Game
 				}
 				character.Skills = skills;
 				// Quests
-				if (isSilkroadR)
+				bool modernQuest = profile?.HasModernQuestLayout ?? false;
+				bool silkroadRQuest = profile?.SilkroadRQuestFormat ?? false;
+				if (silkroadRQuest)
 				{
 					p.ReadByteArray(8); // Completed quests header
 					byte questCount = p.ReadByte();
@@ -640,9 +646,17 @@ namespace xBot.Game
 						quest.Achievements = p.ReadByte();
 						quest.isAutoShareRequired = p.ReadBool();
 						quest.QuestType = p.ReadByte();
-						if (quest.QuestType == 28)
-							quest.TimeRemain = p.ReadUInt();
-						quest.State = p.ReadByte();
+						if (modernQuest)
+						{
+							quest.State = p.ReadByte();
+							quest.TimeRemain = p.ReadUShort();
+						}
+						else
+						{
+							if (quest.QuestType == 28)
+								quest.TimeRemain = p.ReadUInt();
+							quest.State = p.ReadByte();
+						}
 						if (quest.QuestType != 8)
 						{
 							xList<SRQuestObjective> objectives = new xList<SRQuestObjective>(p.ReadByte());
@@ -656,7 +670,7 @@ namespace xBot.Game
 							}
 							quest.Objectives = objectives;
 						}
-						if (quest.QuestType == 88)
+						if (modernQuest || quest.QuestType == 88)
 							quest.NpcsID = p.ReadUIntArray(p.ReadByte());
 						quests[quest.ID] = quest;
 					}
@@ -698,7 +712,8 @@ namespace xBot.Game
 			character.unkByte04 = p.ReadByte();
 			character.MotionStateType = (SRModel.MotionState)p.ReadByte();
 			character.GameStateType = (SRModel.GameState)p.ReadByte();
-			if (isSilkroadR)
+			bool hasExtraState = profile?.HasExtraStateByte ?? isSilkroadR;
+			if (hasExtraState)
 			{
 				p.ReadByte(); // Extra state byte in Silkroad-R
 			}
@@ -769,6 +784,7 @@ namespace xBot.Game
 			}
 			catch (Exception ex)
 			{
+				try { System.IO.File.WriteAllText("character_data_error.txt", ex.ToString()); } catch { }
 				int remainingBytes = -1;
 				try
 				{
@@ -779,6 +795,15 @@ namespace xBot.Game
 
 				int readOffset = remainingBytes >= 0 ? payloadLength - remainingBytes : -1;
 				App.Window.Get?.Log($"[CharacterData Warning] Parsing error at offset {readOffset}/{payloadLength}: {ex.Message}");
+				try
+				{
+					if (p != null)
+					{
+						System.IO.File.WriteAllBytes("0x3013_desync_dump.bin", p.GetBytes());
+						App.Window.Get?.Log($"[CharacterData Diagnostic] Raw packet dumped to 0x3013_desync_dump.bin ({payloadLength} bytes)");
+					}
+				}
+				catch { }
 				// Do not publish an incomplete character. Movement and bot logic can
 				// safely wait for the next complete character-data packet instead.
 				if (character != null && character.Position != null
@@ -796,6 +821,43 @@ namespace xBot.Game
 			257, 258, 259, 273, 274, 275, 276, // CH
 			513, 514, 515, 516, 517, 518       // EU
 		};
+
+		private static void ResyncToMasteries(Packet p, bool hasJobPouch)
+		{
+			try
+			{
+				byte[] buf = p.GetBytes();
+				int cur = buf.Length - p.RemainingRead();
+				int expectedPouchOffset = hasJobPouch ? 1 : 0;
+				// Check if already aligned at cur:
+				if (cur + expectedPouchOffset + 6 <= buf.Length
+					&& buf[cur + expectedPouchOffset + 1] == 1
+					&& KnownMasteryIds.Contains(BitConverter.ToUInt32(buf, cur + expectedPouchOffset + 2)))
+				{
+					return; // Already aligned
+				}
+
+				// Scan up to 64 bytes ahead for KnownMasteryIds anchor
+				int scanLimit = Math.Min(buf.Length - 6, cur + 64);
+				for (int off = cur; off <= scanLimit; off++)
+				{
+					if (buf[off] == 1)
+					{
+						uint mid = BitConverter.ToUInt32(buf, off + 1);
+						if (KnownMasteryIds.Contains(mid) && buf[off + 5] <= 130)
+						{
+							int targetOffset = off - 1 - expectedPouchOffset;
+							if (targetOffset >= cur)
+							{
+								p.SeekRead(targetOffset, System.IO.SeekOrigin.Begin);
+								return;
+							}
+						}
+					}
+				}
+			}
+			catch { }
+		}
 
 		/// <summary>
 		/// Envanter sonrasi akis hizalamasini dogrular. Standart pet blogu kisa kalmissa
@@ -1099,10 +1161,10 @@ namespace xBot.Game
 				}
 				equipable.MagicOptions = magicOptions;
 
-				bool isSilkroadR = (DataManager.Locale == 65);
-				if (isSilkroadR)
+				bool fixed8Sockets = DataManager.CurrentProfile?.Fixed8ByteSockets ?? (DataManager.Locale == 65);
+				if (fixed8Sockets)
 				{
-					// Sockets in Silkroad-R: 8 bytes (4 x ushort)
+					// Sockets in Silkroad-R / Modern: 8 bytes (4 x ushort)
 					p.ReadByteArray(8);
 				}
 				else
@@ -1478,11 +1540,20 @@ namespace xBot.Game
 		private static SRQuest ReadActiveQuest(Packet packet, uint questId)
 		{
 			SRQuest quest = new SRQuest(questId);
+			bool modernQuest = DataManager.CurrentProfile?.HasModernQuestLayout ?? false;
 			quest.Achievements = packet.ReadByte();
 			quest.isAutoShareRequired = packet.ReadBool();
 			quest.QuestType = packet.ReadByte();
-			if (quest.QuestType == 28) quest.TimeRemain = packet.ReadUInt();
-			quest.State = packet.ReadByte();
+			if (modernQuest)
+			{
+				quest.State = packet.ReadByte();
+				quest.TimeRemain = packet.ReadUShort();
+			}
+			else
+			{
+				if (quest.QuestType == 28) quest.TimeRemain = packet.ReadUInt();
+				quest.State = packet.ReadByte();
+			}
 			if (quest.QuestType != 8)
 			{
 				xList<SRQuestObjective> objectives = new xList<SRQuestObjective>(packet.ReadByte());
@@ -1496,7 +1567,7 @@ namespace xBot.Game
 				}
 				quest.Objectives = objectives;
 			}
-			if (quest.QuestType == 88) quest.NpcsID = packet.ReadUIntArray(packet.ReadByte());
+			if (modernQuest || quest.QuestType == 88) quest.NpcsID = packet.ReadUIntArray(packet.ReadByte());
 			return quest;
 		}
 		public static void TeleportUseResponse(Packet packet)
@@ -1690,6 +1761,10 @@ namespace xBot.Game
 							player.BerserkLevel = packet.ReadByte();
 							player.PVPCapeType = (SRPlayer.PVPCape)packet.ReadByte();
 							player.ExpIconType = (SRPlayer.ExpIcon)packet.ReadByte();
+							if (DataManager.CurrentProfile?.HasSilkroadRHeader21 ?? (DataManager.Locale == 65))
+							{
+								packet.ReadByte(); // Silkroad-R extra byte before inventory
+							}
 							// Inventory
 							packet.ReadByte(); // max capacity. seems useless at the moment..
 							xList<SRItem> inventory = new xList<SRItem>(packet.ReadByte());
@@ -1759,7 +1834,7 @@ namespace xBot.Game
 						model.unkByte01 = packet.ReadByte();
 						model.MotionStateType = (SRModel.MotionState)packet.ReadByte();
 						model.GameStateType = (SRModel.GameState)packet.ReadByte();
-						if (DataManager.Locale == 65)
+						if (DataManager.CurrentProfile?.HasExtraStateByte ?? (DataManager.Locale == 65))
 						{
 							packet.ReadByte(); // Silkroad-R extra state byte
 						}
@@ -1840,7 +1915,7 @@ namespace xBot.Game
 								mob.MobType = (SRMob.Mob)packet.ReadByte();
 								if (mob.ID4 == 2 || mob.ID4 == 3)
 									mob.Appearence = packet.ReadByte();
-								if (DataManager.Locale == 65)
+								if (DataManager.CurrentProfile?.HasExtraSpawnMobDword ?? (DataManager.Locale == 65))
 								{
 									packet.ReadUInt(); // Silkroad-R extra mob DWORD
 								}
@@ -1871,7 +1946,15 @@ namespace xBot.Game
 							}
 						}
 						if (packet.Opcode == Agent.Opcode.SERVER_ENTITY_SPAWN)
-							model.unkByte02 = packet.ReadByte();
+						{
+							if (packet.RemainingRead() > 0)
+								model.unkByte02 = packet.ReadByte();
+						}
+						if (model.isPlayer() && (DataManager.CurrentProfile?.HasSilkroadRHeader21 ?? (DataManager.Locale == 65)))
+						{
+							if (packet.RemainingRead() >= 6)
+								packet.ReadByteArray(6); // Silkroad-R trailing player bytes
+						}
 					}
 					else if (entity.isDrop())
 					{
@@ -1983,6 +2066,7 @@ namespace xBot.Game
 					newPosition = new SRCoord(packet.ReadUShort(), packet.ReadInt(), packet.ReadInt(), packet.ReadInt());
 				else
 					newPosition = new SRCoord(packet.ReadUShort(), (int)packet.ReadUShort(), (int)packet.ReadUShort(), (int)packet.ReadUShort());
+				entity.Position = currentPosition;
 				entity.MovementPosition = newPosition;
 				// Create an angle pointing to the movement position
 				if (entity == InfoManager.Character)
@@ -2016,6 +2100,11 @@ namespace xBot.Game
 						}
 					}
 				}
+			}
+			else
+			{
+				entity.Position = currentPosition;
+				entity.MovementPosition = currentPosition;
 			}
 			if (packet.ReadBool())
 			{
@@ -3350,8 +3439,11 @@ namespace xBot.Game
 			{
 				byte slotInventory = packet.ReadByte();
 				ushort quantityUpdate = packet.ReadUShort();
-				//ushort usageType = packet.ReadUShort();
-				// End of Packet
+				uint usageType = 0;
+				if (packet.RemainingRead() >= 4)
+					usageType = packet.ReadUInt();
+				else if (packet.RemainingRead() >= 2)
+					usageType = packet.ReadUShort();
 
 				if (InfoManager.Character?.Inventory == null || slotInventory >= InfoManager.Character.Inventory.Capacity) return;
 				xList<SRItem> inventory = InfoManager.Character.Inventory;
@@ -3360,6 +3452,8 @@ namespace xBot.Game
 				if (usedItem != null)
 				{
 					Bot.Get.LearnItemUsable(usedItem.ID, true, "0xB04C success");
+					if (usageType != 0)
+						PacketBuilder.LearnItemUsage(usedItem.ID, usageType);
 					PacketBuilder.ConfirmLastSentUsage(usedItem.ID);
 				}
 				if (quantityUpdate == 0)
@@ -3456,6 +3550,7 @@ namespace xBot.Game
 							inventory[slotInventory] = null; // Item consumed
 						else if (inventory[slotInventory] != null)
 							inventory[slotInventory].Quantity = quantity;
+						try { App.Window.Get?.Inventory_ItemsRefresh(); } catch { }
 					}
 					break;
 				case 0x40: // Pet State
@@ -3954,10 +4049,18 @@ namespace xBot.Game
 			uint skillID = p.ReadUInt();
 			uint sourceUniqueID = p.ReadUInt();
 			p.SeekRead(4, System.IO.SeekOrigin.Current);
+			// Silkroad-R / modern clients include an extra DWORD between the action ID and target ID.
+			// Without consuming it, the all-zero UnknownId is mistaken for the target and the
+			// character action tracker cannot match the server's cast acknowledgement.
+			bool hasExtendedTargetId = DataManager.CurrentProfile?.HasExtendedSkillCastTargetId ?? (DataManager.Locale == 65);
+			if (p.RemainingRead() < (hasExtendedTargetId ? 8 : 4)) return;
+			if (hasExtendedTargetId)
+				p.SeekRead(4, System.IO.SeekOrigin.Current);
 			uint targetUniqueID = p.ReadUInt();
-			if (type == SRTypes.SkillCast.Attack)
+			// Silkroad-R's B070 is only the cast-start record; its hit details arrive in B071.
+			// Legacy layouts may carry the damage block in this packet.
+			if (type == SRTypes.SkillCast.Attack && !hasExtendedTargetId)
 				SkillDamageParsing(p);
-			// End of Packet
 			InfoManager.OnEntitySkillCast(type, skillID, sourceUniqueID, targetUniqueID);
 		}
 		public static void EntitySkillEnd(Packet p)

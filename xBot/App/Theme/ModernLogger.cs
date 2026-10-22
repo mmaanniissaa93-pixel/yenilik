@@ -34,7 +34,7 @@ namespace xBot.App.Theme
         /// <summary>
         /// Kapalıysa TracePacket disk IO yapmaz (proxy hot-path için). Analyzer açıkken UI tarafından açılır.
         /// </summary>
-        public static bool EnablePacketTrace { get; set; } = false;
+        public static bool EnablePacketTrace { get; set; } = true;
         private static readonly object fileLock = new object();
         private static readonly object traceLock = new object();
         private static readonly Queue<PacketTrace> packetTraceQueue = new Queue<PacketTrace>();

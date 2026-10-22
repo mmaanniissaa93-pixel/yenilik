@@ -123,10 +123,10 @@ namespace xBot.App
             };
 
             // 4 Alt Sekme (Birebir phBot sırası ve başlıkları)
-            TabPage tabAttack = new TabPage("Saldırı Peti") { BackColor = Color.White };
-            TabPage tabCaravan = new TabPage("Kervan") { BackColor = Color.White };
-            TabPage tabPick = new TabPage("Toplama") { BackColor = Color.White };
-            TabPage tabFellow = new TabPage("Fellow") { BackColor = Color.White };
+            TabPage tabAttack = new TabPage("Saldırı Peti") { BackColor = Theme.AppTheme.Surface };
+            TabPage tabCaravan = new TabPage("Kervan") { BackColor = Theme.AppTheme.Surface };
+            TabPage tabPick = new TabPage("Toplama") { BackColor = Theme.AppTheme.Surface };
+            TabPage tabFellow = new TabPage("Fellow") { BackColor = Theme.AppTheme.Surface };
 
             BuildAttackPetSubTab(tabAttack);
             BuildCaravanSubTab(tabCaravan);
@@ -158,7 +158,7 @@ namespace xBot.App
                 Location = new Point(620, 10),
                 Size = new Size(72, 24),
                 Font = PhBotFont(),
-                BackColor = Color.White,
+                BackColor = Theme.AppTheme.Surface,
                 Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
             PhBot_Pet_BtnRecall.Click += (s, e) => RecallAttackPet();
@@ -171,7 +171,7 @@ namespace xBot.App
                 Location = new Point(700, 10),
                 Size = new Size(72, 24),
                 Font = PhBotFont(),
-                BackColor = Color.White,
+                BackColor = Theme.AppTheme.Surface,
                 Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
             PhBot_Pet_BtnDismiss.Click += (s, e) => DismissAttackPet();
@@ -433,7 +433,7 @@ namespace xBot.App
                 Location = new Point(700, 10),
                 Size = new Size(72, 24),
                 Font = PhBotFont(),
-                BackColor = Color.White,
+                BackColor = Theme.AppTheme.Surface,
                 Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
             PhBot_Pet_BtnTerminateCaravan.Click += (s, e) => TerminateCaravanPet();
@@ -499,7 +499,7 @@ namespace xBot.App
                 Location = new Point(620, 10),
                 Size = new Size(72, 24),
                 Font = PhBotFont(),
-                BackColor = Color.White,
+                BackColor = Theme.AppTheme.Surface,
                 Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
             PhBot_Pet_BtnPickRecall.Click += (s, e) => RecallPickPet();
@@ -512,7 +512,7 @@ namespace xBot.App
                 Location = new Point(700, 10),
                 Size = new Size(72, 24),
                 Font = PhBotFont(),
-                BackColor = Color.White,
+                BackColor = Theme.AppTheme.Surface,
                 Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
             PhBot_Pet_BtnPickDismiss.Click += (s, e) => DismissPickPet();
@@ -564,7 +564,7 @@ namespace xBot.App
                 Size = new Size(736, 150),
                 View = View.Details,
                 FullRowSelect = true,
-                GridLines = true,
+                GridLines = false,
                 Font = PhBotFont(),
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
@@ -580,7 +580,7 @@ namespace xBot.App
                 Location = new Point(10, 178),
                 Size = new Size(100, 26),
                 Font = PhBotFont(),
-                BackColor = Color.White
+                BackColor = Theme.AppTheme.Surface
             };
             PhBot_Pet_BtnMoveSelected.Click += (s, e) => MoveSelectedPickPetItems();
             grpInv.Controls.Add(PhBot_Pet_BtnMoveSelected);
@@ -591,7 +591,7 @@ namespace xBot.App
                 Location = new Point(118, 178),
                 Size = new Size(90, 26),
                 Font = PhBotFont(),
-                BackColor = Color.White
+                BackColor = Theme.AppTheme.Surface
             };
             PhBot_Pet_BtnOrganize.Click += (s, e) => OrganizePickPetInventory();
             grpInv.Controls.Add(PhBot_Pet_BtnOrganize);
@@ -760,7 +760,7 @@ namespace xBot.App
                 Size = new Size(377, 110),
                 View = View.Details,
                 FullRowSelect = true,
-                GridLines = true,
+                GridLines = false,
                 Font = PhBotFont(),
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
@@ -787,7 +787,7 @@ namespace xBot.App
                 Size = new Size(377, 128),
                 View = View.Details,
                 FullRowSelect = true,
-                GridLines = true,
+                GridLines = false,
                 Font = PhBotFont(),
                 CheckBoxes = true,
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right

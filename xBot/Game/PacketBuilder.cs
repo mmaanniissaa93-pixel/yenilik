@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using xBot.App;
 using xBot.Game.Objects;
 using xBot.Game.Objects.Common;
+using xBot.Game.Profiles;
 using xBot.Game.Objects.Entity;
 using xBot.Game.Objects.Item;
 using xBot.Game.Objects.Party;
@@ -235,7 +236,10 @@ namespace xBot.Game
 		{
 			Packet p = new Packet(Agent.Opcode.CLIENT_INVENTORY_ITEM_USE, true);
 			p.WriteByte(slotGlobal);
-			p.WriteUShort(item.GetUsageType());
+			if (ServerProfileManager.CurrentProfile.Uses32BitItemUsage)
+				p.WriteUInt(item != null ? item.GetUsageType32() : 0);
+			else
+				p.WriteUShort(item != null ? item.GetUsageType() : (ushort)0);
 			p.WriteAscii(message);
 			Bot.Get.Proxy.Agent.InjectToServer(p);
 		}
@@ -397,6 +401,13 @@ namespace xBot.Game
 			p.WriteUInt(uniqueID);
 			Bot.Get.Proxy.Agent.InjectToServer(p);
 		}
+		public static void DeselectEntity(uint uniqueID)
+		{
+			if (uniqueID == 0 || Bot.Get.Proxy == null || Bot.Get.Proxy.Agent == null) return;
+			Packet p = new Packet(Agent.Opcode.CLIENT_NPC_CLOSE_REQUEST);
+			p.WriteUInt(uniqueID);
+			Bot.Get.Proxy.Agent.InjectToServer(p);
+		}
 		public static void TalkNPC(uint uniqueID,byte talkID)
 		{
 			Packet p = new Packet(Agent.Opcode.CLIENT_ENTITY_TALK_REQUEST);
@@ -420,29 +431,29 @@ namespace xBot.Game
 			p.WriteUInt(uniqueID);
 			Bot.Get.Proxy.Agent.InjectToServer(p);
 		}
-		private static readonly Dictionary<uint, ushort> s_learnedUsage = new Dictionary<uint, ushort>();
+		private static readonly Dictionary<uint, uint> s_learnedUsage = new Dictionary<uint, uint>();
 		private static readonly object s_learnedUsageLock = new object();
 		private static bool s_learnedUsageLoaded = false;
 		private const string LearnedUsageFile = "Config\\LearnedUsage.json";
 		// itemID -> pes pese non-cooldown reject sayisi (parity ile bit0 alternatifi denenir)
 		private static readonly Dictionary<uint, int> s_usageRejectCount = new Dictionary<uint, int>();
 		private static uint s_lastSentItemId;
-		private static ushort s_lastSentUsage;
+		private static uint s_lastSentUsage;
 		private static long s_lastLearnedSaveTick = 0;
 		private static volatile bool s_learnedSavePending;
 		/// <summary>
-		/// Gercek clientin 0x704C paketinden itemID->usage ogren (Sevar gibi custom
-		/// TID'li serverlarda botun DB'den hesapladigi usage tutmayabilir).
+		/// Gercek clientin 0x704C paketinden veya 0xB04C sunucu yanıtından itemID->usage ogren.
+		/// Silkroad-R/TRSRO 32-bit TID formatını ve vSRO 16-bit TID formatını destekler.
 		/// Ogrenilen deger diske yazilir, oturumlar arasi korunur.
 		/// </summary>
-		public static void LearnItemUsage(uint itemId, ushort usage)
+		public static void LearnItemUsage(uint itemId, uint usage)
 		{
 			if (itemId == 0) return;
 			bool changed = false;
 			lock (s_learnedUsageLock)
 			{
 				EnsureLearnedUsageLoaded();
-				ushort prev;
+				uint prev;
 				if (!s_learnedUsage.TryGetValue(itemId, out prev) || prev != usage)
 				{
 					s_learnedUsage[itemId] = usage;
@@ -452,7 +463,7 @@ namespace xBot.Game
 			}
 			if (changed)
 			{
-				System.Diagnostics.Debug.WriteLine($"[Item] Ogrenildi: itemId={itemId} usage=0x{usage:X4} (kalici)");
+				System.Diagnostics.Debug.WriteLine($"[Item] Ogrenildi: itemId={itemId} usage=0x{usage:X8} (kalici)");
 				SaveLearnedUsage();
 				if (s_learnedSavePending)
 				{
@@ -490,7 +501,7 @@ namespace xBot.Game
 		public static void ConfirmLastSentUsage(uint itemId)
 		{
 			uint sentId;
-			ushort sentUsage;
+			uint sentUsage;
 			lock (s_learnedUsageLock)
 			{
 				sentId = s_lastSentItemId;
@@ -503,7 +514,7 @@ namespace xBot.Game
 				lock (s_learnedUsageLock)
 				{
 					EnsureLearnedUsageLoaded();
-					s_usageRejectCount.Remove(itemId);
+				s_usageRejectCount.Remove(itemId);
 				}
 			}
 		}
@@ -525,13 +536,13 @@ namespace xBot.Game
 				s_usageRejectCount[itemId] = cur + 1;
 			}
 		}
-		private static ushort ResolveUsage(uint itemId, ushort computed)
+		private static uint ResolveUsage(uint itemId, uint computed)
 		{
 			if (itemId == 0) return computed;
 			lock (s_learnedUsageLock)
 			{
 				EnsureLearnedUsageLoaded();
-				ushort learned;
+				uint learned;
 				bool has = s_learnedUsage.TryGetValue(itemId, out learned);
 				int rejects;
 				s_usageRejectCount.TryGetValue(itemId, out rejects);
@@ -556,9 +567,9 @@ namespace xBot.Game
 					foreach (var kv in items)
 					{
 						uint id;
-						int usage;
-						if (uint.TryParse(kv.Key, out id) && int.TryParse(kv.Value.ToString(), out usage))
-							s_learnedUsage[id] = (ushort)usage;
+						uint usage;
+						if (uint.TryParse(kv.Key, out id) && uint.TryParse(kv.Value.ToString(), out usage))
+							s_learnedUsage[id] = usage;
 					}
 					if (s_learnedUsage.Count > 0)
 						System.Diagnostics.Debug.WriteLine($"[Item] Ogrenilmis usage bilgisi yuklendi ({s_learnedUsage.Count} kayit).");
@@ -582,10 +593,10 @@ namespace xBot.Game
 			s_learnedSavePending = false;
 			try
 			{
-				Dictionary<uint, ushort> snap;
+				Dictionary<uint, uint> snap;
 				lock (s_learnedUsageLock)
 				{
-					snap = new Dictionary<uint, ushort>(s_learnedUsage);
+					snap = new Dictionary<uint, uint>(s_learnedUsage);
 				}
 				string dir = System.IO.Path.GetDirectoryName(LearnedUsageFile);
 				if (!string.IsNullOrEmpty(dir) && !System.IO.Directory.Exists(dir))
@@ -602,11 +613,19 @@ namespace xBot.Game
 		}
 		public static bool UseItem(SRItem item,byte slot,uint uniqueID = 0)
 		{
-			// Referans (WinForms1) + Sevar uyumu: usage önce kalıcı öğrenmeden,
-			// yoksa hesaplanandan, reject sonrası parity alternatifinden gelir.
+			// Referans (WinForms1) + Sevar + Silkroad-R uyumu: usage önce kalıcı öğrenmeden,
+			// yoksa hesaplanandan (Silkroad-R'da 32-bit GetUsageType32, vSRO'da 16-bit GetUsageType),
+			// reject sonrası parity alternatifinden gelir.
 			// Yanlış öğrenme reject'te silinir (ForgetLearnedUsage), takılma olmaz.
 			try
 			{
+				if (!InfoManager.inGame || InfoManager.inTeleport)
+					return false;
+				if (InfoManager.JoinedGameUtc != DateTime.MinValue && (DateTime.UtcNow - InfoManager.JoinedGameUtc).TotalSeconds < 5.0)
+					return false;
+				if (InfoManager.LastTeleportUtc != DateTime.MinValue && (DateTime.UtcNow - InfoManager.LastTeleportUtc).TotalSeconds < 5.0)
+					return false;
+
 				var chr = InfoManager.Character;
 				if (chr == null || chr.Inventory == null || slot >= chr.Inventory.Capacity)
 					return false;
@@ -622,12 +641,31 @@ namespace xBot.Game
 					return false;
 				if (!Bot.Get.CheckUseItemThrottle(slot))
 					return false;
-				ushort usage = ResolveUsage(cur.ID, item != null ? item.GetUsageType() : cur.GetUsageType());
+
+				bool is32Bit = ServerProfileManager.CurrentProfile.Uses32BitItemUsage;
+				uint computed = is32Bit
+					? (item != null ? item.GetUsageType32() : cur.GetUsageType32())
+					: (item != null ? (uint)item.GetUsageType() : (uint)cur.GetUsageType());
+
+				uint usage = ResolveUsage(cur.ID, computed);
 				Packet p = new Packet(Agent.Opcode.CLIENT_INVENTORY_ITEM_USE, true);
 				p.WriteByte(slot);
-				p.WriteUShort(usage);
-				if (uniqueID != 0)
-					p.WriteUInt(uniqueID);
+				if (is32Bit)
+				{
+					p.WriteUInt(usage);
+					if (uniqueID != 0)
+					{
+						p.WriteByte(0x07);
+						p.WriteUInt(uniqueID);
+					}
+				}
+				else
+				{
+					p.WriteUShort((ushort)usage);
+					if (uniqueID != 0)
+						p.WriteUInt(uniqueID);
+				}
+
 				Bot.Get.Proxy.Agent.InjectToServer(p);
 				Bot.Get.MarkUseItemSent(slot, cur.ID);
 				lock (s_learnedUsageLock)
@@ -884,6 +922,9 @@ namespace xBot.Game
 		public static bool CastSkill(uint skillID, uint targetUniqueID = 0)
 		{
 			if (Bot.Get.Proxy?.Agent == null || InfoManager.Character == null) return false;
+			if (!InfoManager.inGame || InfoManager.inTeleport) return false;
+			if (InfoManager.JoinedGameUtc != DateTime.MinValue && (DateTime.UtcNow - InfoManager.JoinedGameUtc).TotalSeconds < 5.0) return false;
+			if (InfoManager.LastTeleportUtc != DateTime.MinValue && (DateTime.UtcNow - InfoManager.LastTeleportUtc).TotalSeconds < 5.0) return false;
 			var skill = SkillManager.GetCastSkill(skillID);
 			if (!InfoManager.CharacterActions.TryBegin(InfoManager.Character.UniqueID, skillID,
 				targetUniqueID, false, false, skill == null || skill.IsDatabaseMissing() ? 500 : skill.CastingTime)) return false;
@@ -907,9 +948,25 @@ namespace xBot.Game
 		{
 			return id == 2 || id == 40 || id == 70 || (id >= 8419 && id <= 8421) || id == 9354 || id == 9355 || id == 9944 || id == 10625 || id == 11162 || id == 11526;
 		}
+		public static bool CancelCharacterAction()
+		{
+			if (Bot.Get.Proxy?.Agent == null) return false;
+			try
+			{
+				Packet packet = new Packet(Agent.Opcode.CLIENT_CHARACTER_ACTION_REQUEST);
+				packet.WriteByte(0x02); // Silkroad action cancel command
+				Bot.Get.Proxy.Agent.InjectToServer(packet);
+				InfoManager.CharacterActions.CancelCurrentAction();
+				return true;
+			}
+			catch { return false; }
+		}
 		public static bool AttackTarget(uint targetUniqueID, uint skillID = 1)
 		{
 			if (targetUniqueID == 0 || Bot.Get.Proxy?.Agent == null || InfoManager.Character == null) return false;
+			if (!InfoManager.inGame || InfoManager.inTeleport) return false;
+			if (InfoManager.JoinedGameUtc != DateTime.MinValue && (DateTime.UtcNow - InfoManager.JoinedGameUtc).TotalSeconds < 5.0) return false;
+			if (InfoManager.LastTeleportUtc != DateTime.MinValue && (DateTime.UtcNow - InfoManager.LastTeleportUtc).TotalSeconds < 5.0) return false;
             var skill = SkillManager.GetCastSkill(skillID);
             bool basic = skillID <= 1 || IsBaseSkillId(skillID);
             bool targetRequired = basic || skill == null || skill.IsDatabaseMissing() || skill.isTargetRequired;

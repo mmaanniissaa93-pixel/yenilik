@@ -11,59 +11,60 @@ namespace xBot.App.Theme
     public static class DarkTheme
     {
         // -------------------------------------------------------------
-        // Background & Surface Colors (Dark Void Palette)
+        // Background & Surface Colors (Runtime Light/Dark Palette)
         // -------------------------------------------------------------
-        public static readonly Color BgDark          = Color.FromArgb(15, 17, 23);     // #0F1117 (Main form canvas)
-        public static readonly Color BgSidebar       = Color.FromArgb(22, 25, 34);     // #161922 (Vertical sidebar)
-        public static readonly Color BgCard          = Color.FromArgb(30, 34, 45);     // #1E222D (Surface card panel)
-        public static readonly Color BgCardHeader    = Color.FromArgb(24, 28, 38);     // #181C26 (Card header / table header)
-        public static readonly Color BgInput         = Color.FromArgb(38, 43, 58);     // #262B3A (Input fields / hover card)
-        public static readonly Color BgInputFocus    = Color.FromArgb(46, 54, 76);     // #2E364C (Focused input background)
-        public static readonly Color BgHeader        = Color.FromArgb(22, 25, 34);     // #161922 (Top window header)
+        public static Color BgDark          { get { return AppTheme.Colors.Neutral.Canvas; } }
+        public static Color BgSidebar       { get { return AppTheme.Colors.Neutral.Surface; } }
+        public static Color BgCard          { get { return AppTheme.Colors.Neutral.Surface; } }
+        public static Color BgCardHeader    { get { return AppTheme.Colors.Neutral.SurfaceSecondary; } }
+        public static Color BgInput         { get { return AppTheme.Colors.Neutral.Surface; } }
+        public static Color BgInputFocus    { get { return AppTheme.Colors.Neutral.SurfaceSecondary; } }
+        public static Color BgHeader        { get { return AppTheme.Colors.Neutral.Surface; } }
 
         // -------------------------------------------------------------
         // Border & Divider Colors
         // -------------------------------------------------------------
-        public static readonly Color BorderSubtle    = Color.FromArgb(45, 51, 69);     // #2D3345 (Default 1px borders)
-        public static readonly Color BorderBright    = Color.FromArgb(61, 70, 96);     // #3D4660 (Hovered borders)
-        public static readonly Color BorderFocus     = Color.FromArgb(59, 130, 246);   // #3B82F6 (Focused inputs)
+        public static Color BorderSubtle    { get { return AppTheme.Colors.Neutral.BorderSubtle; } }
+        public static Color BorderBright    { get { return AppTheme.Colors.Neutral.BorderDefault; } }
+        public static Color BorderFocus     { get { return AppTheme.Colors.Neutral.BorderFocus; } }
 
         // -------------------------------------------------------------
-        // Accent Colors (Electric Azure)
+        // Accent Colors (Neutral Charcoal Primary)
         // -------------------------------------------------------------
-        public static readonly Color Accent          = Color.FromArgb(37, 99, 235);    // #2563EB (Primary action/tab bar)
-        public static readonly Color Primary         = Color.FromArgb(37, 99, 235);    // Alias for Accent
-        public static readonly Color AccentHover     = Color.FromArgb(59, 130, 246);   // #3B82F6 (Hover highlight)
-        public static readonly Color AccentPressed   = Color.FromArgb(29, 78, 216);    // #1D4ED8 (Mouse down)
-        public static readonly Color AccentSubtle    = Color.FromArgb(30, 41, 59);     // #1E293B (Active tab background)
-        public static readonly Color BgTabActive     = Color.FromArgb(30, 34, 45);     // #1E222D (Active tab background)
-        public static readonly Color BgTabInactive   = Color.FromArgb(24, 28, 38);     // #181C26 (Inactive tab background)
-        public static readonly Color BgTabHover      = Color.FromArgb(38, 43, 58);     // #262B3A (Hovered tab)
-        public static readonly Color TextTabActive   = Color.FromArgb(248, 250, 252);  // #F8FAFC
-        public static readonly Color TextTabInactive = Color.FromArgb(148, 163, 184);  // #94A3B8
+        public static Color Accent          { get { return AppTheme.Colors.Neutral.TextPrimary; } }
+        public static Color Primary         { get { return AppTheme.Colors.Neutral.TextPrimary; } }
+        public static Color AccentHover     { get { return AppTheme.IsDark ? Color.FromArgb(243, 244, 246) : Color.FromArgb(58, 61, 66); } }
+        public static Color AccentPressed   { get { return AppTheme.IsDark ? Color.FromArgb(209, 213, 219) : Color.FromArgb(17, 18, 20); } }
+        public static Color AccentSubtle    { get { return AppTheme.Colors.Neutral.SurfaceSelected; } }
+        public static Color BgTabActive     { get { return AppTheme.Colors.Neutral.Surface; } }
+        public static Color BgTabInactive   { get { return AppTheme.Colors.Neutral.Canvas; } }
+        public static Color BgTabHover      { get { return AppTheme.Colors.Neutral.SurfaceHover; } }
+        public static Color TextTabActive   { get { return AppTheme.Colors.Neutral.TextPrimary; } }
+        public static Color TextTabInactive { get { return AppTheme.Colors.Neutral.TextMuted; } }
 
         // -------------------------------------------------------------
         // Typography Colors
         // -------------------------------------------------------------
-        public static readonly Color TextPrimary     = Color.FromArgb(248, 250, 252);  // #F8FAFC (High contrast titles/values)
-        public static readonly Color TextSecondary   = Color.FromArgb(226, 232, 240);  // #E2E8F0 (Standard body text)
-        public static readonly Color TextMuted       = Color.FromArgb(148, 163, 184);  // #94A3B8 (Labels, captions)
-        public static readonly Color TextFaint       = Color.FromArgb(100, 116, 139);  // #64748B (Category headings, disabled)
+        public static Color TextPrimary     { get { return AppTheme.Colors.Neutral.TextPrimary; } }
+        public static Color TextSecondary   { get { return AppTheme.Colors.Neutral.TextSecondary; } }
+        public static Color TextMuted       { get { return AppTheme.Colors.Neutral.TextMuted; } }
+        public static Color TextFaint       { get { return AppTheme.Colors.Neutral.TextDisabled; } }
+        public static Color TextInverse     { get { return AppTheme.Colors.Neutral.TextInverse; } }
 
         // -------------------------------------------------------------
         // Status & Semantic Colors
         // -------------------------------------------------------------
-        public static readonly Color Success         = Color.FromArgb(16, 185, 129);   // #10B981 (HP / Success logs)
-        public static readonly Color SuccessHover    = Color.FromArgb(52, 211, 153);   // #34D399
-        public static readonly Color Warning         = Color.FromArgb(245, 158, 11);   // #F59E0B (EXP / Warning logs)
-        public static readonly Color Danger          = Color.FromArgb(239, 68, 68);    // #EF4444 (Stop / Error logs / Low HP)
-        public static readonly Color DangerHover     = Color.FromArgb(248, 113, 113);  // #F87171
-        public static readonly Color Mana            = Color.FromArgb(6, 182, 212);    // #06B6D4 (MP bar / Mana skills)
-        public static readonly Color InfoBlue        = Color.FromArgb(56, 189, 248);   // #38BDF8 (Info log)
-        public static readonly Color SystemPurple    = Color.FromArgb(168, 85, 247);   // #A855F7 (System log)
-        public static readonly Color RowAlternate    = Color.FromArgb(26, 29, 38);     // #1A1D26 (Zebra stripe alternate)
-        public static readonly Color RowSelected     = Color.FromArgb(30, 41, 59);     // #1E293B (Selected row highlight)
-        public static readonly Color RowHover        = Color.FromArgb(34, 38, 50);     // #222632 (Hovered row)
+        public static Color Success         { get { return AppTheme.Colors.State.Success; } }
+        public static Color SuccessHover    { get { return AppTheme.IsDark ? Color.FromArgb(134, 239, 172) : Color.FromArgb(21, 128, 61); } }
+        public static Color Warning         { get { return AppTheme.Colors.State.Warning; } }
+        public static Color Danger          { get { return AppTheme.Colors.State.Danger; } }
+        public static Color DangerHover     { get { return AppTheme.IsDark ? Color.FromArgb(252, 165, 165) : Color.FromArgb(220, 38, 38); } }
+        public static Color Mana            { get { return AppTheme.IsDark ? Color.FromArgb(34, 211, 238) : Color.FromArgb(14, 116, 144); } }
+        public static Color InfoBlue        { get { return AppTheme.IsDark ? Color.FromArgb(125, 211, 252) : Color.FromArgb(3, 105, 161); } }
+        public static Color SystemPurple    { get { return AppTheme.IsDark ? Color.FromArgb(196, 181, 253) : Color.FromArgb(109, 40, 217); } }
+        public static Color RowAlternate    { get { return AppTheme.IsDark ? Color.FromArgb(26, 30, 38) : Color.FromArgb(250, 250, 250); } }
+        public static Color RowSelected     { get { return AppTheme.Colors.Neutral.SurfaceSelected; } }
+        public static Color RowHover        { get { return AppTheme.Colors.Neutral.SurfaceHover; } }
 
         // -------------------------------------------------------------
         // Window & Layout Metrics (8px Grid System)
@@ -88,8 +89,6 @@ namespace xBot.App.Theme
         // -------------------------------------------------------------
         private static readonly string[] PreferredFontFamilies = new string[]
         {
-            "Segoe UI Variable Display",
-            "Segoe UI Variable Text",
             "Segoe UI",
             "Microsoft Sans Serif"
         };
@@ -165,7 +164,8 @@ namespace xBot.App.Theme
             return path;
         }
 
-        private static readonly System.Collections.Generic.HashSet<Control> s_styledControls = new System.Collections.Generic.HashSet<Control>();
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Control, PaintEventHandler> s_paintHandlers =
+            new System.Runtime.CompilerServices.ConditionalWeakTable<Control, PaintEventHandler>();
 
         public static void StyleCheckBox(CheckBox cbx)
         {
@@ -174,13 +174,10 @@ namespace xBot.App.Theme
             cbx.Font = FontBody;
             cbx.Padding = new Padding(0, 0, 16, 0);
 
-            lock (s_styledControls)
-            {
-                if (!s_styledControls.Add(cbx))
-                    return;
-            }
+            PaintEventHandler existing;
+            if (s_paintHandlers.TryGetValue(cbx, out existing)) return;
 
-            cbx.Paint += (sender, e) =>
+            PaintEventHandler handler = (sender, e) =>
             {
                 var cb = (CheckBox)sender;
                 var g = e.Graphics;
@@ -208,7 +205,7 @@ namespace xBot.App.Theme
                     {
                         g.DrawRectangle(borderPen, boxRect);
                     }
-                    using (Pen checkPen = new Pen(cb.Enabled ? Color.White : TextMuted, 2.0f))
+                    using (Pen checkPen = new Pen(cb.Enabled ? TextInverse : TextMuted, 2.0f))
                     {
                         PointF p1 = new PointF(boxX + 2.5f, boxY + 7.0f);
                         PointF p2 = new PointF(boxX + 5.5f, boxY + 10.5f);
@@ -237,6 +234,20 @@ namespace xBot.App.Theme
                         TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis);
                 }
             };
+            s_paintHandlers.Add(cbx, handler);
+            cbx.Paint += handler;
+        }
+
+        public static void UnstyleCheckBox(CheckBox cbx)
+        {
+            if (cbx == null) return;
+            PaintEventHandler handler;
+            if (s_paintHandlers.TryGetValue(cbx, out handler))
+            {
+                cbx.Paint -= handler;
+                s_paintHandlers.Remove(cbx);
+                cbx.Padding = new Padding(0);
+            }
         }
 
         public static void StyleRadioButton(RadioButton rbn)
@@ -246,13 +257,10 @@ namespace xBot.App.Theme
             rbn.Font = FontBody;
             rbn.Padding = new Padding(0, 0, 16, 0);
 
-            lock (s_styledControls)
-            {
-                if (!s_styledControls.Add(rbn))
-                    return;
-            }
+            PaintEventHandler existing;
+            if (s_paintHandlers.TryGetValue(rbn, out existing)) return;
 
-            rbn.Paint += (sender, e) =>
+            PaintEventHandler handler = (sender, e) =>
             {
                 var rb = (RadioButton)sender;
                 var g = e.Graphics;
@@ -303,6 +311,20 @@ namespace xBot.App.Theme
                         TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis);
                 }
             };
+            s_paintHandlers.Add(rbn, handler);
+            rbn.Paint += handler;
+        }
+
+        public static void UnstyleRadioButton(RadioButton rbn)
+        {
+            if (rbn == null) return;
+            PaintEventHandler handler;
+            if (s_paintHandlers.TryGetValue(rbn, out handler))
+            {
+                rbn.Paint -= handler;
+                s_paintHandlers.Remove(rbn);
+                rbn.Padding = new Padding(0);
+            }
         }
 
         public static void StyleTreeView(TreeView tv)

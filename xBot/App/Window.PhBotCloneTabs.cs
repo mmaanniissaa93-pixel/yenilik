@@ -41,7 +41,7 @@ namespace xBot.App
                 b.Name = btnName;
                 b.Text = title;
                 b.Font = PhBotFont();
-                b.ForeColor = Color.Black;
+                b.ForeColor = Theme.AppTheme.TextPrimary;
                 b.BackColor = PhBotTabInactive;
                 b.FlatStyle = FlatStyle.Standard;
                 b.UseVisualStyleBackColor = true;
@@ -69,7 +69,7 @@ namespace xBot.App
             {
                 p = new Panel();
                 p.Name = panelName;
-                p.BackColor = Color.White;
+                p.BackColor = Theme.AppTheme.Surface;
                 p.Visible = false;
                 p.AutoScroll = true;
                 try
@@ -155,9 +155,9 @@ namespace xBot.App
             var lv = new ListView();
             lv.View = View.Details;
             lv.FullRowSelect = true;
-            lv.GridLines = true;
-            lv.BackColor = Color.White;
-            lv.ForeColor = Color.Black;
+            lv.GridLines = false;
+            lv.BackColor = Theme.AppTheme.Surface;
+            lv.ForeColor = Theme.AppTheme.TextPrimary;
             lv.Location = new Point(x, y);
             lv.Size = new Size(w, h);
             lv.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
@@ -404,7 +404,7 @@ namespace xBot.App
         {
             if (p == null) return;
             p.Controls.Clear();
-            p.BackColor = Color.White;
+            p.BackColor = Theme.AppTheme.Surface;
             p.AutoScroll = false;
 
             int y = 14;
@@ -424,9 +424,9 @@ namespace xBot.App
                 y += 32;
                 AddPhBotCheck(p, stones[i], 20, y, false);
                 string stat = (i == 2) ? "MP <=" : "HP <=";
-                var lbl = new Label { Text = stat, Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(220, y + 2) };
-                var nud = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(265, y - 2), Size = new Size(48, 22), Value = 0 };
-                var pct = new Label { Text = "%", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(318, y + 2) };
+                var lbl = new Label { Text = stat, Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true, Location = new Point(220, y + 2) };
+                var nud = new NumericUpDown { Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, Location = new Point(265, y - 2), Size = new Size(48, 22), Value = 0 };
+                var pct = new Label { Text = "%", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true, Location = new Point(318, y + 2) };
                 p.Controls.AddRange(new Control[] { lbl, nud, pct });
             }
 
@@ -441,7 +441,7 @@ namespace xBot.App
         {
             if (p == null) return;
             p.Controls.Clear();
-            p.BackColor = Color.White;
+            p.BackColor = Theme.AppTheme.Surface;
             p.AutoScroll = false;
             bool isTR = LocalizationManager.CurrentLanguage == "TR";
 
@@ -449,8 +449,8 @@ namespace xBot.App
             {
                 Text = isTR ? "Pot / Envanter" : "Potions / Inventory",
                 Font = PhBotFont(),
-                ForeColor = Color.Black,
-                BackColor = Color.White,
+                ForeColor = Theme.AppTheme.TextPrimary,
+                BackColor = Theme.AppTheme.Surface,
                 Location = new Point(15, 12),
                 Size = new Size(220, 270)
             };
@@ -479,7 +479,7 @@ namespace xBot.App
         {
             if (p == null) return;
             p.Controls.Clear();
-            p.BackColor = Color.White;
+            p.BackColor = Theme.AppTheme.Surface;
             p.AutoScroll = false;
             bool isTR = LocalizationManager.CurrentLanguage == "TR";
 
@@ -487,8 +487,8 @@ namespace xBot.App
             {
                 Text = "Berserk",
                 Font = PhBotFont(),
-                ForeColor = Color.Black,
-                BackColor = Color.White,
+                ForeColor = Theme.AppTheme.TextPrimary,
+                BackColor = Theme.AppTheme.Surface,
                 Location = new Point(15, 12),
                 Size = new Size(340, 315)
             };
@@ -498,7 +498,7 @@ namespace xBot.App
             var nAtt = new NumericUpDown
             {
                 Font = PhBotFont(),
-                BackColor = Color.White,
+                BackColor = Theme.AppTheme.Surface,
                 Location = new Point(175, 16),
                 Size = new Size(48, 22),
                 Value = Math.Max(1, CombatAIEngine.ZerkMonsterCount > 0 ? CombatAIEngine.ZerkMonsterCount : 3)
@@ -564,7 +564,7 @@ namespace xBot.App
         {
             if (p == null) return;
             p.Controls.Clear();
-            p.BackColor = Color.White;
+            p.BackColor = Theme.AppTheme.Surface;
             p.AutoScroll = false;
             bool isTR = LocalizationManager.CurrentLanguage == "TR";
 
@@ -748,7 +748,7 @@ namespace xBot.App
                     dlg.FormBorderStyle = FormBorderStyle.FixedDialog;
                     dlg.MaximizeBox = false;
                     dlg.MinimizeBox = false;
-                    dlg.BackColor = Color.White;
+                    dlg.BackColor = Theme.AppTheme.Surface;
 
                     var lv = new ListView
                     {
@@ -756,7 +756,7 @@ namespace xBot.App
                         Size = new Size(340, 335),
                         View = View.Details,
                         FullRowSelect = true,
-                        GridLines = true,
+                        GridLines = false,
                         MultiSelect = false,
                         Font = PhBotFont()
                     };
@@ -769,7 +769,7 @@ namespace xBot.App
                         Location = new Point(12, 360),
                         Size = new Size(245, 22),
                         Font = PhBotFont(),
-                        BackColor = Color.White
+                        BackColor = Theme.AppTheme.Surface
                     };
                     var btnSearch = new Button
                     {
@@ -857,7 +857,7 @@ namespace xBot.App
                     dlg.FormBorderStyle = FormBorderStyle.FixedDialog;
                     dlg.MaximizeBox = false;
                     dlg.MinimizeBox = false;
-                    dlg.BackColor = Color.White;
+                    dlg.BackColor = Theme.AppTheme.Surface;
 
                     var cb = new ComboBox
                     {
@@ -899,7 +899,7 @@ namespace xBot.App
         {
             if (p == null) return;
             p.Controls.Clear();
-            p.BackColor = Color.White;
+            p.BackColor = Theme.AppTheme.Surface;
             p.AutoScroll = false;
             bool isTR = LocalizationManager.CurrentLanguage == "TR";
 
@@ -907,8 +907,8 @@ namespace xBot.App
             {
                 Text = isTR ? "Canavarlar" : "Monsters",
                 Font = PhBotFont(),
-                ForeColor = Color.Black,
-                BackColor = Color.White,
+                ForeColor = Theme.AppTheme.TextPrimary,
+                BackColor = Theme.AppTheme.Surface,
                 Location = new Point(15, 12),
                 Size = new Size(340, 290)
             };
@@ -918,7 +918,7 @@ namespace xBot.App
             var nAtt = new NumericUpDown
             {
                 Font = PhBotFont(),
-                BackColor = Color.White,
+                BackColor = Theme.AppTheme.Surface,
                 Location = new Point(175, 16),
                 Size = new Size(48, 22),
                 Value = Math.Max(1, SkillManager.DevilMonsterCount > 0 ? SkillManager.DevilMonsterCount : 3)
@@ -976,7 +976,7 @@ namespace xBot.App
         {
             if (p == null) return;
             p.Controls.Clear();
-            p.BackColor = Color.White;
+            p.BackColor = Theme.AppTheme.Surface;
             p.AutoScroll = false;
             bool isTR = LocalizationManager.CurrentLanguage == "TR";
 
@@ -1018,21 +1018,21 @@ namespace xBot.App
             try
             {
                 p.Controls.Clear();
-                p.BackColor = Color.White;
+                p.BackColor = Theme.AppTheme.Surface;
                 p.AutoScroll = false;
                 bool isTR = LocalizationManager.CurrentLanguage == "TR";
 
                 // 1. Str [ 0 ] [ + ]
-                var lStr = new Label { Text = "Str", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(25, 20) };
-                var txtStr = new TextBox { Text = "0", Font = PhBotFont(), ReadOnly = true, BackColor = Color.White, ForeColor = Color.Black, Location = new Point(58, 18), Size = new Size(40, 22), TextAlign = HorizontalAlignment.Center };
+                var lStr = new Label { Text = "Str", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true, Location = new Point(25, 20) };
+                var txtStr = new TextBox { Text = "0", Font = PhBotFont(), ReadOnly = true, BackColor = Theme.AppTheme.Surface, ForeColor = Theme.AppTheme.TextPrimary, Location = new Point(58, 18), Size = new Size(40, 22), TextAlign = HorizontalAlignment.Center };
                 var btnAddStr = new Button { Text = "+", Font = PhBotFont(), Size = new Size(24, 22), Location = new Point(104, 18) };
                 btnAddStr.Click += (s, e) => {
                     try { if (Character_btnAddSTR != null) Character_btnAddSTR.PerformClick(); } catch { }
                 };
 
                 // 2. Int [ 0 ] [ + ]
-                var lInt = new Label { Text = "Int", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(25, 48) };
-                var txtInt = new TextBox { Text = "0", Font = PhBotFont(), ReadOnly = true, BackColor = Color.White, ForeColor = Color.Black, Location = new Point(58, 46), Size = new Size(40, 22), TextAlign = HorizontalAlignment.Center };
+                var lInt = new Label { Text = "Int", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true, Location = new Point(25, 48) };
+                var txtInt = new TextBox { Text = "0", Font = PhBotFont(), ReadOnly = true, BackColor = Theme.AppTheme.Surface, ForeColor = Theme.AppTheme.TextPrimary, Location = new Point(58, 46), Size = new Size(40, 22), TextAlign = HorizontalAlignment.Center };
                 var btnAddInt = new Button { Text = "+", Font = PhBotFont(), Size = new Size(24, 22), Location = new Point(104, 46) };
                 btnAddInt.Click += (s, e) => {
                     try { if (Character_btnAddINT != null) Character_btnAddINT.PerformClick(); } catch { }
@@ -1042,7 +1042,7 @@ namespace xBot.App
                 string availCount = "0";
                 if (Character_lblStatPoints != null && !string.IsNullOrEmpty(Character_lblStatPoints.Text) && Character_lblStatPoints.Text != "- - -")
                     availCount = Character_lblStatPoints.Text.Trim();
-                var lAvail = new Label { Text = (isTR ? "Mevcut Gelişim Puanı: " : "Stat points available: ") + availCount, Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(25, 82) };
+                var lAvail = new Label { Text = (isTR ? "Mevcut Gelişim Puanı: " : "Stat points available: ") + availCount, Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true, Location = new Point(25, 82) };
                 if (Character_lblStatPoints != null)
                 {
                     Character_lblStatPoints.TextChanged += (s, e) => {
@@ -1053,22 +1053,22 @@ namespace xBot.App
 
                 // 4. [ ] Otomatik gelişim puanı ver
                 bool autoStat = Character_cbxAutoStat != null && Character_cbxAutoStat.Checked;
-                var cbAuto = new CheckBox { Text = isTR ? "Otomatik gelişim puanı ver" : "Automatically add stat points", Checked = autoStat, Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(25, 114) };
+                var cbAuto = new CheckBox { Text = isTR ? "Otomatik gelişim puanı ver" : "Automatically add stat points", Checked = autoStat, Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true, Location = new Point(25, 114) };
                 cbAuto.CheckedChanged += (s, e) => {
                     if (Character_cbxAutoStat != null) Character_cbxAutoStat.Checked = cbAuto.Checked;
                 };
 
                 // 5. Str [ 0 ]
-                var lStrN = new Label { Text = "Str", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(25, 146) };
-                var nStr = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, ForeColor = Color.Black, Location = new Point(58, 144), Size = new Size(45, 22), Maximum = 3, Value = StatPointManager.TargetSTR };
+                var lStrN = new Label { Text = "Str", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true, Location = new Point(25, 146) };
+                var nStr = new NumericUpDown { Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, ForeColor = Theme.AppTheme.TextPrimary, Location = new Point(58, 144), Size = new Size(45, 22), Maximum = 3, Value = StatPointManager.TargetSTR };
                 nStr.ValueChanged += (s, e) => {
                     StatPointManager.TargetSTR = (int)nStr.Value;
                     if (nudAutoStatSTR != null) try { nudAutoStatSTR.Value = nStr.Value; } catch { }
                 };
 
                 // 6. Int [ 0 ]
-                var lIntN = new Label { Text = "Int", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(25, 176) };
-                var nInt = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, ForeColor = Color.Black, Location = new Point(58, 174), Size = new Size(45, 22), Maximum = 3, Value = StatPointManager.TargetINT };
+                var lIntN = new Label { Text = "Int", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true, Location = new Point(25, 176) };
+                var nInt = new NumericUpDown { Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, ForeColor = Theme.AppTheme.TextPrimary, Location = new Point(58, 174), Size = new Size(45, 22), Maximum = 3, Value = StatPointManager.TargetINT };
                 nInt.ValueChanged += (s, e) => {
                     StatPointManager.TargetINT = (int)nInt.Value;
                     if (nudAutoStatINT != null) try { nudAutoStatINT.Value = nInt.Value; } catch { }
@@ -1165,7 +1165,7 @@ namespace xBot.App
         {
             if (p == null || p.Controls.Count > 0) return;
             p.AutoScroll = false;
-            p.BackColor = Color.White;
+            p.BackColor = Theme.AppTheme.Surface;
 
             var btnClear = new Button();
             btnClear.Text = "Clear";
@@ -1265,7 +1265,7 @@ namespace xBot.App
         {
             if (p == null || p.Controls.Count > 0) return;
             p.AutoScroll = false;
-            p.BackColor = Color.White;
+            p.BackColor = Theme.AppTheme.Surface;
 
             bool isTR = LocalizationManager.CurrentLanguage == "TR";
             int y = 14;
@@ -1343,7 +1343,7 @@ namespace xBot.App
         {
             if (p == null || p.Controls.Count > 0) return;
             p.AutoScroll = false;
-            p.BackColor = Color.White;
+            p.BackColor = Theme.AppTheme.Surface;
 
             bool isTR = LocalizationManager.CurrentLanguage == "TR";
             int y = 12;
@@ -1448,16 +1448,16 @@ namespace xBot.App
             cLowMp.Name = "PhBot_Training_WithdrawOnLowMp";
             cLowMp.CheckedChanged += (s, e) => { TrainingOptionsPolicy.WithdrawOnLowMp = cLowMp.Checked; Settings.SaveCharacterSettings(); };
 
-            var numLowMp = new NumericUpDown { Name = "PhBot_Training_LowMpPercent", Font = PhBotFont(), BackColor = Color.White, Location = new Point(rx + 155, 222), Size = new Size(45, 22), Value = Math.Max(0, Math.Min(100, TrainingOptionsPolicy.LowMpPercent)), Maximum = 100 };
+            var numLowMp = new NumericUpDown { Name = "PhBot_Training_LowMpPercent", Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, Location = new Point(rx + 155, 222), Size = new Size(45, 22), Value = Math.Max(0, Math.Min(100, TrainingOptionsPolicy.LowMpPercent)), Maximum = 100 };
             numLowMp.ValueChanged += (s, e) => { TrainingOptionsPolicy.LowMpPercent = (int)numLowMp.Value; Settings.SaveCharacterSettings(); };
-            var lblLowMp = new Label { Text = "%", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(rx + 205, 225) };
+            var lblLowMp = new Label { Text = "%", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true, Location = new Point(rx + 205, 225) };
             p.Controls.AddRange(new Control[] { numLowMp, lblLowMp });
 
             var cPandora = AddPhBotCheck(p, isTR ? "Pandora sayısını koru" : "Preserve Pandora's count", rx, 250, TrainingOptionsPolicy.PreservePandora);
             cPandora.Name = "PhBot_Training_PreservePandora";
             cPandora.CheckedChanged += (s, e) => { TrainingOptionsPolicy.PreservePandora = cPandora.Checked; Settings.SaveCharacterSettings(); };
 
-            var numPandora = new NumericUpDown { Name = "PhBot_Training_PreservePandoraCount", Font = PhBotFont(), BackColor = Color.White, Location = new Point(rx + 155, 248), Size = new Size(45, 22), Value = Math.Max(0, Math.Min(100, TrainingOptionsPolicy.PreservePandoraCount)), Maximum = 100 };
+            var numPandora = new NumericUpDown { Name = "PhBot_Training_PreservePandoraCount", Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, Location = new Point(rx + 155, 248), Size = new Size(45, 22), Value = Math.Max(0, Math.Min(100, TrainingOptionsPolicy.PreservePandoraCount)), Maximum = 100 };
             numPandora.ValueChanged += (s, e) => { TrainingOptionsPolicy.PreservePandoraCount = (int)numPandora.Value; Settings.SaveCharacterSettings(); };
             p.Controls.Add(numPandora);
         }
@@ -1584,7 +1584,7 @@ namespace xBot.App
         {
             if (p == null || p.Controls.Count > 0) return;
             p.AutoScroll = false;
-            p.BackColor = Color.White;
+            p.BackColor = Theme.AppTheme.Surface;
 
             var lv = NewPhBotListView(24, 6, Math.Max(300, p.ClientSize.Width - 110), Math.Max(150, p.ClientSize.Height - 45), "Slot|50", "Icon|50", "Item|250", "Quantity|75");
             lv.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
@@ -1621,7 +1621,7 @@ namespace xBot.App
         {
             if (p == null || p.Controls.Count > 0) return;
             p.AutoScroll = false;
-            p.BackColor = Color.White;
+            p.BackColor = Theme.AppTheme.Surface;
 
             // phbot_inventory_04.png birebir
             AddPhBotCheck(p, "Show requests", 12, 8, true);
@@ -1683,7 +1683,7 @@ namespace xBot.App
         {
             if (p == null || p.Controls.Count > 0) return;
             p.AutoScroll = false;
-            p.BackColor = Color.White;
+            p.BackColor = Theme.AppTheme.Surface;
 
             // phbot_inventory_01.png birebir
             var gb = new GroupBox { Text = "Drop", Font = PhBotFont(), Location = new Point(14, 14), Size = new Size(270, 185) };
@@ -1707,7 +1707,7 @@ namespace xBot.App
         {
             if (p == null || p.Controls.Count > 0) return;
             p.AutoScroll = false;
-            p.BackColor = Color.White;
+            p.BackColor = Theme.AppTheme.Surface;
 
             // phbot_inventory_02.png birebir
             var gbInf = new GroupBox { Text = "Inflation Level", Font = PhBotFont(), Location = new Point(14, 14), Size = new Size(200, 75) };
@@ -1745,7 +1745,7 @@ namespace xBot.App
         {
             if (p == null || p.Controls.Count > 0) return;
             p.AutoScroll = false;
-            p.BackColor = Color.White;
+            p.BackColor = Theme.AppTheme.Surface;
 
             // phbot_inventory_03.png birebir
             var lblItem = new Label { Text = "Item", Font = PhBotFont(), Location = new Point(14, 14), AutoSize = true };

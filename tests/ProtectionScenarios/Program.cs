@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using xBot.App;
 using xBot.App.CommandCenter;
@@ -459,6 +459,12 @@ internal static class Program
         RunPotionInt("0x1889 için slot bloklama süresi 5sn olmalı (30sn değil)", PotionPolicy.GetSlotBlockSeconds(0x1889), 5);
         RunPotionInt("0x1889 için blackout süresi 2000ms olmalı (15sn değil)", PotionPolicy.GetBlackoutMs(0x1889), 2000);
         RunPotionCheck("ServerName MALL içeren pot mall sayılır", PotionPolicy.IsMallPotion("ITEM_MALL_HP_POTION_01", "HP Recovery potion (X-large)"), true);
+        RunPotionCheck("SUPERSET veya BAG içeren pot yedek/mall sayılır", PotionPolicy.IsMallPotion("ITEM_EVENT_HP_SUPERSET_5_BAG", "HP Super Set Bag"), true);
+        RunPotionCheck("32-bit learned usage her zaman kazanır", PotionPolicy.ResolveUsageWithFallback(0x05010430u, 5, true, 0x05010431u) == 0x05010431u, true);
+        RunPotionCheck("32-bit tek sayıda reject bit0 alternatifini dener", PotionPolicy.ResolveUsageWithFallback(0x05010430u, 1, false, 0u) == 0x05010431u, true);
+        RunPotionCheck("Silkroad-R sunucu profili Uses32BitItemUsage aktif", xBot.Game.Profiles.ServerProfileManager.GetProfile(xBot.Game.Profiles.ServerType.SilkroadR).Uses32BitItemUsage, true);
+        RunPotionCheck("TRSRO sunucu profili Uses32BitItemUsage aktif", xBot.Game.Profiles.ServerProfileManager.GetProfile(xBot.Game.Profiles.ServerType.TRSRO).Uses32BitItemUsage, true);
+        RunPotionCheck("vSRO sunucu profili Uses32BitItemUsage pasif (16-bit)", !xBot.Game.Profiles.ServerProfileManager.GetProfile(xBot.Game.Profiles.ServerType.vSRO).Uses32BitItemUsage, true);
         RunPotionCheck("X-large adlı pot mall sayılır", PotionPolicy.IsMallPotion("ITEM_ETC_MP_POTION_99", "MP Recovery potion (X-large)"), true);
         RunPotionCheck("Normal NPC potu mall sayılmaz", PotionPolicy.IsMallPotion("ITEM_ETC_HP_POTION_03", "HP Recovery Potion (Large)"), false);
         RunPotionInt("Normal pot mall pottan önce gelir", PotionPolicy.ComparePotions(false, 1, 100, true, 99, 200), -1);
@@ -548,6 +554,7 @@ internal static class Program
         RunSecretStoreScenarios();
         RunScriptCommandScenarios();
         RunPetPolicyScenarios();
+        RunSBotCombatScenarios();
 
         if (failures != 0)
         {
@@ -1447,6 +1454,120 @@ internal static class Program
         RunPetCheck("PetPolicy: JSON restore UseFellowUniqueSkills korunur", PetPolicy.UseFellowUniqueSkills, true);
         RunPetCheck("PetPolicy: JSON restore UsePotionOfGrowth korunur", PetPolicy.UsePotionOfGrowth, true);
         RunPetCheck("PetPolicy: JSON restore UseFellowSpRecallInTown korunur", PetPolicy.UseFellowSpRecallInTown, true);
+    }
+
+    private static void RunSBotCombatScenarios()
+    {
+        // 1. StickToMob Tests
+        RunPetCheck("SBot StickToMob: aktif ve hedef geçerliyse kilitlenir",
+            CombatPolicy.ShouldLockTarget(true, true, true, true, true), true);
+        RunPetCheck("SBot StickToMob: kapalıysa kilitlenmez",
+            CombatPolicy.ShouldLockTarget(false, true, true, true, true), false);
+        RunPetCheck("SBot StickToMob: hedef öldüyse kilit açılır",
+            CombatPolicy.ShouldLockTarget(true, true, false, true, true), false);
+        RunPetCheck("SBot StickToMob: hedef ulaşılamazsa kilit açılır",
+            CombatPolicy.ShouldLockTarget(true, true, true, true, false), false);
+        RunPetCheck("SBot StickToMob: hedef sınır dışındaysa kilit açılır",
+            CombatPolicy.ShouldLockTarget(true, true, true, false, true), false);
+
+        // 2. Emergency Buff Tests
+        RunPetCheck("SBot Emergency: HP eşiğin altındaysa tetiklenir",
+            CombatPolicy.IsEmergencyBuffTriggered(false, 0, 0, 0, 3, true, 40, 50), true);
+        RunPetCheck("SBot Emergency: HP eşiğin üstündeyse tetiklenmez",
+            CombatPolicy.IsEmergencyBuffTriggered(false, 0, 0, 0, 3, true, 60, 50), false);
+        RunPetCheck("SBot Emergency: Anlık saldıran mob sayısı eşiği geçerse tetiklenir",
+            CombatPolicy.IsEmergencyBuffTriggered(true, 0, 4, 0, 3, false, 100, 50), true);
+        RunPetCheck("SBot Emergency: Anlık saldıran mob sayısı eşiğin altındaysa tetiklenmez",
+            CombatPolicy.IsEmergencyBuffTriggered(true, 0, 2, 0, 3, false, 100, 50), false);
+        RunPetCheck("SBot Emergency: Zaman aralığında saldıran mob sayısı eşiği geçerse tetiklenir",
+            CombatPolicy.IsEmergencyBuffTriggered(true, 1, 0, 3, 3, false, 100, 50), true);
+
+        // 3. CombatAttackingTracker Tests
+        var tracker = new CombatAttackingTracker();
+        tracker.RecordAttack(1001, 1000);
+        tracker.RecordAttack(1002, 2000);
+        tracker.RecordAttack(1003, 3000);
+        RunPetCheck("SBot AttackingTracker: 5sn penceresinde 3 mob", tracker.GetAttackingCount(4000, 5000) == 3, true);
+        RunPetCheck("SBot AttackingTracker: Eski mob zaman aşımına uğrar", tracker.GetAttackingCount(6500, 5000) == 2, true);
+
+        // 4. Target Scoring Priority Tests
+        double baseScore = 10.0;
+        double scoreNormal = CombatPolicy.CalculateTargetScore(baseScore, 10.0, false, false, false, false, false, 0, false, 0, 0);
+        double scoreParty = CombatPolicy.CalculateTargetScore(baseScore, 10.0, false, true, false, false, false, 0, false, 0, 0);
+        double scorePet = CombatPolicy.CalculateTargetScore(baseScore, 10.0, false, false, true, false, false, 0, false, 0, 0);
+        double scoreSameMob = CombatPolicy.CalculateTargetScore(baseScore, 10.0, false, false, false, true, false, 0, false, 0, 0);
+        RunPetCheck("SBot SameMob puanı party ve pet korumasından yüksektir", scoreSameMob > scorePet && scorePet > scoreParty, true);
+        RunPetCheck("SBot SameMob bonusu +10000 puan ekler", (scoreSameMob - scoreNormal) == 10000.0, true);
+        RunPetCheck("SBot DefendPet bonusu +9000 puan ekler", (scorePet - scoreNormal) == 9000.0, true);
+
+        // 5. Lure Early Return & Pause Tests
+        RunPetCheck("SBot Lure: Karşılaşılan mob eşiği aşılınca erken döner",
+            LurePolicy.ShouldEarlyReturnFromLure(true, 5, 5, false, 3, 0), true);
+        RunPetCheck("SBot Lure: Saldıran mob eşiği aşılınca erken döner",
+            LurePolicy.ShouldEarlyReturnFromLure(false, 5, 0, true, 3, 3), true);
+        RunPetCheck("SBot Lure: Eşik aşılmadığında erken dönmez",
+            LurePolicy.ShouldEarlyReturnFromLure(true, 5, 2, true, 3, 1), false);
+        LurePolicy.StopDesignatedPlayerEnabled = true;
+        RunPetCheck("SBot Lure: Belirlenen oyuncu menzilde/canlı değilse duraklatılır",
+            LurePolicy.ShouldPauseLure(0, 0, 0, true, false), true);
+        RunPetCheck("SBot Lure: Belirlenen oyuncu menzilde ve canlıysa devam eder",
+            LurePolicy.ShouldPauseLure(0, 0, 0, true, true), false);
+        LurePolicy.StopDesignatedPlayerEnabled = false;
+
+        // 6. Protection DiedStop Tests
+        var options = new ProtectionPolicyOptions
+        {
+            UseReturnScrolls = true,
+            DiedStop = true,
+            DiedStopCount = 3
+        };
+        var inputInTownDied3 = new ProtectionPolicyInput
+        {
+            IsInGame = true,
+            IsBotting = true,
+            IsAlive = true,
+            IsInTown = true,
+            SessionDiedCount = 3
+        };
+        var inputInTownDied1 = new ProtectionPolicyInput
+        {
+            IsInGame = true,
+            IsBotting = true,
+            IsAlive = true,
+            IsInTown = true,
+            SessionDiedCount = 1
+        };
+        RunPetCheck("SBot DiedStop: Oturum ölüm limiti aşılınca şehirde bot durur",
+            ProtectionPolicy.Evaluate(inputInTownDied3, options) == ProtectionDecision.StopBotInTown, true);
+        RunPetCheck("SBot DiedStop: Oturum ölüm limiti aşılmadıysa şehirde bot durmaz",
+            ProtectionPolicy.Evaluate(inputInTownDied1, options) == ProtectionDecision.None, true);
+
+        // 7. LurePolicy JSON Roundtrip
+        LurePolicy.LureMeetXMobsEnabled = true;
+        LurePolicy.LureMeetXCount = 7;
+        LurePolicy.LureAttackedXMobsEnabled = true;
+        LurePolicy.LureAttackedXCount = 4;
+        LurePolicy.StopDesignatedPlayerEnabled = true;
+        LurePolicy.StopDesignatedPlayerName = "TestPlayer";
+        LurePolicy.LureAttackOnStop = true;
+        var lureJson = LurePolicy.ToJson();
+
+        LurePolicy.LureMeetXMobsEnabled = false;
+        LurePolicy.LureMeetXCount = 1;
+        LurePolicy.LureAttackedXMobsEnabled = false;
+        LurePolicy.LureAttackedXCount = 1;
+        LurePolicy.StopDesignatedPlayerEnabled = false;
+        LurePolicy.StopDesignatedPlayerName = "";
+        LurePolicy.LureAttackOnStop = false;
+
+        LurePolicy.FromJson(lureJson);
+        RunPetCheck("SBot LurePolicy: JSON restore LureMeetXMobsEnabled korunur", LurePolicy.LureMeetXMobsEnabled, true);
+        RunPetCheck("SBot LurePolicy: JSON restore LureMeetXCount korunur", LurePolicy.LureMeetXCount == 7, true);
+        RunPetCheck("SBot LurePolicy: JSON restore LureAttackedXMobsEnabled korunur", LurePolicy.LureAttackedXMobsEnabled, true);
+        RunPetCheck("SBot LurePolicy: JSON restore LureAttackedXCount korunur", LurePolicy.LureAttackedXCount == 4, true);
+        RunPetCheck("SBot LurePolicy: JSON restore StopDesignatedPlayerEnabled korunur", LurePolicy.StopDesignatedPlayerEnabled, true);
+        RunPetCheck("SBot LurePolicy: JSON restore StopDesignatedPlayerName korunur", LurePolicy.StopDesignatedPlayerName == "TestPlayer", true);
+        RunPetCheck("SBot LurePolicy: JSON restore LureAttackOnStop korunur", LurePolicy.LureAttackOnStop, true);
     }
 
     private static void RunPetCheck(string name, bool actual, bool expected)

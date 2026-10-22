@@ -38,6 +38,7 @@ namespace xBot.App
 		/// </summary>
 		private Ads adsWindow;
 		private Thread tAdsWindow;
+		private readonly HashSet<Control> _themedPanels = new HashSet<Control>();
 		private Window()
 		{
 			// Publish the instance before runtime controls raise change events. Some of
@@ -47,6 +48,9 @@ namespace xBot.App
 			BotLog.Instance = this;
 			UiNotifier.Instance = this;
 			_isInitializing = true;
+			Theme.ThemeManager.Initialize();
+			Theme.AppTheme.ThemeChanged += ApplyThemeMode;
+			Disposed += (s, e) => Theme.AppTheme.ThemeChanged -= ApplyThemeMode;
 			try
 			{
 				InitializeComponent();
@@ -55,6 +59,7 @@ namespace xBot.App
 				InitializeValues();
 				try { ApplyPhBotClassicTheme(); } catch { }
 				try { ApplyPickFilterLightTheme(); } catch { }
+				try { ApplyThemeMode(); } catch { }
 				InitializeDesktopBehavior();
 			}
 			catch
@@ -92,9 +97,9 @@ namespace xBot.App
 		}
 		private void InitializePerformance(Control c)
 		{
-			if (c is Panel)
+			if (c is Panel || c is TabControl)
 			{
-				typeof(Panel).InvokeMember("DoubleBuffered",
+				typeof(Control).InvokeMember("DoubleBuffered",
 					BindingFlags.SetProperty | BindingFlags.Instance | BindingFlags.NonPublic,
 					null, c, new object[] { true });
 			}
@@ -123,6 +128,8 @@ namespace xBot.App
 			TabPageH_Option_Click(this.TabPageH_Party_Option01, null);
 			TabPageH_Option_Click(this.TabPageH_Guild_Option01, null);
 			TabPageH_Option_Click(this.TabPageH_Skills_Option01, null);
+			Skills_cmbxAttackMobType.Tag = Skills_lstvAttackMobType_General;
+			Skills_cmbxBuffMobType.Tag = Skills_lstvBuffMobType_General;
 			Skills_cmbxAttackMobType.SelectedIndex = Skills_cmbxBuffMobType.SelectedIndex = 0;
 			TabPageH_Option_Click(this.TabPageH_Training_Option01, null);
 			TabPageH_Option_Click(this.TabPageH_Stall_Option01, null);
@@ -824,27 +831,27 @@ namespace xBot.App
 			int GoldDigits = gold.ToString().Length;
 
 			if (GoldDigits <= 4)
-				return Color.White;
+				return Theme.AppTheme.Colors.Neutral.TextPrimary;
 			switch (GoldDigits)
 			{
 				case 5:
-					return Color.FromArgb(255, 250, 133); // Light Yellow
+					return Color.FromArgb(161, 98, 7); // Amber
 				case 6:
-					return Color.FromArgb(255, 211, 72); // Yellow
+					return Color.FromArgb(180, 83, 9); // Dark amber
 				case 7:
-					return Color.FromArgb(255, 173, 92); // Dark Orange
+					return Color.FromArgb(194, 65, 12); // Orange
 				case 8:
-					return Color.FromArgb(255, 154, 161); // Pink
+					return Color.FromArgb(190, 18, 60); // Rose
 				case 9:
-					return Color.FromArgb(235, 161, 255); // Purple
+					return Color.FromArgb(126, 34, 206); // Purple
 				case 10:
-					return Color.FromArgb(184, 187, 255); // Blue
+					return Color.FromArgb(67, 56, 202); // Indigo
 				case 11:
-					return Color.FromArgb(149, 222, 255); // Light Blue 
+					return Color.FromArgb(3, 105, 161); // Blue
 				case 12:
-					return Color.FromArgb(139, 255, 229); // White Blue
+					return Color.FromArgb(15, 118, 110); // Teal
 				default:
-					return Color.White;
+					return Theme.AppTheme.Colors.Neutral.TextPrimary;
 			}
 		}
 		public void Character_SetPosition(SRCoord p)
@@ -870,114 +877,128 @@ namespace xBot.App
 		}
 		public void Inventory_ItemsRefresh()
 		{
-			Inventory_lstvItems.InvokeIfRequired(() => {
-				Inventory_lstvItems.Items.Clear();
-				Inventory_lstvItems.BeginUpdate();
-			});
-			if (InfoManager.inGame)
+			try
 			{
-				Inventory_lblCapacity.InvokeIfRequired(() => {
-					Inventory_lblCapacity.Text = "Loading (0%) ...";
-				});
-
-				xList<SRItem> inventory = InfoManager.Character.Inventory;
-
-				for (int j = 0; j < inventory.Capacity; j++)
+				var chr = InfoManager.Character;
+				if (chr != null && chr.Inventory != null)
 				{
-					ListViewItem item = new ListViewItem();
-					item.Name = item.Text = j.ToString();
-					if (inventory[j] != null)
+					xList<SRItem> inventory = chr.Inventory;
+					int cap = inventory.Capacity;
+					var itemsToAdd = new System.Collections.Generic.List<ListViewItem>(cap);
+
+					for (int j = 0; j < cap; j++)
 					{
-						item.SubItems.Add(""); // Icon
-						item.SubItems.Add(inventory[j].GetFullName()); // Item
-						item.SubItems.Add(inventory[j].isEquipable()? "1" : inventory[j].Quantity + "/" + inventory[j].QuantityMax); // Quantity
-						item.ImageKey = GetImageKeyIcon(inventory[j].Icon);
-						item.ToolTipText = inventory[j].GetTooltip();
-					}
-					else
-					{
-						item.SubItems.Add("");
-						item.SubItems.Add("Empty");
-						item.SubItems.Add("");
+						ListViewItem item = new ListViewItem();
+						item.Name = item.Text = j.ToString();
+						var curItem = inventory[j];
+						if (curItem != null)
+						{
+							item.Tag = curItem;
+							item.SubItems.Add(""); // Icon
+							string fullName = curItem.GetFullName() ?? ("Item #" + curItem.ID);
+							item.SubItems.Add(fullName); // Item
+							item.SubItems.Add(curItem.isEquipable() ? "1" : curItem.Quantity + "/" + curItem.QuantityMax); // Quantity
+							item.ImageKey = GetImageKeyIcon(curItem.Icon);
+							try { item.ToolTipText = curItem.GetTooltip() ?? fullName; } catch { item.ToolTipText = fullName; }
+						}
+						else
+						{
+							item.SubItems.Add("");
+							item.SubItems.Add("Empty");
+							item.SubItems.Add("");
+						}
+						itemsToAdd.Add(item);
 					}
 
-					// Add
-					Inventory_lstvItems.InvokeIfRequired(() => {
-						Inventory_lstvItems.Items.Add(item);
+					Inventory_lstvItems?.InvokeIfRequired(() => {
+						Inventory_lstvItems.BeginUpdate();
+						Inventory_lstvItems.Items.Clear();
+						Inventory_lstvItems.Items.AddRange(itemsToAdd.ToArray());
+						Inventory_lstvItems.EndUpdate();
 					});
-					Inventory_lblCapacity.InvokeIfRequired(() => {
-						Inventory_lblCapacity.Text = "Loading  (" + Math.Round(j * 100.0 / inventory.Capacity) + "%) ...";
+
+					Inventory_lblCapacity?.InvokeIfRequired(() => {
+						Inventory_lblCapacity.Text = "Capacity : " + inventory.Count + "/" + inventory.Capacity;
 					});
 				}
-				Inventory_lblCapacity.InvokeIfRequired(() => {
-					Inventory_lblCapacity.Text = "Capacity : " + inventory.Count + "/" + inventory.Capacity;
-				});
-			}
-			else
-			{
-				Inventory_lblCapacity.InvokeIfRequired(() => {
-					Inventory_lblCapacity.Text = "";
-				});
-			}
-			Inventory_lstvItems.InvokeIfRequired(() => {
-				Inventory_lstvItems.EndUpdate();
-			});
+				else
+				{
+					Inventory_lstvItems?.InvokeIfRequired(() => {
+						Inventory_lstvItems.Items.Clear();
+					});
+					Inventory_lblCapacity?.InvokeIfRequired(() => {
+						Inventory_lblCapacity.Text = "";
+					});
+				}
 
-			// Made to run with no locks
-			Inventory_btnItemsRefresh.InvokeIfRequired(() => {
-				Inventory_btnItemsRefresh.Tag = null;
-			});
-    }
+				Inventory_btnItemsRefresh?.InvokeIfRequired(() => {
+					Inventory_btnItemsRefresh.Tag = null;
+				});
+			}
+			catch (Exception ex)
+			{
+				Theme.ModernLogger.LogSwallowed(ex, "Window.Inventory_ItemsRefresh");
+			}
+		}
 		public void Inventory_AvatarItemsRefresh()
 		{
-			Inventory_lstvAvatarItems.InvokeIfRequired( () => {
-				Inventory_lstvAvatarItems.Items.Clear();
-				Inventory_lstvAvatarItems.BeginUpdate();
-			});
-
-			if (InfoManager.inGame)
+			try
 			{
-				xList<SRItem> inventory = InfoManager.Character.InventoryAvatar;
+				Inventory_lstvAvatarItems.InvokeIfRequired( () => {
+					Inventory_lstvAvatarItems.Items.Clear();
+					Inventory_lstvAvatarItems.BeginUpdate();
+				});
 
-				for (int j = 0; j < inventory.Capacity; j++)
+				if (InfoManager.inGame && InfoManager.Character != null && InfoManager.Character.InventoryAvatar != null)
 				{
-					ListViewItem item = new ListViewItem();
-					item.Name = item.Text = j.ToString();
-					if (inventory[j] != null)
+					xList<SRItem> inventory = InfoManager.Character.InventoryAvatar;
+
+					for (int j = 0; j < inventory.Capacity; j++)
 					{
-						item.SubItems.Add(inventory[j].Name);
-						item.SubItems.Add(inventory[j].ServerName);
-						item.ImageKey = GetImageKeyIcon(inventory[j].Icon);
-						item.ToolTipText = inventory[j].GetTooltip();
+						ListViewItem item = new ListViewItem();
+						item.Name = item.Text = j.ToString();
+						if (inventory[j] != null)
+						{
+							item.SubItems.Add(inventory[j].Name);
+							item.SubItems.Add(inventory[j].ServerName);
+							item.ImageKey = GetImageKeyIcon(inventory[j].Icon);
+							item.ToolTipText = inventory[j].GetTooltip();
+						}
+						else
+						{
+							item.SubItems.Add("Empty");
+						}
+						// Add
+						Inventory_lstvAvatarItems.InvokeIfRequired(() => {
+							Inventory_lstvAvatarItems.Items.Add(item);
+						});
 					}
-					else
-					{
-						item.SubItems.Add("Empty");
-					}
-					// Add
-					Inventory_lstvAvatarItems.InvokeIfRequired(() => {
-						Inventory_lstvAvatarItems.Items.Add(item);
-					});
 				}
+
+				Inventory_lstvAvatarItems.InvokeIfRequired(() => {
+					Inventory_lstvAvatarItems.EndUpdate();
+				});
+
+				// Made to run with no locks
+				Inventory_btnAvatarItemsRefresh.InvokeIfRequired(() => {
+					Inventory_btnAvatarItemsRefresh.Tag = null;
+				});
 			}
-
-			Inventory_lstvAvatarItems.InvokeIfRequired(() => {
-				Inventory_lstvAvatarItems.EndUpdate();
-			});
-
-			// Made to run with no locks
-			Inventory_btnAvatarItemsRefresh.InvokeIfRequired(() => {
-				Inventory_btnAvatarItemsRefresh.Tag = null;
-			});
+			catch (Exception ex)
+			{
+				Theme.ModernLogger.LogSwallowed(ex, "Window.Inventory_AvatarItemsRefresh");
+			}
 		}
 		public void Inventory_StorageRefresh()
 		{
-			Inventory_lstvStorageItems.InvokeIfRequired(() => {
-				Inventory_lstvStorageItems.Items.Clear();
-				Inventory_lstvStorageItems.BeginUpdate();
-			});
+			try
+			{
+				Inventory_lstvStorageItems.InvokeIfRequired(() => {
+					Inventory_lstvStorageItems.Items.Clear();
+					Inventory_lstvStorageItems.BeginUpdate();
+				});
 
-			if (InfoManager.inGame && InfoManager.Character.Storage != null)
+				if (InfoManager.inGame && InfoManager.Character != null && InfoManager.Character.Storage != null)
 			{
 				Inventory_lblStorageCapacity.InvokeIfRequired(() => {
 					Inventory_lblStorageCapacity.Text = "Loading (0%) ...";
@@ -1028,6 +1049,11 @@ namespace xBot.App
 			Inventory_btnStorageRefresh.InvokeIfRequired(() => {
 				Inventory_btnStorageRefresh.Tag = null;
 			});
+			}
+			catch (Exception ex)
+			{
+				Theme.ModernLogger.LogSwallowed(ex, "Window.Inventory_StorageRefresh");
+			}
 		}
 		public void Inventory_PetRefresh()
 		{
@@ -1189,7 +1215,7 @@ namespace xBot.App
 			});
 			Players_tbxExchangerGold.InvokeIfRequired(() => {
 				Players_tbxExchangerGold.Text = resetText;
-				Players_tbxExchangerGold.ForeColor = Color.White;
+				Players_tbxExchangerGold.ForeColor = Theme.AppTheme.Colors.Neutral.TextPrimary;
 			});
 			// Me
 			Players_lblExchangerMyName.InvokeIfRequired(() => {
@@ -1197,12 +1223,12 @@ namespace xBot.App
 			});
 			Players_tbxExchangingGold.InvokeIfRequired(() => {
 				Players_tbxExchangingGold.Text = resetText;
-				Players_tbxExchangingGold.ForeColor = Color.White;
+				Players_tbxExchangingGold.ForeColor = Theme.AppTheme.Colors.Neutral.TextPrimary;
 				Players_tbxExchangingGold.ReadOnly = true;
 			});
 			Players_tbxGoldRemain.InvokeIfRequired(() => {
 				Players_tbxGoldRemain.Text = resetText;
-				Players_tbxGoldRemain.ForeColor = Color.White;
+				Players_tbxGoldRemain.ForeColor = Theme.AppTheme.Colors.Neutral.TextPrimary;
 			});
 			// Inventories
 			Players_lstvInventoryExchange.InvokeIfRequired(() => {
@@ -1258,7 +1284,7 @@ namespace xBot.App
 			else
 				match.Setup = GetPartySetup();
 			
-			if (InfoManager.Character.hasJobMode())
+			if (InfoManager.Character != null && InfoManager.Character.hasJobMode())
 			{
 				if (InfoManager.Character.JobType == SRPlayer.Job.Thief)
 					match.Purpose = SRParty.Purpose.Thief;
@@ -2199,35 +2225,50 @@ namespace xBot.App
 		private void TabPageV_Option_Click(object sender, EventArgs e)
 		{
 			Control c = (Control)sender;
-			List<Control> currentOption;
-			if (c.Parent.Tag != null)
+			Control host = c.Parent.Parent;
+			host.SuspendLayout();
+			try
 			{
-				currentOption = (List<Control>)c.Parent.Tag;
-				if (currentOption[0].Name == c.Name || currentOption[1].Name == c.Name)
-					return;
-				currentOption[0].BackColor = c.Parent.BackColor;
-				currentOption[1].BackColor = c.Parent.BackColor;
-				Button prevBtn = currentOption[0] as Button;
-				if (prevBtn != null)
+				List<Control> currentOption;
+				if (c.Parent.Tag != null)
 				{
-					prevBtn.Font = Theme.AppTheme.FontSidebar;
-					prevBtn.ForeColor = Theme.AppTheme.TextPrimary;
+					currentOption = (List<Control>)c.Parent.Tag;
+					if (currentOption[0].Name == c.Name || currentOption[1].Name == c.Name)
+						return;
+					currentOption[0].BackColor = c.Parent.BackColor;
+					currentOption[1].BackColor = c.Parent.BackColor;
+					Button prevBtn = currentOption[0] as Button;
+					if (prevBtn != null)
+					{
+						prevBtn.Font = Theme.AppTheme.FontSidebar;
+						prevBtn.ForeColor = Theme.AppTheme.TextPrimary;
+					}
+					host.Controls[currentOption[0].Name + "_Panel"].Visible = false;
 				}
-				c.Parent.Parent.Controls[currentOption[0].Name + "_Panel"].Visible = false;
+				currentOption = new List<Control>();
+				currentOption.Add(c.Parent.Controls[c.Name.Replace("_Icon", "")]);
+				currentOption.Add(c.Parent.Controls[c.Name.Contains("_Icon") ? c.Name : c.Name + "_Icon"]);
+				c.Parent.Tag = currentOption;
+				currentOption[0].BackColor = TabPageV_ColorSelected;
+				currentOption[1].BackColor = TabPageV_ColorSelected;
+				Button newBtn = currentOption[0] as Button;
+				if (newBtn != null)
+				{
+					newBtn.Font = Theme.AppTheme.FontSidebarActive;
+					newBtn.ForeColor = Theme.AppTheme.TextActive;
+				}
+				try
+				{
+					Control panel = host.Controls[currentOption[1].Name.Replace("Icon", "Panel")];
+					if (panel != null)
+					{
+						panel.Visible = true;
+						if (_themedPanels.Add(panel)) Theme.ThemeManager.Apply(panel);
+					}
+				}
+				catch { }
 			}
-			currentOption = new List<Control>();
-			currentOption.Add(c.Parent.Controls[c.Name.Replace("_Icon", "")]);
-			currentOption.Add(c.Parent.Controls[c.Name.Contains("_Icon") ? c.Name : c.Name + "_Icon"]);
-			c.Parent.Tag = currentOption;
-			currentOption[0].BackColor = TabPageV_ColorSelected;
-			currentOption[1].BackColor = TabPageV_ColorSelected;
-			Button newBtn = currentOption[0] as Button;
-			if (newBtn != null)
-			{
-				newBtn.Font = Theme.AppTheme.FontSidebarActive;
-				newBtn.ForeColor = Theme.AppTheme.TextActive;
-			}
-			c.Parent.Parent.Controls[currentOption[1].Name.Replace("Icon", "Panel")].Visible = true;
+			finally { host.ResumeLayout(false); }
 			try { c.Parent.Invalidate(); } catch { }
 		}
 		/// <summary>
@@ -2289,40 +2330,51 @@ namespace xBot.App
 			try { wrappedTc = c.Parent.Tag as TabControl; } catch { }
 			if (wrappedTc != null)
 			{
+				Control hHost = c.Parent.Parent;
+				hHost.SuspendLayout();
+				c.Parent.SuspendLayout();
 				try
 				{
-					Control pp = c.Parent.Parent.Controls[c.Name + "_Panel"];
-					if (pp != null && !pp.Visible) pp.Visible = true;
+					Control pp = hHost.Controls[c.Name + "_Panel"];
+					if (pp != null)
+					{
+						pp.Visible = true;
+						if (_themedPanels.Add(pp)) Theme.ThemeManager.Apply(pp);
+					}
+					if (_tabSync) return;
+					_tabSync = true;
+					try
+					{
+						foreach (Control s in c.Parent.Controls)
+						{
+							Button sb = s as Button;
+							if (sb == null || sb == c) continue;
+							if (!sb.Name.StartsWith("TabPageH_") || sb.Name.EndsWith("_Panel")) continue;
+							try
+							{
+								Control op = hHost.Controls[sb.Name + "_Panel"];
+								if (op != null) op.Visible = false;
+							}
+							catch { }
+						}
+						c.BackColor = c.Parent.BackColor;
+						foreach (TabPage tp in wrappedTc.TabPages)
+						{
+							if ((tp.Tag as Control) == c)
+							{
+								try { if (tp.Text != c.Text) tp.Text = c.Text; } catch { }
+								try { if (wrappedTc.SelectedTab != tp) wrappedTc.SelectedTab = tp; } catch { }
+								break;
+							}
+						}
+					}
+					finally { _tabSync = false; }
 				}
-				catch { }
-				if (_tabSync) return;
-				_tabSync = true;
-				try
+				finally
 				{
-					foreach (Control s in c.Parent.Controls)
-					{
-						Button sb = s as Button;
-						if (sb == null || sb == c) continue;
-						if (!sb.Name.StartsWith("TabPageH_") || sb.Name.EndsWith("_Panel")) continue;
-						try
-						{
-							Control op = c.Parent.Parent.Controls[sb.Name + "_Panel"];
-							if (op != null) op.Visible = false;
-						}
-						catch { }
-					}
-					c.BackColor = c.Parent.BackColor;
-					foreach (TabPage tp in wrappedTc.TabPages)
-					{
-						if ((tp.Tag as Control) == c)
-						{
-							try { if (tp.Text != c.Text) tp.Text = c.Text; } catch { }
-							try { if (wrappedTc.SelectedTab != tp) wrappedTc.SelectedTab = tp; } catch { }
-							break;
-						}
-					}
+					c.Parent.ResumeLayout(false);
+					hHost.ResumeLayout(false);
 				}
-				finally { _tabSync = false; }
 				return;
 			}
 			if (c.Parent.Tag != null)
@@ -2335,7 +2387,16 @@ namespace xBot.App
 			}
 			c.Parent.Tag = c;
 			c.BackColor = c.Parent.BackColor;
-			c.Parent.Parent.Controls[c.Name + "_Panel"].Visible = true;
+			try
+			{
+				Control panel = c.Parent.Parent.Controls[c.Name + "_Panel"];
+				if (panel != null)
+				{
+					panel.Visible = true;
+					if (_themedPanels.Add(panel)) Theme.ThemeManager.Apply(panel);
+				}
+			}
+			catch { }
 		}
 		/// <summary>
 		/// Modified TabPage Horizontal behavior for better chat UX.
@@ -2382,6 +2443,7 @@ namespace xBot.App
 			Settings.LoadBotSettings();
 			try { ApplyPhBotClassicTheme(); } catch { }
 			try { ApplyPickFilterLightTheme(); } catch { }
+			try { ApplyThemeMode(); } catch { }
 			PopulateSavedAccounts();
 			// Load basic
 			LoadCommandLine();
@@ -2554,10 +2616,13 @@ namespace xBot.App
 		/// </summary>
 		public void Control_Click(object sender, EventArgs e)
 		{
-			Control c = (Control)sender;
-			// Check his name
-			switch (c.Name)
+			try
 			{
+				Control c = (Control)sender;
+				if (c == null) return;
+				// Check his name
+				switch (c.Name)
+				{
 				case "btnWinMinimize":
 					MinimizeToTray();
 					break;
@@ -2627,6 +2692,12 @@ namespace xBot.App
 							DataManager.Locale = (byte)silkroad.SubItems[1].Tag;
 							DataManager.SR_Client = "SR_Client";
 							DataManager.Version = (uint)silkroad.SubItems[2].Tag;
+							if (silkroad.Tag is Game.Profiles.ServerType selType)
+								DataManager.CurrentProfile = Game.Profiles.ServerProfileManager.GetProfile(selType);
+							else
+								DataManager.CurrentProfile = Game.Profiles.ServerProfileManager.GetProfile(
+									Game.Profiles.ServerProfileManager.AutoDetect(DataManager.Locale, DataManager.Version, silkroad.Name, DataManager.ClientPath));
+							Log($"[Sunucu Profili] {DataManager.CurrentProfile.DisplayName} devrede.");
 
 							// Lock Silkroad selection
 							Login_btnLauncher.Enabled = false;
@@ -2914,8 +2985,7 @@ namespace xBot.App
 				case "Skills_btnAddAttack":
 					{
 						if (Skills_lstvSkills.SelectedItems.Count > 0) {
-							ListView lstvAttackMobType = (ListView)Skills_cmbxAttackMobType.Tag;
-							if (lstvAttackMobType == null) lstvAttackMobType = Skills_lstvAttackMobType_General;
+							ListView lstvAttackMobType = Skills_cmbxAttackMobType.Tag as ListView ?? Skills_lstvAttackMobType_General;
 							bool itemUpdated = false;
 							foreach (ListViewItem item in Skills_lstvSkills.SelectedItems)
 							{
@@ -2923,8 +2993,7 @@ namespace xBot.App
 								{
 									SRSkill skill = (SRSkill)item.Tag;
 									if (skill != null && ImbuePolicy.IsChineseImbueSkill(skill.ServerName)) continue;
-									// DB eksikse (SKILL_UNKNOWN) siniflanamaz; eklemeye izin ver.
-									if (skill == null || skill.isAttackingSkill() || skill.IsDatabaseMissing())
+									if (skill == null || skill.isAttackingSkill() || skill.IsDatabaseMissing() || (!skill.isBuffSkill() && skill.MPUsage > 0))
 									{
 										ListViewItem copy = (ListViewItem)item.Clone();
 										copy.Name = item.Name;
@@ -2952,8 +3021,7 @@ namespace xBot.App
 				case "Skills_btnAddBuff":
 					{
 						if (Skills_lstvSkills.SelectedItems.Count > 0) {
-							ListView lstvBuffMobType = (ListView)Skills_cmbxBuffMobType.Tag;
-							if (lstvBuffMobType == null) lstvBuffMobType = Skills_lstvBuffMobType_General;
+							ListView lstvBuffMobType = Skills_cmbxBuffMobType.Tag as ListView ?? Skills_lstvBuffMobType_General;
 							bool itemUpdated = false;
 							foreach (ListViewItem item in Skills_lstvSkills.SelectedItems)
 							{
@@ -2961,8 +3029,7 @@ namespace xBot.App
 								{
 									SRSkill skill = (SRSkill)item.Tag;
 									if (skill != null && ImbuePolicy.IsChineseImbueSkill(skill.ServerName)) continue;
-									// DB eksikse (SKILL_UNKNOWN) siniflanamaz; eklemeye izin ver.
-									if (skill == null || skill.isBuffSkill() || skill.IsDatabaseMissing())
+									if (skill == null || skill.isBuffSkill() || skill.IsDatabaseMissing() || (skill.DurationMax > 0 && skill.MPUsage > 0))
 									{
 										ListViewItem copy = (ListViewItem)item.Clone();
 										copy.Name = item.Name;
@@ -2986,11 +3053,11 @@ namespace xBot.App
 					break;
 				case "Skills_btnRemBuff":
 					{
-						ListView lstvBuffMobType = (ListView)Skills_cmbxBuffMobType.Tag;
-						if (lstvBuffMobType == null) lstvBuffMobType = Skills_lstvBuffMobType_General;
-						if (lstvBuffMobType.SelectedItems.Count > 0)
+						ListView lstvBuffMobType = Skills_cmbxBuffMobType.Tag as ListView ?? Skills_lstvBuffMobType_General;
+						if (lstvBuffMobType != null && lstvBuffMobType.SelectedItems.Count > 0)
 						{
-							foreach (ListViewItem item in lstvBuffMobType.SelectedItems)
+							var itemsToRemove = new System.Collections.Generic.List<ListViewItem>(lstvBuffMobType.SelectedItems.Cast<ListViewItem>());
+							foreach (ListViewItem item in itemsToRemove)
 								item.Remove();
 							if(InfoManager.inGame)
 								Settings.SaveCharacterSettings();
@@ -2999,18 +3066,20 @@ namespace xBot.App
 					break;
 				case "Skills_btnRemAttack":
 					{
-						ListView lstvAttackMobType = (ListView)Skills_cmbxAttackMobType.Tag;
-						if (lstvAttackMobType.SelectedItems.Count > 0)
+						ListView lstvAttackMobType = Skills_cmbxAttackMobType.Tag as ListView ?? Skills_lstvAttackMobType_General;
+						if (lstvAttackMobType != null && lstvAttackMobType.SelectedItems.Count > 0)
 						{
-							foreach (ListViewItem item in lstvAttackMobType.SelectedItems)
+							var itemsToRemove = new System.Collections.Generic.List<ListViewItem>(lstvAttackMobType.SelectedItems.Cast<ListViewItem>());
+							foreach (ListViewItem item in itemsToRemove)
 								item.Remove();
+							InvalidateAttackSkillsCache();
 							if(InfoManager.inGame)
 								Settings.SaveCharacterSettings();
 						}
 					}
 					break;
 				case "Training_btnGetCoordinates":
-					if (InfoManager.inGame || InfoManager.Character != null)
+					if (InfoManager.Character != null)
 					{
 						if (Training_lstvAreas.SelectedItems.Count == 0 && Training_lstvAreas.Items.Count > 0)
 						{
@@ -3131,7 +3200,7 @@ namespace xBot.App
 					break;
 				case "GameInfo_btnRefresh":
 					GameInfo_tvwObjects.Nodes.Clear();
-					if (InfoManager.inGame)
+					if (InfoManager.inGame && InfoManager.Character != null)
 					{
 						// Pause drawing, possibly long data
 						GameInfo_tvwObjects.BeginUpdate();
@@ -3327,6 +3396,11 @@ namespace xBot.App
 						}
 					}
 					break;
+				}
+			}
+			catch (Exception ex)
+			{
+				Log("[UI Hata] " + ex.Message);
 			}
 		}
 		private void ListView_SelectedIndexChanged(object sender, EventArgs e)
@@ -3397,18 +3471,23 @@ namespace xBot.App
 				case "Skills_cmbxBuffMobType":
 					// Get the listview control related to the selection of this combobox and show it
 					string lstvName = c.Name.Replace("_cmbx","_lstv") + "_"+ c.Text;
-					Control lstvControl = c.Parent.Controls[lstvName];
-					lstvControl.Visible = true;
-					// Check if exists a visible listview control already to hide it
-					if (c.Tag != null)
+					Control lstvControl = c.Parent != null ? c.Parent.Controls[lstvName] : null;
+					if (lstvControl == null)
 					{
-						Control listview = (Control)c.Tag;
-						if (listview.Name == lstvName)
-							return;
-						listview.Visible = false;
+						var found = this.Controls.Find(lstvName, true);
+						if (found.Length > 0) lstvControl = found[0];
 					}
-					// Save the new listview control activated
-					c.Tag = lstvControl;
+					if (lstvControl != null)
+					{
+						lstvControl.Visible = true;
+						if (c.Tag is Control prevListView)
+						{
+							if (prevListView.Name == lstvName)
+								return;
+							prevListView.Visible = false;
+						}
+						c.Tag = lstvControl;
+					}
 					break;
 				case "Chat_cmbxMsgType":
                     // Activate the Private box on Private chat only
@@ -3638,7 +3717,7 @@ namespace xBot.App
 						if (ulong.TryParse(c.Text.Replace(".", ""),out gold))
 							c.ForeColor = GetGoldColor(gold);
 						else
-							c.ForeColor = Color.White;
+							c.ForeColor = Theme.AppTheme.Colors.Neutral.TextPrimary;
 					}
 					break;
 				case "Party_tbxJoinToNumber":
@@ -3840,7 +3919,7 @@ namespace xBot.App
 					}
 					break;
 				case "Menu_lstvItems_Drop":
-					if (InfoManager.inGame && Inventory_lstvItems.SelectedItems.Count == 1)
+					if (InfoManager.inGame && InfoManager.Character?.Inventory != null && Inventory_lstvItems.SelectedItems.Count == 1)
 					{
 						byte index = (byte)Inventory_lstvItems.SelectedIndices[0];
 						if (index >= 13)
@@ -3875,7 +3954,7 @@ namespace xBot.App
 					}
 					break;
 				case "Menu_lstvStorage_Take":
-					if (InfoManager.inStorage && Inventory_lstvStorageItems.SelectedItems.Count == 1)
+					if (InfoManager.inStorage && InfoManager.Character?.Storage != null && InfoManager.Character?.Inventory != null && Inventory_lstvStorageItems.SelectedItems.Count == 1)
 					{
 						int slotstorage = Inventory_lstvStorageItems.SelectedIndices[0];
 						if(InfoManager.Character.Storage[slotstorage] != null)

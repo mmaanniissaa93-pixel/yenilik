@@ -17,6 +17,7 @@ namespace xBot.App
     {
         private static bool _isManualWalking = false;
         private static volatile bool _walkCancelled = false;
+        private bool _trainingPositionHandlerAttached;
 
         private void LayoutPhBotInners2()
         {
@@ -96,7 +97,7 @@ namespace xBot.App
             {
                 b.Text = text;
                 b.Font = PhBotFont();
-                b.ForeColor = Color.Black;
+                b.ForeColor = Theme.AppTheme.TextPrimary;
                 b.BackColor = SystemColors.Control;
                 b.FlatStyle = FlatStyle.Standard;
                 b.UseVisualStyleBackColor = true;
@@ -151,10 +152,10 @@ namespace xBot.App
                     lv.Name = "PhBot_BuyList";
                     lv.View = View.Details;
                     lv.FullRowSelect = true;
-                    lv.GridLines = true;
+                    lv.GridLines = false;
                     lv.CheckBoxes = true;
-                    lv.BackColor = Color.White;
-                    lv.ForeColor = Color.Black;
+                    lv.BackColor = Theme.AppTheme.Surface;
+                    lv.ForeColor = Theme.AppTheme.TextPrimary;
                     lv.Font = PhBotFont();
                     try { lv.BorderStyle = BorderStyle.FixedSingle; } catch { }
                     lv.Columns.Add("", 34);
@@ -200,7 +201,7 @@ namespace xBot.App
                     search = new TextBox();
                     search.Name = "PhBot_BuySearch";
                     search.Font = PhBotFont();
-                    search.BackColor = Color.White;
+                    search.BackColor = Theme.AppTheme.Surface;
                     try { p.Controls.Add(search); } catch { }
                     search.KeyDown += (s, e) =>
                     {
@@ -338,7 +339,7 @@ namespace xBot.App
                 TextBox tbxRetry = p.Controls["PhBot_TownGuildRetryN"] as TextBox;
                 if (tbxRetry == null)
                 {
-                    tbxRetry = new TextBox { Name = "PhBot_TownGuildRetryN", Text = "3", Font = PhBotFont(), BackColor = Color.White, ForeColor = Color.Black };
+                    tbxRetry = new TextBox { Name = "PhBot_TownGuildRetryN", Text = "3", Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, ForeColor = Theme.AppTheme.TextPrimary };
                     p.Controls.Add(tbxRetry);
                 }
                 tbxRetry.Location = new Point(205, y);
@@ -367,7 +368,7 @@ namespace xBot.App
                 TextBox tbxRand = p.Controls["PhBot_TownRandWalkN"] as TextBox;
                 if (tbxRand == null)
                 {
-                    tbxRand = new TextBox { Name = "PhBot_TownRandWalkN", Text = "2", Font = PhBotFont(), BackColor = Color.White, ForeColor = Color.Black };
+                    tbxRand = new TextBox { Name = "PhBot_TownRandWalkN", Text = "2", Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, ForeColor = Theme.AppTheme.TextPrimary };
                     p.Controls.Add(tbxRand);
                 }
                 tbxRand.Location = new Point(205, y);
@@ -472,7 +473,7 @@ namespace xBot.App
                     lblPos = new Label();
                     lblPos.Name = "PhBot_TrainPosLbl";
                     lblPos.Font = PhBotFont();
-                    lblPos.ForeColor = Color.Black;
+                    lblPos.ForeColor = Theme.AppTheme.TextPrimary;
                     lblPos.AutoSize = true;
                     lblPos.Text = "0, 0";
                     try { p.Controls.Add(lblPos); } catch { }
@@ -489,7 +490,7 @@ namespace xBot.App
                 }
                 catch { }
 
-                // Sol buton 2: Pozisyonu Al (Get Position) -> Yeni kasılma alanı ekler ve bilgi mesajı gösterir
+                // Sol buton 2: Pozisyonu Al -> mevcut/aktif alanın konumunu günceller.
                 if (Training_btnGetCoordinates != null)
                 {
                     Training_btnGetCoordinates.Text = isTR ? "Pozisyonu Al" : "Get Position";
@@ -498,53 +499,28 @@ namespace xBot.App
                     Training_btnGetCoordinates.Size = new Size(96, 26);
                     Training_btnGetCoordinates.Visible = true;
 
-                    if (Training_btnGetCoordinates.Tag == null)
+                    // Tag is designer-owned metadata (font name), so do not use it as our
+                    // event-registration sentinel.
+                    if (!_trainingPositionHandlerAttached)
                     {
-                        Training_btnGetCoordinates.Tag = true;
+                        _trainingPositionHandlerAttached = true;
                         Training_btnGetCoordinates.Click += (s, e) => {
                             try
                             {
-                                SRCoord cur = null;
-                                try { cur = InfoManager.Character.GetRealtimePosition(); } catch { }
-                                if (cur == null) cur = new SRCoord(0, 0);
-
-                                string areaName = isTR ? "Yeni Kasılma Alanı" : "New Training Area";
-                                if (Training_lstvAreas.Items.ContainsKey(areaName))
+                                SRCoord cur = InfoManager.Character?.GetRealtimePosition();
+                                if (cur == null)
                                 {
-                                    int count = 2;
-                                    while (Training_lstvAreas.Items.ContainsKey(areaName + " " + count))
-                                        count++;
-                                    areaName = areaName + " " + count;
+                                    LogProcess(isTR ? "Pozisyon alınamadı; karakter oyun içinde değil." : "Could not read position; character is not in game.");
+                                    return;
                                 }
 
-                                var info = new TrainingAreaInfo(areaName, cur.Region, cur.X, cur.Y, cur.Z, 50, 50, "", isTR ? "Menzil" : "Radius");
-                                var item = new ListViewItem(info.Name);
-                                item.Name = info.Name;
-                                item.Tag = info;
-                                item.SubItems.Add("");
-                                item.SubItems.Add(info.Radius.ToString());
-                                item.SubItems.Add(info.PickRadius.ToString());
-                                item.SubItems.Add(info.Type);
-
-                                foreach (ListViewItem it in Training_lstvAreas.Items)
-                                    it.ForeColor = Training_lstvAreas.ForeColor;
-
-                                item.ForeColor = Color.FromArgb(0, 150, 0);
-                                Training_lstvAreas.Items.Add(item);
-                                Training_lstvAreas.Tag = item;
-                                Training_lstvAreas.SelectedItems.Clear();
-                                item.Selected = true;
-                                item.Focused = true;
-
+                                // Updates active/selected/first area. Creates an area only if the list is empty.
+                                if (Training_lstvAreas != null && Training_lstvAreas.SelectedItems.Count == 1)
+                                    Training_lstvAreas.Tag = Training_lstvAreas.SelectedItems[0];
+                                TrainingArea_SetFromCurrent(cur);
                                 if (lblPos != null)
                                     lblPos.Text = cur.X + ", " + cur.Y;
-
-                                MessageBox.Show(
-                                    isTR ? "Bir kasılma alanı bu konum için oluşturulmuştur. Daha fazla eklemek için, sadece sağ tıklayın ve Ekle deyin. Bu yol ile sonsuz kasılma alanları yaratabilirsiniz."
-                                         : "A training area has been created for this location. To add more, just right click and choose Add. You can create infinite training areas this way.",
-                                    isTR ? "Kasılma Alanı" : "Training Area",
-                                    MessageBoxButtons.OK,
-                                    MessageBoxIcon.Information);
+                                LogProcess(isTR ? "Mevcut kasılma alanının pozisyonu güncellendi." : "Current training area position updated.");
                             }
                             catch (Exception ex) { PhBotDebug("get coords error: " + ex.Message); }
                         };
@@ -789,7 +765,7 @@ namespace xBot.App
             {
                 Panel p = TabPageH_Training_Option02_Panel;
                 if (p == null) return;
-                p.BackColor = Color.White;
+                p.BackColor = Theme.AppTheme.Surface;
                 p.AutoScroll = false;
                 try { if (groupBox2 != null) groupBox2.Visible = false; } catch { }
                 try { if (Training_gbxRecord != null) Training_gbxRecord.Visible = false; } catch { }
@@ -832,14 +808,14 @@ namespace xBot.App
                 {
                     Name = "PhBot_TrScript_WalkDelayMs",
                     Font = PhBotFont(),
-                    BackColor = Color.White,
+                    BackColor = Theme.AppTheme.Surface,
                     Location = new Point(295, y - 2),
                     Size = new Size(65, 22),
                     Minimum = 0,
                     Maximum = 60000,
                     Value = Math.Max(0, Math.Min(60000, ReturnToAreaPolicy.ScriptWalkDelay > 0 ? ReturnToAreaPolicy.ScriptWalkDelay : 1000))
                 };
-                var lWalk = new Label { Text = "ms", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(365, y + 2) };
+                var lWalk = new Label { Text = "ms", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true, Location = new Point(365, y + 2) };
                 p.Controls.AddRange(new Control[] { nWalk, lWalk });
                 cWalk.CheckedChanged += (s, e) => { ReturnToAreaPolicy.EnableScriptWalkDelay = cWalk.Checked; Settings.SaveCharacterSettings(); };
                 nWalk.ValueChanged += (s, e) => { ReturnToAreaPolicy.ScriptWalkDelay = (int)nWalk.Value; Settings.SaveCharacterSettings(); };
@@ -852,14 +828,14 @@ namespace xBot.App
                 {
                     Name = "PhBot_TrScript_GoBackCoordSec",
                     Font = PhBotFont(),
-                    BackColor = Color.White,
+                    BackColor = Theme.AppTheme.Surface,
                     Location = new Point(295, y - 2),
                     Size = new Size(65, 22),
                     Minimum = 1,
                     Maximum = 3600,
                     Value = Math.Max(1, Math.Min(3600, ReturnToAreaPolicy.GoBackCoordSeconds > 0 ? ReturnToAreaPolicy.GoBackCoordSeconds : 15))
                 };
-                var lStuck = new Label { Text = "s", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(365, y + 2) };
+                var lStuck = new Label { Text = "s", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true, Location = new Point(365, y + 2) };
                 p.Controls.AddRange(new Control[] { nStuck, lStuck });
                 cStuck.CheckedChanged += (s, e) => { ReturnToAreaPolicy.GoBackCoordIfStuck = cStuck.Checked; Settings.SaveCharacterSettings(); };
                 nStuck.ValueChanged += (s, e) => { ReturnToAreaPolicy.GoBackCoordSeconds = (int)nStuck.Value; Settings.SaveCharacterSettings(); };
@@ -872,14 +848,14 @@ namespace xBot.App
                 {
                     Name = "PhBot_TrScript_ReturnIfStuckAfterSec",
                     Font = PhBotFont(),
-                    BackColor = Color.White,
+                    BackColor = Theme.AppTheme.Surface,
                     Location = new Point(295, y - 2),
                     Size = new Size(65, 22),
                     Minimum = 1,
                     Maximum = 3600,
                     Value = Math.Max(1, Math.Min(3600, ReturnToAreaPolicy.ReturnIfStuckSeconds > 0 ? ReturnToAreaPolicy.ReturnIfStuckSeconds : 90))
                 };
-                var lRetStuck = new Label { Text = "s", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(365, y + 2) };
+                var lRetStuck = new Label { Text = "s", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true, Location = new Point(365, y + 2) };
                 p.Controls.AddRange(new Control[] { nRetStuck, lRetStuck });
                 cRetStuck.CheckedChanged += (s, e) => { ReturnToAreaPolicy.ReturnIfStuckAfterSecondsEnabled = cRetStuck.Checked; Settings.SaveCharacterSettings(); };
                 nRetStuck.ValueChanged += (s, e) => { ReturnToAreaPolicy.ReturnIfStuckSeconds = (int)nRetStuck.Value; Settings.SaveCharacterSettings(); };
@@ -959,7 +935,7 @@ namespace xBot.App
             {
                 Panel p = TabPageH_Character_Option03_Panel;
                 if (p == null) return;
-                p.BackColor = Color.White;
+                p.BackColor = Theme.AppTheme.Surface;
                 p.AutoScroll = false;
                 try { if (gbxProtectionSkillPet != null) gbxProtectionSkillPet.Visible = false; } catch { }
                 try { if (gbxProtectionAutoStat != null) gbxProtectionAutoStat.Visible = false; } catch { }
@@ -975,8 +951,8 @@ namespace xBot.App
                     Name = "PhBot_ProtRet_GbxPotions",
                     Text = isTR ? "Pot / Envanter" : "Potions / Inventory",
                     Font = PhBotFont(),
-                    ForeColor = Color.Black,
-                    BackColor = Color.White,
+                    ForeColor = Theme.AppTheme.TextPrimary,
+                    BackColor = Theme.AppTheme.Surface,
                     Location = new Point(10, 8),
                     Size = new Size(185, 305)
                 };
@@ -984,7 +960,7 @@ namespace xBot.App
 
                 int py = 16;
                 var cHP = AddPhBotCheck(gbxPot, isTR ? "HP potu <=" : "HP potions <=", 10, py, ProtectionManager.ReturnHPLow);
-                var nHP = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(115, py - 2), Size = new Size(50, 22), Value = ProtectionManager.HPLowThreshold };
+                var nHP = new NumericUpDown { Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, Location = new Point(115, py - 2), Size = new Size(50, 22), Value = ProtectionManager.HPLowThreshold };
                 nHP.ValueChanged += (s, e) => { ProtectionManager.HPLowThreshold = (int)nHP.Value; Settings.SaveCharacterSettings(); };
                 cHP.CheckedChanged += (s, e) => { ProtectionManager.ReturnHPLow = cHP.Checked; Settings.SaveCharacterSettings(); };
                 gbxPot.Controls.Add(nHP);
@@ -1032,8 +1008,8 @@ namespace xBot.App
                     Name = "PhBot_ProtRet_GbxTime",
                     Text = isTR ? "Zaman" : "Time",
                     Font = PhBotFont(),
-                    ForeColor = Color.Black,
-                    BackColor = Color.White,
+                    ForeColor = Theme.AppTheme.TextPrimary,
+                    BackColor = Theme.AppTheme.Surface,
                     Location = new Point(202, 8),
                     Size = new Size(260, 305)
                 };
@@ -1041,15 +1017,15 @@ namespace xBot.App
 
                 int ty = 16;
                 var cNextHour = AddPhBotCheck(gbxTime, isTR ? "Bir sonraki saatte" : "Return before next hour", 10, ty, ProtectionManager.ReturnNextHourEnabled);
-                var nHour = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(165, ty - 2), Size = new Size(50, 22), Value = Math.Max(1, ProtectionManager.ReturnNextHourMinutes) };
+                var nHour = new NumericUpDown { Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, Location = new Point(165, ty - 2), Size = new Size(50, 22), Value = Math.Max(1, ProtectionManager.ReturnNextHourMinutes) };
                 cNextHour.CheckedChanged += (s, e) => { ProtectionManager.ReturnNextHourEnabled = cNextHour.Checked; Settings.SaveCharacterSettings(); };
                 nHour.ValueChanged += (s, e) => { ProtectionManager.ReturnNextHourMinutes = (int)nHour.Value; Settings.SaveCharacterSettings(); };
                 gbxTime.Controls.Add(nHour);
                 ty += 24;
 
                 var cEvery = AddPhBotCheck(gbxTime, isTR ? "Sürekli Işınlan" : "Return every", 10, ty, ProtectionManager.ReturnEveryEnabled);
-                var nEvery = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(115, ty - 2), Size = new Size(55, 22), Maximum = 99999, Value = Math.Max(1, ProtectionManager.ReturnEveryMinutes) };
-                var lEvery = new Label { Text = isTR ? "dakika" : "minutes", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(175, ty + 2) };
+                var nEvery = new NumericUpDown { Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, Location = new Point(115, ty - 2), Size = new Size(55, 22), Maximum = 99999, Value = Math.Max(1, ProtectionManager.ReturnEveryMinutes) };
+                var lEvery = new Label { Text = isTR ? "dakika" : "minutes", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true, Location = new Point(175, ty + 2) };
                 cEvery.CheckedChanged += (s, e) => { ProtectionManager.ReturnEveryEnabled = cEvery.Checked; Settings.SaveCharacterSettings(); };
                 nEvery.ValueChanged += (s, e) => { ProtectionManager.ReturnEveryMinutes = (int)nEvery.Value; Settings.SaveCharacterSettings(); };
                 gbxTime.Controls.AddRange(new Control[] { nEvery, lEvery });
@@ -1090,8 +1066,8 @@ namespace xBot.App
                 ty += 24;
 
                 var cRetDisc = AddPhBotCheck(gbxTime, isTR ? "Şehre dön/Bağla" : "Return/disconnect", 10, ty, ProtectionManager.ReturnDisconnectMinutesEnabled);
-                var nRetDisc = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(135, ty - 2), Size = new Size(48, 22), Maximum = 99999, Value = Math.Max(1, ProtectionManager.ReturnDisconnectMinutes) };
-                var lRetDisc = new Label { Text = isTR ? "dakika" : "minutes", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(188, ty + 2) };
+                var nRetDisc = new NumericUpDown { Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, Location = new Point(135, ty - 2), Size = new Size(48, 22), Maximum = 99999, Value = Math.Max(1, ProtectionManager.ReturnDisconnectMinutes) };
+                var lRetDisc = new Label { Text = isTR ? "dakika" : "minutes", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true, Location = new Point(188, ty + 2) };
                 cRetDisc.CheckedChanged += (s, e) => { ProtectionManager.ReturnDisconnectMinutesEnabled = cRetDisc.Checked; Settings.SaveCharacterSettings(); };
                 nRetDisc.ValueChanged += (s, e) => { ProtectionManager.ReturnDisconnectMinutes = (int)nRetDisc.Value; Settings.SaveCharacterSettings(); };
                 gbxTime.Controls.AddRange(new Control[] { nRetDisc, lRetDisc });
@@ -1103,24 +1079,24 @@ namespace xBot.App
                 var cPty = AddPhBotCheck(gbxTime, isTR ? "Parti üyesi <" : "Return if less than", 10, ty, false);
                 cPty.AutoSize = false;
                 cPty.Size = new Size(115, 20);
-                var nPty = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(130, ty - 2), Size = new Size(42, 22), Value = 0 };
-                var lPty = new Label { Text = isTR ? "oyuncudan azsa" : "players in party", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(176, ty + 2) };
+                var nPty = new NumericUpDown { Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, Location = new Point(130, ty - 2), Size = new Size(42, 22), Value = 0 };
+                var lPty = new Label { Text = isTR ? "oyuncudan azsa" : "players in party", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true, Location = new Point(176, ty + 2) };
                 gbxTime.Controls.AddRange(new Control[] { nPty, lPty });
                 ty += 24;
 
                 var cDisc = AddPhBotCheck(gbxTime, isTR ? "Bağlantıyı kes her" : "Disconnect every", 10, ty, false);
                 cDisc.AutoSize = false;
                 cDisc.Size = new Size(130, 20);
-                var nDisc = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(145, ty - 2), Size = new Size(48, 22), Maximum = 99999, Value = 300 };
-                var lDisc = new Label { Text = isTR ? "dakika" : "minutes", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(198, ty + 2) };
+                var nDisc = new NumericUpDown { Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, Location = new Point(145, ty - 2), Size = new Size(48, 22), Maximum = 99999, Value = 300 };
+                var lDisc = new Label { Text = isTR ? "dakika" : "minutes", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true, Location = new Point(198, ty + 2) };
                 gbxTime.Controls.AddRange(new Control[] { nDisc, lDisc });
                 ty += 24;
 
                 var cReset = AddPhBotCheck(gbxTime, isTR ? "Süre sıfırla (VTC)" : "Reset play time (VTC)", 10, ty, false);
                 cReset.AutoSize = false;
                 cReset.Size = new Size(125, 20);
-                var nReset = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(140, ty - 2), Size = new Size(45, 22), Value = 50 };
-                var lReset = new Label { Text = isTR ? "EXP Oranı %" : "EXP %", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(190, ty + 2) };
+                var nReset = new NumericUpDown { Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, Location = new Point(140, ty - 2), Size = new Size(45, 22), Value = 50 };
+                var lReset = new Label { Text = isTR ? "EXP Oranı %" : "EXP %", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true, Location = new Point(190, ty + 2) };
                 gbxTime.Controls.AddRange(new Control[] { nReset, lReset });
 
                 // 3. Kasılma
@@ -1129,8 +1105,8 @@ namespace xBot.App
                     Name = "PhBot_ProtRet_GbxTraining",
                     Text = isTR ? "Kasılma" : "Training",
                     Font = PhBotFont(),
-                    ForeColor = Color.Black,
-                    BackColor = Color.White,
+                    ForeColor = Theme.AppTheme.TextPrimary,
+                    BackColor = Theme.AppTheme.Surface,
                     Location = new Point(470, 8),
                     Size = new Size(270, 305)
                 };
@@ -1142,8 +1118,8 @@ namespace xBot.App
                 ry += 22;
 
                 AddPhBotCheck(gbxTr, isTR ? "Diriltilmediyse" : "Not resurrected", 10, ry, false);
-                var nRess = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(125, ry - 2), Size = new Size(45, 22), Value = 1 };
-                var lRess = new Label { Text = isTR ? "dakika" : "minutes", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(175, ry + 2) };
+                var nRess = new NumericUpDown { Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, Location = new Point(125, ry - 2), Size = new Size(45, 22), Value = 1 };
+                var lRess = new Label { Text = isTR ? "dakika" : "minutes", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true, Location = new Point(175, ry + 2) };
                 gbxTr.Controls.AddRange(new Control[] { nRess, lRess });
                 ry += 22;
 
@@ -1153,14 +1129,14 @@ namespace xBot.App
                 ry += 32;
 
                 AddPhBotCheck(gbxTr, isTR ? "Diriltme kağıdı" : "Resurrection scroll", 10, ry, false);
-                var nRessSc = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(125, ry - 2), Size = new Size(45, 22), Value = 60 };
-                var lRessSc = new Label { Text = isTR ? "saniye" : "seconds", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(175, ry + 2) };
+                var nRessSc = new NumericUpDown { Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, Location = new Point(125, ry - 2), Size = new Size(45, 22), Value = 60 };
+                var lRessSc = new Label { Text = isTR ? "saniye" : "seconds", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true, Location = new Point(175, ry + 2) };
                 gbxTr.Controls.AddRange(new Control[] { nRessSc, lRessSc });
                 ry += 22;
 
                 AddPhBotCheck(gbxTr, isTR ? "Saldırılmadıysa" : "Not attacked", 10, ry, false);
-                var nNotAtt = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(125, ry - 2), Size = new Size(45, 22), Value = 10 };
-                var lNotAtt = new Label { Text = isTR ? "dakika" : "minutes", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(175, ry + 2) };
+                var nNotAtt = new NumericUpDown { Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, Location = new Point(125, ry - 2), Size = new Size(45, 22), Value = 10 };
+                var lNotAtt = new Label { Text = isTR ? "dakika" : "minutes", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true, Location = new Point(175, ry + 2) };
                 gbxTr.Controls.AddRange(new Control[] { nNotAtt, lNotAtt });
                 ry += 22;
 
@@ -1193,7 +1169,7 @@ namespace xBot.App
             {
                 Panel p = TabPageH_Character_Option04_Panel;
                 if (p == null) return;
-                p.BackColor = Color.White;
+                p.BackColor = Theme.AppTheme.Surface;
                 p.AutoScroll = false;
                 try { if (Character_cbxPVPModeUseShield != null) Character_cbxPVPModeUseShield.Visible = false; } catch { }
                 try { if (Character_cbxPVPMode != null) Character_cbxPVPMode.Visible = false; } catch { }
@@ -1211,7 +1187,7 @@ namespace xBot.App
                 int y = 14;
                 var cDie = AddPhBotCheck(p, isTR ? "Ölünce botu durdur >" : "Stop bot when you die >", 20, y, false);
                 cDie.Name = "PhBot_ProtMisc_DieStop";
-                var nDie = new NumericUpDown { Font = PhBotFont(), BackColor = Color.White, Location = new Point(isTR ? 175 : 205, y - 2), Size = new Size(50, 22), Value = 0 };
+                var nDie = new NumericUpDown { Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, Location = new Point(isTR ? 175 : 205, y - 2), Size = new Size(50, 22), Value = 0 };
                 p.Controls.Add(nDie);
                 y += 24;
 
@@ -1284,7 +1260,7 @@ namespace xBot.App
                     {
                         Party_cbxShowFGWInvites.Text = "Show Forgotten World summons";
                         Party_cbxShowFGWInvites.Font = PhBotFont();
-                        Party_cbxShowFGWInvites.ForeColor = Color.Black;
+                        Party_cbxShowFGWInvites.ForeColor = Theme.AppTheme.TextPrimary;
                         Party_cbxShowFGWInvites.AutoSize = true;
                         Party_cbxShowFGWInvites.Location = new Point(8, Math.Max(110, H - 28));
                         Party_cbxShowFGWInvites.Visible = true;
@@ -1316,7 +1292,7 @@ namespace xBot.App
                 GroupBox gbAccept = p.Controls["PhBot_PartyGbAccept"] as GroupBox;
                 if (gbAccept == null)
                 {
-                    gbAccept = new GroupBox { Name = "PhBot_PartyGbAccept", Text = "Accept / Invite", Font = PhBotFont(), ForeColor = Color.Black };
+                    gbAccept = new GroupBox { Name = "PhBot_PartyGbAccept", Text = "Accept / Invite", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary };
                     p.Controls.Add(gbAccept);
                 }
                 gbAccept.Location = new Point(8, 8);
@@ -1330,11 +1306,11 @@ namespace xBot.App
                     pnlAcceptRadios = new Panel { Name = "PhBot_PartyPnlAcceptRadios", BackColor = Color.Transparent, BorderStyle = BorderStyle.None, Location = new Point(10, 18), Size = new Size(leftW - 20, 44) };
                     gbAccept.Controls.Add(pnlAcceptRadios);
 
-                    var rbAcceptAll = new RadioButton { Name = "PhBot_PartyRbAcceptAll", Text = "Accept all party invites", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(0, 0), FlatStyle = FlatStyle.Standard, UseVisualStyleBackColor = true };
-                    var rbAcceptList = new RadioButton { Name = "PhBot_PartyRbAcceptList", Text = "Accept party invites from list", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(0, 22), FlatStyle = FlatStyle.Standard, UseVisualStyleBackColor = true };
-                    var lblDelay = new Label { Name = "PhBot_PartyDelayLbl", Text = "Accept delay", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(180, 2) };
-                    var tbxDelay = new TextBox { Name = "PhBot_PartyDelay", Text = "0", Font = PhBotFont(), Size = new Size(30, 20), Location = new Point(255, 0), BackColor = Color.White, ForeColor = Color.Black };
-                    var lblSec = new Label { Name = "PhBot_PartySecLbl", Text = "s", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(290, 2) };
+                    var rbAcceptAll = new RadioButton { Name = "PhBot_PartyRbAcceptAll", Text = "Accept all party invites", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true, Location = new Point(0, 0), FlatStyle = FlatStyle.Standard, UseVisualStyleBackColor = true };
+                    var rbAcceptList = new RadioButton { Name = "PhBot_PartyRbAcceptList", Text = "Accept party invites from list", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true, Location = new Point(0, 22), FlatStyle = FlatStyle.Standard, UseVisualStyleBackColor = true };
+                    var lblDelay = new Label { Name = "PhBot_PartyDelayLbl", Text = "Accept delay", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true, Location = new Point(180, 2) };
+                    var tbxDelay = new TextBox { Name = "PhBot_PartyDelay", Text = "0", Font = PhBotFont(), Size = new Size(30, 20), Location = new Point(255, 0), BackColor = Theme.AppTheme.Surface, ForeColor = Theme.AppTheme.TextPrimary };
+                    var lblSec = new Label { Name = "PhBot_PartySecLbl", Text = "s", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true, Location = new Point(290, 2) };
 
                     rbAcceptAll.CheckedChanged += (s, e) => {
                         if (Party_cbxAcceptAll != null) Party_cbxAcceptAll.Checked = rbAcceptAll.Checked;
@@ -1360,8 +1336,8 @@ namespace xBot.App
                     pnlInviteRadios = new Panel { Name = "PhBot_PartyPnlInviteRadios", BackColor = Color.Transparent, BorderStyle = BorderStyle.None, Location = new Point(10, 66), Size = new Size(leftW - 20, 44) };
                     gbAccept.Controls.Add(pnlInviteRadios);
 
-                    var rbInviteAll = new RadioButton { Name = "PhBot_PartyRbInviteAll", Text = "Invite all players", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(0, 0), FlatStyle = FlatStyle.Standard, UseVisualStyleBackColor = true };
-                    var rbInviteList = new RadioButton { Name = "PhBot_PartyRbInviteList", Text = "Invite only from the list", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(0, 22), FlatStyle = FlatStyle.Standard, UseVisualStyleBackColor = true };
+                    var rbInviteAll = new RadioButton { Name = "PhBot_PartyRbInviteAll", Text = "Invite all players", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true, Location = new Point(0, 0), FlatStyle = FlatStyle.Standard, UseVisualStyleBackColor = true };
+                    var rbInviteList = new RadioButton { Name = "PhBot_PartyRbInviteList", Text = "Invite only from the list", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true, Location = new Point(0, 22), FlatStyle = FlatStyle.Standard, UseVisualStyleBackColor = true };
 
                     rbInviteAll.CheckedChanged += (s, e) => {
                         if (Party_cbxInviteAll != null) Party_cbxInviteAll.Checked = rbInviteAll.Checked;
@@ -1384,8 +1360,8 @@ namespace xBot.App
                     pnlLeaveRadios = new Panel { Name = "PhBot_PartyPnlLeaveRadios", BackColor = Color.Transparent, BorderStyle = BorderStyle.None, Location = new Point(10, 114), Size = new Size(leftW - 20, 44) };
                     gbAccept.Controls.Add(pnlLeaveRadios);
 
-                    var rbLeaveNotList = new RadioButton { Name = "PhBot_PartyRbLeaveNotList", Text = "Leave if leader is not in the list", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(0, 0), FlatStyle = FlatStyle.Standard, UseVisualStyleBackColor = true };
-                    var rbLeaveInArea = new RadioButton { Name = "PhBot_PartyRbLeaveInArea", Text = "Leave if leader is in the training area", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, Location = new Point(0, 22), FlatStyle = FlatStyle.Standard, UseVisualStyleBackColor = true };
+                    var rbLeaveNotList = new RadioButton { Name = "PhBot_PartyRbLeaveNotList", Text = "Leave if leader is not in the list", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true, Location = new Point(0, 0), FlatStyle = FlatStyle.Standard, UseVisualStyleBackColor = true };
+                    var rbLeaveInArea = new RadioButton { Name = "PhBot_PartyRbLeaveInArea", Text = "Leave if leader is in the training area", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true, Location = new Point(0, 22), FlatStyle = FlatStyle.Standard, UseVisualStyleBackColor = true };
 
                     rbLeaveNotList.CheckedChanged += (s, e) => {
                         if (Party_cbxLeavePartyNoneLeader != null) Party_cbxLeavePartyNoneLeader.Checked = rbLeaveNotList.Checked;
@@ -1440,7 +1416,7 @@ namespace xBot.App
                 GroupBox gbLeader = p.Controls["PhBot_PartyGbLeader"] as GroupBox;
                 if (gbLeader == null)
                 {
-                    gbLeader = new GroupBox { Name = "PhBot_PartyGbLeader", Text = "Party Leader List", Font = PhBotFont(), ForeColor = Color.Black };
+                    gbLeader = new GroupBox { Name = "PhBot_PartyGbLeader", Text = "Party Leader List", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary };
                     p.Controls.Add(gbLeader);
                 }
                 gbLeader.Location = new Point(leftW + 14, 8);
@@ -1499,7 +1475,7 @@ namespace xBot.App
                 GroupBox gbInvite = p.Controls["PhBot_PartyGbInvite"] as GroupBox;
                 if (gbInvite == null)
                 {
-                    gbInvite = new GroupBox { Name = "PhBot_PartyGbInvite", Text = "Accept / Invite List (Regex)", Font = PhBotFont(), ForeColor = Color.Black };
+                    gbInvite = new GroupBox { Name = "PhBot_PartyGbInvite", Text = "Accept / Invite List (Regex)", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary };
                     p.Controls.Add(gbInvite);
                 }
                 gbInvite.Location = new Point(rightX, 8);
@@ -1585,7 +1561,7 @@ namespace xBot.App
                 TextBox tbxTitle = p.Controls["PhBot_MatchTitle"] as TextBox;
                 if (tbxTitle == null)
                 {
-                    tbxTitle = new TextBox { Name = "PhBot_MatchTitle", Font = PhBotFont(), BackColor = Color.White, ForeColor = Color.Black };
+                    tbxTitle = new TextBox { Name = "PhBot_MatchTitle", Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, ForeColor = Theme.AppTheme.TextPrimary };
                     p.Controls.Add(tbxTitle);
                 }
                 tbxTitle.Location = new Point(55, 14);
@@ -1597,7 +1573,7 @@ namespace xBot.App
                 TextBox tbxLvlMin = p.Controls["PhBot_MatchLvlMin"] as TextBox;
                 if (tbxLvlMin == null)
                 {
-                    tbxLvlMin = new TextBox { Name = "PhBot_MatchLvlMin", Text = "1", Font = PhBotFont(), BackColor = Color.White, ForeColor = Color.Black };
+                    tbxLvlMin = new TextBox { Name = "PhBot_MatchLvlMin", Text = "1", Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, ForeColor = Theme.AppTheme.TextPrimary };
                     p.Controls.Add(tbxLvlMin);
                 }
                 tbxLvlMin.Location = new Point(55, 46);
@@ -1608,7 +1584,7 @@ namespace xBot.App
                 TextBox tbxLvlMax = p.Controls["PhBot_MatchLvlMax"] as TextBox;
                 if (tbxLvlMax == null)
                 {
-                    tbxLvlMax = new TextBox { Name = "PhBot_MatchLvlMax", Text = "140", Font = PhBotFont(), BackColor = Color.White, ForeColor = Color.Black };
+                    tbxLvlMax = new TextBox { Name = "PhBot_MatchLvlMax", Text = "140", Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, ForeColor = Theme.AppTheme.TextPrimary };
                     p.Controls.Add(tbxLvlMax);
                 }
                 tbxLvlMax.Location = new Point(195, 46);
@@ -1632,7 +1608,7 @@ namespace xBot.App
                 {
                     Party_lblJoinToNumber.Text = "Join party #";
                     Party_lblJoinToNumber.Font = PhBotFont();
-                    Party_lblJoinToNumber.ForeColor = Color.Black;
+                    Party_lblJoinToNumber.ForeColor = Theme.AppTheme.TextPrimary;
                     Party_lblJoinToNumber.Location = new Point(14, 134);
                     Party_lblJoinToNumber.AutoSize = true;
                     Party_lblJoinToNumber.Visible = true;
@@ -1640,8 +1616,8 @@ namespace xBot.App
                 if (Party_tbxJoinToNumber != null)
                 {
                     Party_tbxJoinToNumber.Font = PhBotFont();
-                    Party_tbxJoinToNumber.BackColor = Color.White;
-                    Party_tbxJoinToNumber.ForeColor = Color.Black;
+                    Party_tbxJoinToNumber.BackColor = Theme.AppTheme.Surface;
+                    Party_tbxJoinToNumber.ForeColor = Theme.AppTheme.TextPrimary;
                     Party_tbxJoinToNumber.Location = new Point(130, 132);
                     Party_tbxJoinToNumber.Size = new Size(105, 22);
                     Party_tbxJoinToNumber.Visible = true;
@@ -1660,7 +1636,7 @@ namespace xBot.App
                 TextBox tbxJoinName = p.Controls["PhBot_JoinByNameTbx"] as TextBox;
                 if (tbxJoinName == null)
                 {
-                    tbxJoinName = new TextBox { Name = "PhBot_JoinByNameTbx", Font = PhBotFont(), BackColor = Color.White, ForeColor = Color.Black };
+                    tbxJoinName = new TextBox { Name = "PhBot_JoinByNameTbx", Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, ForeColor = Theme.AppTheme.TextPrimary };
                     p.Controls.Add(tbxJoinName);
                 }
                 tbxJoinName.Location = new Point(130, 176);
@@ -1672,7 +1648,7 @@ namespace xBot.App
                 TextBox tbxJoinTitle = p.Controls["PhBot_JoinByTitleTbx"] as TextBox;
                 if (tbxJoinTitle == null)
                 {
-                    tbxJoinTitle = new TextBox { Name = "PhBot_JoinByTitleTbx", Font = PhBotFont(), BackColor = Color.White, ForeColor = Color.Black };
+                    tbxJoinTitle = new TextBox { Name = "PhBot_JoinByTitleTbx", Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, ForeColor = Theme.AppTheme.TextPrimary };
                     p.Controls.Add(tbxJoinTitle);
                 }
                 tbxJoinTitle.Location = new Point(130, 216);
@@ -1746,7 +1722,7 @@ namespace xBot.App
                 GroupBox gbSettings = p.Controls["PhBot_TaxiGbSettings"] as GroupBox;
                 if (gbSettings == null)
                 {
-                    gbSettings = new GroupBox { Name = "PhBot_TaxiGbSettings", Text = "Settings", Font = PhBotFont(), ForeColor = Color.Black };
+                    gbSettings = new GroupBox { Name = "PhBot_TaxiGbSettings", Text = "Settings", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary };
                     p.Controls.Add(gbSettings);
                 }
                 gbSettings.Location = new Point(8, 8);
@@ -1758,7 +1734,7 @@ namespace xBot.App
                 TextBox tbxCost = gbSettings.Controls["PhBot_TaxiCost"] as TextBox;
                 if (tbxCost == null)
                 {
-                    tbxCost = new TextBox { Name = "PhBot_TaxiCost", Text = "1000000", Font = PhBotFont(), BackColor = Color.White, ForeColor = Color.Black };
+                    tbxCost = new TextBox { Name = "PhBot_TaxiCost", Text = "1000000", Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, ForeColor = Theme.AppTheme.TextPrimary };
                     gbSettings.Controls.Add(tbxCost);
                 }
                 tbxCost.Location = new Point(95, 22);
@@ -1775,7 +1751,7 @@ namespace xBot.App
                 TextBox tbxBlKicksN = gbSettings.Controls["PhBot_TaxiBlKicksN"] as TextBox;
                 if (tbxBlKicksN == null)
                 {
-                    tbxBlKicksN = new TextBox { Name = "PhBot_TaxiBlKicksN", Text = "1", Font = PhBotFont(), BackColor = Color.White, ForeColor = Color.Black };
+                    tbxBlKicksN = new TextBox { Name = "PhBot_TaxiBlKicksN", Text = "1", Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, ForeColor = Theme.AppTheme.TextPrimary };
                     gbSettings.Controls.Add(tbxBlKicksN);
                 }
                 tbxBlKicksN.Location = new Point(125, 112);
@@ -1788,7 +1764,7 @@ namespace xBot.App
                 TextBox tbxBlAdd = gbSettings.Controls["PhBot_TaxiBlAdd"] as TextBox;
                 if (tbxBlAdd == null)
                 {
-                    tbxBlAdd = new TextBox { Name = "PhBot_TaxiBlAdd", Font = PhBotFont(), BackColor = Color.White, ForeColor = Color.Black };
+                    tbxBlAdd = new TextBox { Name = "PhBot_TaxiBlAdd", Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, ForeColor = Theme.AppTheme.TextPrimary };
                     gbSettings.Controls.Add(tbxBlAdd);
                 }
                 tbxBlAdd.Location = new Point(12, 172);
@@ -1845,7 +1821,7 @@ namespace xBot.App
                 GroupBox gbMessages = p.Controls["PhBot_TaxiGbMessages"] as GroupBox;
                 if (gbMessages == null)
                 {
-                    gbMessages = new GroupBox { Name = "PhBot_TaxiGbMessages", Text = "Messages", Font = PhBotFont(), ForeColor = Color.Black };
+                    gbMessages = new GroupBox { Name = "PhBot_TaxiGbMessages", Text = "Messages", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary };
                     p.Controls.Add(gbMessages);
                 }
                 gbMessages.Location = new Point(rightX, 8);
@@ -1857,7 +1833,7 @@ namespace xBot.App
                 TextBox tbxExMsg = gbMessages.Controls["PhBot_TaxiExMsg"] as TextBox;
                 if (tbxExMsg == null)
                 {
-                    tbxExMsg = new TextBox { Name = "PhBot_TaxiExMsg", Text = "Please exchange me and pay %0 gold for the taxi.", Font = PhBotFont(), BackColor = Color.White, ForeColor = Color.Black };
+                    tbxExMsg = new TextBox { Name = "PhBot_TaxiExMsg", Text = "Please exchange me and pay %0 gold for the taxi.", Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, ForeColor = Theme.AppTheme.TextPrimary };
                     gbMessages.Controls.Add(tbxExMsg);
                 }
                 tbxExMsg.Location = new Point(12, 48);
@@ -1869,7 +1845,7 @@ namespace xBot.App
                 TextBox tbxKickMsg = gbMessages.Controls["PhBot_TaxiKickMsg"] as TextBox;
                 if (tbxKickMsg == null)
                 {
-                    tbxKickMsg = new TextBox { Name = "PhBot_TaxiKickMsg", Text = "You have %0 minutes to do so and then you will be kicked.", Font = PhBotFont(), BackColor = Color.White, ForeColor = Color.Black };
+                    tbxKickMsg = new TextBox { Name = "PhBot_TaxiKickMsg", Text = "You have %0 minutes to do so and then you will be kicked.", Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, ForeColor = Theme.AppTheme.TextPrimary };
                     gbMessages.Controls.Add(tbxKickMsg);
                 }
                 tbxKickMsg.Location = new Point(12, 108);
@@ -1881,7 +1857,7 @@ namespace xBot.App
                 TextBox tbxDelay = gbMessages.Controls["PhBot_TaxiDelay"] as TextBox;
                 if (tbxDelay == null)
                 {
-                    tbxDelay = new TextBox { Name = "PhBot_TaxiDelay", Text = "5", Font = PhBotFont(), BackColor = Color.White, ForeColor = Color.Black };
+                    tbxDelay = new TextBox { Name = "PhBot_TaxiDelay", Text = "5", Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, ForeColor = Theme.AppTheme.TextPrimary };
                     gbMessages.Controls.Add(tbxDelay);
                 }
                 tbxDelay.Location = new Point(12, 168);
@@ -1902,7 +1878,7 @@ namespace xBot.App
             }
             if (text != null) c.Text = text;
             c.Font = PhBotFont();
-            c.ForeColor = Color.Black;
+            c.ForeColor = Theme.AppTheme.TextPrimary;
             if (c is ButtonBase bb)
             {
                 bb.FlatStyle = FlatStyle.Standard;
@@ -1919,7 +1895,7 @@ namespace xBot.App
             CheckBox cb = parent.Controls[name] as CheckBox;
             if (cb == null)
             {
-                cb = new CheckBox { Name = name, Text = text, Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true, FlatStyle = FlatStyle.Standard, UseVisualStyleBackColor = true };
+                cb = new CheckBox { Name = name, Text = text, Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true, FlatStyle = FlatStyle.Standard, UseVisualStyleBackColor = true };
                 parent.Controls.Add(cb);
             }
             cb.Text = text;

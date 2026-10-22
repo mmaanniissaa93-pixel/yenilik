@@ -184,6 +184,7 @@ namespace xBot.App
 			UpdatePotionCooldownIntervals();
 			Window w = Window.Get;
 			w.Log("You has been joined to the game");
+			w.Log("[INFO] Karakter oyuna bağlandı. Güvenli yükleme süresi (5 sn) bekleniyor...", LogLevel.Info);
 			w.LogChatMessage(w.Chat_rtbxAll, "(Welcome)", DataManager.GetUIFormat("UIIT_STT_STARTING_MSG").Replace("\\n", "\n"));
 
 			if (!Proxy.ClientlessMode)
@@ -230,7 +231,6 @@ namespace xBot.App
 			tJoinedLoop.Elapsed += new ElapsedEventHandler(this.OnLoop);
 			JoinedLoopCounter = 0;
 			tJoinedLoop.Start();
-			try { StartPetLooting(); } catch { }
 		}
 		/// <summary>
 		/// Event loop.
@@ -248,8 +248,18 @@ namespace xBot.App
 			// Update header stats (LVL/HP/MP labels) every 5 iterations
 			if (JoinedLoopCounter % 5 == 0)
 				w.UpdateHeaderStats();
+			// Grace period: İlk 5 saniye (dünya ve spawnlar oturana kadar) paket basma
+			bool isGracePeriod = !InfoManager.inGame || InfoManager.inTeleport
+				|| (InfoManager.JoinedGameUtc != DateTime.MinValue && (DateTime.UtcNow - InfoManager.JoinedGameUtc).TotalSeconds < 5.0)
+				|| (InfoManager.LastTeleportUtc != DateTime.MinValue && (DateTime.UtcNow - InfoManager.LastTeleportUtc).TotalSeconds < 5.0);
+
+			if (JoinedLoopCounter == 25)
+			{
+				w.Log("[INFO] Oyun dünyası ve spawnlar yüklendi, koruma ve kontroller devrede.", LogLevel.Success);
+			}
+
 			// Run all protection checks from one throttled, serialized tick.
-			if (JoinedLoopCounter % 5 == 0)
+			if (JoinedLoopCounter % 5 == 0 && !isGracePeriod)
 			{
 				try { StartPetLooting(); } catch { }
 				ProtectionManager.RunTick();

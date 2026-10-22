@@ -25,6 +25,7 @@ namespace xBot.Game
 		public bool inTeleport { get; set; }
 		public bool inGame { get; set; }
 		public DateTime JoinedGameUtc { get; set; } = DateTime.MinValue;
+		public DateTime LastTeleportUtc { get; set; } = DateTime.MinValue;
 		public uint SelectedEntityUniqueID { get; set; }
 		public uint LastNpcTalkEntityUniqueID { get; set; }
 		public byte LastNpcTalkID { get; set; }
@@ -130,6 +131,7 @@ namespace xBot.Game
 			inGame = false;
 			inTeleport = false;
 			JoinedGameUtc = DateTime.MinValue;
+			LastTeleportUtc = DateTime.MinValue;
 			SelectedEntityUniqueID = 0;
 			LastNpcTalkEntityUniqueID = 0;
 			LastNpcTalkID = 0;

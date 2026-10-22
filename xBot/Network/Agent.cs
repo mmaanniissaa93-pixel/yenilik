@@ -6,6 +6,7 @@ using xBot.App;
 using xBot.App.Theme;
 using xBot.Game;
 using xBot.Game.Objects.Common;
+using xBot.Game.Profiles;
 
 namespace xBot.Network
 {
@@ -362,7 +363,7 @@ namespace xBot.Network
 					break;
 				case Opcode.CLIENT_INVENTORY_ITEM_USE:
 					{
-						// Gercek clientin gonderdigi kullanim: slot+usage ogren (Sevar custom TID uyumu)
+						// Gercek clientin gonderdigi kullanim: slot+usage ogren (Sevar custom TID ve Silkroad-R 32-bit uyumu)
 						// + bot timer/blackout senkronu (cooldown yarisini engelle). Relay bozulmaz.
 						try
 						{
@@ -370,9 +371,20 @@ namespace xBot.Network
 							if (rawUse != null && rawUse.Length >= 3)
 							{
 								byte useSlot = rawUse[0];
-								ushort useUsage = (ushort)(rawUse[1] | (rawUse[2] << 8));
-								Bot.Get.NotifyExternalItemUse(useSlot, useUsage);
-								System.Diagnostics.Debug.WriteLine($"[Item] Client kullanimi: slot={useSlot} ({Packet.ToStringHexadecimal(rawUse)}) ({rawUse.Length}B)");
+								bool is32Bit = ServerProfileManager.CurrentProfile.Uses32BitItemUsage || rawUse.Length >= 5;
+								uint useUsage = (is32Bit && rawUse.Length >= 5)
+									? (uint)(rawUse[1] | (rawUse[2] << 8) | (rawUse[3] << 16) | (rawUse[4] << 24))
+									: (uint)(rawUse[1] | (rawUse[2] << 8));
+								Bot.Get.NotifyExternalItemUse(useSlot, (ushort)useUsage);
+								if (InfoManager.Character?.Inventory != null && useSlot < InfoManager.Character.Inventory.Capacity)
+								{
+									var it = InfoManager.Character.Inventory[useSlot];
+									if (it != null)
+									{
+										PacketBuilder.LearnItemUsage(it.ID, useUsage);
+									}
+								}
+								System.Diagnostics.Debug.WriteLine($"[Item] Client kullanimi: slot={useSlot} usage=0x{useUsage:X8} ({Packet.ToStringHexadecimal(rawUse)}) ({rawUse.Length}B)");
 							}
 						}
 						catch (Exception ex)

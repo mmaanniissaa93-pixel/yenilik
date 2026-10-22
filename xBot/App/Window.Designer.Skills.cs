@@ -251,7 +251,7 @@ namespace xBot.App
             this.Skills_cmbxAttackMobType.Name = "Skills_cmbxAttackMobType";
             this.Skills_cmbxAttackMobType.Size = new System.Drawing.Size(134, 24);
             this.Skills_cmbxAttackMobType.TabIndex = 31;
-            this.Skills_cmbxAttackMobType.Tag = "Source Sans Pro";
+            this.Skills_cmbxAttackMobType.Tag = null;
             this.Skills_cmbxAttackMobType.SelectedIndexChanged += new System.EventHandler(this.ComboBox_SelectedIndexChanged);
             // 
             // Skills_lstvAttackMobType_General
@@ -642,7 +642,7 @@ namespace xBot.App
             this.Skills_cmbxBuffMobType.Name = "Skills_cmbxBuffMobType";
             this.Skills_cmbxBuffMobType.Size = new System.Drawing.Size(134, 24);
             this.Skills_cmbxBuffMobType.TabIndex = 47;
-            this.Skills_cmbxBuffMobType.Tag = "Source Sans Pro";
+            this.Skills_cmbxBuffMobType.Tag = null;
             this.Skills_cmbxBuffMobType.SelectedIndexChanged += new System.EventHandler(this.ComboBox_SelectedIndexChanged);
             // 
             // Skills_lstvBuffMobType_General

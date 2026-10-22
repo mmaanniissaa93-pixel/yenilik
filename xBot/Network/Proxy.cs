@@ -205,8 +205,8 @@ namespace xBot.Network
 					//	sro_client.PriorityClass = ProcessPriorityClass.AboveNormal;
 
 					int dummy = 0;
-					w.Log("Waiting for client connection [" + Gateway.Local.Socket.LocalEndPoint.ToString() + "]");
-					w.LogProcess("Waiting client connection...", Window.ProcessState.Warning);
+					w.Log("Client login ekraninda bekleniyor. Oyun penceresinden giris yapip Connect'e basin. Yerel baglanti: [" + Gateway.Local.Socket.LocalEndPoint.ToString() + "]");
+					w.LogProcess("Client login bekleniyor; oyundan giris yapin.", Window.ProcessState.Warning);
 					// Wait 2min. Infinity attempts
 					ProxyReconnection(120, ref dummy, int.MaxValue);
 					Gateway.Local.Socket = Gateway.Local.Socket.Accept();
@@ -287,6 +287,7 @@ namespace xBot.Network
 						}
 					}
 					// Logic event processing
+					bool traceOn = ModernLogger.EnablePacketTrace;
 					foreach (Context context in gws)
 					{
 						List<Packet> packets = context.Security.TransferIncoming();
@@ -294,6 +295,18 @@ namespace xBot.Network
 						{
 							foreach (Packet packet in packets)
 							{
+								didWork = true;
+								{
+									byte[] bytes = packet.GetBytes();
+									string hex = "";
+									if (traceOn)
+									{
+										hex = Utility.HexDump(bytes).Replace("\r", "").Replace("\n", " ").Trim();
+										if (hex.Length > 80) hex = hex.Substring(0, 80) + "...";
+									}
+									ModernLogger.TracePacket(context == Gateway.Remote ? "GW S->C" : "GW C->S", packet.Opcode, bytes.Length, hex);
+								}
+
 								// Show all incoming packets on analizer
 								if (context == Gateway.Remote && gwShowServer)
 								{
@@ -449,6 +462,15 @@ namespace xBot.Network
 
 									byte[] packet_bytes = packet.GetBytes();
 									didWork = true;
+									{
+										string hex = "";
+										if (traceOn)
+										{
+											hex = Utility.HexDump(packet_bytes).Replace("\r", "").Replace("\n", " ").Trim();
+											if (hex.Length > 80) hex = hex.Substring(0, 80) + "...";
+										}
+										ModernLogger.TracePacket(context == Gateway.Remote ? "GW C->S (Send)" : "GW S->C (Send)", packet.Opcode, packet_bytes.Length, hex);
+									}
 									// Show outcoming packets on analizer
 									if (context == Gateway.Remote && gwShowClient)
 									{
@@ -491,7 +513,8 @@ namespace xBot.Network
 				{
 					w.LogPacket("[G] Error: " + ex.ToString());
 					w.Log("[Gateway Error] " + ex.Message);
-					Stop();
+					// Do NOT terminate sro_client process on gateway disconnect/error!
+					Stop(false);
 				}
 			}
 		}
@@ -711,7 +734,7 @@ namespace xBot.Network
 			{
 				w.LogPacket("[A] Error: " + ex.Message + Environment.NewLine);
 				w.Log("[Agent Error] " + ex.Message);
-				Stop();
+				Stop(false);
 			}
 		}
 		private void DumpDisconnectDiagnostic(Window w, string reason)
@@ -804,7 +827,7 @@ namespace xBot.Network
 					}
 					if (refCurrentAttempts < refMaxAttempts)
 					{
-						Reset();
+						Reset(false);
 						Start();
 						CurrentAttemptReconnections = refCurrentAttempts + 1;
 					}
@@ -920,18 +943,21 @@ namespace xBot.Network
 				}
 			}
 		}
-		private void Reset()
+		private void Reset(bool terminateClient = false)
 		{
 			isRunning = false;
 			StopPingHandler();
-			CloseClient();
+			if (terminateClient)
+			{
+				CloseClient();
+			}
 			CloseGateway();
 			CloseAgent();
 		}
-		public void Stop()
+		public void Stop(bool terminateClient = false)
 		{
 			ProxyReconnectionStop();
-			Reset();
+			Reset(terminateClient);
 			UiNotifier.NotifyProxyState(false);
 			Window w = Window.Get;
 			if (w != null && !w.IsDisposed)

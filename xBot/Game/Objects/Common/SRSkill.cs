@@ -17,6 +17,8 @@ namespace xBot.Game.Objects.Common
         public uint Cooldown { get; set; }
         public uint DurationMax { get; set; }
         public int CastingTime { get; set; }
+        /// <summary>Raw client Action_Range value; game distance is ActionRange / 10.</summary>
+        public int ActionRange { get; set; }
         public uint MPUsage { get; set; }
         public bool isTargetRequired { get; }
         public byte Level { get; set; }
@@ -47,13 +49,15 @@ namespace xBot.Game.Objects.Common
             if (data != null)
             {
                 ServerName = data["servername"] ?? "";
-                Name = data["name"] ?? ServerName;
+                string rawName = data["name"];
+                Name = !string.IsNullOrWhiteSpace(rawName) ? rawName : ServerName;
                 uint u; int itmp; byte b;
                 GroupID = uint.TryParse(data["group_id"], out u) ? u : 0;
                 GroupName = data["group_name"] ?? "";
                 Cooldown = uint.TryParse(data["cooldown"], out u) ? u : 0;
                 DurationMax = uint.TryParse(data["duration"], out u) ? u : 0;
                 CastingTime = int.TryParse(data["casttime"], out itmp) ? itmp : 0;
+                ActionRange = int.TryParse(data["action_range"], out itmp) ? itmp : 0;
                 MPUsage = uint.TryParse(data["mana"], out u) ? u : 0;
                 isTargetRequired = data["target_required"] == "1";
                 Level = byte.TryParse(data["level"], out b) ? b : (byte)0;
@@ -87,6 +91,7 @@ namespace xBot.Game.Objects.Common
                 Cooldown = 0;
                 DurationMax = 0;
                 CastingTime = 0;
+                ActionRange = 0;
                 MPUsage = 0;
                 isTargetRequired = false;
                 Level = 0;
@@ -110,6 +115,7 @@ namespace xBot.Game.Objects.Common
                 Cooldown = 0;
                 DurationMax = 0;
                 CastingTime = 0;
+                ActionRange = 0;
                 MPUsage = 0;
                 isTargetRequired = false;
                 Level = 0;
@@ -127,6 +133,7 @@ namespace xBot.Game.Objects.Common
             Cooldown = uint.TryParse(data["cooldown"], out u) ? u : 0;
             DurationMax = uint.TryParse(data["duration"], out u) ? u : 0;
             CastingTime = int.TryParse(data["casttime"], out itmp) ? itmp : 0;
+            ActionRange = int.TryParse(data["action_range"], out itmp) ? itmp : 0;
             MPUsage = uint.TryParse(data["mana"], out u) ? u : 0;
             isTargetRequired = data["target_required"] == "1";
             Level = byte.TryParse(data["level"], out b) ? b : (byte)0;

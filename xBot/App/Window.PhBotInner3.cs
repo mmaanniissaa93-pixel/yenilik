@@ -102,7 +102,7 @@ namespace xBot.App
                     {
                         Players_lblPlayerCount.Text = "Players (" + (Players_tvwPlayers != null ? Players_tvwPlayers.Nodes.Count : 0) + ")";
                         Players_lblPlayerCount.Font = PhBotFont();
-                        Players_lblPlayerCount.ForeColor = Color.Black;
+                        Players_lblPlayerCount.ForeColor = Theme.AppTheme.TextPrimary;
                         Players_lblPlayerCount.Location = new Point(8, 8);
                         Players_lblPlayerCount.AutoSize = true;
                         Players_lblPlayerCount.Visible = true;
@@ -187,8 +187,8 @@ namespace xBot.App
                         Name = "PhBot_TraceGroupBox",
                         Text = "Trace",
                         Font = PhBotFont(),
-                        ForeColor = Color.Black,
-                        BackColor = Color.White
+                        ForeColor = Theme.AppTheme.TextPrimary,
+                        BackColor = Theme.AppTheme.Surface
                     };
                     p.Controls.Add(gbTrace);
                 }
@@ -206,7 +206,7 @@ namespace xBot.App
                         Name = "PhBot_TraceName",
                         Font = PhBotFont(),
                         DropDownStyle = ComboBoxStyle.DropDownList,
-                        BackColor = Color.White
+                        BackColor = Theme.AppTheme.Surface
                     };
                     cbTrace.Items.Add("None");
                     cbTrace.SelectedIndex = 0;
@@ -265,7 +265,7 @@ namespace xBot.App
             {
                 b.Text = text;
                 b.Font = PhBotFont();
-                b.ForeColor = Color.Black;
+                b.ForeColor = Theme.AppTheme.TextPrimary;
                 b.BackColor = SystemColors.Control;
                 b.FlatStyle = FlatStyle.Standard;
                 b.UseVisualStyleBackColor = true;
@@ -416,7 +416,7 @@ namespace xBot.App
                     gbxInvite.Name = "PhBot_GuildInviteGbx";
                     gbxInvite.Text = "Invite";
                     gbxInvite.Font = PhBotFont();
-                    gbxInvite.ForeColor = Color.Black;
+                    gbxInvite.ForeColor = Theme.AppTheme.TextPrimary;
                     try { p.Controls.Add(gbxInvite); } catch { }
                 }
                 gbxInvite.SetBounds(8, by, 420, 115);
@@ -479,7 +479,7 @@ namespace xBot.App
                     tabs.TabPages.Add(new TabPage("Matching"));
                     foreach (TabPage pg0 in tabs.TabPages)
                     {
-                        try { pg0.BackColor = Color.White; pg0.AutoScroll = false; } catch { }
+                        try { pg0.BackColor = Theme.AppTheme.Surface; pg0.AutoScroll = false; } catch { }
                     }
                     // Mevcut içeriği ilk sayfaya taşı.
                     var kids = new List<Control>();
@@ -502,7 +502,7 @@ namespace xBot.App
                 if (lv == null)
                 {
                     main.Controls.Clear();
-                    main.BackColor = Color.White;
+                    main.BackColor = Theme.AppTheme.Surface;
                     lv = NewPhBotListView(8, 8, W - 16, H - 48, "Name|180", "Level|65", "Position|120", "Type|100", "Online|80");
                     lv.Name = "PhBot_AcMembers";
                     lv.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
@@ -548,7 +548,7 @@ namespace xBot.App
             if (tp == null || tp.Controls.Count > 0) return;
             try
             {
-                tp.BackColor = Color.White;
+                tp.BackColor = Theme.AppTheme.Surface;
                 tp.AutoScroll = false;
                 int W = tp.Width, H = tp.Height;
                 int gbH = Math.Max(290, Math.Min(305, H - 20));
@@ -561,8 +561,8 @@ namespace xBot.App
                     Location = new Point(8, 8),
                     Size = new Size(310, gbH),
                     Font = PhBotFont(),
-                    ForeColor = Color.Black,
-                    BackColor = Color.White
+                    ForeColor = Theme.AppTheme.TextPrimary,
+                    BackColor = Theme.AppTheme.Surface
                 };
                 tp.Controls.Add(gbOpt);
 
@@ -584,12 +584,12 @@ namespace xBot.App
                 DisableNotImplemented(PhBotTodoCheck(gbOpt, "PhBot_AcRefuse", "Refuse invites from players not in the list", 12, y, false)); y += 26;
 
                 PhBotLabel(gbOpt, "PhBot_AcGradLevelLbl", "Graduate level", 12, y + 4);
-                TextBox tbGrad = new TextBox { Name = "PhBot_AcGradLevel", Text = "40", Location = new Point(120, y), Size = new Size(50, 22), Font = PhBotFont(), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+                TextBox tbGrad = new TextBox { Name = "PhBot_AcGradLevel", Text = "40", Location = new Point(120, y), Size = new Size(50, 22), Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, BorderStyle = BorderStyle.FixedSingle };
                 DisableNotImplemented(tbGrad);
                 gbOpt.Controls.Add(tbGrad); y += 26;
 
                 DisableNotImplemented(PhBotTodoCheck(gbOpt, "PhBot_AcPassCheck", "Password", 12, y + 2, false));
-                TextBox tbPass = new TextBox { Name = "PhBot_AcPass", Location = new Point(120, y), Size = new Size(130, 22), Font = PhBotFont(), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+                TextBox tbPass = new TextBox { Name = "PhBot_AcPass", Location = new Point(120, y), Size = new Size(130, 22), Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, BorderStyle = BorderStyle.FixedSingle };
                 DisableNotImplemented(tbPass);
                 gbOpt.Controls.Add(tbPass);
 
@@ -601,8 +601,8 @@ namespace xBot.App
                     Location = new Point(326, 8),
                     Size = new Size(240, gbH),
                     Font = PhBotFont(),
-                    ForeColor = Color.Black,
-                    BackColor = Color.White
+                    ForeColor = Theme.AppTheme.TextPrimary,
+                    BackColor = Theme.AppTheme.Surface
                 };
                 tp.Controls.Add(gbList);
 
@@ -613,7 +613,7 @@ namespace xBot.App
                     Size = new Size(175, gbH - 35),
                     Font = PhBotFont(),
                     BorderStyle = BorderStyle.FixedSingle,
-                    BackColor = Color.White
+                    BackColor = Theme.AppTheme.Surface
                 };
                 gbList.Controls.Add(lbx);
 
@@ -630,11 +630,11 @@ namespace xBot.App
             if (tp == null || tp.Controls.Count > 0) return;
             try
             {
-                tp.BackColor = Color.White;
+                tp.BackColor = Theme.AppTheme.Surface;
                 int y = 12;
 
                 PhBotLabel(tp, "PhBot_AcTitleLbl", "Title", 12, y + 4);
-                TextBox tbTitle = new TextBox { Name = "PhBot_AcMatchTitle", Text = "Academy", Location = new Point(65, y), Size = new Size(295, 22), Font = PhBotFont(), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+                TextBox tbTitle = new TextBox { Name = "PhBot_AcMatchTitle", Text = "Academy", Location = new Point(65, y), Size = new Size(295, 22), Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, BorderStyle = BorderStyle.FixedSingle };
                 tp.Controls.Add(tbTitle); y += 32;
 
                 DisableNotImplemented(PhBotTodoCheck(tp, "PhBot_AcAutoForm", "Auto form academy matching", 12, y, false)); y += 26;
@@ -647,17 +647,17 @@ namespace xBot.App
                 PhBotButton(tp, "PhBot_AcViewMatch", "View Matching", 12, y, 145); y += 36;
 
                 PhBotLabel(tp, "PhBot_AcJoinLbl", "Join academy #", 12, y + 4);
-                TextBox tbJoin = new TextBox { Name = "PhBot_AcJoinNum", Location = new Point(125, y), Size = new Size(80, 22), Font = PhBotFont(), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+                TextBox tbJoin = new TextBox { Name = "PhBot_AcJoinNum", Location = new Point(125, y), Size = new Size(80, 22), Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, BorderStyle = BorderStyle.FixedSingle };
                 tp.Controls.Add(tbJoin);
                 PhBotButton(tp, "PhBot_AcJoinBtn", "Join", 215, y - 1, 75); y += 32;
 
                 DisableNotImplemented(PhBotTodoCheck(tp, "PhBot_AcJoinNameCheck", "Join by name", 12, y + 2, false));
-                TextBox tbName = new TextBox { Name = "PhBot_AcJoinName", Location = new Point(125, y), Size = new Size(165, 22), Font = PhBotFont(), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+                TextBox tbName = new TextBox { Name = "PhBot_AcJoinName", Location = new Point(125, y), Size = new Size(165, 22), Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, BorderStyle = BorderStyle.FixedSingle };
                 DisableNotImplemented(tbName);
                 tp.Controls.Add(tbName); y += 32;
 
                 DisableNotImplemented(PhBotTodoCheck(tp, "PhBot_AcJoinTitleCheck", "Join by title", 12, y + 2, false));
-                TextBox tbTitleMatch = new TextBox { Name = "PhBot_AcJoinTitle", Location = new Point(125, y), Size = new Size(235, 22), Font = PhBotFont(), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+                TextBox tbTitleMatch = new TextBox { Name = "PhBot_AcJoinTitle", Location = new Point(125, y), Size = new Size(235, 22), Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, BorderStyle = BorderStyle.FixedSingle };
                 DisableNotImplemented(tbTitleMatch);
                 tp.Controls.Add(tbTitleMatch);
             }
@@ -764,14 +764,14 @@ namespace xBot.App
                         Name = "PhBot_UnionPartyGroup",
                         Text = "Union Party",
                         Font = PhBotFont(),
-                        ForeColor = Color.Black,
-                        BackColor = Color.White
+                        ForeColor = Theme.AppTheme.TextPrimary,
+                        BackColor = Theme.AppTheme.Surface
                     };
                     host.Controls.Add(gbUnion);
 
-                    Panel p1 = new Panel { Name = "PhBot_UnionP1", BorderStyle = BorderStyle.FixedSingle, BackColor = Color.White };
-                    Panel p2 = new Panel { Name = "PhBot_UnionP2", BorderStyle = BorderStyle.FixedSingle, BackColor = Color.White };
-                    Panel p3 = new Panel { Name = "PhBot_UnionP3", BorderStyle = BorderStyle.FixedSingle, BackColor = Color.White };
+                    Panel p1 = new Panel { Name = "PhBot_UnionP1", BorderStyle = BorderStyle.FixedSingle, BackColor = Theme.AppTheme.Surface };
+                    Panel p2 = new Panel { Name = "PhBot_UnionP2", BorderStyle = BorderStyle.FixedSingle, BackColor = Theme.AppTheme.Surface };
+                    Panel p3 = new Panel { Name = "PhBot_UnionP3", BorderStyle = BorderStyle.FixedSingle, BackColor = Theme.AppTheme.Surface };
                     gbUnion.Controls.Add(p1);
                     gbUnion.Controls.Add(p2);
                     gbUnion.Controls.Add(p3);
@@ -796,8 +796,8 @@ namespace xBot.App
                         Name = "PhBot_UnionOptGroup",
                         Text = "Options",
                         Font = PhBotFont(),
-                        ForeColor = Color.Black,
-                        BackColor = Color.White
+                        ForeColor = Theme.AppTheme.TextPrimary,
+                        BackColor = Theme.AppTheme.Surface
                     };
                     host.Controls.Add(gbOpt);
 
@@ -836,12 +836,12 @@ namespace xBot.App
                         Name = "PhBot_UnionInvGroup",
                         Text = "Invite",
                         Font = PhBotFont(),
-                        ForeColor = Color.Black,
-                        BackColor = Color.White
+                        ForeColor = Theme.AppTheme.TextPrimary,
+                        BackColor = Theme.AppTheme.Surface
                     };
                     host.Controls.Add(gbInv);
 
-                    ListBox lbxInv = new ListBox { Name = "PhBot_UnionLbxInv", BorderStyle = BorderStyle.FixedSingle, BackColor = Color.White, Font = PhBotFont() };
+                    ListBox lbxInv = new ListBox { Name = "PhBot_UnionLbxInv", BorderStyle = BorderStyle.FixedSingle, BackColor = Theme.AppTheme.Surface, Font = PhBotFont() };
                     Button btnInvA = new Button { Name = "PhBot_UnionBtnInvA", Text = "A", Size = new Size(26, 24), Font = PhBotFont() };
                     Button btnInvR = new Button { Name = "PhBot_UnionBtnInvR", Text = "R", Size = new Size(26, 24), Font = PhBotFont() };
                     gbInv.Controls.Add(lbxInv);
@@ -869,12 +869,12 @@ namespace xBot.App
                         Name = "PhBot_UnionAccGroup",
                         Text = "Accept",
                         Font = PhBotFont(),
-                        ForeColor = Color.Black,
-                        BackColor = Color.White
+                        ForeColor = Theme.AppTheme.TextPrimary,
+                        BackColor = Theme.AppTheme.Surface
                     };
                     host.Controls.Add(gbAcc);
 
-                    ListBox lbxAcc = new ListBox { Name = "PhBot_UnionLbxAcc", BorderStyle = BorderStyle.FixedSingle, BackColor = Color.White, Font = PhBotFont() };
+                    ListBox lbxAcc = new ListBox { Name = "PhBot_UnionLbxAcc", BorderStyle = BorderStyle.FixedSingle, BackColor = Theme.AppTheme.Surface, Font = PhBotFont() };
                     Button btnAccA = new Button { Name = "PhBot_UnionBtnAccA", Text = "A", Size = new Size(26, 24), Font = PhBotFont() };
                     Button btnAccR = new Button { Name = "PhBot_UnionBtnAccR", Text = "R", Size = new Size(26, 24), Font = PhBotFont() };
                     gbAcc.Controls.Add(lbxAcc);
@@ -1008,7 +1008,7 @@ namespace xBot.App
                 Panel p = TabPageH_Stall_Option02_Panel;
                 if (p == null) return;
                 p.AutoScroll = false;
-                p.BackColor = Color.White;
+                p.BackColor = Theme.AppTheme.Surface;
                 int W = p.Width;
                 if (W < 200) return;
 
@@ -1154,7 +1154,7 @@ namespace xBot.App
                 Panel pg = FindHTabPanel(host, "TabPageH_Stall_Option", "Inventory");
                 if (pg == null) return;
                 pg.AutoScroll = false;
-                pg.BackColor = Color.White;
+                pg.BackColor = Theme.AppTheme.Surface;
                 int sW = pg.Width, sH = pg.Height;
                 if (sW < 300 || sH < 200) return;
 
@@ -1197,7 +1197,7 @@ namespace xBot.App
                 Panel pg = FindHTabPanel(host, "TabPageH_Stall_Option", "Filter");
                 if (pg == null) return;
                 pg.AutoScroll = false;
-                pg.BackColor = Color.White;
+                pg.BackColor = Theme.AppTheme.Surface;
                 int fW = pg.Width, fH = pg.Height;
                 if (fW < 300 || fH < 200) return;
 

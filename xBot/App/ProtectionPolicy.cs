@@ -33,6 +33,8 @@ namespace xBot.App
         public bool OutOfPetFeed { get; set; }
         public bool OutOfPetAbnormalPill { get; set; }
         public bool OutOfTransportRecoveryKits { get; set; }
+        public bool DiedStopTriggered { get; set; }
+        public int SessionDiedCount { get; set; }
     }
 
     public sealed class ProtectionPolicyOptions
@@ -52,6 +54,8 @@ namespace xBot.App
         public bool ReturnOutOfPetFeed { get; set; }
         public bool ReturnOutOfPetAbnormalPill { get; set; }
         public bool ReturnOutOfTransportRecoveryKits { get; set; }
+        public bool DiedStop { get; set; }
+        public int DiedStopCount { get; set; } = 3;
     }
 
     public static class ProtectionPolicy
@@ -88,7 +92,7 @@ namespace xBot.App
                 return ProtectionDecision.None;
             }
 
-            if (input.IsInTown && input.StopAfterReturn)
+            if (input.IsInTown && (input.StopAfterReturn || input.DiedStopTriggered || (options.DiedStop && input.SessionDiedCount >= options.DiedStopCount)))
                 return ProtectionDecision.StopBotInTown;
 
             if (HasReturnTrigger(input, options) && input.HasReturnScroll && options.UseReturnScrolls)

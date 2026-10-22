@@ -40,6 +40,7 @@ namespace xBot.App
         {
             InitializeComponent();
             LoadAccounts();
+            Theme.ThemeManager.Apply(this);
         }
 
         private void InitializeComponent()
@@ -53,6 +54,9 @@ namespace xBot.App
             this.BackColor = DarkTheme.BgDark;
             this.ForeColor = DarkTheme.TextPrimary;
             this.Font = DarkTheme.FontBody;
+            this.AutoScaleDimensions = new SizeF(96f, 96f);
+            this.AutoScaleMode = AutoScaleMode.Dpi;
+            this.DoubleBuffered = true;
 
             // Title and Subtitle
             lblTitle = new Label
@@ -60,7 +64,7 @@ namespace xBot.App
                 Text = LocalizationManager.Get("UI_Acc_Title", "Account Setup"),
                 Location = new Point(24, 16),
                 AutoSize = true,
-                Font = new Font("Segoe UI", 16F, FontStyle.Bold, GraphicsUnit.Pixel),
+                Font = DarkTheme.GetFont(12f, FontStyle.Bold),
                 ForeColor = DarkTheme.TextPrimary
             };
 
@@ -69,7 +73,7 @@ namespace xBot.App
                 Text = LocalizationManager.Get("UI_Acc_Subtitle", "Manage saved accounts and character login credentials."),
                 Location = new Point(25, 42),
                 AutoSize = true,
-                Font = new Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Pixel),
+                Font = DarkTheme.GetFont(9f, FontStyle.Regular),
                 ForeColor = DarkTheme.TextMuted
             };
 
@@ -80,6 +84,7 @@ namespace xBot.App
                 Size = new Size(340, 320),
                 BackColor = DarkTheme.BgCard
             };
+            AttachCardBorder(pnlLeftCard);
 
             lblUsername = new Label
             {
@@ -163,9 +168,9 @@ namespace xBot.App
             {
                 Text = LocalizationManager.Get("UI_Acc_AddUpdate", "Add / Update"),
                 Location = new Point(18, 198),
-                Size = new Size(120, 32),
+                Size = new Size(170, 32),
                 BackColor = DarkTheme.Accent,
-                ForeColor = Color.White,
+                ForeColor = DarkTheme.TextInverse,
                 Font = DarkTheme.FontBodyBold,
                 FlatStyle = FlatStyle.Flat,
                 Cursor = Cursors.Hand
@@ -178,7 +183,7 @@ namespace xBot.App
                 Text = "0 account(s) loaded.",
                 Location = new Point(18, 246),
                 AutoSize = true,
-                Font = new Font("Segoe UI", 11F, FontStyle.Italic, GraphicsUnit.Pixel),
+                Font = DarkTheme.GetFont(8.25f, FontStyle.Italic),
                 ForeColor = DarkTheme.TextFaint
             };
 
@@ -200,6 +205,7 @@ namespace xBot.App
                 Size = new Size(356, 320),
                 BackColor = DarkTheme.BgCard
             };
+            AttachCardBorder(pnlRightCard);
 
             lstvAccounts = new ListView
             {
@@ -209,7 +215,7 @@ namespace xBot.App
                 FullRowSelect = true,
                 MultiSelect = false,
                 BorderStyle = BorderStyle.FixedSingle,
-                BackColor = DarkTheme.BgDark,
+                BackColor = DarkTheme.BgCard,
                 ForeColor = DarkTheme.TextPrimary,
                 Font = DarkTheme.FontBody,
                 HeaderStyle = ColumnHeaderStyle.Nonclickable
@@ -222,10 +228,10 @@ namespace xBot.App
             {
                 Text = LocalizationManager.Get("UI_Acc_Remove", "Remove Selected"),
                 Location = new Point(14, 260),
-                Size = new Size(130, 28),
+                Size = new Size(146, 30),
                 BackColor = DarkTheme.BgInput,
                 ForeColor = DarkTheme.TextSecondary,
-                Font = DarkTheme.FontCaption,
+                Font = DarkTheme.FontBody,
                 FlatStyle = FlatStyle.Flat,
                 Cursor = Cursors.Hand
             };
@@ -240,9 +246,11 @@ namespace xBot.App
             lblStatus = new Label
             {
                 Text = string.Empty,
-                Location = new Point(24, 412),
-                AutoSize = true,
-                Font = new Font("Segoe UI", 11F, FontStyle.Italic, GraphicsUnit.Pixel),
+                Location = new Point(24, 410),
+                Size = new Size(600, 20),
+                AutoSize = false,
+                AutoEllipsis = true,
+                Font = DarkTheme.GetFont(8.25f, FontStyle.Italic),
                 ForeColor = DarkTheme.TextMuted
             };
 
@@ -252,7 +260,7 @@ namespace xBot.App
                 Location = new Point(646, 404),
                 Size = new Size(90, 32),
                 BackColor = DarkTheme.Accent,
-                ForeColor = Color.White,
+                ForeColor = DarkTheme.TextInverse,
                 Font = DarkTheme.FontBodyBold,
                 FlatStyle = FlatStyle.Flat,
                 DialogResult = DialogResult.OK,
@@ -271,6 +279,17 @@ namespace xBot.App
             this.Controls.Add(pnlRightCard);
             this.Controls.Add(lblStatus);
             this.Controls.Add(btnOK);
+        }
+
+        private static void AttachCardBorder(Panel card)
+        {
+            card.Paint += (s, e) =>
+            {
+                using (Pen p = new Pen(DarkTheme.BorderSubtle, 1))
+                {
+                    e.Graphics.DrawRectangle(p, 0, 0, card.Width - 1, card.Height - 1);
+                }
+            };
         }
 
         private void LoadAccounts()

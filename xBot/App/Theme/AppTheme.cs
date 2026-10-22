@@ -1,9 +1,17 @@
 using System;
 using System.Drawing;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
 namespace xBot.App.Theme
 {
+    public enum ThemeMode
+    {
+        Light,
+        Dark
+    }
+
     /// <summary>
     /// Centralized UI design system for xBot WinForms desktop application.
     /// Calm, professional, low-visual-noise, nearly monochrome desktop palette.
@@ -12,6 +20,28 @@ namespace xBot.App.Theme
     /// </summary>
     public static class AppTheme
     {
+        private static ThemeMode _mode = ThemeMode.Light;
+
+        public static ThemeMode Mode
+        {
+            get { return _mode; }
+        }
+
+        public static bool IsDark
+        {
+            get { return _mode == ThemeMode.Dark; }
+        }
+
+        public static event Action ThemeChanged;
+
+        public static void SetMode(ThemeMode mode)
+        {
+            if (_mode == mode) return;
+            _mode = mode;
+            Action handler = ThemeChanged;
+            if (handler != null) handler();
+        }
+
         // =============================================================
         // 1. Colors (95% Neutral, 5% Semantic State)
         // =============================================================
@@ -20,37 +50,37 @@ namespace xBot.App.Theme
             public static class Neutral
             {
                 // Canvas & Surfaces
-                public static readonly Color Canvas           = Color.FromArgb(243, 244, 245); // #F3F4F5 - Main form background
-                public static readonly Color Surface          = Color.FromArgb(255, 255, 255); // #FFFFFF - Main workspace & cards
-                public static readonly Color SurfaceSecondary = Color.FromArgb(248, 248, 248); // #F8F8F8 - Secondary controls & panel surface
-                public static readonly Color SurfaceHover     = Color.FromArgb(242, 242, 242); // #F2F2F2 - Subtle neutral hover
-                public static readonly Color SurfaceSelected  = Color.FromArgb(236, 237, 239); // #ECEDEF - Selected navigation item / row
-                public static readonly Color SurfacePressed   = Color.FromArgb(228, 229, 231); // #E4E5E7 - Mouse-down active surface
+                public static Color Canvas           { get { return IsDark ? DarkPalette.Canvas : LightPalette.Canvas; } }
+                public static Color Surface          { get { return IsDark ? DarkPalette.Surface : LightPalette.Surface; } }
+                public static Color SurfaceSecondary { get { return IsDark ? DarkPalette.SurfaceSecondary : LightPalette.SurfaceSecondary; } }
+                public static Color SurfaceHover     { get { return IsDark ? DarkPalette.SurfaceHover : LightPalette.SurfaceHover; } }
+                public static Color SurfaceSelected  { get { return IsDark ? DarkPalette.SurfaceSelected : LightPalette.SurfaceSelected; } }
+                public static Color SurfacePressed   { get { return IsDark ? DarkPalette.SurfacePressed : LightPalette.SurfacePressed; } }
 
                 // Borders & Dividers
-                public static readonly Color BorderDefault    = Color.FromArgb(214, 216, 220); // #D6D8DC - Standard 1px control & panel border
-                public static readonly Color BorderStrong     = Color.FromArgb(174, 180, 188); // #AEB4BC - Prominent idle button & container border
-                public static readonly Color BorderSubtle     = Color.FromArgb(229, 230, 232); // #E5E6E8 - Subtle inner hairline dividers
-                public static readonly Color BorderHover      = Color.FromArgb(188, 193, 199); // #BCC1C7 - Hovered control border
-                public static readonly Color BorderFocus      = Color.FromArgb(139, 145, 153); // #8B9199 - Focused control border
-                public static readonly Color SelectionIndicator = Color.FromArgb(107, 112, 120); // #6B7078 - Sidebar active indicator pill
+                public static Color BorderDefault    { get { return IsDark ? DarkPalette.BorderDefault : LightPalette.BorderDefault; } }
+                public static Color BorderStrong     { get { return IsDark ? DarkPalette.BorderStrong : LightPalette.BorderStrong; } }
+                public static Color BorderSubtle     { get { return IsDark ? DarkPalette.BorderSubtle : LightPalette.BorderSubtle; } }
+                public static Color BorderHover      { get { return IsDark ? DarkPalette.BorderHover : LightPalette.BorderHover; } }
+                public static Color BorderFocus      { get { return IsDark ? DarkPalette.BorderFocus : LightPalette.BorderFocus; } }
+                public static Color SelectionIndicator { get { return IsDark ? DarkPalette.SelectionIndicator : LightPalette.SelectionIndicator; } }
 
-                // Typography Colors (WCAG AAA/AA compliant on white/light surfaces)
-                public static readonly Color TextPrimary      = Color.FromArgb(32, 33, 36);    // #202124 - Primary dark charcoal (15:1 contrast)
-                public static readonly Color TextSecondary    = Color.FromArgb(80, 84, 91);    // #50545B - Field labels, secondary text (7:1 contrast)
-                public static readonly Color TextMuted        = Color.FromArgb(122, 128, 136); // #7A8088 - Timestamps, captions (4.6:1 contrast)
-                public static readonly Color TextDisabled     = Color.FromArgb(136, 142, 150); // #888E96 - Disabled text & controls (~3.5:1 contrast)
-                public static readonly Color TextInverse      = Color.FromArgb(255, 255, 255); // #FFFFFF - Inverted text
+                // Typography Colors (WCAG AAA/AA compliant on the active surface)
+                public static Color TextPrimary      { get { return IsDark ? DarkPalette.TextPrimary : LightPalette.TextPrimary; } }
+                public static Color TextSecondary    { get { return IsDark ? DarkPalette.TextSecondary : LightPalette.TextSecondary; } }
+                public static Color TextMuted        { get { return IsDark ? DarkPalette.TextMuted : LightPalette.TextMuted; } }
+                public static Color TextDisabled     { get { return IsDark ? DarkPalette.TextDisabled : LightPalette.TextDisabled; } }
+                public static Color TextInverse      { get { return IsDark ? DarkPalette.TextInverse : LightPalette.TextInverse; } }
             }
 
             public static class State
             {
                 // Semantic Status Colors (Only for badges, dots, and functional states — no decorative use)
-                public static readonly Color Success          = Color.FromArgb(22, 101, 52);   // #166534 - Muted forest green (Connected dot / botting)
-                public static readonly Color Warning          = Color.FromArgb(180, 83, 9);    // #B45309 - Muted dark amber (DC warning, retry delay)
-                public static readonly Color Danger           = Color.FromArgb(185, 28, 28);   // #B91C1C - Muted dark red (Errors, active Stop Bot text)
-                public static readonly Color DangerBorder     = Color.FromArgb(252, 165, 165); // #FCA5A5 - Active Stop Bot subtle border
-                public static readonly Color DangerHoverBg    = Color.FromArgb(254, 242, 242); // #FEF2F2 - Subtle red hover hint
+                public static Color Success          { get { return IsDark ? DarkPalette.Success : LightPalette.Success; } }
+                public static Color Warning          { get { return IsDark ? DarkPalette.Warning : LightPalette.Warning; } }
+                public static Color Danger           { get { return IsDark ? DarkPalette.Danger : LightPalette.Danger; } }
+                public static Color DangerBorder     { get { return IsDark ? DarkPalette.DangerBorder : LightPalette.DangerBorder; } }
+                public static Color DangerHoverBg    { get { return IsDark ? DarkPalette.DangerHoverBg : LightPalette.DangerHoverBg; } }
             }
 
             // Direct properties on Colors for convenient access and backward compatibility
@@ -88,6 +118,64 @@ namespace xBot.App.Theme
             public static Color LogSuccess       => State.Success;         // #166534
             public static Color LogWarning       => State.Warning;         // #B45309
             public static Color LogError         => State.Danger;          // #B91C1C
+        }
+
+        private static class LightPalette
+        {
+            public static readonly Color Canvas           = Color.FromArgb(243, 244, 245);
+            public static readonly Color Surface          = Color.FromArgb(255, 255, 255);
+            public static readonly Color SurfaceSecondary = Color.FromArgb(248, 248, 248);
+            public static readonly Color SurfaceHover     = Color.FromArgb(242, 242, 242);
+            public static readonly Color SurfaceSelected  = Color.FromArgb(236, 237, 239);
+            public static readonly Color SurfacePressed   = Color.FromArgb(228, 229, 231);
+
+            public static readonly Color BorderDefault    = Color.FromArgb(214, 216, 220);
+            public static readonly Color BorderStrong     = Color.FromArgb(174, 180, 188);
+            public static readonly Color BorderSubtle     = Color.FromArgb(229, 230, 232);
+            public static readonly Color BorderHover      = Color.FromArgb(188, 193, 199);
+            public static readonly Color BorderFocus      = Color.FromArgb(139, 145, 153);
+            public static readonly Color SelectionIndicator = Color.FromArgb(107, 112, 120);
+
+            public static readonly Color TextPrimary      = Color.FromArgb(32, 33, 36);
+            public static readonly Color TextSecondary    = Color.FromArgb(80, 84, 91);
+            public static readonly Color TextMuted        = Color.FromArgb(122, 128, 136);
+            public static readonly Color TextDisabled     = Color.FromArgb(136, 142, 150);
+            public static readonly Color TextInverse      = Color.FromArgb(255, 255, 255);
+
+            public static readonly Color Success          = Color.FromArgb(22, 101, 52);
+            public static readonly Color Warning          = Color.FromArgb(180, 83, 9);
+            public static readonly Color Danger           = Color.FromArgb(185, 28, 28);
+            public static readonly Color DangerBorder     = Color.FromArgb(252, 165, 165);
+            public static readonly Color DangerHoverBg    = Color.FromArgb(254, 242, 242);
+        }
+
+        private static class DarkPalette
+        {
+            public static readonly Color Canvas           = Color.FromArgb(15, 17, 23);
+            public static readonly Color Surface          = Color.FromArgb(22, 26, 33);
+            public static readonly Color SurfaceSecondary = Color.FromArgb(28, 33, 42);
+            public static readonly Color SurfaceHover     = Color.FromArgb(35, 42, 53);
+            public static readonly Color SurfaceSelected  = Color.FromArgb(42, 49, 61);
+            public static readonly Color SurfacePressed   = Color.FromArgb(51, 59, 73);
+
+            public static readonly Color BorderDefault    = Color.FromArgb(52, 59, 71);
+            public static readonly Color BorderStrong     = Color.FromArgb(74, 83, 98);
+            public static readonly Color BorderSubtle     = Color.FromArgb(37, 43, 53);
+            public static readonly Color BorderHover      = Color.FromArgb(89, 99, 116);
+            public static readonly Color BorderFocus      = Color.FromArgb(138, 148, 163);
+            public static readonly Color SelectionIndicator = Color.FromArgb(182, 191, 204);
+
+            public static readonly Color TextPrimary      = Color.FromArgb(242, 244, 247);
+            public static readonly Color TextSecondary    = Color.FromArgb(199, 205, 214);
+            public static readonly Color TextMuted        = Color.FromArgb(146, 155, 168);
+            public static readonly Color TextDisabled     = Color.FromArgb(108, 118, 133);
+            public static readonly Color TextInverse      = Color.FromArgb(17, 19, 23);
+
+            public static readonly Color Success          = Color.FromArgb(74, 222, 128);
+            public static readonly Color Warning          = Color.FromArgb(251, 191, 36);
+            public static readonly Color Danger           = Color.FromArgb(248, 113, 113);
+            public static readonly Color DangerBorder     = Color.FromArgb(127, 29, 29);
+            public static readonly Color DangerHoverBg    = Color.FromArgb(42, 22, 24);
         }
 
         // =============================================================
@@ -171,11 +259,12 @@ namespace xBot.App.Theme
             public static void StyleActionButton(Button b, bool enabled, bool subtleDangerHover = false)
             {
                 if (b == null) return;
+                b.UseVisualStyleBackColor = false;
+                b.Font = Typography.FontButton;
                 b.FlatStyle = FlatStyle.Flat;
                 b.FlatAppearance.BorderSize = Metrics.BorderThickness;
                 b.Padding = Padding.Empty;
                 b.Margin = Padding.Empty;
-                b.Font = Typography.FontButton;
 
                 if (enabled)
                 {
@@ -190,11 +279,12 @@ namespace xBot.App.Theme
                 {
                     b.Enabled = false;
                     b.BackColor = Colors.Neutral.Canvas;
-                    b.ForeColor = Colors.Neutral.TextDisabled;
+                    b.ForeColor = IsDark ? Colors.Neutral.TextMuted : Colors.Neutral.TextDisabled;
                     b.FlatAppearance.BorderColor = Colors.Neutral.BorderSubtle;
                     b.FlatAppearance.MouseOverBackColor = Colors.Neutral.Canvas;
                     b.FlatAppearance.MouseDownBackColor = Colors.Neutral.Canvas;
                 }
+                b.FlatStyle = FlatStyle.Flat;
             }
 
             public static void StylePrimaryButton(Button b, bool isRunning)
@@ -222,24 +312,25 @@ namespace xBot.App.Theme
             public static void StyleTextBox(TextBox tb)
             {
                 if (tb == null) return;
+                tb.Font = Typography.FontBody;
                 tb.BorderStyle = BorderStyle.FixedSingle;
                 tb.BackColor = Colors.Neutral.Surface;
                 tb.ForeColor = Colors.Neutral.TextPrimary;
-                tb.Font = Typography.FontBody;
             }
 
             public static void StyleComboBox(ComboBox cb)
             {
                 if (cb == null) return;
+                cb.Font = Typography.FontBody;
                 cb.FlatStyle = FlatStyle.Standard;
                 cb.BackColor = Colors.Neutral.Surface;
                 cb.ForeColor = Colors.Neutral.TextPrimary;
-                cb.Font = Typography.FontBody;
             }
 
             public static void StyleListView(ListView lv)
             {
                 if (lv == null) return;
+                lv.Font = Typography.FontBody;
                 lv.OwnerDraw = false;
                 lv.BorderStyle = BorderStyle.FixedSingle;
                 lv.FullRowSelect = true;
@@ -247,7 +338,7 @@ namespace xBot.App.Theme
                 lv.GridLines = false;
                 lv.BackColor = Colors.Neutral.Surface;
                 lv.ForeColor = Colors.Neutral.TextPrimary;
-                lv.Font = Typography.FontBody;
+                ThemeManager.ApplyListView(lv);
             }
 
             public static void StyleSectionHeader(Label l)
@@ -262,10 +353,77 @@ namespace xBot.App.Theme
             {
                 if (tc == null) return;
                 tc.DrawMode = TabDrawMode.OwnerDrawFixed;
-                tc.ItemSize = new Size(Math.Max(72, tc.ItemSize.Width), 22);
+                tc.Appearance = TabAppearance.FlatButtons;
+                tc.Padding = new Point(12, 4);
+                tc.ItemSize = new Size(Math.Max(72, tc.ItemSize.Width), Math.Max(26, tc.Font.Height + 10));
                 tc.SizeMode = TabSizeMode.Normal;
                 tc.DrawItem -= SubTabControl_DrawItem;
                 tc.DrawItem += SubTabControl_DrawItem;
+                tc.MouseMove -= SubTabControl_MouseMove;
+                tc.MouseMove += SubTabControl_MouseMove;
+                tc.MouseLeave -= SubTabControl_MouseLeave;
+                tc.MouseLeave += SubTabControl_MouseLeave;
+                tc.HandleCreated -= SubTabControl_HandleCreated;
+                tc.HandleCreated += SubTabControl_HandleCreated;
+                HideFocusCues(tc);
+            }
+
+            private const int WM_CHANGEUISTATE = 0x0127;
+            private const int UIS_SET = 1;
+            private const int UISF_HIDEFOCUS = 1;
+
+            [DllImport("user32.dll")]
+            private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+            private sealed class SubTabHover
+            {
+                public int Index = -1;
+            }
+
+            private static readonly ConditionalWeakTable<TabControl, SubTabHover> SubTabHoverStates =
+                new ConditionalWeakTable<TabControl, SubTabHover>();
+
+            private static void SubTabControl_HandleCreated(object sender, EventArgs e)
+            {
+                HideFocusCues(sender as Control);
+            }
+
+            private static void HideFocusCues(Control control)
+            {
+                if (control == null || !control.IsHandleCreated) return;
+                SendMessage(control.Handle, WM_CHANGEUISTATE,
+                    (IntPtr)(UIS_SET | (UISF_HIDEFOCUS << 16)), IntPtr.Zero);
+            }
+
+            private static void SubTabControl_MouseMove(object sender, MouseEventArgs e)
+            {
+                TabControl tc = sender as TabControl;
+                if (tc == null) return;
+                int hover = -1;
+                for (int i = 0; i < tc.TabCount; i++)
+                {
+                    if (tc.GetTabRect(i).Contains(e.Location)) { hover = i; break; }
+                }
+                SubTabHover state = SubTabHoverStates.GetOrCreateValue(tc);
+                if (state.Index == hover) return;
+                state.Index = hover;
+                InvalidateTabStrip(tc);
+            }
+
+            private static void SubTabControl_MouseLeave(object sender, EventArgs e)
+            {
+                TabControl tc = sender as TabControl;
+                if (tc == null) return;
+                SubTabHover state = SubTabHoverStates.GetOrCreateValue(tc);
+                if (state.Index < 0) return;
+                state.Index = -1;
+                InvalidateTabStrip(tc);
+            }
+
+            private static void InvalidateTabStrip(TabControl tc)
+            {
+                int height = Math.Max(tc.ItemSize.Height + (tc.Padding.Y * 2) + 4, 32);
+                tc.Invalidate(new Rectangle(0, 0, tc.Width, height));
             }
 
             private static void SubTabControl_DrawItem(object sender, DrawItemEventArgs e)
@@ -274,23 +432,28 @@ namespace xBot.App.Theme
                 if (tc == null || e.Index < 0 || e.Index >= tc.TabPages.Count) return;
                 TabPage page = tc.TabPages[e.Index];
                 bool isSelected = (tc.SelectedIndex == e.Index);
+                SubTabHover state = SubTabHoverStates.GetOrCreateValue(tc);
+                bool isHovered = !isSelected && state.Index == e.Index;
                 Rectangle bounds = e.Bounds;
 
-                Color bg = isSelected ? Colors.Neutral.Surface : Colors.Neutral.Canvas;
-                Color textCol = isSelected ? Colors.Neutral.TextPrimary : Colors.Neutral.TextSecondary;
+                Color bg = isSelected ? Colors.Neutral.Surface
+                    : isHovered ? Colors.Neutral.SurfaceHover : Colors.Neutral.Canvas;
+                Color textCol = isSelected ? Colors.Neutral.TextPrimary
+                    : isHovered ? Colors.Neutral.TextPrimary : Colors.Neutral.TextSecondary;
                 using (SolidBrush bb = new SolidBrush(bg))
                 {
                     e.Graphics.FillRectangle(bb, bounds);
                 }
 
-                TextRenderer.DrawText(e.Graphics, page.Text, isSelected ? Typography.FontBodyStrong : Typography.FontBody,
-                    bounds, textCol, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
+                TextRenderer.DrawText(e.Graphics, page.Text, tc.Font,
+                    bounds, textCol, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter |
+                    TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis);
 
                 if (isSelected)
                 {
-                    using (Pen p = new Pen(Colors.Neutral.SelectionIndicator, 2f))
+                    using (Pen p = new Pen(Colors.Neutral.BorderStrong, 2f))
                     {
-                        e.Graphics.DrawLine(p, bounds.Left + 2, bounds.Bottom - 1, bounds.Right - 2, bounds.Bottom - 1);
+                        e.Graphics.DrawLine(p, bounds.Left + 10, bounds.Bottom - 1, bounds.Right - 10, bounds.Bottom - 1);
                     }
                 }
             }

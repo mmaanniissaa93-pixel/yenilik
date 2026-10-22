@@ -95,6 +95,7 @@ namespace xBot.Game
 		/// kaynakli item kullanimi serverca reddedilip DC'ye yol acabiliyor.
 		/// </summary>
 		public static DateTime JoinedGameUtc { get => Current.JoinedGameUtc; internal set => Current.JoinedGameUtc = value; }
+		public static DateTime LastTeleportUtc { get => Current.LastTeleportUtc; internal set => Current.LastTeleportUtc = value; }
 		/// <summary>
 		/// Get the last entity unique ID selected.
 		/// </summary>
@@ -439,6 +440,7 @@ namespace xBot.Game
 			SkillManager.ResetCastSession();
 			xBot.App.QuestAutomationManager.CancelSession();
 			inTeleport = false;
+			LastTeleportUtc = DateTime.UtcNow;
 
 			// Try stop bot process
 			Bot b = Bot.Get;
@@ -585,6 +587,9 @@ namespace xBot.Game
 
 			// GUI
 			Window w = Window.Get;
+			// Otomatik envanter guncellemesi (karakter yuklendiginde aninda UI\'a yansit)
+			try { w.Inventory_ItemsRefresh(); } catch { }
+
 			#region (Character Tab)
 			w.Character_pgbHP.InvokeIfRequired(() => {
 				w.Character_pgbHP.ValueMaximum = Character.HPMax;
@@ -700,6 +705,7 @@ namespace xBot.Game
 					w.Login_btnStart.Enabled = true;
 				});
 				Bot.Get.OnGameJoined();
+				try { w.Inventory_ItemsRefresh(); } catch { }
 			}
 			w.LogProcess("Online");
 
@@ -1885,6 +1891,11 @@ namespace xBot.Game
 			}
 			catch { }
 
+			// Track mob attacking character for SBot emergency situation
+			if (Character != null && targetUniqueID == Character.UniqueID && sourceUniqueID != Character.UniqueID)
+			{
+				try { CombatAIEngine.AttackingTracker.RecordAttack(sourceUniqueID, System.Diagnostics.Stopwatch.GetTimestamp() * 1000 / System.Diagnostics.Stopwatch.Frequency); } catch { }
+			}
 			// Check if it's me
 			if (Character != null && sourceUniqueID == Character.UniqueID)
 			{

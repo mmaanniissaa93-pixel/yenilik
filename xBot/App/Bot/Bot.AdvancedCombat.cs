@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -73,6 +73,17 @@ namespace xBot.App
 
         private bool ShouldRotateTarget(SRMob current, SRCoord center, int radius)
         {
+            if (CombatAIEngine.StickToMob)
+            {
+                // SBot sticktomob: stay on same mob until it's dead, unreachable, or out of training bounds
+                if (IsLiveCombatTarget(current) && !_unreachableMobs.ContainsKey(current.UniqueID))
+                {
+                    var cPos = current.GetRealtimePosition();
+                    if (cPos != null && IsWithinTrainingBoundary(cPos))
+                        return false;
+                }
+            }
+
             if (!CombatAIEngine.SwitchTargetByPosition && !CombatAIEngine.SwitchMonsterAfterDot)
             { rotation.Reset(); return false; }
             var alternatives = InfoManager.Mobs.Snapshot().Where(m => m != null && m.UniqueID != current.UniqueID).ToList();
@@ -191,7 +202,20 @@ namespace xBot.App
                 ProtectionManager.RequestReturn("Lure: party member count is below the configured limit.", true);
                 return true;
             }
-            return LurePolicy.ShouldPauseLure(dead, mobs.Count(m => m.MobType == SRMob.Mob.PartyGiant), mobs.Count, partyNear);
+
+            bool designatedPlayerValid = true;
+            if (LurePolicy.StopDesignatedPlayerEnabled && !string.IsNullOrWhiteSpace(LurePolicy.StopDesignatedPlayerName))
+            {
+                var desPlayer = InfoManager.Players.Find(p => p != null && p.Name.Equals(LurePolicy.StopDesignatedPlayerName, StringComparison.OrdinalIgnoreCase));
+                if (desPlayer == null || desPlayer.LifeStateType == SRModel.LifeState.Dead || desPlayer.Position == null
+                    || !TeleportTransitionPolicy.SameSpace(center, desPlayer.Position)
+                    || center.DistanceTo(desPlayer.Position) > Math.Max(1, LurePolicy.PartyMemberFarAwayDistance))
+                {
+                    designatedPlayerValid = false;
+                }
+            }
+
+            return LurePolicy.ShouldPauseLure(dead, mobs.Count(m => m.MobType == SRMob.Mob.PartyGiant), mobs.Count, partyNear, designatedPlayerValid);
         }
 
         public bool CastLureSkill(SRSkill skill, SRCoord center, int radius)
@@ -217,7 +241,22 @@ namespace xBot.App
         {
             bool enabled = LurePolicy.WalkBackDistEnabled || LurePolicy.LureSkillEnabled || LurePolicy.UseScript;
             if (!enabled || center == null) { IsLuring = false; lureStage = 0; return false; }
-            if (LureShouldPause(center, radius)) { IsLuring = false; lureStage = 0; nextLureAction = EngineNow + 1000; return false; }
+            if (LureShouldPause(center, radius))
+            {
+                IsLuring = false;
+                lureStage = 0;
+                nextLureAction = EngineNow + 1000;
+                if (LurePolicy.LureAttackOnStop)
+                {
+                    // SBot lureattack: return to center and allow combat motor to attack mobs at center!
+                    var myPos = InfoManager.Character?.GetRealtimePosition();
+                    if (myPos != null && center != null && myPos.DistanceTo(center) > 4.0)
+                    {
+                        MoveLurePoint(center);
+                    }
+                }
+                return false;
+            }
             if (EngineNow < nextLureAction)
             {
                 if (lureStage == 0) return false;
@@ -253,6 +292,18 @@ namespace xBot.App
                 }
                 if (LurePolicy.AttackLimitEnabled && InfoManager.Mobs.Snapshot().Count(m => IsLiveCombatTarget(m)
                     && m.TargetUniqueID == InfoManager.Character.UniqueID) >= Math.Max(1, LurePolicy.AttackMobLimit)) lureStage = 3;
+
+                // SBot luremeetxmobs and lureattackedxmobs early turnback
+                var myPosSnapshot = InfoManager.Character?.GetRealtimePosition();
+                var nearbySnapshot = InfoManager.Mobs.Snapshot();
+                int meetCount = myPosSnapshot == null ? 0 : nearbySnapshot.Count(m => IsLiveCombatTarget(m) && myPosSnapshot.DistanceTo(m.GetRealtimePosition()) <= 25.0);
+                int attackedCount = nearbySnapshot.Count(m => IsLiveCombatTarget(m) && m.TargetUniqueID == InfoManager.Character.UniqueID);
+                if (LurePolicy.ShouldEarlyReturnFromLure(LurePolicy.LureMeetXMobsEnabled, LurePolicy.LureMeetXCount, meetCount,
+                    LurePolicy.LureAttackedXMobsEnabled, LurePolicy.LureAttackedXCount, attackedCount))
+                {
+                    lureStage = 3;
+                }
+
                 if (lureStage == 0)
                 {
                     double distance = Math.Min(200, LurePolicy.WalkBackDist);

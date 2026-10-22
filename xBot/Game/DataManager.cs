@@ -9,6 +9,7 @@ using xBot.Game.Objects.Guild;
 using xBot.Game.Objects.Entity;
 using xBot.Game.Objects.Item;
 using xBot.Game.Objects.Common;
+using xBot.Game.Profiles;
 
 namespace xBot.Game
 {
@@ -35,6 +36,29 @@ namespace xBot.Game
 		/// Silkroad Version
 		/// </summary>
 		public static uint Version { get; set; }
+		/// <summary>
+		/// Aktif sunucu profili (vSRO, Silkroad-R, TRSRO, iSRO vb.).
+		/// </summary>
+		public static ServerProfile CurrentProfile
+		{
+			get
+			{
+				if (_currentProfile == null)
+				{
+					_currentProfile = ServerProfileManager.GetProfile(
+						ServerProfileManager.AutoDetect(Locale, Version, SilkroadName, ClientPath)
+					);
+					ServerProfileManager.CurrentProfile = _currentProfile;
+				}
+				return _currentProfile;
+			}
+			set
+			{
+				_currentProfile = value;
+				ServerProfileManager.CurrentProfile = value;
+			}
+		}
+		private static ServerProfile _currentProfile;
 		/// <summary>
 		/// Gets the database previouly selected.
 		/// </summary>
@@ -71,6 +95,19 @@ namespace xBot.Game
 						candidate.Dispose();
 						return false;
 					}
+					// Older extracted databases do not contain the skill's Action_Range.
+					// Add the column in place; a fresh PK2 extraction fills its values.
+					List<NameValueCollection> skillColumns = candidate.GetResultFromQuery("PRAGMA table_info(skills)");
+					bool hasActionRange = false;
+					if (skillColumns != null)
+						foreach (NameValueCollection column in skillColumns)
+							if (string.Equals(column["name"], "action_range", StringComparison.OrdinalIgnoreCase))
+							{
+								hasActionRange = true;
+								break;
+							}
+					if (!hasActionRange)
+						candidate.ExecuteQuery("ALTER TABLE skills ADD COLUMN action_range INTEGER NOT NULL DEFAULT 0");
 				}
 				catch
 				{

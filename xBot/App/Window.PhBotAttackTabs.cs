@@ -162,7 +162,7 @@ namespace xBot.App
                 Size = new Size(400, 350),
                 View = View.Details,
                 FullRowSelect = true,
-                GridLines = true,
+                GridLines = false,
                 Font = new Font("Segoe UI", 8.5F, FontStyle.Regular)
             };
             PhBot_Party_AssignmentsList.Columns.Add("Oyuncu Adı", 130);

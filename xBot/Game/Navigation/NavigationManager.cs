@@ -209,9 +209,57 @@ namespace xBot.Game.Navigation
 		}
 
 		/// <summary>
-		/// Finds an obstacle-free A* path between two SRCoord positions.
-		/// Returns null if outside navmesh or path not found.
+		/// Uses the loaded navdata graph to detect whether a target is separated from the
+		/// player by an unreachable mesh component or a material route detour. Unlike
+		/// FindPath, this always queries the mesh, including at short distances.
 		/// </summary>
+		public bool HasCollisionBetween(SRCoord start, SRCoord target)
+		{
+			if (!IsAvailable || start == null || target == null
+				|| !TeleportTransitionPolicy.SameSpace(start, target))
+				return false; // Missing navdata is unknown, not a confirmed obstruction.
+
+			RegionBoundsEntry entry;
+			if (start.inDungeon())
+				entry = m_boundsIndex.Find(e => e.RegionId == start.Region);
+			else
+				entry = FindContainingRegion((float)start.PosX, (float)start.PosY,
+					(float)target.PosX, (float)target.PosY);
+			if (entry == null) return false;
+
+			NavRegion region = GetOrLoadRegion(entry);
+			if (region == null || region.Points == null || region.Points.Length == 0) return false;
+
+			float sx = (float)start.PosX, sy = (float)start.PosY;
+			float tx = (float)target.PosX, ty = (float)target.PosY;
+			int startNode = region.FindNearestPointIndex(sx, sy);
+			int targetNode = region.FindNearestPointIndex(tx, ty);
+			if (startNode < 0 || targetNode < 0) return false;
+
+			double startSnap = region.Points[startNode].DistanceTo(sx, sy);
+			double targetSnap = region.Points[targetNode].DistanceTo(tx, ty);
+			// Far off-mesh positions do not provide reliable obstruction evidence.
+			if (startSnap > 25.0 || targetSnap > 30.0) return false;
+
+			List<SRCoord> path = m_pathfinder.FindPath(region, sx, sy, tx, ty,
+				false, null, true);
+			if (path == null || path.Count == 0)
+				return true; // Both positions snap to this mesh, but no connected route exists.
+
+			double directDistance = start.DistanceTo(target);
+			double routeDistance = 0.0;
+			SRCoord previous = start;
+			for (int i = 0; i < path.Count; i++)
+			{
+				SRCoord point = path[i];
+				if (point == null) continue;
+				routeDistance += previous.DistanceTo(point);
+				previous = point;
+			}
+			double detour = Math.Max(0.0, routeDistance - directDistance - startSnap - targetSnap);
+			return detour > 4.0 && detour > directDistance * 0.15;
+		}
+
 		public List<SRCoord> FindPath(SRCoord start, SRCoord target)
 		{
 			if (!IsAvailable || start == null || target == null)

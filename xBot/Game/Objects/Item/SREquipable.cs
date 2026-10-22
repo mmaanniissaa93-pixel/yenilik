@@ -17,6 +17,9 @@ namespace xBot.Game.Objects.Item
         public SREquipable(SRItem value) : base(value)
         {
             Quantity = 1;
+            MagicOptions = new xList<SRMagicOption>();
+            Sockets = new xList<SRSocket>();
+            AdvancedElixirs = new xList<SRAdvancedElixir>();
         }
         public SREquipable(SREquipable value) : base(value)
         {
@@ -72,7 +75,8 @@ namespace xBot.Game.Objects.Item
         }
         public override string GetFullName()
         {
-            StringBuilder result = new StringBuilder(Name);
+            string baseName = !string.IsNullOrWhiteSpace(Name) ? Name : (!string.IsNullOrWhiteSpace(ServerName) ? ServerName : ("Item #" + ID));
+            StringBuilder result = new StringBuilder(baseName);
             if (Plus > 0)
                 result.Append(" (+" + Plus + ")");
             if (AdvancedElixirs != null && AdvancedElixirs.Count > 0)
@@ -84,7 +88,8 @@ namespace xBot.Game.Objects.Item
         }
         public override string GetTooltip()
         {
-            StringBuilder result = new StringBuilder(Name);
+            string baseName = !string.IsNullOrWhiteSpace(Name) ? Name : (!string.IsNullOrWhiteSpace(ServerName) ? ServerName : ("Item #" + ID));
+            StringBuilder result = new StringBuilder(baseName);
             // Name
             if (Plus > 0)
                 result.Append(" (+" + Plus + ")");
@@ -176,10 +181,11 @@ namespace xBot.Game.Objects.Item
             }
             result.AppendLine();
             // Magic options
-            if (MagicOptions.Count > 0)
+            if (MagicOptions != null && MagicOptions.Count > 0)
             {
                 for (byte j = 0; j < MagicOptions.Count; j++)
                 {
+                    if (MagicOptions[j] == null) continue;
                     string text = MagicOptions[j].GetFullName();
                     if (text != "")
                         result.AppendLine(text);
@@ -187,7 +193,7 @@ namespace xBot.Game.Objects.Item
                 result.AppendLine();
             }
             // Adv. Elixir
-            if (AdvancedElixirs.Count > 0)
+            if (AdvancedElixirs != null && AdvancedElixirs.Count > 0)
                 result.Append("Adv. Elixir (+" + AdvancedElixirs[0].Value + ")");
             return result.ToString();
         }

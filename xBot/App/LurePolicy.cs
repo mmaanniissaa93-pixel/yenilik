@@ -42,7 +42,16 @@ namespace xBot.App
         public static List<string> PartyNearWhitelist { get; } = new List<string>();
         public static bool BuffAfterScriptCommand { get; set; } = false;
 
-        public static bool ShouldPauseLure(int deadPartyCount, int giantPartyCount, int areaMobCount, bool partyNear)
+        // SBot Lure Enhancements ([training] section)
+        public static bool LureMeetXMobsEnabled { get; set; } = false; // luremeetxmobs
+        public static int LureMeetXCount { get; set; } = 5;
+        public static bool LureAttackedXMobsEnabled { get; set; } = false; // lureattackedxmobs
+        public static int LureAttackedXCount { get; set; } = 3;
+        public static bool StopDesignatedPlayerEnabled { get; set; } = false; // lurestopplayer
+        public static string StopDesignatedPlayerName { get; set; } = "";
+        public static bool LureAttackOnStop { get; set; } = false; // lureattack: attack at center if don't-lure condition met
+
+        public static bool ShouldPauseLure(int deadPartyCount, int giantPartyCount, int areaMobCount, bool partyNear, bool designatedPlayerValid = true)
         {
             if (StopDeadPartyEnabled && StopDeadPartyCount > 0 && deadPartyCount >= StopDeadPartyCount)
                 return true;
@@ -54,6 +63,20 @@ namespace xBot.App
                 return true;
 
             if (StopIfPartyAway && !partyNear)
+                return true;
+
+            if (StopDesignatedPlayerEnabled && !designatedPlayerValid)
+                return true;
+
+            return false;
+        }
+
+        public static bool ShouldEarlyReturnFromLure(bool meetEnabled, int meetCount, int currentNearbyCount, bool attackedEnabled, int attackedCount, int currentAttackingCount)
+        {
+            if (meetEnabled && meetCount > 0 && currentNearbyCount >= meetCount)
+                return true;
+
+            if (attackedEnabled && attackedCount > 0 && currentAttackingCount >= attackedCount)
                 return true;
 
             return false;
@@ -92,6 +115,15 @@ namespace xBot.App
             json["StopIfPartyAway"] = StopIfPartyAway;
             json["PartyMemberFarAwayDistance"] = PartyMemberFarAwayDistance;
             json["BuffAfterScriptCommand"] = BuffAfterScriptCommand;
+
+            // SBot Lure additions
+            json["LureMeetXMobsEnabled"] = LureMeetXMobsEnabled;
+            json["LureMeetXCount"] = LureMeetXCount;
+            json["LureAttackedXMobsEnabled"] = LureAttackedXMobsEnabled;
+            json["LureAttackedXCount"] = LureAttackedXCount;
+            json["StopDesignatedPlayerEnabled"] = StopDesignatedPlayerEnabled;
+            json["StopDesignatedPlayerName"] = StopDesignatedPlayerName ?? "";
+            json["LureAttackOnStop"] = LureAttackOnStop;
 
             JArray pArr = new JArray();
             lock (PartyNearWhitelist)
@@ -136,6 +168,14 @@ namespace xBot.App
             if (json.ContainsKey("StopIfPartyAway")) StopIfPartyAway = (bool)json["StopIfPartyAway"];
             if (json.ContainsKey("PartyMemberFarAwayDistance")) PartyMemberFarAwayDistance = (int)json["PartyMemberFarAwayDistance"];
             if (json.ContainsKey("BuffAfterScriptCommand")) BuffAfterScriptCommand = (bool)json["BuffAfterScriptCommand"];
+
+            if (json.ContainsKey("LureMeetXMobsEnabled")) LureMeetXMobsEnabled = (bool)json["LureMeetXMobsEnabled"];
+            if (json.ContainsKey("LureMeetXCount")) LureMeetXCount = (int)json["LureMeetXCount"];
+            if (json.ContainsKey("LureAttackedXMobsEnabled")) LureAttackedXMobsEnabled = (bool)json["LureAttackedXMobsEnabled"];
+            if (json.ContainsKey("LureAttackedXCount")) LureAttackedXCount = (int)json["LureAttackedXCount"];
+            if (json.ContainsKey("StopDesignatedPlayerEnabled")) StopDesignatedPlayerEnabled = (bool)json["StopDesignatedPlayerEnabled"];
+            if (json.ContainsKey("StopDesignatedPlayerName")) StopDesignatedPlayerName = (string)json["StopDesignatedPlayerName"];
+            if (json.ContainsKey("LureAttackOnStop")) LureAttackOnStop = (bool)json["LureAttackOnStop"];
 
             if (json.ContainsKey("PartyNearWhitelist") && json["PartyNearWhitelist"] is JArray arr)
             {

@@ -121,6 +121,7 @@ namespace xBot.App
                 var tabDismantle = new TabPage(isTR ? "Kırdırma" : "Dismantle");
 
                 tabPickFilterRoot.TabPages.AddRange(new TabPage[] { tabItems, tabEz, tabOptions, tabGold, tabDismantle });
+                Theme.AppTheme.ComponentStyles.StyleSubTabControl(tabPickFilterRoot);
 
                 tabPickFilterRoot.SelectedIndexChanged += (s, e) =>
                 {
@@ -161,8 +162,8 @@ namespace xBot.App
                 if (tabPickFilterRoot == null) return;
                 foreach (TabPage page in tabPickFilterRoot.TabPages)
                 {
-                    page.BackColor = SystemColors.Control;
-                    page.ForeColor = SystemColors.ControlText;
+                    page.BackColor = Theme.AppTheme.Surface;
+                    page.ForeColor = Theme.AppTheme.TextPrimary;
                     ApplyLightThemeRecursive(page);
                 }
             }
@@ -177,35 +178,39 @@ namespace xBot.App
                 {
                     if (c is ListView lv)
                     {
-                        lv.BackColor = SystemColors.Window;
-                        lv.ForeColor = SystemColors.WindowText;
+                        Theme.AppTheme.ComponentStyles.StyleListView(lv);
                     }
                     else if (c is Button b)
                     {
-                        b.BackColor = SystemColors.Control;
-                        b.ForeColor = SystemColors.ControlText;
-                        b.FlatStyle = FlatStyle.Standard;
-                        b.UseVisualStyleBackColor = true;
+                        Theme.AppTheme.ComponentStyles.StyleSecondaryButton(b);
                     }
                     else if (c is CheckBox)
                     {
-                        c.ForeColor = Color.Black;
+                        c.ForeColor = Theme.AppTheme.TextPrimary;
                         c.BackColor = Color.Transparent;
                     }
                     else if (c is Label)
                     {
-                        c.ForeColor = Color.Black;
+                        c.ForeColor = Theme.AppTheme.TextPrimary;
                         c.BackColor = Color.Transparent;
                     }
-                    else if (c is TextBox || c is ComboBox || c is NumericUpDown)
+                    else if (c is TextBox)
                     {
-                        c.BackColor = SystemColors.Window;
-                        c.ForeColor = SystemColors.WindowText;
+                        Theme.AppTheme.ComponentStyles.StyleTextBox((TextBox)c);
+                    }
+                    else if (c is ComboBox)
+                    {
+                        Theme.AppTheme.ComponentStyles.StyleComboBox((ComboBox)c);
+                    }
+                    else if (c is NumericUpDown)
+                    {
+                        c.BackColor = Theme.AppTheme.Surface;
+                        c.ForeColor = Theme.AppTheme.TextPrimary;
                     }
                     else if (c is TabPage || c is TabControl || c is Panel || c is GroupBox)
                     {
-                        c.BackColor = SystemColors.Control;
-                        c.ForeColor = SystemColors.ControlText;
+                        c.BackColor = Theme.AppTheme.Surface;
+                        c.ForeColor = Theme.AppTheme.TextPrimary;
                     }
                     if (c.Controls.Count > 0)
                         ApplyLightThemeRecursive(c);
@@ -224,10 +229,10 @@ namespace xBot.App
             {
                 View = View.Details,
                 FullRowSelect = true,
-                GridLines = true,
+                GridLines = false,
                 MultiSelect = true,
                 HideSelection = false,
-                BackColor = SystemColors.Window,
+                BackColor = Theme.AppTheme.Surface,
                 ForeColor = SystemColors.WindowText,
                 Location = new Point(8, 8),
                 Size = new Size(633, 190),
@@ -270,7 +275,7 @@ namespace xBot.App
                 Name = "XBotPickSearch",
                 Dock = DockStyle.Bottom,
                 Height = 70,
-                BackColor = Color.White
+                BackColor = Theme.AppTheme.Surface
             };
 
             cmbPickGroup = new ComboBox { Location = new Point(6, 6), Size = new Size(95, 22), DropDownStyle = ComboBoxStyle.DropDownList };
@@ -581,11 +586,11 @@ namespace xBot.App
             int colX5 = 585; // Guild Deposu
 
             // Column Header Labels
-            var lblH1 = new Label { Text = "Topla", Location = new Point(colX1 - 10, 12), AutoSize = true, Font = PhBotFont(), ForeColor = Color.Black };
-            var lblH2 = new Label { Text = "pet pick", Location = new Point(colX2 - 12, 12), AutoSize = true, Font = PhBotFont(), ForeColor = Color.Black };
-            var lblH3 = new Label { Text = "Sat", Location = new Point(colX3 - 5, 12), AutoSize = true, Font = PhBotFont(), ForeColor = Color.Black };
-            var lblH4 = new Label { Text = "Depola", Location = new Point(colX4 - 10, 12), AutoSize = true, Font = PhBotFont(), ForeColor = Color.Black };
-            var lblH5 = new Label { Text = "Guild Deposu", Location = new Point(colX5 - 20, 12), AutoSize = true, Font = PhBotFont(), ForeColor = Color.Black };
+            var lblH1 = new Label { Text = "Topla", Location = new Point(colX1 - 10, 12), AutoSize = true, Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary };
+            var lblH2 = new Label { Text = "pet pick", Location = new Point(colX2 - 12, 12), AutoSize = true, Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary };
+            var lblH3 = new Label { Text = "Sat", Location = new Point(colX3 - 5, 12), AutoSize = true, Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary };
+            var lblH4 = new Label { Text = "Depola", Location = new Point(colX4 - 10, 12), AutoSize = true, Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary };
+            var lblH5 = new Label { Text = "Guild Deposu", Location = new Point(colX5 - 20, 12), AutoSize = true, Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary };
             tab.Controls.AddRange(new Control[] { lblH1, lblH2, lblH3, lblH4, lblH5 });
 
             int y = 36;
@@ -599,7 +604,7 @@ namespace xBot.App
                     Location = new Point(colX0, y + 2),
                     Size = new Size(120, 20),
                     Font = PhBotFont(),
-                    ForeColor = Color.Black,
+                    ForeColor = Theme.AppTheme.TextPrimary,
                     TextAlign = ContentAlignment.MiddleLeft
                 };
 
@@ -744,15 +749,15 @@ namespace xBot.App
                 Location = new Point(410, 8),
                 Size = new Size(265, gbH),
                 Font = PhBotFont(),
-                ForeColor = Color.Black
+                ForeColor = Theme.AppTheme.TextPrimary
             };
             lstBlues = new ListView
             {
                 View = View.Details,
                 FullRowSelect = true,
-                GridLines = true,
+                GridLines = false,
                 HideSelection = false,
-                BackColor = SystemColors.Window,
+                BackColor = Theme.AppTheme.Surface,
                 ForeColor = SystemColors.WindowText,
                 Location = new Point(8, 20),
                 Size = new Size(249, gbH - 28),
@@ -1018,15 +1023,15 @@ namespace xBot.App
                 Location = new Point(8, 8),
                 Size = new Size(185, H),
                 Font = PhBotFont(),
-                ForeColor = Color.Black
+                ForeColor = Theme.AppTheme.TextPrimary
             };
             lstDegrees = new ListView
             {
                 View = View.Details,
                 FullRowSelect = true,
-                GridLines = true,
+                GridLines = false,
                 HideSelection = false,
-                BackColor = SystemColors.Window,
+                BackColor = Theme.AppTheme.Surface,
                 ForeColor = SystemColors.WindowText,
                 Location = new Point(8, 20),
                 Size = new Size(169, H - 28),
@@ -1061,7 +1066,7 @@ namespace xBot.App
                 Location = new Point(201, 8),
                 Size = new Size(205, H),
                 Font = PhBotFont(),
-                ForeColor = Color.Black
+                ForeColor = Theme.AppTheme.TextPrimary
             };
             optDisWhite = AddOptCheck(gbDis, "Clean eşyalar", 12, 24, 180);
             optDisPlussed = AddOptCheck(gbDis, "Plussed öğeler <", 12, 54, 120);
@@ -1078,7 +1083,7 @@ namespace xBot.App
                 Location = new Point(414, 8),
                 Size = new Size(210, H),
                 Font = PhBotFont(),
-                ForeColor = Color.Black
+                ForeColor = Theme.AppTheme.TextPrimary
             };
             optDisBeforeSmith = AddOptCheck(gbAuto, "Demirci", 12, 24, 180);
             optDisBeforeGrocery = AddOptCheck(gbAuto, "Yüzükcü", 12, 54, 180);
@@ -1194,7 +1199,7 @@ namespace xBot.App
                 Text = text,
                 Location = new Point(x + 22, y),
                 Size = new Size(Math.Max(40, width - 22), 19),
-                ForeColor = Color.Black,
+                ForeColor = Theme.AppTheme.TextPrimary,
                 BackColor = Color.Transparent,
                 Font = PhBotFont(),
                 TextAlign = ContentAlignment.MiddleLeft

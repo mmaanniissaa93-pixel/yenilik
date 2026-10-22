@@ -43,7 +43,7 @@ namespace xBot.App
                     }
                     lbl.Text = text;
                     lbl.Font = PhBotFont();
-                    lbl.ForeColor = Color.Black;
+                    lbl.ForeColor = Theme.AppTheme.TextPrimary;
                     lbl.AutoSize = true;
                     lbl.Location = new Point(x, y + 4);
                     lbl.Visible = true;
@@ -58,8 +58,8 @@ namespace xBot.App
                         try { login.Controls.Add(input); } catch { }
                     }
                     input.Font = PhBotFont();
-                    input.BackColor = Color.White;
-                    input.ForeColor = Color.Black;
+                    input.BackColor = Theme.AppTheme.Surface;
+                    input.ForeColor = Theme.AppTheme.TextPrimary;
                     input.Location = new Point(x + 105, y);
                     input.Size = new Size(w, 22);
                     input.Visible = true;
@@ -170,17 +170,17 @@ namespace xBot.App
 
                 if (pageConnect == null)
                 {
-                    pageConnect = new TabPage { Name = "pageConnect", BackColor = Color.White, AutoScroll = true };
+                    pageConnect = new TabPage { Name = "pageConnect", BackColor = Theme.AppTheme.Surface, AutoScroll = true };
                     tabLoginRoot.TabPages.Add(pageConnect);
                 }
                 if (pageSettings == null)
                 {
-                    pageSettings = new TabPage { Name = "pageSettings", BackColor = Color.White, AutoScroll = true };
+                    pageSettings = new TabPage { Name = "pageSettings", BackColor = Theme.AppTheme.Surface, AutoScroll = true };
                     tabLoginRoot.TabPages.Add(pageSettings);
                 }
                 if (pageCredentials == null)
                 {
-                    pageCredentials = new TabPage { Name = "pageCredentials", BackColor = Color.White, AutoScroll = true };
+                    pageCredentials = new TabPage { Name = "pageCredentials", BackColor = Theme.AppTheme.Surface, AutoScroll = true };
                     tabLoginRoot.TabPages.Add(pageCredentials);
                 }
 
@@ -207,8 +207,8 @@ namespace xBot.App
                     pageConnect.Controls.Add(cbSavedLogin);
                 }
                 cbSavedLogin.Font = PhBotFont();
-                cbSavedLogin.BackColor = Color.White;
-                cbSavedLogin.ForeColor = Color.Black;
+                cbSavedLogin.BackColor = Theme.AppTheme.Surface;
+                cbSavedLogin.ForeColor = Theme.AppTheme.TextPrimary;
                 cbSavedLogin.SetBounds(ix, y, iw, 22);
                 cbSavedLogin.Visible = true;
                 y += rStep;
@@ -223,8 +223,8 @@ namespace xBot.App
                         pageConnect.Controls.Add(Login_tbxUsername);
                     }
                     Login_tbxUsername.Font = PhBotFont();
-                    Login_tbxUsername.BackColor = Color.White;
-                    Login_tbxUsername.ForeColor = Color.Black;
+                    Login_tbxUsername.BackColor = Theme.AppTheme.Surface;
+                    Login_tbxUsername.ForeColor = Theme.AppTheme.TextPrimary;
                     Login_tbxUsername.SetBounds(ix, y, iw, 22);
                     Login_tbxUsername.Visible = true;
                 }
@@ -240,8 +240,8 @@ namespace xBot.App
                         pageConnect.Controls.Add(Login_tbxPassword);
                     }
                     Login_tbxPassword.Font = PhBotFont();
-                    Login_tbxPassword.BackColor = Color.White;
-                    Login_tbxPassword.ForeColor = Color.Black;
+                    Login_tbxPassword.BackColor = Theme.AppTheme.Surface;
+                    Login_tbxPassword.ForeColor = Theme.AppTheme.TextPrimary;
                     Login_tbxPassword.UseSystemPasswordChar = true;
                     Login_tbxPassword.SetBounds(ix, y, iw, 22);
                     Login_tbxPassword.Visible = true;
@@ -258,8 +258,8 @@ namespace xBot.App
                         pageConnect.Controls.Add(Login_cmbxServer);
                     }
                     Login_cmbxServer.Font = PhBotFont();
-                    Login_cmbxServer.BackColor = Color.White;
-                    Login_cmbxServer.ForeColor = Color.Black;
+                    Login_cmbxServer.BackColor = Theme.AppTheme.Surface;
+                    Login_cmbxServer.ForeColor = Theme.AppTheme.TextPrimary;
                     Login_cmbxServer.DropDownStyle = ComboBoxStyle.DropDownList;
                     Login_cmbxServer.SetBounds(ix, y, 106, 22);
                     Login_cmbxServer.Visible = true;
@@ -314,8 +314,8 @@ namespace xBot.App
                     pageConnect.Controls.Add(cbGw);
                 }
                 cbGw.Font = PhBotFont();
-                cbGw.BackColor = Color.White;
-                cbGw.ForeColor = Color.Black;
+                cbGw.BackColor = Theme.AppTheme.Surface;
+                cbGw.ForeColor = Theme.AppTheme.TextPrimary;
                 cbGw.SetBounds(ix, y, iw, 22);
                 cbGw.Visible = true;
                 y += rStep;
@@ -400,7 +400,7 @@ namespace xBot.App
                     }
                     Login_lstvServers.Location = new Point(rightX, 14);
                     Login_lstvServers.Size = new Size(rightW, 105);
-                    Login_lstvServers.BackColor = Color.White;
+                    Login_lstvServers.BackColor = Theme.AppTheme.Surface;
                     Login_lstvServers.ForeColor = Theme.AppTheme.Colors.TextPrimary;
                     Login_lstvServers.BorderStyle = BorderStyle.FixedSingle;
                     Login_lstvServers.Font = PhBotFont();
@@ -454,8 +454,8 @@ namespace xBot.App
                         pageConnect.Controls.Add(nudGeneralLoginDelay);
                     }
                     nudGeneralLoginDelay.Font = PhBotFont();
-                    nudGeneralLoginDelay.BackColor = Color.White;
-                    nudGeneralLoginDelay.ForeColor = Color.Black;
+                    nudGeneralLoginDelay.BackColor = Theme.AppTheme.Surface;
+                    nudGeneralLoginDelay.ForeColor = Theme.AppTheme.TextPrimary;
                     nudGeneralLoginDelay.SetBounds(col1X + (isTR ? 104 : 64), cy, 42, 22);
                     nudGeneralLoginDelay.Visible = true;
                 }
@@ -492,8 +492,8 @@ namespace xBot.App
                         pageConnect.Controls.Add(nudGeneralWaitAfterDC);
                     }
                     nudGeneralWaitAfterDC.Font = PhBotFont();
-                    nudGeneralWaitAfterDC.BackColor = Color.White;
-                    nudGeneralWaitAfterDC.ForeColor = Color.Black;
+                    nudGeneralWaitAfterDC.BackColor = Theme.AppTheme.Surface;
+                    nudGeneralWaitAfterDC.ForeColor = Theme.AppTheme.TextPrimary;
                     nudGeneralWaitAfterDC.SetBounds(col1X + (isTR ? 112 : 88), cy3Row, 42, 22);
                     nudGeneralWaitAfterDC.Visible = true;
                 }
@@ -533,8 +533,8 @@ namespace xBot.App
                         pageSettings.Controls.Add(Login_tbxCaptcha);
                     }
                     Login_tbxCaptcha.Font = PhBotFont();
-                    Login_tbxCaptcha.BackColor = Color.White;
-                    Login_tbxCaptcha.ForeColor = Color.Black;
+                    Login_tbxCaptcha.BackColor = Theme.AppTheme.Surface;
+                    Login_tbxCaptcha.ForeColor = Theme.AppTheme.TextPrimary;
                     Login_tbxCaptcha.TextAlign = HorizontalAlignment.Center;
                     Login_tbxCaptcha.UseSystemPasswordChar = false;
                     Login_tbxCaptcha.PasswordChar = '\0';
@@ -646,8 +646,8 @@ namespace xBot.App
                     pageCredentials.Controls.Add(lbCred);
                 }
                 lbCred.Font = PhBotFont();
-                lbCred.BackColor = Color.White;
-                lbCred.ForeColor = Color.Black;
+                lbCred.BackColor = Theme.AppTheme.Surface;
+                lbCred.ForeColor = Theme.AppTheme.TextPrimary;
                 lbCred.SetBounds(14, 34, 160, 205);
                 lbCred.Visible = true;
 
@@ -715,8 +715,8 @@ namespace xBot.App
                     pageCredentials.Controls.Add(cbCredServer);
                 }
                 cbCredServer.Font = PhBotFont();
-                cbCredServer.BackColor = Color.White;
-                cbCredServer.ForeColor = Color.Black;
+                cbCredServer.BackColor = Theme.AppTheme.Surface;
+                cbCredServer.ForeColor = Theme.AppTheme.TextPrimary;
                 cbCredServer.SetBounds(280, cry, 180, 22);
                 cbCredServer.Visible = true;
                 if (Login_cmbxServer != null && Login_cmbxServer.Items.Count > 0 && cbCredServer.Items.Count == 0)
@@ -1022,8 +1022,8 @@ namespace xBot.App
                 {
                     GameInfo_tvwObjects.Location = new Point(4, 4);
                     GameInfo_tvwObjects.Size = new Size(W - 8, H - 40);
-                    GameInfo_tvwObjects.BackColor = Color.White;
-                    GameInfo_tvwObjects.ForeColor = Color.Black;
+                    GameInfo_tvwObjects.BackColor = Theme.AppTheme.Surface;
+                    GameInfo_tvwObjects.ForeColor = Theme.AppTheme.TextPrimary;
                     GameInfo_tvwObjects.BorderStyle = BorderStyle.FixedSingle;
                     GameInfo_tvwObjects.Font = PhBotFont();
                     GameInfo_tvwObjects.Visible = true;
@@ -1033,7 +1033,7 @@ namespace xBot.App
                 if (GameInfo_lblServerTime != null)
                 {
                     GameInfo_lblServerTime.Font = PhBotFont();
-                    GameInfo_lblServerTime.ForeColor = Color.Black;
+                    GameInfo_lblServerTime.ForeColor = Theme.AppTheme.TextPrimary;
                     GameInfo_lblServerTime.Location = new Point(6, bY + 3);
                     GameInfo_lblServerTime.AutoSize = true;
                     GameInfo_lblServerTime.Visible = true;
@@ -1041,8 +1041,8 @@ namespace xBot.App
                 if (GameInfo_tbxServerTime != null)
                 {
                     GameInfo_tbxServerTime.Font = PhBotFont();
-                    GameInfo_tbxServerTime.BackColor = Color.White;
-                    GameInfo_tbxServerTime.ForeColor = Color.Black;
+                    GameInfo_tbxServerTime.BackColor = Theme.AppTheme.Surface;
+                    GameInfo_tbxServerTime.ForeColor = Theme.AppTheme.TextPrimary;
                     GameInfo_tbxServerTime.Location = new Point(80, bY);
                     GameInfo_tbxServerTime.Size = new Size(100, 22);
                     GameInfo_tbxServerTime.Visible = true;
@@ -1056,7 +1056,7 @@ namespace xBot.App
                     if (cb != null)
                     {
                         cb.Font = PhBotFont();
-                        cb.ForeColor = Color.Black;
+                        cb.ForeColor = Theme.AppTheme.TextPrimary;
                         cb.Location = new Point(cbX, bY + 2);
                         cb.AutoSize = true;
                         cb.Visible = true;
@@ -1141,7 +1141,7 @@ namespace xBot.App
             {
                 cbx.Text = text;
                 cbx.Font = PhBotFont();
-                cbx.ForeColor = Color.Black;
+                cbx.ForeColor = Theme.AppTheme.TextPrimary;
                 cbx.AutoSize = true;
             }
             catch { }
@@ -1174,14 +1174,14 @@ namespace xBot.App
                         pl.Name = "PhBot_PickRadiusLbl";
                         pl.Text = "Pick Radius:";
                         pl.Font = PhBotFont();
-                        pl.ForeColor = Color.Black;
+                        pl.ForeColor = Theme.AppTheme.TextPrimary;
                         pl.AutoSize = true;
                         pl.Location = new Point(340, 104);
                         details.Controls.Add(pl);
                         TextBox pb = new TextBox();
                         pb.Name = "PhBot_PickRadius";
                         pb.Font = PhBotFont();
-                        pb.BackColor = Color.White;
+                        pb.BackColor = Theme.AppTheme.Surface;
                         pb.Location = new Point(415, 100);
                         pb.Size = new Size(60, 26);
                         pb.Text = "30";
@@ -1264,7 +1264,7 @@ namespace xBot.App
                     }
                     Character_pgbExp.TrackColor = Color.FromArgb(235, 235, 235);
                     Character_pgbExp.BackColor = Color.FromArgb(16, 172, 36);
-                    Character_pgbExp.ForeColor = Color.Black;
+                    Character_pgbExp.ForeColor = Theme.AppTheme.TextPrimary;
                     Character_pgbExp.Display = xGraphics.xProgressBarDisplay.Percentage;
                     Place(Character_pgbExp, 280, baseY, 150, 20);
                     Character_pgbExp.BringToFront();
@@ -1279,7 +1279,7 @@ namespace xBot.App
                         try { p.Controls.Add(Character_lblLevel); } catch { }
                     }
                     Character_lblLevel.Font = PhBotFont();
-                    Character_lblLevel.ForeColor = Color.Black;
+                    Character_lblLevel.ForeColor = Theme.AppTheme.TextPrimary;
                     Character_lblLevel.Location = new Point(510, baseY + 2);
                     Character_lblLevel.Visible = true;
                     Character_lblLevel.BringToFront();
@@ -1313,7 +1313,7 @@ namespace xBot.App
                     }
                     Character_pgbJobExp.TrackColor = Color.FromArgb(235, 235, 235);
                     Character_pgbJobExp.BackColor = Color.FromArgb(16, 172, 36);
-                    Character_pgbJobExp.ForeColor = Color.Black;
+                    Character_pgbJobExp.ForeColor = Theme.AppTheme.TextPrimary;
                     Character_pgbJobExp.Display = xGraphics.xProgressBarDisplay.Percentage;
                     Place(Character_pgbJobExp, 280, r2Y, 150, 20);
                     Character_pgbJobExp.BringToFront();
@@ -1328,7 +1328,7 @@ namespace xBot.App
                         try { p.Controls.Add(Character_lblJobLevel); } catch { }
                     }
                     Character_lblJobLevel.Font = PhBotFont();
-                    Character_lblJobLevel.ForeColor = Color.Black;
+                    Character_lblJobLevel.ForeColor = Theme.AppTheme.TextPrimary;
                     Character_lblJobLevel.Location = new Point(510, r2Y + 2);
                     Character_lblJobLevel.Visible = true;
                     Character_lblJobLevel.BringToFront();
@@ -1370,9 +1370,9 @@ namespace xBot.App
                 if (tabRoot == null)
                 {
                     tabRoot = new TabControl { Name = "PhBot_AlchemyTabRoot", Dock = DockStyle.Fill, Font = PhBotFont() };
-                    TabPage tabGear = new TabPage { Name = "PhBot_AlcTabGear", Text = "Gear", BackColor = Color.White };
-                    TabPage tabShining = new TabPage { Name = "PhBot_AlcTabShining", Text = "Shining Stone", BackColor = Color.White };
-                    TabPage tabTablet = new TabPage { Name = "PhBot_AlcTabTablet", Text = "Tablet", BackColor = Color.White };
+                    TabPage tabGear = new TabPage { Name = "PhBot_AlcTabGear", Text = "Gear", BackColor = Theme.AppTheme.Surface };
+                    TabPage tabShining = new TabPage { Name = "PhBot_AlcTabShining", Text = "Shining Stone", BackColor = Theme.AppTheme.Surface };
+                    TabPage tabTablet = new TabPage { Name = "PhBot_AlcTabTablet", Text = "Tablet", BackColor = Theme.AppTheme.Surface };
                     tabRoot.TabPages.AddRange(new TabPage[] { tabGear, tabShining, tabTablet });
                     host.Controls.Add(tabRoot);
                 }
@@ -1402,8 +1402,8 @@ namespace xBot.App
                         cmbxAlchemyItems.Location = new Point(65, 14);
                         cmbxAlchemyItems.Size = new Size(304, 24);
                         cmbxAlchemyItems.Font = PhBotFont();
-                        cmbxAlchemyItems.BackColor = Color.White;
-                        cmbxAlchemyItems.ForeColor = Color.Black;
+                        cmbxAlchemyItems.BackColor = Theme.AppTheme.Surface;
+                        cmbxAlchemyItems.ForeColor = Theme.AppTheme.TextPrimary;
                         cmbxAlchemyItems.DropDownStyle = ComboBoxStyle.DropDownList;
                         cmbxAlchemyItems.Visible = true;
                     }
@@ -1417,11 +1417,11 @@ namespace xBot.App
                     if (gearSub == null)
                     {
                         gearSub = new TabControl { Name = "PhBot_GearSubTabs", Location = new Point(14, 46), Size = new Size(355, 260), Font = PhBotFont() };
-                        TabPage subPlus = new TabPage { Name = "PhBot_SubPlus", Text = "Plus", BackColor = Color.White };
-                        TabPage subAttr = new TabPage { Name = "PhBot_SubAttr", Text = "Attribute", BackColor = Color.White };
-                        TabPage subAlch = new TabPage { Name = "PhBot_SubAlch", Text = "Alchemic", BackColor = Color.White };
-                        TabPage subDism = new TabPage { Name = "PhBot_SubDism", Text = "Dismantle", BackColor = Color.White };
-                        TabPage subDisj = new TabPage { Name = "PhBot_SubDisj", Text = "Disjoint", BackColor = Color.White };
+                        TabPage subPlus = new TabPage { Name = "PhBot_SubPlus", Text = "Plus", BackColor = Theme.AppTheme.Surface };
+                        TabPage subAttr = new TabPage { Name = "PhBot_SubAttr", Text = "Attribute", BackColor = Theme.AppTheme.Surface };
+                        TabPage subAlch = new TabPage { Name = "PhBot_SubAlch", Text = "Alchemic", BackColor = Theme.AppTheme.Surface };
+                        TabPage subDism = new TabPage { Name = "PhBot_SubDism", Text = "Dismantle", BackColor = Theme.AppTheme.Surface };
+                        TabPage subDisj = new TabPage { Name = "PhBot_SubDisj", Text = "Disjoint", BackColor = Theme.AppTheme.Surface };
                         gearSub.TabPages.AddRange(new TabPage[] { subPlus, subAttr, subAlch, subDism, subDisj });
                         pGear.Controls.Add(gearSub);
                     }
@@ -1444,8 +1444,8 @@ namespace xBot.App
                             nudAlchemyTargetPlus.Location = new Point(105, 12);
                             nudAlchemyTargetPlus.Size = new Size(48, 22);
                             nudAlchemyTargetPlus.Font = PhBotFont();
-                            nudAlchemyTargetPlus.BackColor = Color.White;
-                            nudAlchemyTargetPlus.ForeColor = Color.Black;
+                            nudAlchemyTargetPlus.BackColor = Theme.AppTheme.Surface;
+                            nudAlchemyTargetPlus.ForeColor = Theme.AppTheme.TextPrimary;
                             nudAlchemyTargetPlus.Visible = true;
                         }
                         PhBotLabel(sp, "PhBot_PlusStopUnit", "+0", 158, 14);
@@ -1461,8 +1461,8 @@ namespace xBot.App
                             nudAlchemyDelay.Location = new Point(105, 36);
                             nudAlchemyDelay.Size = new Size(48, 22);
                             nudAlchemyDelay.Font = PhBotFont();
-                            nudAlchemyDelay.BackColor = Color.White;
-                            nudAlchemyDelay.ForeColor = Color.Black;
+                            nudAlchemyDelay.BackColor = Theme.AppTheme.Surface;
+                            nudAlchemyDelay.ForeColor = Theme.AppTheme.TextPrimary;
                             nudAlchemyDelay.Visible = true;
                         }
                         PhBotLabel(sp, "PhBot_PlusSuccUnit", "ms    0%", 158, 38);
@@ -1482,7 +1482,7 @@ namespace xBot.App
                             }
                             cbxAlchemyUsePowder.Text = "Lucky powder";
                             cbxAlchemyUsePowder.Font = PhBotFont();
-                            cbxAlchemyUsePowder.ForeColor = Color.Black;
+                            cbxAlchemyUsePowder.ForeColor = Theme.AppTheme.TextPrimary;
                             cbxAlchemyUsePowder.Location = new Point(10, cy);
                             cbxAlchemyUsePowder.AutoSize = true;
                             cbxAlchemyUsePowder.Visible = true;
@@ -1533,8 +1533,8 @@ namespace xBot.App
                             nudAlchemyMaxAttempts.Location = new Point(130, cy - 1);
                             nudAlchemyMaxAttempts.Size = new Size(50, 22);
                             nudAlchemyMaxAttempts.Font = PhBotFont();
-                            nudAlchemyMaxAttempts.BackColor = Color.White;
-                            nudAlchemyMaxAttempts.ForeColor = Color.Black;
+                            nudAlchemyMaxAttempts.BackColor = Theme.AppTheme.Surface;
+                            nudAlchemyMaxAttempts.ForeColor = Theme.AppTheme.TextPrimary;
                             nudAlchemyMaxAttempts.Visible = true;
                         }
                     }
@@ -1659,9 +1659,9 @@ namespace xBot.App
                 if (tabs == null)
                 {
                     tabs = new TabControl { Name = "PhBot_TradeTabs", Font = PhBotFont(), Dock = DockStyle.Fill };
-                    var tpLoop = new TabPage("Loop") { Name = "PhBot_TradeLoop", BackColor = Color.White };
-                    var tpItems = new TabPage("Items") { Name = "PhBot_TradeItems", BackColor = Color.White };
-                    var tpOptions = new TabPage("Options") { Name = "PhBot_TradeOptions", BackColor = Color.White };
+                    var tpLoop = new TabPage("Loop") { Name = "PhBot_TradeLoop", BackColor = Theme.AppTheme.Surface };
+                    var tpItems = new TabPage("Items") { Name = "PhBot_TradeItems", BackColor = Theme.AppTheme.Surface };
+                    var tpOptions = new TabPage("Options") { Name = "PhBot_TradeOptions", BackColor = Theme.AppTheme.Surface };
                     tabs.TabPages.Add(tpLoop);
                     tabs.TabPages.Add(tpItems);
                     tabs.TabPages.Add(tpOptions);
@@ -1832,7 +1832,7 @@ namespace xBot.App
                     TextBox tbxRep = pOptions.Controls["PhBot_TradeRepeatN"] as TextBox;
                     if (tbxRep == null)
                     {
-                        tbxRep = new TextBox { Name = "PhBot_TradeRepeatN", Text = "0", Font = PhBotFont(), BackColor = Color.White, ForeColor = Color.Black };
+                        tbxRep = new TextBox { Name = "PhBot_TradeRepeatN", Text = "0", Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, ForeColor = Theme.AppTheme.TextPrimary };
                         pOptions.Controls.Add(tbxRep);
                     }
                     tbxRep.Location = new Point(230, 12);
@@ -1844,7 +1844,7 @@ namespace xBot.App
                     TextBox tbxAtk = pOptions.Controls["PhBot_TradeAttackRadius"] as TextBox;
                     if (tbxAtk == null)
                     {
-                        tbxAtk = new TextBox { Name = "PhBot_TradeAttackRadius", Text = "25", Font = PhBotFont(), BackColor = Color.White, ForeColor = Color.Black };
+                        tbxAtk = new TextBox { Name = "PhBot_TradeAttackRadius", Text = "25", Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, ForeColor = Theme.AppTheme.TextPrimary };
                         pOptions.Controls.Add(tbxAtk);
                     }
                     tbxAtk.Location = new Point(230, 44);
@@ -1863,7 +1863,7 @@ namespace xBot.App
                     RadioButton rbnStay = pOptions.Controls["PhBot_TradeStayOn"] as RadioButton;
                     if (rbnStay == null)
                     {
-                        rbnStay = new RadioButton { Name = "PhBot_TradeStayOn", Text = "Stay on transport", Font = PhBotFont(), ForeColor = Color.Black, Checked = true, AutoSize = true };
+                        rbnStay = new RadioButton { Name = "PhBot_TradeStayOn", Text = "Stay on transport", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, Checked = true, AutoSize = true };
                         pOptions.Controls.Add(rbnStay);
                     }
                     rbnStay.Location = new Point(14, 142);
@@ -1872,7 +1872,7 @@ namespace xBot.App
                     RadioButton rbnStayOff = pOptions.Controls["PhBot_TradeStayOff"] as RadioButton;
                     if (rbnStayOff == null)
                     {
-                        rbnStayOff = new RadioButton { Name = "PhBot_TradeStayOff", Text = "Stay off transport", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true };
+                        rbnStayOff = new RadioButton { Name = "PhBot_TradeStayOff", Text = "Stay off transport", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true };
                         pOptions.Controls.Add(rbnStayOff);
                     }
                     rbnStayOff.Location = new Point(14, 174);
@@ -1881,7 +1881,7 @@ namespace xBot.App
                     RadioButton rbnRemount = pOptions.Controls["PhBot_TradeRemount"] as RadioButton;
                     if (rbnRemount == null)
                     {
-                        rbnRemount = new RadioButton { Name = "PhBot_TradeRemount", Text = "Remount transport", Font = PhBotFont(), ForeColor = Color.Black, AutoSize = true };
+                        rbnRemount = new RadioButton { Name = "PhBot_TradeRemount", Text = "Remount transport", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true };
                         pOptions.Controls.Add(rbnRemount);
                     }
                     rbnRemount.Location = new Point(14, 206);

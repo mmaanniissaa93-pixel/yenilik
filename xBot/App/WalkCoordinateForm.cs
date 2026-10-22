@@ -30,8 +30,11 @@ namespace xBot.App
             this.MinimizeBox = false;
             this.StartPosition = FormStartPosition.CenterParent;
             this.ClientSize = new Size(260, 130);
-            this.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
-            this.BackColor = Color.FromArgb(245, 245, 245);
+            this.Font = Theme.AppTheme.FontBody;
+            this.BackColor = Theme.AppTheme.Background;
+            this.ForeColor = Theme.AppTheme.TextPrimary;
+            this.AutoScaleDimensions = new SizeF(96f, 96f);
+            this.AutoScaleMode = AutoScaleMode.Dpi;
 
             var lblX = new Label();
             lblX.Text = "Hedef X:";
@@ -75,12 +78,23 @@ namespace xBot.App
             this.AcceptButton = btnOk;
             this.CancelButton = btnCancel;
 
+            lblX.ForeColor = Theme.AppTheme.Colors.TextSecondary;
+            lblY.ForeColor = Theme.AppTheme.Colors.TextSecondary;
+            Theme.AppTheme.ComponentStyles.StyleSecondaryButton(btnCancel);
+            btnOk.FlatStyle = FlatStyle.Flat;
+            btnOk.FlatAppearance.BorderSize = 0;
+            btnOk.BackColor = Theme.AppTheme.Colors.Neutral.TextPrimary;
+            btnOk.ForeColor = Theme.AppTheme.Colors.Neutral.TextInverse;
+            btnOk.Font = Theme.AppTheme.FontBodyBold;
+            btnOk.Cursor = Cursors.Hand;
+
             try
             {
                 if (Window.Get != null && Window.Get.Icon != null)
                     this.Icon = Window.Get.Icon;
             }
             catch { }
+            Theme.ThemeManager.Apply(this);
         }
     }
 }

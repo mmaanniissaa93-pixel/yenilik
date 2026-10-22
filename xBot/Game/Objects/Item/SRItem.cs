@@ -31,7 +31,8 @@ namespace xBot.Game.Objects.Item
 			if (data != null)
 			{
 				ServerName = data["servername"] ?? ("ITEM_UNKNOWN_" + ID);
-				Name = data["name"] ?? ServerName;
+				string rawName = data["name"];
+				Name = !string.IsNullOrWhiteSpace(rawName) ? rawName : ServerName;
 				ID1 = 3;
 				byte b;
 				ID2 = byte.TryParse(data["tid2"], out b) ? b : (byte)0;
@@ -67,7 +68,8 @@ namespace xBot.Game.Objects.Item
 			{
 				uint idVal;
 				this.ID = uint.TryParse(data["id"], out idVal) ? idVal : 0;
-				Name = data["name"] ?? ServerName;
+				string rawName2 = data["name"];
+				Name = !string.IsNullOrWhiteSpace(rawName2) ? rawName2 : ServerName;
 				ID1 = 3;
 				byte b;
 				ID2 = byte.TryParse(data["tid2"], out b) ? b : (byte)0;
@@ -174,6 +176,58 @@ namespace xBot.Game.Objects.Item
 			uint rentableId = Rentable != null ? Rentable.ID : 0;
 			return (ushort)((ushort)rentableId | ID1 << 2 | ID2 << 5 | ID3 << 7 | ID4 << 11);
 		}
+		/// <summary>
+		/// Silkroad-R (v164 / Elysian) ve modern Joymax sunucularda 32-bit m_sTID / m_dwTypeID kullanım tipi.
+		/// Bits 0..3: RentableId, Bits 4..9: TID2, Bits 10..15: TID1, Bits 16..23: TID3, Bits 24..31: TID4.
+		/// Gerçek client'ın (sro_client.exe) 0x704C paketlerinde gönderdiği bit dizilimi ile birebir eşleşir.
+		/// </summary>
+		public uint GetUsageType32()
+		{
+			uint rentableId = Rentable != null ? Rentable.ID : 0;
+			return (uint)(
+				(rentableId & 0x03) |
+				((uint)(ID2 & 0x3F) << 4) |
+				((uint)(ID1 & 0x3F) << 10) |
+				((uint)(ID3 & 0xFF) << 16) |
+				((uint)(ID4 & 0xFF) << 24)
+			);
+		}
+		private byte GetDegreeOrSubtype()
+		{
+			if (string.IsNullOrEmpty(ServerName))
+				return 1;
+
+			// Reverse Return Scroll
+			if (ID2 == 3 && ID3 == 3 && ID4 == 3)
+				return 3;
+
+			// Check for patterns like _SUPERSET_5_BAG -> 5
+			if (ServerName.IndexOf("_SUPERSET_", StringComparison.OrdinalIgnoreCase) >= 0)
+			{
+				int idx = ServerName.IndexOf("_SUPERSET_", StringComparison.OrdinalIgnoreCase);
+				int after = idx + "_SUPERSET_".Length;
+				int nextUnderscore = ServerName.IndexOf('_', after);
+				if (nextUnderscore > after)
+				{
+					string numStr = ServerName.Substring(after, nextUnderscore - after);
+					byte deg;
+					if (byte.TryParse(numStr, out deg) && deg > 0)
+						return deg;
+				}
+			}
+
+			// Check for degree suffix like _01, _02, ... _16
+			int lastUnderscore = ServerName.LastIndexOf('_');
+			if (lastUnderscore >= 0 && lastUnderscore < ServerName.Length - 1)
+			{
+				string suffix = ServerName.Substring(lastUnderscore + 1);
+				byte deg;
+				if (byte.TryParse(suffix, out deg) && deg > 0 && deg <= 16)
+					return deg;
+			}
+
+			return 1;
+		}
 		public bool isType(byte ID2, byte ID3, byte ID4)
 		{
 			return this.ID2 == ID2 && this.ID3 == ID3 && this.ID4 == ID4;
@@ -185,7 +239,7 @@ namespace xBot.Game.Objects.Item
 		}
 		public virtual string GetFullName()
 		{
-			return Name;
+			return !string.IsNullOrWhiteSpace(Name) ? Name : (!string.IsNullOrWhiteSpace(ServerName) ? ServerName : ("Item #" + ID));
 		}
 		public virtual string GetTooltip()
 		{

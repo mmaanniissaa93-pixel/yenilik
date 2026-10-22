@@ -278,7 +278,7 @@ namespace xBot.App
             uint pathLen = (uint)buffer.Length;
 
             string silkroadDirectory = Path.GetDirectoryName(clientPath);
-            string args = $"/{locale} {divisionIndex} {gatewayIndex} 0";
+            string args = $"0 /{locale} {divisionIndex} {gatewayIndex}";
             string commandLine = $"\"{clientPath}\" {args}";
 
             string originalPathEnv = Environment.GetEnvironmentVariable("PATH");
@@ -449,17 +449,47 @@ namespace xBot.App
 					payloadWriter.WriteAscii(redirectIp); // int32 length + ASCII bytes
 					payloadWriter.Write(redirectPort); // 2 bytes WORD
 
-                    int count = gatewayHosts != null ? gatewayHosts.Count : 0;
-					payloadWriter.Write(count); // int32
+					List<string> effectiveHosts = new List<string>();
+					if (gatewayHosts != null)
+					{
+						foreach (string host in gatewayHosts)
+						{
+							if (string.IsNullOrWhiteSpace(host)) continue;
+							if (!effectiveHosts.Contains(host))
+								effectiveHosts.Add(host);
 
-                    if (gatewayHosts != null)
-                    {
-                        foreach (string host in gatewayHosts)
-                        {
-							payloadWriter.WriteAscii(host);
-                        }
-                    }
+							// Alan adi girilmisse (or. login.silkroadonline.org), askidaki surecte
+							// WSAStartup henuz cagrilmadigindan C++ gethostbyname() WSANOTINITIALISED
+							// hatasi verir. Bu yuzden C# tarafinda IPv4 adreslerini cozup listeye ekleyelim.
+							try
+							{
+								System.Net.IPAddress parsedIp;
+								if (!System.Net.IPAddress.TryParse(host, out parsedIp))
+								{
+									System.Net.IPAddress[] resolved = System.Net.Dns.GetHostAddresses(host);
+									if (resolved != null)
+									{
+										foreach (System.Net.IPAddress ip in resolved)
+										{
+											if (ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+											{
+												string ipStr = ip.ToString();
+												if (!effectiveHosts.Contains(ipStr))
+													effectiveHosts.Add(ipStr);
+											}
+										}
+									}
+								}
+							}
+							catch { }
+						}
+					}
 
+					payloadWriter.Write(effectiveHosts.Count); // int32
+					foreach (string host in effectiveHosts)
+					{
+						payloadWriter.WriteAscii(host);
+					}
 					payloadWriter.Write(gatewayPort); // 2 bytes WORD
 					payloadWriter.Write(false); // 1 byte - legacy randomizeMac flag (reserved)
 					payloadWriter.Flush();
@@ -730,7 +760,10 @@ namespace xBot.App
 
         private static bool RequiresXigncodePatch(byte locale, string clientPath)
         {
-            if (locale == 8 || locale == 22 || locale == 56 || locale == 63)
+            if (Game.DataManager.CurrentProfile != null)
+                return Game.DataManager.CurrentProfile.RequiresXigncodePatch;
+
+            if (locale == 8 || locale == 56 || locale == 63)
                 return true;
 
             if (!string.IsNullOrEmpty(clientPath))

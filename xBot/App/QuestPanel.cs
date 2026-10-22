@@ -109,6 +109,7 @@ namespace xBot.App
             tabPages[2].Controls.Add(options);
 
             mainTabControl.SelectedIndexChanged += (s, e) => SelectedTab = mainTabControl.SelectedIndex;
+            Theme.ThemeManager.Apply(this);
         }
 
         public void SetOptions(int margin, bool wait, bool events)
@@ -214,6 +215,7 @@ namespace xBot.App
             };
             dialog.KeyPreview = true;
             dialog.KeyDown += (s, e) => { if (e.KeyCode == Keys.Escape) dialog.Close(); };
+            Theme.ThemeManager.Apply(dialog);
             return dialog;
         }
 

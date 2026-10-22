@@ -410,6 +410,17 @@ namespace xBot.App
             tUsingAbnormalPill.Elapsed += CheckUsingAbnormalPill;
             tUsingHGP.Elapsed += CheckUsingHGP;
         }
+        public bool IsSafeToCheckPotions()
+        {
+            if (!InfoManager.inGame || InfoManager.inTeleport)
+                return false;
+            if (InfoManager.JoinedGameUtc != DateTime.MinValue && (DateTime.UtcNow - InfoManager.JoinedGameUtc).TotalSeconds < 5.0)
+                return false;
+            if (InfoManager.LastTeleportUtc != DateTime.MinValue && (DateTime.UtcNow - InfoManager.LastTeleportUtc).TotalSeconds < 5.0)
+                return false;
+            return true;
+        }
+
         public void CheckUsingHP()
         {
             if (!tUsingHP.Enabled)
@@ -417,6 +428,7 @@ namespace xBot.App
         }
         private void CheckUsingHP(object sender, ElapsedEventArgs e)
         {
+            if (!IsSafeToCheckPotions()) return;
             var character = InfoManager.Character;
             if (character == null || character.Inventory == null)
                 return;
@@ -462,6 +474,7 @@ namespace xBot.App
         }
         private void CheckUsingMP(object sender, ElapsedEventArgs e)
         {
+            if (!IsSafeToCheckPotions()) return;
             var character = InfoManager.Character;
             if (character == null || character.Inventory == null)
                 return;
@@ -507,6 +520,7 @@ namespace xBot.App
         }
         private void CheckUsingVigor(object sender, ElapsedEventArgs e)
         {
+            if (!IsSafeToCheckPotions()) return;
             var character = InfoManager.Character;
             if (character == null || character.Inventory == null)
                 return;
@@ -557,6 +571,7 @@ namespace xBot.App
         }
         public void CheckUsingUniversal(object sender, ElapsedEventArgs e)
         {
+            if (!IsSafeToCheckPotions()) return;
             var character = InfoManager.Character;
             if (character == null || character.Inventory == null) return;
             if (character.LifeStateType == SRModel.LifeState.Alive)
@@ -592,6 +607,7 @@ namespace xBot.App
         }
         private void CheckUsingPurification(object sender, ElapsedEventArgs e)
         {
+            if (!IsSafeToCheckPotions()) return;
             var character = InfoManager.Character;
             if (character == null || character.Inventory == null) return;
             if (character.LifeStateType == SRModel.LifeState.Alive)
@@ -782,6 +798,7 @@ namespace xBot.App
         }
         private void CheckUsingRecoveryKit(object sender, ElapsedEventArgs e)
         {
+            if (!IsSafeToCheckPotions()) return;
             // Checking pet using recovery kit by priority
             Window w = Window.Get;
             // Vehicle or Transport
@@ -839,6 +856,7 @@ namespace xBot.App
         }
         private void CheckUsingAbnormalPill(object sender, ElapsedEventArgs e)
         {
+            if (!IsSafeToCheckPotions()) return;
             Window w = Window.Get;
             if (w.Character_cbxUsePetsPill.Checked)
             {
@@ -869,6 +887,7 @@ namespace xBot.App
         }
         private void CheckUsingHGP(object sender, ElapsedEventArgs e)
         {
+            if (!IsSafeToCheckPotions()) return;
             Window w = Window.Get;
             if (w.Character_cbxUsePetHGP.Checked)
             {

@@ -109,7 +109,7 @@ namespace xBot.Network
 						DataManager.Version = version;
 						BotLog.Log("Warning: The bot database is outdate, try to update it at first to avoid parsing errors");
 					}
-					else if (DataManager.Locale != locale)
+					if (DataManager.Locale != locale)
 					{
 						DataManager.Locale = locale;
 						BotLog.Log("A new Locale has been found [" + locale + "]");

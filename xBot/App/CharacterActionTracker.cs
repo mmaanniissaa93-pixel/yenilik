@@ -7,6 +7,7 @@ namespace xBot.App
     // B070 failures contain no request id, so overlapping casts are ambiguous.
     public sealed class CharacterActionTracker
     {
+        public const int AcknowledgementTimeoutMs = 3000;
         private readonly object sync = new object();
         private readonly Func<long> clock;
         private bool pending;
@@ -23,6 +24,43 @@ namespace xBot.App
         public bool CanStart
         {
             get { lock (sync) { Expire(); return !reserved && !pending && clock() >= readyAt; } }
+        }
+
+        public bool IsBasicActionInProgress
+        {
+            get
+            {
+                lock (sync)
+                {
+                    Expire();
+                    return !pending && !reserved && basic && clock() < readyAt;
+                }
+            }
+        }
+
+        public bool IsActionInProgress
+        {
+            get
+            {
+                lock (sync)
+                {
+                    Expire();
+                    return !reserved && (pending || clock() < readyAt);
+                }
+            }
+        }
+
+        public void CancelCurrentAction()
+        {
+            lock (sync)
+            {
+                pending = reserved = false;
+                readyAt = clock();
+                deadline = 0;
+                source = skill = target = 0;
+                basic = attack = false;
+                animation = 0;
+            }
         }
 
         public bool TryReserve()
@@ -59,7 +97,7 @@ namespace xBot.App
                 basic = isBasic;
                 attack = isAttack;
                 animation = Math.Max(isAttack ? 350 : 0, Math.Min(10000, animationMs));
-                deadline = clock() + 1500;
+                deadline = clock() + AcknowledgementTimeoutMs;
                 pending = true;
                 return true;
             }

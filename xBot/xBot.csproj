@@ -216,6 +216,7 @@
     </Compile>
     <Compile Include="App\Theme\AppTheme.cs" />
     <Compile Include="App\Theme\DarkTheme.cs" />
+    <Compile Include="App\Theme\ThemeManager.cs" />
     <Compile Include="App\Theme\ModernLogger.cs" />
     <Compile Include="Game\Objects\Common\SRCollectionBook.cs" />
     <Compile Include="Game\Objects\Common\SRMastery.cs" />
@@ -263,6 +264,9 @@
     <Compile Include="App\ClientManager.cs" />
     <Compile Include="App\SQLDatabase.cs" />
     <Compile Include="Game\DataManager.cs" />
+    <Compile Include="Game\Profiles\ServerType.cs" />
+    <Compile Include="Game\Profiles\ServerProfile.cs" />
+    <Compile Include="Game\Profiles\ServerProfileManager.cs" />
     <Compile Include="Game\Objects\Item\SRItem.cs" />
     <Compile Include="Game\Objects\Common\SRSkill.cs" />
     <Compile Include="Game\Objects\Common\SRBuff.cs" />

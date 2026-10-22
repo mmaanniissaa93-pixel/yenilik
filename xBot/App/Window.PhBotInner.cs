@@ -94,27 +94,30 @@ namespace xBot.App
             try
             {
                 c.Font = PhBotFont();
-                c.ForeColor = Color.Black;
+                c.ForeColor = Theme.AppTheme.TextPrimary;
                 Button b = c as Button;
                 if (b != null)
                 {
-                    b.FlatStyle = FlatStyle.Standard;
-                    b.BackColor = SystemColors.Control;
-                    b.UseVisualStyleBackColor = true;
+                    b.FlatStyle = FlatStyle.Flat;
+                    b.BackColor = Theme.AppTheme.Colors.SurfaceSecondary;
+                    b.ForeColor = Theme.AppTheme.TextPrimary;
+                    b.UseVisualStyleBackColor = false;
+                    b.FlatAppearance.BorderColor = Theme.AppTheme.BorderDefault;
+                    b.FlatAppearance.MouseOverBackColor = Theme.AppTheme.SurfaceHover;
+                    b.FlatAppearance.MouseDownBackColor = Theme.AppTheme.Colors.Neutral.SurfacePressed;
+                    b.FlatStyle = FlatStyle.Flat;
                 }
                 TextBox t = c as TextBox;
-                if (t != null) { t.BackColor = Color.White; t.BorderStyle = BorderStyle.FixedSingle; }
+                if (t != null) { t.BackColor = Theme.AppTheme.Surface; t.ForeColor = Theme.AppTheme.TextPrimary; t.BorderStyle = BorderStyle.FixedSingle; }
                 ComboBox cb = c as ComboBox;
-                if (cb != null) { cb.BackColor = Color.White; }
+                if (cb != null) { cb.BackColor = Theme.AppTheme.Surface; cb.ForeColor = Theme.AppTheme.TextPrimary; }
                 ListView lv = c as ListView;
                 if (lv != null)
                 {
-                    try { lv.OwnerDraw = false; } catch { }
-                    lv.BackColor = Color.White;
-                    lv.ForeColor = Color.Black;
                     lv.FullRowSelect = true;
-                    lv.GridLines = true;
+                    lv.GridLines = false;
                     try { lv.BorderStyle = BorderStyle.FixedSingle; } catch { }
+                    Theme.ThemeManager.ApplyListView(lv);
                 }
             }
             catch { }
@@ -125,8 +128,8 @@ namespace xBot.App
             if (cb == null) return;
             try
             {
-                cb.BackColor = PhBotComboGray;
-                cb.ForeColor = Color.Black;
+                cb.BackColor = Theme.AppTheme.Colors.SurfaceSecondary;
+                cb.ForeColor = Theme.AppTheme.TextPrimary;
                 cb.Font = PhBotFont();
                 cb.FlatStyle = FlatStyle.Standard;
             }
@@ -149,7 +152,7 @@ namespace xBot.App
                 c = new CheckBox();
                 c.Name = name;
                 c.Font = PhBotFont();
-                c.ForeColor = Color.Black;
+                c.ForeColor = Theme.AppTheme.TextPrimary;
                 c.AutoSize = true;
                 // Varsayılan işaret YALNIZCA ilk kurulumda uygulanır;
                 // sonraki yerleşimler kullanıcının seçimini korur.
@@ -181,8 +184,8 @@ namespace xBot.App
                 t = new TextBox();
                 t.Name = name;
                 t.Font = PhBotFont();
-                t.BackColor = Color.White;
-                t.ForeColor = Color.Black;
+                t.BackColor = Theme.AppTheme.Surface;
+                t.ForeColor = Theme.AppTheme.TextPrimary;
                 t.BorderStyle = BorderStyle.FixedSingle;
                 t.TextAlign = HorizontalAlignment.Left;
                 try { p.Controls.Add(t); } catch { }
@@ -230,7 +233,7 @@ namespace xBot.App
                 c = new CheckBox();
                 c.Name = name;
                 c.Font = PhBotFont();
-                c.ForeColor = Color.Black;
+                c.ForeColor = Theme.AppTheme.TextPrimary;
                 c.AutoSize = true;
                 c.Checked = currentVal;
                 if (onValChanged != null)
@@ -264,8 +267,8 @@ namespace xBot.App
                 t = new TextBox();
                 t.Name = name;
                 t.Font = PhBotFont();
-                t.BackColor = Color.White;
-                t.ForeColor = Color.Black;
+                t.BackColor = Theme.AppTheme.Surface;
+                t.ForeColor = Theme.AppTheme.TextPrimary;
                 t.BorderStyle = BorderStyle.FixedSingle;
                 t.TextAlign = HorizontalAlignment.Left;
                 t.Text = currentVal ?? "";
@@ -301,7 +304,7 @@ namespace xBot.App
                 l = new Label();
                 l.Name = name;
                 l.Font = PhBotFont();
-                l.ForeColor = Color.Black;
+                l.ForeColor = Theme.AppTheme.TextPrimary;
                 l.AutoSize = true;
                 try { p.Controls.Add(l); } catch { }
             }
@@ -426,6 +429,7 @@ namespace xBot.App
                 // Sağ seçenek sütunu (phBot attack.png 7..18 sırası).
                 bool isTR = LocalizationManager.CurrentLanguage == "TR";
                 int y = 8;
+                int longCheckW = Math.Max(240, p.ClientSize.Width - ox - 12);
                 try
                 {
                     if (Skills_cbxCastInOrder != null)
@@ -469,7 +473,7 @@ namespace xBot.App
                 y += 21;
 
                 CheckBox cbLower = BindAttackCheck(p, "PhBot_LowerSkills", isTR ? "Belirli bir canavar tipi için beceri yoksa daha düşük becerileri kullan" : "Use lower skills if skills for a specific monster type do not exist", ox, y, CombatAIEngine.UseLowerSkills, v => CombatAIEngine.UseLowerSkills = v);
-                if (cbLower != null) { cbLower.AutoSize = false; cbLower.Size = new Size(240, 28); }
+                if (cbLower != null) { cbLower.AutoSize = false; cbLower.Size = new Size(longCheckW, 28); }
                 y += 30;
 
                 BindAttackCheck(p, "PhBot_SlowerAttack", isTR ? "Yavaş saldırı modu" : "Slower attack mode", ox, y, CombatAIEngine.SlowerAttackMode, v => CombatAIEngine.SlowerAttackMode = v);
@@ -479,11 +483,11 @@ namespace xBot.App
                 y += 21;
 
                 CheckBox cbUniq = BindAttackCheck(p, "PhBot_AutoUnique", isTR ? "Yakındaki benzersizleri otomatik seç (bot kapalı olmalı)" : "Auto select nearby uniques (must not be botting)", ox, y, CombatAIEngine.AutoSelectUniques, v => CombatAIEngine.AutoSelectUniques = v);
-                if (cbUniq != null) { cbUniq.AutoSize = false; cbUniq.Size = new Size(240, 28); }
+                if (cbUniq != null) { cbUniq.AutoSize = false; cbUniq.Size = new Size(longCheckW, 28); }
                 y += 30;
 
                 CheckBox cbTitan = BindAttackCheck(p, "PhBot_AutoTitan", isTR ? "Yakındaki titanları otomatik seç (bot kapalı olmalı)" : "Auto select nearby titans (must not be botting)", ox, y, CombatAIEngine.AutoSelectTitans, v => CombatAIEngine.AutoSelectTitans = v);
-                if (cbTitan != null) { cbTitan.AutoSize = false; cbTitan.Size = new Size(240, 28); }
+                if (cbTitan != null) { cbTitan.AutoSize = false; cbTitan.Size = new Size(longCheckW, 28); }
                 y += 30;
 
                 BindAttackCheck(p, "PhBot_TeleportSkill", isTR ? "Işınlanma becerilerini kullan" : "Use teleport skills", ox, y, CombatAIEngine.UseTeleportSkills, v => CombatAIEngine.UseTeleportSkills = v);
@@ -853,8 +857,8 @@ namespace xBot.App
                 {
                     MoveTo(nudProtectionSkillHP, p, rightX + (isTR ? 148 : 138), ry - 2);
                     nudProtectionSkillHP.Font = PhBotFont();
-                    nudProtectionSkillHP.BackColor = Color.White;
-                    nudProtectionSkillHP.ForeColor = Color.Black;
+                    nudProtectionSkillHP.BackColor = Theme.AppTheme.Surface;
+                    nudProtectionSkillHP.ForeColor = Theme.AppTheme.TextPrimary;
                     nudProtectionSkillHP.Size = new Size(45, 22);
                     nudProtectionSkillHP.Visible = true;
                 }
@@ -872,8 +876,8 @@ namespace xBot.App
                 {
                     MoveTo(nudProtectionSkillMP, p, rightX + (isTR ? 148 : 138), ry - 2);
                     nudProtectionSkillMP.Font = PhBotFont();
-                    nudProtectionSkillMP.BackColor = Color.White;
-                    nudProtectionSkillMP.ForeColor = Color.Black;
+                    nudProtectionSkillMP.BackColor = Theme.AppTheme.Surface;
+                    nudProtectionSkillMP.ForeColor = Theme.AppTheme.TextPrimary;
                     nudProtectionSkillMP.Size = new Size(45, 22);
                     nudProtectionSkillMP.Visible = true;
                 }
@@ -964,8 +968,8 @@ namespace xBot.App
                         d = new TextBox();
                         d.Name = dn;
                         d.Font = PhBotFont();
-                        d.BackColor = Color.White;
-                        d.ForeColor = Color.Black;
+                        d.BackColor = Theme.AppTheme.Surface;
+                        d.ForeColor = Theme.AppTheme.TextPrimary;
                         d.BorderStyle = BorderStyle.FixedSingle;
                         d.TextAlign = HorizontalAlignment.Center;
                         try { p.Controls.Add(d); } catch { }

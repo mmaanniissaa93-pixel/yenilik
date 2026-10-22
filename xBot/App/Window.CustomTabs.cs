@@ -1403,7 +1403,7 @@ namespace xBot.App
                 Location = new Point(0, 0),
                 Size = new Size(115, 26),
                 BackColor = Theme.DarkTheme.Accent,
-                ForeColor = Color.White,
+                ForeColor = Theme.DarkTheme.TextInverse,
                 FlatStyle = FlatStyle.Flat,
                 Font = Theme.DarkTheme.FontBodyBold,
                 Cursor = Cursors.Hand
@@ -1516,7 +1516,7 @@ namespace xBot.App
                 Location = new Point(262, 138),
                 Size = new Size(94, 23),
                 BackColor = Theme.DarkTheme.Accent,
-                ForeColor = Color.White,
+                ForeColor = Theme.DarkTheme.TextInverse,
                 FlatStyle = FlatStyle.Flat,
                 Font = Theme.DarkTheme.FontCaptionBold,
                 Cursor = Cursors.Hand
@@ -1755,7 +1755,7 @@ namespace xBot.App
                 Location = new Point(640, 382),
                 Size = new Size(100, 28),
                 BackColor = Theme.DarkTheme.Accent,
-                ForeColor = Color.White,
+                ForeColor = Theme.DarkTheme.TextInverse,
                 FlatStyle = FlatStyle.Flat,
                 Font = Theme.DarkTheme.FontBodyBold,
                 Cursor = Cursors.Hand
@@ -2416,7 +2416,7 @@ namespace xBot.App
             Button browse = new Button { Location = new Point(508, 88), Size = new Size(58, 25), Text = "...", FlatStyle = FlatStyle.Flat };
             Button add = new Button { Location = new Point(576, 36), Size = new Size(60, 77), Text = "Add", FlatStyle = FlatStyle.Flat };
             Button remove = new Button { Location = new Point(518, 294), Size = new Size(118, 28), Text = "Remove route", FlatStyle = FlatStyle.Flat };
-            Trade_lstvRoutes = new ListView { Location = new Point(18, 126), Size = new Size(618, 158), View = View.Details, FullRowSelect = true, GridLines = true, HideSelection = false };
+            Trade_lstvRoutes = new ListView { Location = new Point(18, 126), Size = new Size(618, 158), View = View.Details, FullRowSelect = true, GridLines = false, HideSelection = false };
             Trade_lstvRoutes.Columns.Add("Start", 90); Trade_lstvRoutes.Columns.Add("End", 90); Trade_lstvRoutes.Columns.Add("Transport", 115);
             Trade_lstvRoutes.Columns.Add("Mode", 80); Trade_lstvRoutes.Columns.Add("Item", 105); Trade_lstvRoutes.Columns.Add("Route", 130);
             Button start = new Button { Location = new Point(18, 294), Size = new Size(150, 28), Text = "▶ Start Trade", FlatStyle = FlatStyle.Flat };
@@ -2660,7 +2660,7 @@ namespace xBot.App
                 Size = new Size(292, 122),
                 View = View.Details,
                 FullRowSelect = true,
-                GridLines = true,
+                GridLines = false,
                 HideSelection = false,
                 MultiSelect = false
             };
@@ -2702,7 +2702,7 @@ namespace xBot.App
                 Size = new Size(324, 274),
                 View = View.Details,
                 FullRowSelect = true,
-                GridLines = true,
+                GridLines = false,
                 HideSelection = false
             };
             Stall_lstvConsignment.Columns.Add("Item", 115);
@@ -3497,7 +3497,7 @@ namespace xBot.App
                 Size = new Size(296, 70),
                 View = View.Details,
                 FullRowSelect = true,
-                GridLines = true,
+                GridLines = false,
                 HideSelection = false,
                 BackColor = Color.FromArgb(34, 34, 38),
                 ForeColor = Color.White

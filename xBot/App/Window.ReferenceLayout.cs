@@ -17,6 +17,23 @@ namespace xBot.App
         private readonly Font _referenceFont = new Font("Segoe UI", 9F);
         private int _sidebarScrollOffset = 0;
         private int _sidebarTotalHeight = 0;
+        private bool _referenceWindowSized;
+
+        private float ReferenceDpiScale
+        {
+            get
+            {
+                int dpi = 96;
+                try { dpi = DeviceDpi; } catch { }
+                if (dpi < 96) dpi = 96;
+                return Math.Min(2.5f, dpi / 96f);
+            }
+        }
+
+        private int Ui(int value)
+        {
+            return (int)Math.Round(value * ReferenceDpiScale);
+        }
 
         private void Sidebar_MouseWheel(object sender, MouseEventArgs e)
         {
@@ -24,7 +41,9 @@ namespace xBot.App
             int viewH = TabPageV_Control01.ClientSize.Height;
             int maxScroll = Math.Max(0, _sidebarTotalHeight - viewH);
             if (maxScroll <= 0) return;
-            int delta = (e.Delta / 120) * 28;
+            int steps = e.Delta / 120;
+            if (steps == 0) steps = Math.Sign(e.Delta);
+            int delta = steps * Ui(28);
             int newOffset = Math.Max(0, Math.Min(maxScroll, _sidebarScrollOffset - delta));
             if (newOffset != _sidebarScrollOffset)
             {
@@ -45,7 +64,8 @@ namespace xBot.App
             {
                 if (c.Tag is int origY)
                 {
-                    c.Top = origY - _sidebarScrollOffset;
+                    c.Top = Ui(origY) - _sidebarScrollOffset;
+                    c.Height = Ui(26);
                 }
             }
             TabPageV_Control01.ResumeLayout(false);
@@ -55,7 +75,7 @@ namespace xBot.App
         {
             Control item = sender as Control;
             if (item == null || !(item.Tag is int)) return;
-            int originalTop = (int)item.Tag;
+            int originalTop = Ui((int)item.Tag);
             int viewHeight = TabPageV_Control01.ClientSize.Height;
             if (originalTop < _sidebarScrollOffset)
                 _sidebarScrollOffset = originalTop;
@@ -74,12 +94,15 @@ namespace xBot.App
                 FormBorderStyle = FormBorderStyle.Sizable;
                 MaximizeBox = true;
                 MinimizeBox = ControlBox = true;
-                Size = new Size(996, 539);
-                MinimumSize = new Size(996, 539);
+                AutoScaleDimensions = new SizeF(96f, 96f);
+                AutoScaleMode = AutoScaleMode.Dpi;
+                Size = new Size(1180, 720);
+                MinimumSize = new Size(1024, 640);
                 MaximumSize = Size.Empty;
                 StartPosition = FormStartPosition.CenterScreen;
                 WindowState = FormWindowState.Normal;
                 ShowInTaskbar = true;
+                DoubleBuffered = true;
                 BackColor = Theme.AppTheme.Background;
                 ForeColor = Theme.AppTheme.TextPrimary;
                 pnlWindow.Dock = DockStyle.Fill;
@@ -127,6 +150,15 @@ namespace xBot.App
                 _phBotClassicApplied = true;
                 LayoutXBotReference();
                 SizeChanged += (s, e) => LayoutXBotReference();
+                Load += (s, e) =>
+                {
+                    if (!_referenceWindowSized)
+                    {
+                        _referenceWindowSized = true;
+                        ApplyReferenceWindowBounds();
+                    }
+                    LayoutXBotReference();
+                };
                 LocalizationManager.OnLanguageChanged += RefreshReferenceLanguage;
                 Disposed += (s, e) => {
                     LocalizationManager.OnLanguageChanged -= RefreshReferenceLanguage;
@@ -164,6 +196,20 @@ namespace xBot.App
                 if (initNav != null) TabPageV_Option_Click(initNav, EventArgs.Empty);
             }
             finally { ResumeLayout(true); LayoutXBotReference(); }
+        }
+
+        private void ApplyReferenceWindowBounds()
+        {
+            Rectangle area = Screen.FromControl(this).WorkingArea;
+            int width = Math.Min(Math.Max(900, area.Width - 40), Ui(1180));
+            int height = Math.Min(Math.Max(560, area.Height - 40), Ui(720));
+            int minWidth = Math.Min(width, Ui(1024));
+            int minHeight = Math.Min(height, Ui(640));
+            MinimumSize = new Size(minWidth, minHeight);
+            Size = new Size(Math.Max(minWidth, width), Math.Max(minHeight, height));
+            int left = area.Left + (area.Width - Width) / 2;
+            int top = area.Top + (area.Height - Height) / 2;
+            Location = new Point(Math.Max(area.Left, left), Math.Max(area.Top, top));
         }
 
         private void BuildXBotReferenceSidebar()
@@ -247,12 +293,12 @@ namespace xBot.App
                 if (selected != null && selected.Count > 0)
                 {
                     Control sel = selected[0];
-                    const int barH = 16;
+                    int barH = Ui(16);
                     int barY = sel.Top + (sel.Height - barH) / 2;
                     if (barY >= 0 && barY + barH <= TabPageV_Control01.ClientSize.Height)
                     {
                         using (var b = new SolidBrush(Theme.AppTheme.Colors.SelectionIndicator))
-                        using (var path = Theme.DarkTheme.CreateRoundedRectangle(new Rectangle(4, barY, 3, barH), 1))
+                        using (var path = Theme.DarkTheme.CreateRoundedRectangle(new Rectangle(Ui(4), barY, Ui(3), barH), 1))
                         {
                             e.Graphics.FillPath(b, path);
                         }
@@ -263,11 +309,11 @@ namespace xBot.App
                 if (_sidebarTotalHeight > viewH && viewH > 0)
                 {
                     int maxScroll = _sidebarTotalHeight - viewH;
-                    int thumbH = Math.Max(28, (viewH * viewH) / _sidebarTotalHeight);
+                    int thumbH = Math.Max(Ui(28), (viewH * viewH) / _sidebarTotalHeight);
                     int thumbY = (_sidebarScrollOffset * (viewH - thumbH)) / maxScroll;
                     using (var b = new SolidBrush(Theme.AppTheme.Colors.BorderDefault))
                     {
-                        e.Graphics.FillRectangle(b, TabPageV_Control01.Width - 3, thumbY, 2, thumbH);
+                        e.Graphics.FillRectangle(b, TabPageV_Control01.Width - Ui(4), thumbY, Ui(2), thumbH);
                     }
                 }
             };
@@ -464,6 +510,7 @@ namespace xBot.App
             strip.Tag = tabs;
             strip.Visible = false;
             view.Controls.Add(tabs);
+            Theme.AppTheme.ComponentStyles.StyleSubTabControl(tabs);
             tabs.BringToFront();
 
             if (view == TabPageV_Control01_Skills_Panel && Skills_lstvSkills != null)
@@ -619,7 +666,8 @@ namespace xBot.App
                 return;
             if (control.Parent != null && (control.Parent.Name == "ProjectHax_pnlCloud" || control.Parent.Name == "ProjectHax_pnlSocial"))
                 return;
-            control.Font = Theme.AppTheme.FontBody;
+            if (!control.HasChildren)
+                control.Font = Theme.AppTheme.FontBody;
             control.ForeColor = Theme.AppTheme.Colors.TextPrimary;
             control.BackColor = control == pnlWindow || control == _phBotActionsPanel || control == _referenceTools
                 ? Theme.AppTheme.Colors.Canvas : Theme.AppTheme.Colors.Surface;
@@ -663,9 +711,104 @@ namespace xBot.App
             var group = control as GroupBox;
             if (group != null) {
                 group.ForeColor = Theme.AppTheme.Colors.TextPrimary;
-                group.Font = Theme.AppTheme.FontBody;
             }
             foreach (Control child in control.Controls) StyleXBotReference(child);
+        }
+
+        private void ApplyThemeMode()
+        {
+            if (IsDisposed || Disposing) return;
+            SuspendLayout();
+            try
+            {
+                BackColor = Theme.AppTheme.Background;
+                ForeColor = Theme.AppTheme.TextPrimary;
+                if (pnlWindow != null)
+                {
+                    pnlWindow.BackColor = Theme.AppTheme.Background;
+                    pnlWindow.ForeColor = Theme.AppTheme.TextPrimary;
+                }
+                if (TabPageV_Control01 != null)
+                {
+                    TabPageV_Control01.BackColor = Theme.AppTheme.Surface;
+                    TabPageV_ColorSelected = Theme.AppTheme.SurfaceSelected;
+                    TabPageV_ColorHover = Theme.AppTheme.SurfaceHover;
+                }
+
+                try { StyleXBotReference(pnlWindow); } catch { }
+                try { ApplyPickFilterLightTheme(); } catch { }
+                try { Theme.ThemeManager.Apply(this); } catch { }
+                try { MarkThemedPanels(this); } catch { }
+                try { StyleAllTabControls(this); } catch { }
+
+                if (TabPageV_Control01 != null)
+                {
+                    var selected = TabPageV_Control01.Tag as List<Control>;
+                    if (selected != null)
+                    {
+                        foreach (Control c in selected)
+                        {
+                            c.BackColor = Theme.AppTheme.SurfaceSelected;
+                            Button b = c as Button;
+                            if (b != null)
+                            {
+                                b.Font = Theme.AppTheme.FontSidebarActive;
+                                b.ForeColor = Theme.AppTheme.TextActive;
+                            }
+                        }
+                    }
+                    TabPageV_Control01.Invalidate();
+                }
+
+                if (_phBotActionsPanel != null) _phBotActionsPanel.BackColor = Theme.AppTheme.Background;
+                if (_referenceTools != null) _referenceTools.BackColor = Theme.AppTheme.Background;
+                if (_phBotCopyright != null) _phBotCopyright.ForeColor = Theme.AppTheme.TextMuted;
+
+                if (rtbxLogs != null)
+                {
+                    rtbxLogs.BackColor = Theme.AppTheme.Surface;
+                    rtbxLogs.ForeColor = Theme.AppTheme.TextPrimary;
+                    try
+                    {
+                        if (rtbxLogs.TextLength > 0)
+                        {
+                            int start = rtbxLogs.SelectionStart;
+                            int length = rtbxLogs.SelectionLength;
+                            rtbxLogs.SelectAll();
+                            rtbxLogs.SelectionColor = Theme.AppTheme.TextPrimary;
+                            rtbxLogs.Select(start, length);
+                        }
+                    }
+                    catch { }
+                }
+
+                UpdateActionButtonsVisualState();
+                Invalidate(true);
+            }
+            finally { ResumeLayout(true); }
+        }
+
+        private void MarkThemedPanels(Control root)
+        {
+            Panel panel = root as Panel;
+            if (panel != null) _themedPanels.Add(panel);
+            foreach (Control child in root.Controls) MarkThemedPanels(child);
+        }
+
+        private void StyleAllTabControls(Control root)
+        {
+            TabControl tabs = root as TabControl;
+            if (tabs != null)
+            {
+                Theme.AppTheme.ComponentStyles.StyleSubTabControl(tabs);
+                tabs.BackColor = Theme.AppTheme.Background;
+                foreach (TabPage page in tabs.TabPages)
+                {
+                    page.BackColor = Theme.AppTheme.Surface;
+                    page.ForeColor = Theme.AppTheme.TextPrimary;
+                }
+            }
+            foreach (Control child in root.Controls) StyleAllTabControls(child);
         }
 
         private void UpdateActionButtonsVisualState()
@@ -696,34 +839,40 @@ namespace xBot.App
             try
             {
                 int w = pnlWindow.ClientSize.Width, h = pnlWindow.ClientSize.Height;
-                const int margin = 8;
+                int margin = Ui(8);
                 int sidebarX = margin;
                 int sidebarY = margin;
-                int sidebarW = 182;
+                int sidebarW = Ui(182);
                 int sidebarH = h - (margin * 2);
                 int x = sidebarX + sidebarW + margin;
-                int contentW = Math.Max(500, w - x - margin);
-                const int actionsH = 108;
+                int contentW = Math.Max(Ui(500), w - x - margin);
+                int actionsH = Ui(108);
                 int logY = h - actionsH - margin;
-                int contentH = logY - margin - 4;
+                int contentH = logY - margin - Ui(4);
 
                 TabPageV_Control01.SetBounds(sidebarX, sidebarY, sidebarW, sidebarH);
                 TabPageV_Control01.BorderStyle = BorderStyle.None;
                 TabPageV_Control01.BackColor = Theme.AppTheme.Surface;
 
+                int itemBottom = 0;
                 foreach (Control c in TabPageV_Control01.Controls)
                 {
+                    if (c.Tag is int origY)
+                    {
+                        itemBottom = Math.Max(itemBottom, Ui(origY) + Ui(26));
+                    }
                     if (c is Button)
                     {
-                        c.Left = 32;
-                        c.Width = sidebarW - 32 - 6;
+                        c.Left = Ui(32);
+                        c.Width = sidebarW - Ui(32) - Ui(6);
                     }
                     else if (c is Label)
                     {
-                        c.Left = 12;
-                        c.Width = 20;
+                        c.Left = Ui(12);
+                        c.Width = Ui(20);
                     }
                 }
+                _sidebarTotalHeight = itemBottom + Ui(6);
                 UpdateSidebarItemPositions();
 
                 foreach (Panel view in _referenceViews)
@@ -731,18 +880,20 @@ namespace xBot.App
                     view.SetBounds(x, margin, contentW, contentH);
                     foreach (TabControl tabs in view.Controls.OfType<TabControl>())
                     {
-                        int left = (view == TabPageV_Control01_Skills_Panel) ? 185 : 0;
+                        int left = (view == TabPageV_Control01_Skills_Panel) ? Ui(185) : 0;
                         tabs.SetBounds(left, 0, contentW - left, contentH);
+                        tabs.Padding = new Point(Ui(12), Ui(4));
+                        tabs.ItemSize = new Size(tabs.ItemSize.Width, Math.Max(Ui(26), tabs.Font.Height + Ui(10)));
                     }
                     if (view == TabPageV_Control01_Skills_Panel && Skills_lstvSkills != null)
                     {
-                        Skills_lstvSkills.SetBounds(0, 0, 180, contentH);
+                        Skills_lstvSkills.SetBounds(0, 0, Ui(180), contentH);
                     }
                 }
 
-                const int actionsW = 212;
+                int actionsW = Ui(212);
 
-                rtbxLogs.SetBounds(x, logY, contentW - actionsW - 10, actionsH);
+                rtbxLogs.SetBounds(x, logY, contentW - actionsW - Ui(10), actionsH);
                 rtbxLogs.BorderStyle = BorderStyle.FixedSingle;
                 rtbxLogs.DetectUrls = false;
                 rtbxLogs.BackColor = Theme.AppTheme.Colors.Surface;
@@ -757,11 +908,11 @@ namespace xBot.App
                 for (int i = 0; i < actions.Length; i++)
                 {
                     Button actBtn = actions[i];
-                    actBtn.SetBounds((i % 2) * 107, (i / 2) * 29, 103, 27);
+                    actBtn.SetBounds((i % 2) * Ui(107), (i / 2) * Ui(29), Ui(103), Ui(27));
                 }
                 UpdateActionButtonsVisualState();
                 _phBotCopyright.Text = "©2026 xBot";
-                _phBotCopyright.SetBounds(0, 88, actionsW - 4, 16);
+                _phBotCopyright.SetBounds(0, Ui(88), actionsW - Ui(4), Ui(16));
                 _phBotCopyright.TextAlign = ContentAlignment.MiddleRight;
                 _phBotCopyright.Font = Theme.AppTheme.FontCaption;
                 _phBotCopyright.ForeColor = Theme.AppTheme.Colors.TextMuted;
@@ -791,7 +942,7 @@ namespace xBot.App
 
         private void PrepareXBotLogin()
         {
-            var selector = new GroupBox { Name = "XBotServerSelection", Text = "Silkroad", Size = new Size(415, 80), Font = _referenceFont, BackColor = Color.White };
+            var selector = new GroupBox { Name = "XBotServerSelection", Text = "Silkroad", Size = new Size(415, 80), Font = _referenceFont, BackColor = Theme.AppTheme.Surface };
             foreach (Control c in new Control[] { Login_lblSilkroad, Login_cmbxSilkroad, Login_btnAddSilkroad })
                 selector.Controls.Add(c);
             Login_lblSilkroad.SetBounds(12, 24, 108, 26);
@@ -834,7 +985,7 @@ namespace xBot.App
                 lstPickItems.BringToFront();
                 return;
             }
-            var footer = new Panel { Name = "XBotPickSearch", Dock = DockStyle.Bottom, Height = 72, BackColor = Color.White };
+            var footer = new Panel { Name = "XBotPickSearch", Dock = DockStyle.Bottom, Height = 72, BackColor = Theme.AppTheme.Surface };
             foreach (Control c in page.Controls.Cast<Control>().Where(c => c != lstPickItems).ToArray())
             {
                 int y = c.Top - 204;
@@ -880,7 +1031,7 @@ namespace xBot.App
                 .OrderBy(c => c.Top).ThenBy(c => c.Left).ToArray();
             if (groups.Length == 0) return;
             var flow = new FlowLayoutPanel { Name = host.Name + "_Groups", Dock = DockStyle.Fill,
-                AutoScroll = true, BackColor = Color.White, Padding = new Padding(8), WrapContents = true };
+                AutoScroll = true, BackColor = Theme.AppTheme.Surface, Padding = new Padding(8), WrapContents = true };
             foreach (Control group in groups)
             {
                 if (group == Login_gbxAdvertising || group == Login_gbxCharacters) continue;

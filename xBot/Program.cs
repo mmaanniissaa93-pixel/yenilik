@@ -109,6 +109,7 @@ namespace xBot
 				catch { }
 			};
 
+			Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
             Application.EnableVisualStyles();
 			Application.SetCompatibleTextRenderingDefault(false);
 

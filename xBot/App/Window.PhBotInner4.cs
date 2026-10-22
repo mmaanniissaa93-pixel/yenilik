@@ -82,7 +82,7 @@ namespace xBot.App
                     if (exists) continue;
                     var panel = new Panel();
                     panel.Name = pname;
-                    panel.BackColor = Color.White;
+                    panel.BackColor = Theme.AppTheme.Surface;
                     panel.BorderStyle = BorderStyle.None;
                     panel.AutoScroll = true;
                     panel.Visible = false;
@@ -193,11 +193,11 @@ namespace xBot.App
                 tc.Font = PhBotFont();
 
                 TabPage tabGen = new TabPage("General");
-                tabGen.BackColor = Color.White;
+                tabGen.BackColor = Theme.AppTheme.Surface;
                 try { tabGen.AutoScroll = true; } catch { }
 
                 TabPage tabUniq = new TabPage("Unique Spawn");
-                tabUniq.BackColor = Color.White;
+                tabUniq.BackColor = Theme.AppTheme.Surface;
                 try { tabUniq.AutoScroll = false; } catch { }
 
                 // Tab 1: General (13 triggers matching phbot_sound_02.png)
@@ -225,7 +225,7 @@ namespace xBot.App
                         Location = new Point(175, y),
                         Size = new Size(350, 22),
                         BorderStyle = BorderStyle.FixedSingle,
-                        BackColor = Color.White
+                        BackColor = Theme.AppTheme.Surface
                     };
                     tabGen.Controls.Add(tb);
                     textboxes.Add(tb);
@@ -261,9 +261,9 @@ namespace xBot.App
                     Name = "PhBot_SoundUniques",
                     View = View.Details,
                     FullRowSelect = true,
-                    GridLines = true,
+                    GridLines = false,
                     BorderStyle = BorderStyle.FixedSingle,
-                    BackColor = Color.White,
+                    BackColor = Theme.AppTheme.Surface,
                     Font = PhBotFont(),
                     Dock = DockStyle.Fill
                 };
@@ -316,31 +316,38 @@ namespace xBot.App
                 int W = p.Width, H = p.Height;
                 if (W < 200 || H < 100) return;
 
-                int rightBtnsW = 75;
                 int bottomH = 32;
+                int toolbarH = 30;
+                int listW = W - 16;
 
-                Label lblPlayer = p.Controls["PhBot_InvPlayerLbl"] as Label;
-                if (lblPlayer == null)
+                Label oldPlayer = p.Controls["PhBot_InvPlayerLbl"] as Label;
+                if (oldPlayer != null) oldPlayer.Visible = false;
+
+                if (Inventory_btnItemsRefresh != null)
                 {
-                    lblPlayer = new Label
-                    {
-                        Name = "PhBot_InvPlayerLbl",
-                        Text = "P\nL\nA\nY\nE\nR",
-                        Font = new Font("Segoe UI", 7.5f, FontStyle.Regular),
-                        ForeColor = Color.FromArgb(80, 80, 80),
-                        TextAlign = ContentAlignment.MiddleCenter,
-                        AutoSize = false,
-                        Location = new Point(4, 120),
-                        Size = new Size(18, 120)
-                    };
-                    p.Controls.Add(lblPlayer);
+                    Inventory_btnItemsRefresh.Text = "Refresh";
+                    Inventory_btnItemsRefresh.Font = PhBotFont();
+                    Inventory_btnItemsRefresh.Location = new Point(W - 164, 6);
+                    Inventory_btnItemsRefresh.Size = new Size(74, 24);
+                    Inventory_btnItemsRefresh.TextAlign = ContentAlignment.MiddleCenter;
+                    Inventory_btnItemsRefresh.Visible = true;
+                    Classicize(Inventory_btnItemsRefresh);
                 }
-                lblPlayer.Visible = true;
+                if (Inventory_btnItemsSort != null)
+                {
+                    Inventory_btnItemsSort.Text = "Sort";
+                    Inventory_btnItemsSort.Font = PhBotFont();
+                    Inventory_btnItemsSort.Location = new Point(W - 84, 6);
+                    Inventory_btnItemsSort.Size = new Size(74, 24);
+                    Inventory_btnItemsSort.TextAlign = ContentAlignment.MiddleCenter;
+                    Inventory_btnItemsSort.Visible = true;
+                    Classicize(Inventory_btnItemsSort);
+                }
 
                 if (Inventory_lstvItems != null)
                 {
-                    Inventory_lstvItems.Location = new Point(24, 6);
-                    Inventory_lstvItems.Size = new Size(W - rightBtnsW - 32, H - bottomH - 12);
+                    Inventory_lstvItems.Location = new Point(8, toolbarH + 6);
+                    Inventory_lstvItems.Size = new Size(listW, H - bottomH - toolbarH - 12);
                     Inventory_lstvItems.Visible = true;
                     Classicize(Inventory_lstvItems);
                     if (Inventory_lstvItems.Columns.Count != 4 || Inventory_lstvItems.Columns[1].Text != "Icon")
@@ -348,30 +355,10 @@ namespace xBot.App
                         Inventory_lstvItems.Columns.Clear();
                         Inventory_lstvItems.Columns.Add("Slot", 50);
                         Inventory_lstvItems.Columns.Add("Icon", 50);
-                        int itemColW = Math.Max(200, (W - rightBtnsW - 32) - 50 - 50 - 75 - 20);
+                        int itemColW = Math.Max(200, listW - 50 - 50 - 75 - 20);
                         Inventory_lstvItems.Columns.Add("Item", itemColW);
                         Inventory_lstvItems.Columns.Add("Quantity", 75);
                     }
-                }
-
-                // Sağ dikey butonlar: REFRESH ve SORT
-                if (Inventory_btnItemsRefresh != null)
-                {
-                    Inventory_btnItemsRefresh.Text = "R\nE\nF\nR\nE\nS\nH";
-                    Inventory_btnItemsRefresh.Font = new Font("Segoe UI", 8f, FontStyle.Regular);
-                    Inventory_btnItemsRefresh.Location = new Point(W - 68, 6);
-                    Inventory_btnItemsRefresh.Size = new Size(30, H - bottomH - 12);
-                    Inventory_btnItemsRefresh.Visible = true;
-                    Classicize(Inventory_btnItemsRefresh);
-                }
-                if (Inventory_btnItemsSort != null)
-                {
-                    Inventory_btnItemsSort.Text = "S\nO\nR\nT";
-                    Inventory_btnItemsSort.Font = new Font("Segoe UI", 8f, FontStyle.Regular);
-                    Inventory_btnItemsSort.Location = new Point(W - 34, 6);
-                    Inventory_btnItemsSort.Size = new Size(30, H - bottomH - 12);
-                    Inventory_btnItemsSort.Visible = true;
-                    Classicize(Inventory_btnItemsSort);
                 }
 
                 // Alt çubuk: Item count ve Gold
@@ -379,7 +366,7 @@ namespace xBot.App
                 {
                     Inventory_lblCapacity.Text = "Item count: " + (Inventory_lstvItems != null ? Inventory_lstvItems.Items.Count : 0) + "/109";
                     Inventory_lblCapacity.Font = PhBotFont();
-                    Inventory_lblCapacity.ForeColor = Color.Black;
+                    Inventory_lblCapacity.ForeColor = Theme.AppTheme.TextPrimary;
                     Inventory_lblCapacity.Location = new Point(8, H - 24);
                     Inventory_lblCapacity.AutoSize = true;
                     Inventory_lblCapacity.Visible = true;
@@ -392,7 +379,7 @@ namespace xBot.App
                     {
                         Name = "PhBot_InvGoldLbl",
                         Font = PhBotFont(),
-                        ForeColor = Color.Black,
+                        ForeColor = Theme.AppTheme.TextPrimary,
                         TextAlign = ContentAlignment.MiddleRight,
                         AutoSize = false
                     };
@@ -458,7 +445,7 @@ namespace xBot.App
                 Panel host = PlaceholderHost("Key Bindings");
                 if (host == null || host.Controls["PhBot_KeysDone"] != null) return;
                 host.Controls.Clear();
-                host.BackColor = Color.White;
+                host.BackColor = Theme.AppTheme.Surface;
                 try { host.AutoScroll = true; } catch { }
 
                 CheckBox cbEnable = DisableNotImplemented(PhBotTodoCheck(host, "PhBot_KeyEnable", "Enable key bindings", 12, 12, false));
@@ -479,7 +466,7 @@ namespace xBot.App
                         Name = "PhBot_KeyLbl_" + safe,
                         Text = action,
                         Font = PhBotFont(),
-                        ForeColor = Color.Black,
+                        ForeColor = Theme.AppTheme.TextPrimary,
                         Location = new Point(12, y + 4),
                         AutoSize = true
                     };
@@ -495,7 +482,7 @@ namespace xBot.App
                         Size = new Size(95, 23),
                         ReadOnly = true,
                         TextAlign = HorizontalAlignment.Center,
-                        BackColor = Color.White,
+                        BackColor = Theme.AppTheme.Surface,
                         BorderStyle = BorderStyle.FixedSingle
                     };
                     host.Controls.Add(tb);
@@ -516,7 +503,7 @@ namespace xBot.App
                         Name = "PhBot_KeyLbl_Py" + p,
                         Text = "Call Python",
                         Font = PhBotFont(),
-                        ForeColor = Color.Black,
+                        ForeColor = Theme.AppTheme.TextPrimary,
                         Location = new Point(12, y + 4),
                         AutoSize = true
                     };
@@ -532,7 +519,7 @@ namespace xBot.App
                         Size = new Size(95, 23),
                         ReadOnly = true,
                         TextAlign = HorizontalAlignment.Center,
-                        BackColor = Color.White,
+                        BackColor = Theme.AppTheme.Surface,
                         BorderStyle = BorderStyle.FixedSingle
                     };
                     host.Controls.Add(tb);
@@ -545,7 +532,7 @@ namespace xBot.App
                         Font = PhBotFont(),
                         Location = new Point(302, y),
                         Size = new Size(165, 23),
-                        BackColor = Color.White,
+                        BackColor = Theme.AppTheme.Surface,
                         BorderStyle = BorderStyle.FixedSingle
                     };
                     host.Controls.Add(tbScript);
@@ -572,7 +559,7 @@ namespace xBot.App
                 Panel host = PlaceholderHost("Conditions");
                 if (host == null || host.Controls["PhBot_ConditionsTabs"] != null) return;
                 host.Controls.Clear();
-                host.BackColor = Color.White;
+                host.BackColor = Theme.AppTheme.Surface;
                 int W = Math.Max(500, host.Width), H = Math.Max(300, host.Height);
 
                 TabControl tc = new TabControl
@@ -582,8 +569,8 @@ namespace xBot.App
                     Font = PhBotFont()
                 };
 
-                TabPage tabCond = new TabPage("Conditions") { BackColor = Color.White };
-                TabPage tabBuild = new TabPage("Builder") { BackColor = Color.White };
+                TabPage tabCond = new TabPage("Conditions") { BackColor = Theme.AppTheme.Surface };
+                TabPage tabBuild = new TabPage("Builder") { BackColor = Theme.AppTheme.Surface };
 
                 // Tab 1: Conditions list + reorder buttons
                 ListBox lbxCond = new ListBox
@@ -591,7 +578,7 @@ namespace xBot.App
                     Name = "PhBot_ConditionsListBox",
                     Font = PhBotFont(),
                     BorderStyle = BorderStyle.FixedSingle,
-                    BackColor = Color.White,
+                    BackColor = Theme.AppTheme.Surface,
                     ItemHeight = 20
                 };
                 ContextMenuStrip cms = new ContextMenuStrip { Font = PhBotFont() };
@@ -651,7 +638,7 @@ namespace xBot.App
                 try { cbBldIf.SelectedIndex = 0; } catch { }
                 GrayCombo(cbBldIf);
                 tabBuild.Controls.Add(cbBldIf);
-                TextBox tbBldIfVal = new TextBox { Name = "PhBot_BldIfVal", Location = new Point(308, by), Size = new Size(70, 22), Font = PhBotFont(), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+                TextBox tbBldIfVal = new TextBox { Name = "PhBot_BldIfVal", Location = new Point(308, by), Size = new Size(70, 22), Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, BorderStyle = BorderStyle.FixedSingle };
                 tabBuild.Controls.Add(tbBldIfVal);
                 by += 38;
 
@@ -667,7 +654,7 @@ namespace xBot.App
                 try { cbBldThen.SelectedIndex = 0; } catch { }
                 GrayCombo(cbBldThen);
                 tabBuild.Controls.Add(cbBldThen);
-                TextBox tbBldThenVal = new TextBox { Name = "PhBot_BldThenVal", Location = new Point(308, by), Size = new Size(180, 22), Font = PhBotFont(), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+                TextBox tbBldThenVal = new TextBox { Name = "PhBot_BldThenVal", Location = new Point(308, by), Size = new Size(180, 22), Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, BorderStyle = BorderStyle.FixedSingle };
                 tabBuild.Controls.Add(tbBldThenVal);
                 by += 38;
 
@@ -683,7 +670,7 @@ namespace xBot.App
                 try { cbBldElse.SelectedIndex = 0; } catch { }
                 GrayCombo(cbBldElse);
                 tabBuild.Controls.Add(cbBldElse);
-                TextBox tbBldElseVal = new TextBox { Name = "PhBot_BldElseVal", Location = new Point(308, by), Size = new Size(180, 22), Font = PhBotFont(), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+                TextBox tbBldElseVal = new TextBox { Name = "PhBot_BldElseVal", Location = new Point(308, by), Size = new Size(180, 22), Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, BorderStyle = BorderStyle.FixedSingle };
                 tabBuild.Controls.Add(tbBldElseVal);
                 by += 42;
 
@@ -718,9 +705,9 @@ namespace xBot.App
                 tc.Font = PhBotFont();
 
                 TabPage tabNotif = new TabPage("Notifications");
-                tabNotif.BackColor = Color.White;
+                tabNotif.BackColor = Theme.AppTheme.Surface;
                 TabPage tabOpt = new TabPage("Options");
-                tabOpt.BackColor = Color.White;
+                tabOpt.BackColor = Theme.AppTheme.Surface;
 
                 // Tab 1: Notifications (exact columns matching phbot_notifications_01.png)
                 ListView lv = NewPhBotListView(8, 8, W - 20, Math.Max(120, H - 75), "Date|130", "Notification|480", "Icon|80");
@@ -819,7 +806,7 @@ namespace xBot.App
                     Location = new Point(col1X, 32),
                     Size = new Size(colW, 82),
                     Font = PhBotFont(),
-                    BackColor = Color.White
+                    BackColor = Theme.AppTheme.Surface
                 };
                 PhBotLabel(gbCn, "PhBot_AutoTypeLbl", isTR ? "Tipi" : "Type", 12, 22);
                 ComboBox cbBuild = new ComboBox
@@ -855,7 +842,7 @@ namespace xBot.App
                     Location = new Point(col1X, 120),
                     Size = new Size(colW, 82),
                     Font = PhBotFont(),
-                    BackColor = Color.White
+                    BackColor = Theme.AppTheme.Surface
                 };
                 PhBotLabel(gbEu, "PhBot_AutoPrimLbl", isTR ? "Birincil" : "Primary", 12, 22);
                 ComboBox cbPrim = new ComboBox
@@ -891,7 +878,7 @@ namespace xBot.App
                     Location = new Point(col1X, 208),
                     Size = new Size(colW, 92),
                     Font = PhBotFont(),
-                    BackColor = Color.White
+                    BackColor = Theme.AppTheme.Surface
                 };
                 ComboBox cbProf = new ComboBox
                 {
@@ -991,7 +978,7 @@ namespace xBot.App
                     Location = new Point(col2X, 208),
                     Size = new Size(colW, 92),
                     Font = PhBotFont(),
-                    BackColor = Color.White
+                    BackColor = Theme.AppTheme.Surface
                 };
                 ComboBox cbRestore = new ComboBox
                 {
@@ -1042,14 +1029,14 @@ namespace xBot.App
                 if (host.Controls["PhBot_MastTree"] == null)
                 {
                     host.Controls.Clear();
-                    host.BackColor = Color.White;
+                    host.BackColor = Theme.AppTheme.Surface;
 
                     Label lblTitle = new Label
                     {
                         Name = "PhBot_MastTitle",
                         Text = "Masteries",
                         Font = PhBotFont(),
-                        ForeColor = Color.Black,
+                        ForeColor = Theme.AppTheme.TextPrimary,
                         Location = new Point(8, 8),
                         AutoSize = true
                     };
@@ -1061,7 +1048,7 @@ namespace xBot.App
                         Location = new Point(8, 28),
                         Font = PhBotFont(),
                         BorderStyle = BorderStyle.FixedSingle,
-                        BackColor = Color.White,
+                        BackColor = Theme.AppTheme.Surface,
                         ShowLines = true,
                         ShowPlusMinus = true,
                         ShowRootLines = true,
@@ -1091,7 +1078,7 @@ namespace xBot.App
                         Maximum = 9,
                         Value = 0,
                         Font = PhBotFont(),
-                        BackColor = Color.White
+                        BackColor = Theme.AppTheme.Surface
                     };
                     host.Controls.Add(nudGap);
 
@@ -1100,7 +1087,7 @@ namespace xBot.App
                         Name = "PhBot_MastSkillTitle",
                         Text = "Strike Smash Lv9",
                         Font = new Font("Segoe UI", 9f, FontStyle.Bold),
-                        ForeColor = Color.Black,
+                        ForeColor = Theme.AppTheme.TextPrimary,
                         Location = new Point(400, 55),
                         AutoSize = true
                     };

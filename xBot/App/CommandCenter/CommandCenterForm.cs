@@ -29,6 +29,7 @@ namespace xBot.App.CommandCenter
             InitializeComponent();
             LoadConfigValues();
             SwitchTab(true);
+            Theme.ThemeManager.Apply(this);
         }
 
         private void InitializeComponent()
@@ -42,6 +43,8 @@ namespace xBot.App.CommandCenter
             this.Font = DarkTheme.GetFont(9f);
             this.DoubleBuffered = true;
             this.ShowIcon = false;
+            this.AutoScaleDimensions = new SizeF(96f, 96f);
+            this.AutoScaleMode = AutoScaleMode.Dpi;
 
             // 1. Top Tabs Panel
             pnlTabs = new Panel
@@ -97,10 +100,10 @@ namespace xBot.App.CommandCenter
                 Text = "Save",
                 Size = new Size(100, 36),
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                Location = new Point(pnlBottom.Width - 116, 12),
+                Location = new Point(16, 12),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = DarkTheme.Accent,
-                ForeColor = Color.White,
+                ForeColor = DarkTheme.TextInverse,
                 Font = DarkTheme.GetFont(9.5f, FontStyle.Bold),
                 Cursor = Cursors.Hand
             };
@@ -112,7 +115,7 @@ namespace xBot.App.CommandCenter
                 Text = "Enable command center",
                 AutoSize = true,
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                Location = new Point(pnlBottom.Width - 300, 20),
+                Location = new Point(16, 20),
                 ForeColor = DarkTheme.TextPrimary,
                 Font = DarkTheme.GetFont(9.5f, FontStyle.Regular),
                 Checked = CommandCenterManager.Enabled,
@@ -205,11 +208,15 @@ namespace xBot.App.CommandCenter
             this.Controls.Add(pnlBottom);
             this.Controls.Add(pnlTabs);
 
-            this.Resize += (s, e) =>
-            {
-                btnSave.Location = new Point(pnlBottom.Width - 116, 12);
-                chkEnable.Location = new Point(pnlBottom.Width - 300, 20);
-            };
+            this.Resize += (s, e) => PositionBottomControls();
+            PositionBottomControls();
+        }
+
+        private void PositionBottomControls()
+        {
+            if (btnSave == null || chkEnable == null || pnlBottom == null) return;
+            btnSave.Left = Math.Max(16, pnlBottom.ClientSize.Width - btnSave.Width - 16);
+            chkEnable.Left = Math.Max(16, btnSave.Left - chkEnable.Width - 24);
         }
 
         private Button CreatePillButton(string text, int x)
@@ -236,11 +243,11 @@ namespace xBot.App.CommandCenter
                 pnlEmotes.Visible = true;
                 pnlChat.Visible = false;
 
-                btnTabEmotes.BackColor = Color.FromArgb(22, 44, 70);
-                btnTabEmotes.ForeColor = Color.White;
-                btnTabEmotes.FlatAppearance.BorderColor = DarkTheme.BorderFocus;
+                btnTabEmotes.BackColor = DarkTheme.Accent;
+                btnTabEmotes.ForeColor = DarkTheme.TextInverse;
+                btnTabEmotes.FlatAppearance.BorderColor = DarkTheme.Accent;
 
-                btnTabChat.BackColor = DarkTheme.BgDark;
+                btnTabChat.BackColor = DarkTheme.BgTabInactive;
                 btnTabChat.ForeColor = DarkTheme.TextMuted;
                 btnTabChat.FlatAppearance.BorderColor = DarkTheme.BorderSubtle;
             }
@@ -250,11 +257,11 @@ namespace xBot.App.CommandCenter
                 pnlEmotes.Visible = false;
                 pnlChat.Visible = true;
 
-                btnTabChat.BackColor = Color.FromArgb(22, 44, 70);
-                btnTabChat.ForeColor = Color.White;
-                btnTabChat.FlatAppearance.BorderColor = DarkTheme.BorderFocus;
+                btnTabChat.BackColor = DarkTheme.Accent;
+                btnTabChat.ForeColor = DarkTheme.TextInverse;
+                btnTabChat.FlatAppearance.BorderColor = DarkTheme.Accent;
 
-                btnTabEmotes.BackColor = DarkTheme.BgDark;
+                btnTabEmotes.BackColor = DarkTheme.BgTabInactive;
                 btnTabEmotes.ForeColor = DarkTheme.TextMuted;
                 btnTabEmotes.FlatAppearance.BorderColor = DarkTheme.BorderSubtle;
             }
@@ -279,7 +286,7 @@ namespace xBot.App.CommandCenter
                 };
                 row.Paint += (s, e) =>
                 {
-                    using (Pen p = new Pen(Color.FromArgb(40, 73, 109, 149), 1))
+                    using (Pen p = new Pen(Color.FromArgb(90, DarkTheme.BorderSubtle), 1))
                     {
                         e.Graphics.DrawLine(p, 0, row.Height - 1, row.Width, row.Height - 1);
                     }
@@ -290,11 +297,11 @@ namespace xBot.App.CommandCenter
                 {
                     Location = new Point(6, 9),
                     Size = new Size(36, 36),
-                    BackColor = Color.FromArgb(15, 20, 28)
+                    BackColor = DarkTheme.BgCardHeader
                 };
                 iconBox.Paint += (s, e) =>
                 {
-                    using (Pen p = new Pen(Color.FromArgb(80, 109, 143, 183), 1))
+                    using (Pen p = new Pen(DarkTheme.BorderBright, 1))
                     {
                         e.Graphics.DrawRectangle(p, 0, 0, iconBox.Width - 1, iconBox.Height - 1);
                     }
@@ -345,8 +352,8 @@ namespace xBot.App.CommandCenter
                 {
                     if (e.Index < 0) return;
                     bool selected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
-                    Color bg = selected ? DarkTheme.Accent : DarkTheme.BgInput;
-                    Color fg = Color.White;
+                    Color bg = selected ? DarkTheme.AccentSubtle : DarkTheme.BgInput;
+                    Color fg = DarkTheme.TextPrimary;
 
                     using (SolidBrush b = new SolidBrush(bg))
                         e.Graphics.FillRectangle(b, e.Bounds);
@@ -436,7 +443,7 @@ namespace xBot.App.CommandCenter
                 };
                 row.Paint += (s, e) =>
                 {
-                    using (Pen p = new Pen(Color.FromArgb(30, 73, 109, 149), 1))
+                    using (Pen p = new Pen(Color.FromArgb(90, DarkTheme.BorderSubtle), 1))
                     {
                         e.Graphics.DrawLine(p, 0, row.Height - 1, row.Width, row.Height - 1);
                     }

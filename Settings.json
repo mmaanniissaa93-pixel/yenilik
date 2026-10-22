@@ -21,7 +21,7 @@
   "_Version": "0.6.1",
   "_ContactMe": "Engels [JellyBitz] Quintero | Discord: JellyBitz#7643",
   "LoginStrategy": {
-    "AutomatedLogin": true,
+    "AutomatedLogin": false,
     "StaticCaptcha": false,
     "StaticCaptchaCode": "",
     "LoginDelaySeconds": 5,

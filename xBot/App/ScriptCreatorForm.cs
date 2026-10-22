@@ -45,6 +45,7 @@ namespace xBot.App
                 };
             }
             catch { }
+            Theme.ThemeManager.Apply(this);
         }
 
         private void InitializeComponent()
@@ -53,8 +54,11 @@ namespace xBot.App
             this.Size = new Size(820, 620);
             this.MinimumSize = new Size(760, 580);
             this.StartPosition = FormStartPosition.CenterParent;
-            this.BackColor = Color.FromArgb(240, 240, 240);
-            this.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
+            this.BackColor = Theme.AppTheme.Background;
+            this.ForeColor = Theme.AppTheme.TextPrimary;
+            this.Font = Theme.AppTheme.FontBody;
+            this.AutoScaleDimensions = new SizeF(96f, 96f);
+            this.AutoScaleMode = AutoScaleMode.Dpi;
 
             // Left panel group
             gbxControls = new GroupBox();

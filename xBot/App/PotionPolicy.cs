@@ -56,9 +56,13 @@ namespace xBot.App
         /// </summary>
         public static bool IsMallPotion(string serverName, string displayName)
         {
-            if (!string.IsNullOrEmpty(serverName)
-                && serverName.IndexOf("MALL", StringComparison.OrdinalIgnoreCase) >= 0)
-                return true;
+            if (!string.IsNullOrEmpty(serverName))
+            {
+                if (serverName.IndexOf("MALL", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    serverName.IndexOf("SUPERSET", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    serverName.IndexOf("_BAG", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return true;
+            }
             if (!string.IsNullOrEmpty(displayName)
                 && displayName.IndexOf("X-large", StringComparison.OrdinalIgnoreCase) >= 0)
                 return true;
@@ -76,6 +80,15 @@ namespace xBot.App
                 return learned;
             if ((rejectCount & 1) == 1)
                 return (ushort)(computed ^ 0x0001);
+            return computed;
+        }
+
+        public static uint ResolveUsageWithFallback(uint computed, int rejectCount, bool hasLearned, uint learned)
+        {
+            if (hasLearned)
+                return learned;
+            if ((rejectCount & 1) == 1)
+                return computed ^ 0x0001;
             return computed;
         }
 
