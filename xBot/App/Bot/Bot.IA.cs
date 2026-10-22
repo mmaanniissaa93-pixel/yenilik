@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -325,6 +325,7 @@ namespace xBot.App
                 currentScript = null;
                 var activeArea = w?.TrainingArea_GetPosition();
                 if (activeArea != null
+                    && TeleportTransitionPolicy.SameSpace(myPosition, activeArea)
                     && myPosition.DistanceTo(activeArea) <= (w != null ? w.TrainingArea_GetRadius() : 50)
                     && !TownManager.Get.IsNearTown(myPosition))
                 {
@@ -340,6 +341,7 @@ namespace xBot.App
                 {
                     townJustFinished = (DateTime.Now - m_lastTownLoopFinished).TotalSeconds < 90
                         && m_lastTownLoopEndPos != null && myPosition != null
+                        && TeleportTransitionPolicy.SameSpace(myPosition, m_lastTownLoopEndPos)
                         && myPosition.DistanceTo(m_lastTownLoopEndPos) < 80.0;
                 }
                 catch { }
@@ -419,7 +421,8 @@ namespace xBot.App
                         else
                         {
                             // Training Options: Reverse scroll kontrolü (Şehirden sonra veya ölüm sonrası alana anında ışınlan)
-                            if ((TrainingOptionsPolicy.UseReverseAfterTown || TrainingOptionsPolicy.UseReverseOnDeath) && distanceToArea > 80.0)
+                            if ((TrainingOptionsPolicy.UseReverseAfterTown || TrainingOptionsPolicy.UseReverseOnDeath)
+                                && (!TeleportTransitionPolicy.SameSpace(myPosition, trainingPosition) || distanceToArea > 80.0))
                             {
                                 byte targetPoint = TrainingOptionsPolicy.UseReverseOnDeath ? (byte)1 : (byte)2;
                                 if (ProtectionManager.TryUseReverseReturnScroll(targetPoint))
@@ -656,6 +659,12 @@ namespace xBot.App
                                 // 3. Fallback: Direct walk to training position with collision avoidance
                             // Calculate attempts based on distance (more attempts for farther distances)
                             double walkDistance = myPosition.DistanceTo(trainingPosition);
+                            if (!TeleportTransitionPolicy.SameSpace(myPosition, trainingPosition))
+                            {
+                                w.Log("Kasılma alanı farklı bir mekanda (zindan/açık dünya). NavMesh rotası olmadan doğrudan yürünemez. Durduruldu.");
+                                Stop();
+                                return;
+                            }
                             // UZUN MESAFE GUARD: NavMesh yoksa/rota yoksa 120m+ düz yürüyüş dağ/duvar
                             // arasından geçemez (örn. Spider Forest -> Ancient Remains ~800m, arada
                             // Karakoram dağları var). Kör yürüyüş yerinde sağa-sola sekip takılır.
@@ -1007,7 +1016,9 @@ namespace xBot.App
                         m_cachedMobsInRange.Clear();
                         foreach (var m in InfoManager.Mobs.Snapshot())
                         {
-                            if (m != null && trainingPosition.DistanceTo(m.GetRealtimePosition()) <= trainingRadius)
+                            if (m != null && m.GetRealtimePosition() != null
+                                && TeleportTransitionPolicy.SameSpace(trainingPosition, m.GetRealtimePosition())
+                                && trainingPosition.DistanceTo(m.GetRealtimePosition()) <= trainingRadius)
                             {
                                 m_cachedMobsInRange.Add(m);
                             }
@@ -1030,7 +1041,7 @@ namespace xBot.App
                                 || (sm.ServerName != null && sm.ServerName.IndexOf("STATUE_OF_JUSTICE", StringComparison.OrdinalIgnoreCase) >= 0)))
                             {
                                 var sPos = sm.GetRealtimePosition();
-                                if (sPos != null && ((trainingPosition != null && trainingRadius > 0 && trainingPosition.DistanceTo(sPos) <= trainingRadius) || myPosition.DistanceTo(sPos) <= 25.0))
+                                if (sPos != null && (((trainingPosition != null && trainingRadius > 0 && TeleportTransitionPolicy.SameSpace(trainingPosition, sPos) && trainingPosition.DistanceTo(sPos) <= trainingRadius) || (TeleportTransitionPolicy.SameSpace(myPosition, sPos) && myPosition.DistanceTo(sPos) <= 25.0))))
                                 {
                                     w.Log("* DİKKAT: Kasılma alanında bot öldüren Statue of Justice tespit edildi! Karakteri korumak için bot durduruluyor. (* ATTENTION: Bot will stop now, because a botkilling statue contaminates trainplace)");
                                     Stop();
@@ -1123,7 +1134,7 @@ namespace xBot.App
 
                                 // Training Options: Training alanında kal
                                 myPosition = InfoManager.Character.GetRealtimePosition();
-                                if (TrainingOptionsPolicy.StayInTrainingArea && trainingRadius > 0 && myPosition.DistanceTo(trainingPosition) > trainingRadius)
+                                if (TrainingOptionsPolicy.StayInTrainingArea && trainingRadius > 0 && (!TeleportTransitionPolicy.SameSpace(myPosition, trainingPosition) || myPosition.DistanceTo(trainingPosition) > trainingRadius))
                                 {
                                     w.LogProcess("Training alanında kal: Karakter sınır dışına taştı, hedeften vazgeçilip alana dönülüyor...");
                                     MoveTo(trainingPosition);
@@ -1610,7 +1621,7 @@ namespace xBot.App
                     && InfoManager.Character.LifeStateType != SRModel.LifeState.Dead
                     && (mob == null || IsLiveCombatTarget(mob)),
                 point => !TrainingOptionsPolicy.StayInTrainingArea || center == null || radius <= 0
-                    || center.DistanceTo(point) <= radius + 25.0,
+                    || (TeleportTransitionPolicy.SameSpace(center, point) && center.DistanceTo(point) <= radius + 25.0),
                 stuckTimeoutMs: 2500);
         }
 
@@ -2559,7 +2570,7 @@ namespace xBot.App
                     atkPet = InfoManager.MyPets?.Find(p => p != null && p.isAttackPet());
 
                 bool inTown = myPosition != null && TownManager.Get.IsNearTown(myPosition);
-                bool atTrainingArea = trainingPosition != null && myPosition != null && myPosition.DistanceTo(trainingPosition) <= trainingRadius;
+                bool atTrainingArea = trainingPosition != null && myPosition != null && TeleportTransitionPolicy.SameSpace(myPosition, trainingPosition) && myPosition.DistanceTo(trainingPosition) <= trainingRadius;
 
                 // Pet çağrılı mı kontrol et
                 if (atkPet == null)
@@ -2603,7 +2614,7 @@ namespace xBot.App
                             if (petPos != null)
                             {
                                 double dist = myPosition.DistanceTo(petPos);
-                                if (dist > 35.0 || (dist > 15.0 && PetPolicy.LastKnownPetPosition != null && petPos.DistanceTo(PetPolicy.LastKnownPetPosition) < 0.6))
+                                if (!TeleportTransitionPolicy.SameSpace(myPosition, petPos) || dist > 35.0 || (dist > 15.0 && PetPolicy.LastKnownPetPosition != null && petPos.DistanceTo(PetPolicy.LastKnownPetPosition) < 0.6))
                                 {
                                     if ((DateTime.UtcNow - PetPolicy.LastRecallTime).TotalSeconds >= 8)
                                     {
@@ -3676,7 +3687,7 @@ namespace xBot.App
                 var navigator = new LocalObstacleNavigator(() => InfoManager.Character?.GetRealtimePosition(),
                     point => { if (InfoManager.inGame && InfoManager.Character != null) MoveTo(point); },
                     ms => SleepInterruptible(ms), valid,
-                    point => trainingPosition != null && trainingPosition.DistanceTo(point) <= radius
+                    point => trainingPosition != null && TeleportTransitionPolicy.SameSpace(trainingPosition, point) && trainingPosition.DistanceTo(point) <= radius
                         && (!TrainingOptionsPolicy.StayInTrainingArea || trainingPosition.DistanceTo(point) <= trainingRadius));
                 bool reached = navigator.MoveTo(destination, 3);
                 if (!reached && valid() && CollisionPolicy.EnableCollisionInTrainingArea
@@ -4145,9 +4156,11 @@ namespace xBot.App
                 }
                 myPosition = InfoManager.Character.GetRealtimePosition();
                 if (myPosition == null) return false;
-                if (meshOnly && (myPosition.inDungeon() != position.inDungeon()
-                    || (myPosition.inDungeon() && myPosition.Region != position.Region)))
-                { trace?.Invoke("WaitMovement false reason=region-mismatch"); return false; }
+                if (!TeleportTransitionPolicy.SameSpace(myPosition, position))
+                { trace?.Invoke("WaitMovement false reason=space-mismatch"); return false; }
+
+
+
 
                 // Arrival tolerance is independent of maxAttempts (normal 3m, ferry mesh 0.75m).
                 if (myPosition.Equals(position, arrivalTolerance))
@@ -4581,7 +4594,7 @@ namespace xBot.App
                 try { currentPos = InfoManager.Character.GetRealtimePosition(); } catch { continue; }
                 if (currentPos == null || beforePos == null)
                     continue;
-                if (currentPos.DistanceTo(beforePos) > 40.0 || currentPos.DistanceTo(link.ArriveCoord) < 70.0)
+                if (!TeleportTransitionPolicy.SameSpace(beforePos, currentPos) || (TeleportTransitionPolicy.SameSpace(currentPos, link.ArriveCoord) && currentPos.DistanceTo(link.ArriveCoord) < 70.0) || currentPos.DistanceTo(beforePos) > 40.0)
                     return true;
             }
             return false;
@@ -4604,12 +4617,12 @@ namespace xBot.App
         {
             if (m_ferryMovementCompared || Environment.GetEnvironmentVariable("XBOT_FERRY_COMPARE_MOVES") != "1") return;
             var initial = InfoManager.Character?.GetRealtimePosition();
-            if (initial == null || initial.DistanceTo(link.BoardCoord) > 40) return;
+            if (initial == null || !TeleportTransitionPolicy.SameSpace(initial, link.BoardCoord) || initial.DistanceTo(link.BoardCoord) > 40) return;
             m_ferryMovementCompared = true;
             for (int variant = 0; variant < 3 && isBotting && !m_stopBottingRequested; variant++)
             {
                 var before = InfoManager.Character?.GetRealtimePosition();
-                if (before == null || before.DistanceTo(link.BoardCoord) > 40) return;
+                if (before == null || !TeleportTransitionPolicy.SameSpace(before, link.BoardCoord) || before.DistanceTo(link.BoardCoord) > 40) return;
                 var path = NavigationManager.Get.FindApproachPath(before, link.BoardCoord);
                 double distance = before.DistanceTo(link.BoardCoord);
                 double oldStep = distance > 15 ? 5 : distance > 7 ? 2.5 : 1.5;

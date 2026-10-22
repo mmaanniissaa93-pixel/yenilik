@@ -4,6 +4,7 @@ using System.Collections.Specialized;
 using System.IO;
 using System.Threading;
 using xBot.Game;
+using xBot.Game.Navigation;
 using xBot.Game.Objects;
 using xBot.Game.Objects.Common;
 using xBot.Game.Objects.Entity;
@@ -124,7 +125,7 @@ namespace xBot.App
 						if (args.Length == 0 || !args[0].Equals("MOVE", StringComparison.OrdinalIgnoreCase))
 							continue;
 						SRCoord coord = ParseMove(args);
-						if (coord == null)
+						if (coord == null || !TeleportTransitionPolicy.SameSpace(coord, position))
 							continue;
 						any = true;
 						double d = coord.DistanceTo(position);
@@ -251,7 +252,7 @@ namespace xBot.App
 				if (args.Length == 0 || !args[0].Equals("MOVE", StringComparison.OrdinalIgnoreCase))
 					continue;
 				SRCoord coord = ParseMove(args);
-				if (coord != null && coord.DistanceTo(position) <= maxRange)
+				if (coord != null && TeleportTransitionPolicy.SameSpace(coord, position) && coord.DistanceTo(position) <= maxRange)
 					return i;
 			}
 			return -1;
@@ -530,7 +531,7 @@ namespace xBot.App
 				if (statue != null)
 				{
 					var sPos = statue.GetRealtimePosition();
-					if (sPos != null && myPos.DistanceTo(sPos) < 20.0)
+					if (sPos != null && TeleportTransitionPolicy.SameSpace(myPos, sPos) && myPos.DistanceTo(sPos) < 20.0)
 					{
 						w?.LogProcess("Script: Statue of Justice yakınında algılandı, güvenli mesafeye kaçılıyor...");
 						double edx = myPos.PosX - sPos.PosX;
@@ -1685,7 +1686,7 @@ namespace xBot.App
 				{
 					foreach (var n in InfoManager.Npcs.Snapshot())
 					{
-						if (n == null || n.Position == null)
+						if (n == null || n.Position == null || !TeleportTransitionPolicy.SameSpace(myPos, n.Position))
 							continue;
 						double d = myPos.DistanceTo(n.Position);
 						if (d < bestDist)
@@ -1729,7 +1730,7 @@ namespace xBot.App
 			try
 			{
 				SRCoord myPos = InfoManager.Character.GetRealtimePosition();
-				if (myPos != null && npc.Position != null && myPos.DistanceTo(npc.Position) > 10.0)
+				if (myPos != null && npc.Position != null && (!TeleportTransitionPolicy.SameSpace(myPos, npc.Position) || myPos.DistanceTo(npc.Position) > 10.0))
 				{
 					w.LogProcess($"{action}: NPC'ye yaklaşılıyor ({myPos.DistanceTo(npc.Position):F0}m)...");
 					if (!b.WaitMovement(npc.Position, 10))

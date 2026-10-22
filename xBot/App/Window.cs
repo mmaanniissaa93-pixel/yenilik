@@ -16,6 +16,7 @@ using xBot.Network;
 using xGraphics;
 using System.Reflection;
 using xBot.Game.Objects.Party;
+using xBot.Game.Navigation;
 using xBot.Game.Objects.Common;
 using xBot.Game.Objects.Entity;
 using xBot.Game.Objects.Item;
@@ -4336,7 +4337,8 @@ namespace xBot.App
 							if (player.InteractionType == SRPlayer.Interaction.OnStall)
 							{
 								SRCoord playerPosition = player.GetRealtimePosition();
-                if (InfoManager.Character.GetRealtimePosition().DistanceTo(playerPosition) > 9.0)
+								SRCoord myPos = InfoManager.Character?.GetRealtimePosition();
+								if (myPos == null || playerPosition == null || !TeleportTransitionPolicy.SameSpace(myPos, playerPosition) || myPos.DistanceTo(playerPosition) > 9.0)
 								{
 									if (MessageBox.Show(this, "The player is too far away. Do you want to get closer?", "xBot - Players", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question) == DialogResult.Yes)
 										Bot.Get.MoveTo(playerPosition);

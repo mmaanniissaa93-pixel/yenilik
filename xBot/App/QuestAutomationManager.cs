@@ -751,7 +751,7 @@ namespace xBot.App
                 }
                 current = InfoManager.Character?.GetRealtimePosition();
                 npc = FindRequestNpc(request, current);
-                if (npc == null || current.DistanceTo(npc.GetRealtimePosition()) > 20
+                if (npc == null || !SameWorld(current, npc.GetRealtimePosition()) || current.DistanceTo(npc.GetRealtimePosition()) > 20
                     || !bot.WaitSelectEntity(npc.UniqueID, 10, 250, "Quest NPC seçiliyor..."))
                 {
                     lock (Sync) if (Current == owner) FailCurrent("NPC yakınında seçim doğrulanamadı");

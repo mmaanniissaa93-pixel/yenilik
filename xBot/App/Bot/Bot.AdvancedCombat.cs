@@ -152,7 +152,7 @@ namespace xBot.App
             var center = Window.Get.TrainingArea_GetPosition();
             int radius = Window.Get.TrainingArea_GetRadius();
             if (TrainingOptionsPolicy.StayInTrainingArea && center != null && radius > 0
-                && center.DistanceTo(destination) > radius) return false;
+                && (!TeleportTransitionPolicy.SameSpace(center, destination) || center.DistanceTo(destination) > radius)) return false;
             var path = NavigationManager.Get.FindPath(start, destination);
             // A blink must not cut across a wall or use a region transition.
             if (path == null || path.Count == 0) return false;
@@ -167,7 +167,8 @@ namespace xBot.App
             long deadline = EngineNow + 1800;
             while (isBotting && EngineNow < deadline && InfoManager.Character == character)
             {
-                if (character.GetRealtimePosition().DistanceTo(destination) <= 3) return true;
+                var cur = character.GetRealtimePosition();
+                if (cur != null && TeleportTransitionPolicy.SameSpace(cur, destination) && cur.DistanceTo(destination) <= 3) return true;
                 if (!SleepInterruptible(50)) break;
             }
             return false;
@@ -257,7 +258,7 @@ namespace xBot.App
                 {
                     // SBot lureattack: return to center and allow combat motor to attack mobs at center!
                     var myPos = InfoManager.Character?.GetRealtimePosition();
-                    if (myPos != null && center != null && myPos.DistanceTo(center) > 4.0)
+                    if (myPos != null && center != null && (!TeleportTransitionPolicy.SameSpace(myPos, center) || myPos.DistanceTo(center) > 4.0))
                     {
                         MoveLurePoint(center);
                     }
@@ -303,7 +304,7 @@ namespace xBot.App
                 // SBot luremeetxmobs and lureattackedxmobs early turnback
                 var myPosSnapshot = InfoManager.Character?.GetRealtimePosition();
                 var nearbySnapshot = InfoManager.Mobs.Snapshot();
-                int meetCount = myPosSnapshot == null ? 0 : nearbySnapshot.Count(m => IsLiveCombatTarget(m) && myPosSnapshot.DistanceTo(m.GetRealtimePosition()) <= 25.0);
+                int meetCount = myPosSnapshot == null ? 0 : nearbySnapshot.Count(m => IsLiveCombatTarget(m) && TeleportTransitionPolicy.SameSpace(myPosSnapshot, m.GetRealtimePosition()) && myPosSnapshot.DistanceTo(m.GetRealtimePosition()) <= 25.0);
                 int attackedCount = nearbySnapshot.Count(m => IsLiveCombatTarget(m) && m.TargetUniqueID == InfoManager.Character.UniqueID);
                 if (LurePolicy.ShouldEarlyReturnFromLure(LurePolicy.LureMeetXMobsEnabled, LurePolicy.LureMeetXCount, meetCount,
                     LurePolicy.LureAttackedXMobsEnabled, LurePolicy.LureAttackedXCount, attackedCount))

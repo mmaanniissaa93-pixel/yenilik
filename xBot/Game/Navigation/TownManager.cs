@@ -111,7 +111,7 @@ namespace xBot.Game.Navigation
 
 			foreach (var service in m_services)
 			{
-				if (service.ServiceType != serviceType)
+				if (service.ServiceType != serviceType || !TeleportTransitionPolicy.SameSpace(myPosition, service.Coord))
 					continue;
 
 				double dist = myPosition.DistanceTo(service.Coord);
@@ -149,7 +149,7 @@ namespace xBot.Game.Navigation
 
 			foreach (var service in m_services)
 			{
-				if (service.Coord != null && service.Coord.DistanceTo(position) <= maxRange)
+				if (service.Coord != null && TeleportTransitionPolicy.SameSpace(service.Coord, position) && service.Coord.DistanceTo(position) <= maxRange)
 					return true;
 			}
 
@@ -167,7 +167,7 @@ namespace xBot.Game.Navigation
 			// 1. Search in Npcs
 			SREntity npc = InfoManager.Npcs.Find(n => n.ID == service.NpcId ||
 				(n.Name != null && n.Name.IndexOf(service.NpcName, StringComparison.OrdinalIgnoreCase) >= 0) ||
-				(n.Position != null && n.Position.DistanceTo(service.Coord) <= 35.0));
+				(n.Position != null && TeleportTransitionPolicy.SameSpace(n.Position, service.Coord) && n.Position.DistanceTo(service.Coord) <= 35.0));
 
 			if (npc != null)
 				return npc;
@@ -175,7 +175,7 @@ namespace xBot.Game.Navigation
 			// 2. Search in Entities
 			return InfoManager.Entities.Find(e => e.ID == service.NpcId ||
 				(e.Name != null && e.Name.IndexOf(service.NpcName, StringComparison.OrdinalIgnoreCase) >= 0) ||
-				(e.Position != null && e.Position.DistanceTo(service.Coord) <= 35.0));
+				(e.Position != null && TeleportTransitionPolicy.SameSpace(e.Position, service.Coord) && e.Position.DistanceTo(service.Coord) <= 35.0));
 		}
 	}
 }

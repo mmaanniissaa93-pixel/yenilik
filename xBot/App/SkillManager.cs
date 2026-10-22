@@ -4,6 +4,7 @@ using System.Linq;
 using System.Windows.Forms;
 using Newtonsoft.Json.Linq;
 using xBot.Game;
+using xBot.Game.Navigation;
 using xBot.Game.Objects.Common;
 using xBot.Game.Objects.Entity;
 using xBot.Game.Objects.Item;
@@ -312,7 +313,7 @@ namespace xBot.App
                 if (mob == null || mob.LifeStateType == SRModel.LifeState.Dead) continue;
                 var mobPosition = mob.GetRealtimePosition();
                 bool attackingMe = mob.TargetUniqueID == characterId;
-                if (attackingMe || (position != null && mobPosition != null && position.DistanceTo(mobPosition) <= 40.0))
+                if (attackingMe || (position != null && mobPosition != null && TeleportTransitionPolicy.SameSpace(position, mobPosition) && position.DistanceTo(mobPosition) <= 40.0))
                     result.Add(mob);
             }
             return result;

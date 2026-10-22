@@ -315,7 +315,7 @@ namespace xBot.Game.Navigation
 				double distFromArriveToTarget = link.ArriveCoord.DistanceTo(target);
 
 				// Only consider bridges that bring us closer to the destination
-				if (distFromArriveToTarget >= directDistance)
+				if (TeleportTransitionPolicy.SameSpace(start, target) && distFromArriveToTarget >= directDistance)
 					continue;
 
 				// Weighted walking distance

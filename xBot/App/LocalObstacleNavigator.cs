@@ -1,4 +1,5 @@
 using System;
+using xBot.Game.Navigation;
 using xBot.Game.Objects.Common;
 
 namespace xBot.App
@@ -39,7 +40,7 @@ namespace xBot.App
             SRCoord destination = getDestination();
             if (!canContinue() || destination == null || !allowed(destination)) return false;
             SRCoord start = position();
-            if (start == null) return false;
+            if (start == null || !TeleportTransitionPolicy.SameSpace(start, destination)) return false;
             double bestDistance = start.DistanceTo(destination);
             if (bestDistance <= tolerance) return true;
 
@@ -53,7 +54,7 @@ namespace xBot.App
                 SRCoord current = position();
                 if (!canContinue() || current == null) break;
                 destination = getDestination();
-                if (destination == null || !allowed(destination)) break;
+                if (destination == null || !allowed(destination) || !TeleportTransitionPolicy.SameSpace(current, destination)) break;
                 double distance = current.DistanceTo(destination);
                 if (distance <= tolerance)
                 {
@@ -85,7 +86,7 @@ namespace xBot.App
         public bool TryDetour(SRCoord target, int attempt)
         {
             SRCoord origin = position();
-            if (!canContinue() || origin == null || target == null || attempt < 0 || attempt >= MaxDetours)
+            if (!canContinue() || origin == null || target == null || attempt < 0 || attempt >= MaxDetours || !TeleportTransitionPolicy.SameSpace(origin, target))
                 return false;
             double dx = target.PosX - origin.PosX;
             double dy = target.PosY - origin.PosY;

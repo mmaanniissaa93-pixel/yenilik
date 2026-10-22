@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using Newtonsoft.Json.Linq;
 using xBot.Game;
+using xBot.Game.Navigation;
 using xBot.Game.Objects.Common;
 using xBot.Game.Objects.Entity;
 
@@ -196,7 +197,7 @@ namespace xBot.App
                     continue;
 
                 SRCoord playerPos = player.GetRealtimePosition();
-                double dist = playerPos != null ? selfPos.DistanceTo(playerPos) : double.MaxValue;
+                double dist = (playerPos != null && TeleportTransitionPolicy.SameSpace(selfPos, playerPos)) ? selfPos.DistanceTo(playerPos) : double.MaxValue;
 
                 bool isDead = player.LifeStateType == SRModel.LifeState.Dead;
                 bool hasSnow = false;

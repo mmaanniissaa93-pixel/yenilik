@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json.Linq;
+using xBot.Game.Navigation;
 using xBot.Game.Objects.Entity;
 
 namespace xBot.App
@@ -250,8 +251,8 @@ namespace xBot.App
                 {
                     var m = nearbyMobs[i];
                     if (m == null) continue;
-                    bool isAttackingMe = (m.TargetUniqueID == myId)
-                        || (myPos != null && m.Position != null && myPos.DistanceTo(m.GetRealtimePosition()) <= 4.5);
+                    bool isAttackingMe = (myId != 0 && m.TargetUniqueID == myId)
+                        || (myPos != null && m.Position != null && TeleportTransitionPolicy.SameSpace(myPos, m.GetRealtimePosition()) && myPos.DistanceTo(m.GetRealtimePosition()) <= 4.5);
                     if (ZerkEvenIfNotAttacking || isAttackingMe)
                         count++;
                 }
@@ -271,8 +272,8 @@ namespace xBot.App
 
                 if (typeMatch)
                 {
-                    bool isAttackingMe = (m.TargetUniqueID == myId)
-                        || (myPos != null && m.Position != null && myPos.DistanceTo(m.GetRealtimePosition()) <= 15.0);
+                    bool isAttackingMe = (myId != 0 && m.TargetUniqueID == myId)
+                        || (myPos != null && m.Position != null && TeleportTransitionPolicy.SameSpace(myPos, m.GetRealtimePosition()) && myPos.DistanceTo(m.GetRealtimePosition()) <= 15.0);
                     if (ZerkEvenIfNotAttacking || isAttackingMe)
                         return true;
                 }

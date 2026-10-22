@@ -72,7 +72,7 @@ namespace xBot.App
                     if (!isStatue) continue;
 
                     SRCoord mPos = m.GetRealtimePosition() ?? m.Position;
-                    if (mPos != null && pos.DistanceTo(mPos) <= dangerRadius)
+                    if (mPos != null && TeleportTransitionPolicy.SameSpace(pos, mPos) && pos.DistanceTo(mPos) <= dangerRadius)
                         return true;
                 }
             }
@@ -139,7 +139,7 @@ namespace xBot.App
                             if (IsPlayerResTemporarilyDisabled(m.Name, now))
                                 continue;
                             SRPlayer lp = InfoManager.Players.Find(p => p != null && string.Equals(p.Name, m.Name, StringComparison.OrdinalIgnoreCase));
-                            if (lp != null && lp.Position != null && myPos.DistanceTo(lp.Position) <= resRange)
+                            if (lp != null && lp.Position != null && TeleportTransitionPolicy.SameSpace(myPos, lp.Position) && myPos.DistanceTo(lp.Position) <= resRange)
                                 deadPartyInRangeCount++;
                         }
                     }
@@ -164,7 +164,7 @@ namespace xBot.App
                                 if (allowRes)
                                 {
                                     SRPlayer livePlayer = InfoManager.Players.Find(p => p != null && string.Equals(p.Name, member.Name, StringComparison.OrdinalIgnoreCase));
-                                    if (livePlayer != null && livePlayer.Position != null && myPos.DistanceTo(livePlayer.Position) <= resRange)
+                                    if (livePlayer != null && livePlayer.Position != null && TeleportTransitionPolicy.SameSpace(myPos, livePlayer.Position) && myPos.DistanceTo(livePlayer.Position) <= resRange)
                                     {
                                         // SBot Statue of Justice trap protection
                                         if (IsNearStatueOfJustice(livePlayer.Position) || IsNearStatueOfJustice(myPos))
@@ -233,7 +233,7 @@ namespace xBot.App
 
                             if (p.LifeStateType == SRModel.LifeState.Dead && ResurrectPolicy.MatchesRegex(p.Name))
                             {
-                                if (p.Position != null && myPos.DistanceTo(p.Position) <= resRange)
+                                if (p.Position != null && TeleportTransitionPolicy.SameSpace(myPos, p.Position) && myPos.DistanceTo(p.Position) <= resRange)
                                 {
                                     if (IsNearStatueOfJustice(p.Position) || IsNearStatueOfJustice(myPos))
                                     {
@@ -289,7 +289,7 @@ namespace xBot.App
                         if (PartyPolicy.ShouldHealPartyMember(member.HPPercent, PartyHealHPPercent))
                         {
                             SRPlayer livePlayer = InfoManager.Players.Find(p => p != null && string.Equals(p.Name, member.Name, StringComparison.OrdinalIgnoreCase));
-                            if (livePlayer != null && livePlayer.Position != null && myPos.DistanceTo(livePlayer.Position) <= 35.0)
+                            if (livePlayer != null && livePlayer.Position != null && TeleportTransitionPolicy.SameSpace(myPos, livePlayer.Position) && myPos.DistanceTo(livePlayer.Position) <= 35.0)
                             {
                                 SRSkill healSkill = FindPartyHealSkill();
                                 if (healSkill != null && healSkill.isCastingEnabled)
@@ -319,6 +319,7 @@ namespace xBot.App
                             var lp = InfoManager.Players.Find(p => p != null && string.Equals(p.Name, m.Name, StringComparison.OrdinalIgnoreCase));
                             if (lp != null && lp.BadStatusFlags != SRModel.BadStatus.None
                                 && lp.Position != null && InfoManager.Character.GetRealtimePosition() != null
+                                && TeleportTransitionPolicy.SameSpace(InfoManager.Character.GetRealtimePosition(), lp.Position)
                                 && InfoManager.Character.GetRealtimePosition().DistanceTo(lp.Position) <= 35.0)
                             { needCure = true; break; }
                         }
@@ -345,7 +346,7 @@ namespace xBot.App
                         {
                             var p = InfoManager.Players.GetAt(pi);
                             if (p == null || p.Name == InfoManager.Character.Name) continue;
-                            if (p.Position != null && myPos.DistanceTo(p.Position) <= 60.0)
+                            if (p.Position != null && TeleportTransitionPolicy.SameSpace(myPos, p.Position) && myPos.DistanceTo(p.Position) <= 60.0)
                             {
                                 if (BuffProximityPlayers.Contains(p.Name))
                                 {
