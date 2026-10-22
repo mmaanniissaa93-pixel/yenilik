@@ -14,6 +14,7 @@ namespace xBot.App
     /// </summary>
     public static class AutoConfigureManager
     {
+        private static readonly string ProfilesDirectory = Path.Combine("Config", "Profiles");
         public static bool AutoConfigureBeforeTownLoop { get; set; } = false;
         public static bool UseSharedPickFilter { get; set; } = false;
         public static string LastAppliedBuild { get; private set; } = "";
@@ -107,33 +108,111 @@ namespace xBot.App
 
         public static IList<string> ListProfiles()
         {
-            var list = new List<string> { "Varsayılan" };
+            var list = new List<string>();
             try
             {
+                if (File.Exists(Path.Combine("Config", "Default.json"))) list.Add("Default");
                 if (!Directory.Exists("Config")) return list;
+                if (Directory.Exists(ProfilesDirectory))
+                {
+                    foreach (string f in Directory.GetFiles(ProfilesDirectory, "*.json"))
+                    {
+                        string n = Path.GetFileNameWithoutExtension(f);
+                        if (!list.Contains(n, StringComparer.OrdinalIgnoreCase)) list.Add(n);
+                    }
+                }
+                // Keep old root-level profiles selectable for compatibility. New profile
+                // mutations are confined to ProfilesDirectory so character files stay safe.
                 foreach (string f in Directory.GetFiles("Config", "*.json"))
                 {
                     string n = Path.GetFileNameWithoutExtension(f);
-                    if (string.Equals(n, "Default", StringComparison.OrdinalIgnoreCase)) continue;
-                    if (!list.Contains(n)) list.Add(n);
+                    if (!string.Equals(n, "Default", StringComparison.OrdinalIgnoreCase)
+                        && !list.Contains(n, StringComparer.OrdinalIgnoreCase)) list.Add(n);
                 }
             }
             catch { }
+            list.Sort(StringComparer.OrdinalIgnoreCase);
             return list;
+        }
+
+        private static bool TryNormalizeProfileName(string profileName, out string clean, out string error)
+        {
+            clean = (profileName ?? "").Trim();
+            error = "";
+            if (clean.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                clean = clean.Substring(0, clean.Length - 5);
+            if (clean.Length == 0 || clean == "." || clean == ".."
+                || clean.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
+                || clean.IndexOf(Path.DirectorySeparatorChar) >= 0
+                || clean.IndexOf(Path.AltDirectorySeparatorChar) >= 0)
+            {
+                error = "Geçersiz profil adı.";
+                return false;
+            }
+            return true;
+        }
+
+        private static string ManagedProfilePath(string name)
+        {
+            return Path.GetFullPath(Path.Combine(ProfilesDirectory, name + ".json"));
+        }
+
+        private static string LegacyProfilePath(string name)
+        {
+            return Path.GetFullPath(Path.Combine("Config", name + ".json"));
+        }
+
+        public static bool TryResolveProfilePath(string profileName, out string path, out string error)
+        {
+            path = null;
+            string clean;
+            if (!TryNormalizeProfileName(profileName, out clean, out error)) return false;
+            try
+            {
+                if (string.Equals(clean, "Default", StringComparison.OrdinalIgnoreCase))
+                    path = LegacyProfilePath("Default");
+                else
+                {
+                    string managed = ManagedProfilePath(clean);
+                    string legacy = LegacyProfilePath(clean);
+                    path = File.Exists(managed) ? managed : legacy;
+                }
+                if (!File.Exists(path))
+                {
+                    error = "Profil bulunamadı: " + clean;
+                    path = null;
+                    return false;
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+                path = null;
+                return false;
+            }
         }
 
         public static bool CreateProfile(string name, out string error)
         {
             error = "";
-            string clean = (name ?? "").Trim();
-            if (clean.Length == 0) { error = "Profil adı boş olamaz."; return false; }
-            if (clean.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0) { error = "Geçersiz profil adı."; return false; }
+            string clean;
+            if (!TryNormalizeProfileName(name, out clean, out error)) return false;
+            if (string.Equals(clean, "Default", StringComparison.OrdinalIgnoreCase))
+            { error = "Default ayrılmış bir profil adıdır."; return false; }
             try
             {
-                if (!Directory.Exists("Config")) Directory.CreateDirectory("Config");
-                string path = Path.Combine("Config", clean + ".json");
+                if (!Directory.Exists(ProfilesDirectory)) Directory.CreateDirectory(ProfilesDirectory);
+                string path = ManagedProfilePath(clean);
                 if (File.Exists(path)) { error = "Profil zaten var: " + clean; return false; }
-                Settings.SaveCharacterSettings();
+                if (File.Exists(LegacyProfilePath(clean)))
+                { error = "Aynı adda eski bir Config dosyası var. Var olan dosyanın üzerine yazılmayacak; başka ad seçin."; return false; }
+                if (Game.InfoManager.inGame)
+                {
+                    Settings.FlushPendingSaves();
+                    if (!Settings.LastCharacterSaveSucceeded)
+                    { error = "Önce açık karakter ayarları kaydedilemedi."; return false; }
+                }
                 string current = CurrentCharacterConfigPath();
                 if (!string.IsNullOrEmpty(current) && File.Exists(current))
                     File.Copy(current, path);
@@ -149,10 +228,30 @@ namespace xBot.App
             error = "";
             try
             {
-                string a = Path.Combine("Config", (oldName ?? "").Trim() + ".json");
-                string b = Path.Combine("Config", (newName ?? "").Trim() + ".json");
-                if (!File.Exists(a)) { error = "Profil bulunamadı: " + oldName; return false; }
+                string oldClean, newClean;
+                if (!TryNormalizeProfileName(oldName, out oldClean, out error)
+                    || !TryNormalizeProfileName(newName, out newClean, out error)) return false;
+                if (string.Equals(oldClean, "Default", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(newClean, "Default", StringComparison.OrdinalIgnoreCase))
+                { error = "Default profili yeniden adlandırılamaz."; return false; }
+                if (Game.InfoManager.inGame)
+                {
+                    Settings.FlushPendingSaves();
+                    if (!Settings.LastCharacterSaveSucceeded)
+                    { error = "Profil yeniden adlandırılmadan önce açık karakter ayarları kaydedilemedi."; return false; }
+                }
+                string a = ManagedProfilePath(oldClean);
+                string b = ManagedProfilePath(newClean);
+                if (!File.Exists(a))
+                {
+                    error = File.Exists(LegacyProfilePath(oldClean))
+                        ? "Eski Config dosyaları profil düğmeleriyle yeniden adlandırılamaz; yeni bir profil oluşturun."
+                        : "Profil bulunamadı: " + oldName;
+                    return false;
+                }
                 if (File.Exists(b)) { error = "Hedef profil zaten var: " + newName; return false; }
+                if (File.Exists(LegacyProfilePath(newClean)))
+                { error = "Hedef adda eski bir Config dosyası var; başka ad seçin."; return false; }
                 File.Move(a, b);
                 return true;
             }
@@ -164,8 +263,20 @@ namespace xBot.App
             error = "";
             try
             {
-                string p = Path.Combine("Config", (name ?? "").Trim() + ".json");
-                if (!File.Exists(p)) { error = "Profil bulunamadı: " + name; return false; }
+                string clean;
+                if (!TryNormalizeProfileName(name, out clean, out error)) return false;
+                if (string.Equals(clean, "Default", StringComparison.OrdinalIgnoreCase))
+                { error = "Default profili silinemez."; return false; }
+                if (string.Equals(Settings.LoadedCharacterProfile, clean, StringComparison.OrdinalIgnoreCase))
+                { error = "Etkin profil silinemez; önce başka bir profil yükleyin."; return false; }
+                string p = ManagedProfilePath(clean);
+                if (!File.Exists(p))
+                {
+                    error = File.Exists(LegacyProfilePath(clean))
+                        ? "Eski Config dosyaları profil düğmeleriyle silinemez."
+                        : "Profil bulunamadı: " + name;
+                    return false;
+                }
                 File.Delete(p);
                 return true;
             }
@@ -176,12 +287,8 @@ namespace xBot.App
         {
             try
             {
-                string loaded = Settings.LoadedCharacterProfile;
-                if (!string.IsNullOrEmpty(loaded))
-                {
-                    string p = Path.Combine("Config", loaded + ".json");
-                    if (File.Exists(p)) return p;
-                }
+                string path = Settings.LoadedCharacterProfilePath;
+                if (!string.IsNullOrEmpty(path) && File.Exists(path)) return path;
             }
             catch { }
             return "";
@@ -193,12 +300,20 @@ namespace xBot.App
             if (!string.IsNullOrEmpty(hit)) return hit;
             try
             {
-                if (!Directory.Exists("Config")) return "";
-                var files = Directory.GetFiles("Config", "*.json")
-                    .Where(f => !string.Equals(Path.GetFileName(f), "Default.json", StringComparison.OrdinalIgnoreCase))
-                    .OrderByDescending(f => new FileInfo(f).LastWriteTimeUtc)
-                    .ToArray();
-                return files.Length > 0 ? files[0] : "";
+                if (!Game.InfoManager.inGame || string.IsNullOrWhiteSpace(Game.DataManager.SilkroadName)
+                    || string.IsNullOrWhiteSpace(Game.InfoManager.ServerName) || string.IsNullOrWhiteSpace(Game.InfoManager.CharName))
+                    return "";
+                string silkroad = Game.DataManager.SilkroadName;
+                string server = Game.InfoManager.ServerName;
+                string character = Game.InfoManager.CharName;
+                foreach (char c in Path.GetInvalidFileNameChars())
+                {
+                    silkroad = silkroad.Replace(c, '_');
+                    server = server.Replace(c, '_');
+                    character = character.Replace(c, '_');
+                }
+                string current = Path.Combine("Config", silkroad + "_" + server + "_" + character + ".json");
+                return File.Exists(current) ? current : "";
             }
             catch { return ""; }
         }

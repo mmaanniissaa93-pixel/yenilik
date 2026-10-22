@@ -156,32 +156,6 @@ namespace xBot.App
 			Settings_rbnPacketNotShow.CheckedChanged += (s, e) => Network.Proxy.SyncAnalyzerSettings();
 			Network.Proxy.SyncAnalyzerSettings();
 
-			// Initialize Modular Tab UserControls
-			InitializeModularTabControls();
-		}
-
-		public Controls.AttackPanel AttackPanelControl { get; private set; }
-		public Controls.BuffsPanel BuffsPanelControl { get; private set; }
-		public Controls.PotionsPanel PotionsPanelControl { get; private set; }
-		public Controls.TownPanel TownPanelControl { get; private set; }
-
-		private void InitializeModularTabControls()
-		{
-			try
-			{
-				AttackPanelControl = new Controls.AttackPanel();
-				AttackPanelControl.BindToWindow(this);
-				BuffsPanelControl = new Controls.BuffsPanel();
-				BuffsPanelControl.BindToWindow(this);
-				PotionsPanelControl = new Controls.PotionsPanel();
-				PotionsPanelControl.BindToWindow(this);
-				TownPanelControl = new Controls.TownPanel();
-				TownPanelControl.BindToWindow(this);
-			}
-			catch (Exception ex)
-			{
-				Theme.ModernLogger.LogSwallowed(ex, "Window.InitializeModularTabControls");
-			}
 		}
 		/// <summary>
 		/// Load command arguments to the App.

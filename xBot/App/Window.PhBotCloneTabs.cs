@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
+using xBot.Game;
+using xBot.Game.Objects.Item;
 using xBot.Game.Objects.Entity;
 
 namespace xBot.App
@@ -15,6 +17,7 @@ namespace xBot.App
     /// </summary>
     public partial class Window
     {
+        private bool refreshingDevilSettings;
         // ---------------------------------------------------------------
         // Genel yardımcı: yatay (H) alt-sekeme yeni buton + panel ekler.
         // Kural TabPageH_Option_Click ile uyumludur: panel, butonun
@@ -406,35 +409,15 @@ namespace xBot.App
             p.Controls.Clear();
             p.BackColor = Theme.AppTheme.Surface;
             p.AutoScroll = false;
-
-            int y = 14;
-            AddPhBotCheck(p, "Socket Stone of Liberation", 20, y, false);
-
-            string[] stones = new string[]
+            bool isTR = LocalizationManager.CurrentLanguage == "TR";
+            p.Controls.Add(new Label
             {
-                "Socket Stone of Stamina",
-                "Socket Stone of Recovery",
-                "Socket Stone of Magic Power",
-                "Socket Stone of Block",
-                "Socket Stone of Iron Wall"
-            };
-
-            for (int i = 0; i < stones.Length; i++)
-            {
-                y += 32;
-                AddPhBotCheck(p, stones[i], 20, y, false);
-                string stat = (i == 2) ? "MP <=" : "HP <=";
-                var lbl = new Label { Text = stat, Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true, Location = new Point(220, y + 2) };
-                var nud = new NumericUpDown { Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, Location = new Point(265, y - 2), Size = new Size(48, 22), Value = 0 };
-                var pct = new Label { Text = "%", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true, Location = new Point(318, y + 2) };
-                p.Controls.AddRange(new Control[] { lbl, nud, pct });
-            }
-
-            y += 32;
-            AddPhBotCheck(p, "Socket Stone of Concentration", 20, y, false);
-
-            y += 32;
-            AddPhBotCheck(p, "Socket Stone of Rapidity", 20, y, false);
+                Text = isTR
+                    ? "Soket taşı kullanımı bu istemcide desteklenmiyor. Bu seçeneklerin oyun davranışına etkisi yok."
+                    : "Socket Stone automation is not supported by this client. These settings do not affect game behavior.",
+                Font = PhBotFont(), ForeColor = Theme.AppTheme.TextMuted, AutoSize = true,
+                MaximumSize = new Size(620, 0), Location = new Point(18, 18)
+            });
         }
 
         private void BuildProtectionPetReturn(Panel p)
@@ -457,22 +440,33 @@ namespace xBot.App
             p.Controls.Add(gbx);
 
             var c1 = AddPhBotCheck(gbx, isTR ? "Pet recovery kit" : "Pet recovery kits", 15, 25, ProtectionManager.ReturnOutOfPetRecoveryKits);
-            c1.CheckedChanged += (s, e) => ProtectionManager.ReturnOutOfPetRecoveryKits = c1.Checked;
+            c1.Name = "PhBot_PetReturnRecovery";
+            c1.CheckedChanged += (s, e) => { ProtectionManager.ReturnOutOfPetRecoveryKits = c1.Checked; Settings.SaveCharacterSettings(); };
 
             var c2 = AddPhBotCheck(gbx, isTR ? "Pet canlandırma" : "Pet revive", 15, 55, ProtectionManager.ReturnOutOfPetRevive);
-            c2.CheckedChanged += (s, e) => ProtectionManager.ReturnOutOfPetRevive = c2.Checked;
+            c2.Name = "PhBot_PetReturnRevive";
+            c2.CheckedChanged += (s, e) => { ProtectionManager.ReturnOutOfPetRevive = c2.Checked; Settings.SaveCharacterSettings(); };
 
             var c3 = AddPhBotCheck(gbx, isTR ? "Pet için HGP" : "Pet feed", 15, 85, ProtectionManager.ReturnOutOfPetFeed);
-            c3.CheckedChanged += (s, e) => ProtectionManager.ReturnOutOfPetFeed = c3.Checked;
+            c3.Name = "PhBot_PetReturnFeed";
+            c3.CheckedChanged += (s, e) => { ProtectionManager.ReturnOutOfPetFeed = c3.Checked; Settings.SaveCharacterSettings(); };
 
             var c4 = AddPhBotCheck(gbx, isTR ? "Anormal durum" : "Abnormal state", 15, 115, ProtectionManager.ReturnOutOfPetAbnormalPill);
-            c4.CheckedChanged += (s, e) => ProtectionManager.ReturnOutOfPetAbnormalPill = c4.Checked;
+            c4.Name = "PhBot_PetReturnAbnormal";
+            c4.CheckedChanged += (s, e) => { ProtectionManager.ReturnOutOfPetAbnormalPill = c4.Checked; Settings.SaveCharacterSettings(); };
 
             var c5 = AddPhBotCheck(gbx, isTR ? "Kervan recovery kiti" : "Transport recovery kits", 15, 145, ProtectionManager.ReturnOutOfTransportRecoveryKits);
-            c5.CheckedChanged += (s, e) => ProtectionManager.ReturnOutOfTransportRecoveryKits = c5.Checked;
+            c5.Name = "PhBot_PetReturnTransportRecovery";
+            c5.CheckedChanged += (s, e) => { ProtectionManager.ReturnOutOfTransportRecoveryKits = c5.Checked; Settings.SaveCharacterSettings(); };
 
             var c6 = AddPhBotCheck(gbx, isTR ? "Grap pet dolu" : "Pick pet full", 15, 175, ProtectionManager.ReturnFullPetInventory);
-            c6.CheckedChanged += (s, e) => ProtectionManager.ReturnFullPetInventory = c6.Checked;
+            c6.Name = "PhBot_PetReturnFull";
+            c6.CheckedChanged += (s, e) => {
+                ProtectionManager.ReturnFullPetInventory = c6.Checked;
+                if (cbxProtectionFullPetInventory != null && cbxProtectionFullPetInventory.Checked != c6.Checked)
+                    cbxProtectionFullPetInventory.Checked = c6.Checked;
+                Settings.SaveCharacterSettings();
+            };
         }
 
         private void BuildProtectionBerserk(Panel p)
@@ -924,17 +918,23 @@ namespace xBot.App
                 Value = Math.Max(1, SkillManager.DevilMonsterCount > 0 ? SkillManager.DevilMonsterCount : 3)
             };
             nAtt.ValueChanged += (s, e) => {
+                if (refreshingDevilSettings) return;
                 SkillManager.DevilMonsterCount = (int)nAtt.Value;
                 Settings.SaveCharacterSettings();
             };
             cAtt.CheckedChanged += (s, e) => {
+                if (refreshingDevilSettings) return;
                 SkillManager.DevilMonsterCountEnabled = cAtt.Checked;
                 Settings.SaveCharacterSettings();
             };
             gbx.Controls.Add(nAtt);
+            nAtt.Name = "PhBot_DevilMonsterCount";
+            cAtt.Name = "PhBot_DevilMonsterCountEnabled";
 
             var cReady = AddPhBotCheck(gbx, isTR ? "Hazırsa" : "Ready", 15, 40, SkillManager.DevilWhenReady);
+            cReady.Name = "PhBot_DevilReady";
             cReady.CheckedChanged += (s, e) => {
+                if (refreshingDevilSettings) return;
                 SkillManager.DevilWhenReady = cReady.Checked;
                 SkillManager.UseDevilSpirit = cReady.Checked;
                 Settings.SaveCharacterSettings();
@@ -942,13 +942,17 @@ namespace xBot.App
             };
 
             var cEven = AddPhBotCheck(gbx, isTR ? "Canavar saldırmasa bile" : "even if no monsters are attacking", 95, 40, SkillManager.DevilEvenIfNotAttacking);
+            cEven.Name = "PhBot_DevilEvenWithoutAttack";
             cEven.CheckedChanged += (s, e) => {
+                if (refreshingDevilSettings) return;
                 SkillManager.DevilEvenIfNotAttacking = cEven.Checked;
                 Settings.SaveCharacterSettings();
             };
 
             Action<CheckBox, SRMob.Mob> bindMob = (cb, mt) => {
+                cb.Name = "PhBot_DevilMob_" + mt.ToString();
                 cb.CheckedChanged += (s, e) => {
+                    if (refreshingDevilSettings) return;
                     if (cb.Checked) SkillManager.DevilMobTypes.Add(mt);
                     else SkillManager.DevilMobTypes.Remove(mt);
                     Settings.SaveCharacterSettings();
@@ -966,10 +970,50 @@ namespace xBot.App
             bindMob(AddPhBotCheck(gbx, "Unique", 15, 238, SkillManager.DevilMobTypes.Contains(SRMob.Mob.Unique)), SRMob.Mob.Unique);
 
             var cPillar = AddPhBotCheck(gbx, isTR ? "Pillar" : "Pillars", 15, 260, SkillManager.DevilPillars);
+            cPillar.Name = "PhBot_DevilPillars";
             cPillar.CheckedChanged += (s, e) => {
+                if (refreshingDevilSettings) return;
                 SkillManager.DevilPillars = cPillar.Checked;
                 Settings.SaveCharacterSettings();
             };
+
+            var lblHp = new Label { Text = isTR ? "HP ≤" : "HP ≤", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true, Location = new Point(115, 262) };
+            var nHp = new NumericUpDown { Name = "PhBot_DevilHPPercent", Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, Location = new Point(155, 258), Size = new Size(52, 22), Minimum = 1, Maximum = 100, Value = Math.Max(1, Math.Min(100, (int)SkillManager.DevilSpiritHPPercent)) };
+            nHp.ValueChanged += (s, e) => {
+                if (refreshingDevilSettings) return;
+                SkillManager.DevilSpiritHPPercent = (byte)nHp.Value;
+                Settings.SaveCharacterSettings();
+            };
+            var lblDelay = new Label { Text = isTR ? "Tekrar (sn)" : "Retry (s)", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true, Location = new Point(215, 262) };
+            var nDelay = new NumericUpDown { Name = "PhBot_DevilDelaySeconds", Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, Location = new Point(280, 258), Size = new Size(48, 22), Minimum = 1, Maximum = 120, Value = Math.Max(1, Math.Min(120, SkillManager.DevilSpiritDelaySeconds)) };
+            nDelay.ValueChanged += (s, e) => {
+                if (refreshingDevilSettings) return;
+                SkillManager.DevilSpiritDelaySeconds = (int)nDelay.Value;
+                Settings.SaveCharacterSettings();
+            };
+            gbx.Controls.AddRange(new Control[] { lblHp, nHp, lblDelay, nDelay });
+        }
+
+        public void RefreshDevilSettingsControls()
+        {
+            if (IsDisposed || Disposing) return;
+            this.InvokeIfRequired(() =>
+            {
+                refreshingDevilSettings = true;
+                try
+                {
+                    SetNamedPhBotCheck("PhBot_DevilMonsterCountEnabled", SkillManager.DevilMonsterCountEnabled);
+                    SetNamedPhBotCheck("PhBot_DevilReady", SkillManager.DevilWhenReady);
+                    SetNamedPhBotCheck("PhBot_DevilEvenWithoutAttack", SkillManager.DevilEvenIfNotAttacking);
+                    SetNamedPhBotCheck("PhBot_DevilPillars", SkillManager.DevilPillars);
+                    foreach (SRMob.Mob mobType in Enum.GetValues(typeof(SRMob.Mob)))
+                        SetNamedPhBotCheck("PhBot_DevilMob_" + mobType, SkillManager.DevilMobTypes.Contains(mobType));
+                    SetNamedPhBotNumber("PhBot_DevilMonsterCount", SkillManager.DevilMonsterCount);
+                    SetNamedPhBotNumber("PhBot_DevilHPPercent", SkillManager.DevilSpiritHPPercent);
+                    SetNamedPhBotNumber("PhBot_DevilDelaySeconds", SkillManager.DevilSpiritDelaySeconds);
+                }
+                finally { refreshingDevilSettings = false; }
+            });
         }
 
         private void BuildProtectionScrolls(Panel p)
@@ -981,35 +1025,62 @@ namespace xBot.App
             bool isTR = LocalizationManager.CurrentLanguage == "TR";
 
             int x1 = 20;
-            AddPhBotCheck(p, "Accuracy", x1, 18, false);
-            AddPhBotCheck(p, "Strength", x1, 44, false);
-            AddPhBotCheck(p, "Intelligence", x1, 70, false);
-            AddPhBotCheck(p, isTR ? "Hasar Arttırma" : "Damage Increase", x1, 96, false);
-            AddPhBotCheck(p, isTR ? "Hasar Düşürme" : "Damage Absorption", x1, 122, false);
-            AddPhBotCheck(p, isTR ? "HP Arttırma" : "HP Increase", x1, 148, false);
-            AddPhBotCheck(p, isTR ? "MP Arttırma" : "MP Increase", x1, 174, false);
-            AddPhBotCheck(p, "Subscription Card", x1, 200, false);
-            AddPhBotCheck(p, "Skill Point", x1, 226, false);
-            AddPhBotCheck(p, "Evasion", x1, 252, false);
+            DisableUnsupportedPhBotCheck(AddPhBotCheck(p, "Accuracy", x1, 18, false), "Accuracy scroll");
+            DisableUnsupportedPhBotCheck(AddPhBotCheck(p, "Strength", x1, 44, false), "Strength scroll");
+            DisableUnsupportedPhBotCheck(AddPhBotCheck(p, "Intelligence", x1, 70, false), "Intelligence scroll");
+            DisableUnsupportedPhBotCheck(AddPhBotCheck(p, isTR ? "Hasar Arttırma" : "Damage Increase", x1, 96, false), "Damage Increase scroll");
+            DisableUnsupportedPhBotCheck(AddPhBotCheck(p, isTR ? "Hasar Düşürme" : "Damage Absorption", x1, 122, false), "Damage Absorption scroll");
+            DisableUnsupportedPhBotCheck(AddPhBotCheck(p, isTR ? "HP Arttırma" : "HP Increase", x1, 148, false), "HP Increase scroll");
+            DisableUnsupportedPhBotCheck(AddPhBotCheck(p, isTR ? "MP Arttırma" : "MP Increase", x1, 174, false), "MP Increase scroll");
+            DisableUnsupportedPhBotCheck(AddPhBotCheck(p, "Subscription Card", x1, 200, false), "Subscription Card");
+            DisableUnsupportedPhBotCheck(AddPhBotCheck(p, "Skill Point", x1, 226, false), "Skill Point scroll");
+            DisableUnsupportedPhBotCheck(AddPhBotCheck(p, "Evasion", x1, 252, false), "Evasion scroll");
 
             int x2 = 210;
-            AddPhBotCheck(p, isTR ? "EXP Arttırma" : "EXP Increase", x2, 18, false);
-            AddPhBotCheck(p, isTR ? "SP EXP Arttırma" : "SP EXP Increase", x2, 44, false);
+            DisableUnsupportedPhBotCheck(AddPhBotCheck(p, isTR ? "EXP Arttırma" : "EXP Increase", x2, 18, false), "EXP scroll");
+            DisableUnsupportedPhBotCheck(AddPhBotCheck(p, isTR ? "SP EXP Arttırma" : "SP EXP Increase", x2, 44, false), "SP EXP scroll");
             var cSpd = AddPhBotCheck(p, isTR ? "Hızlı Koşma" : "Speed", x2, 70, ProtectionManager.UseSpeedDrugs || ReturnToAreaPolicy.UseSpeedDrug);
+            cSpd.Name = "PhBot_ProtectionSpeedDrugs";
             cSpd.CheckedChanged += (s, e) => {
                 ProtectionManager.UseSpeedDrugs = cSpd.Checked;
                 ReturnToAreaPolicy.UseSpeedDrug = cSpd.Checked;
+                TrainingOptionsPolicy.UseSpeedDrugs = cSpd.Checked;
+                Settings.SaveCharacterSettings();
             };
-            AddPhBotCheck(p, "Trigger", x2, 96, false);
-            AddPhBotCheck(p, isTR ? "EXP Kağıtları (Booster)" : "EXP Tickets", x2, 122, false);
-            AddPhBotCheck(p, isTR ? "SP EXP Kağıtları (Booster)" : "SP EXP Tickets", x2, 148, false);
+            DisableUnsupportedPhBotCheck(AddPhBotCheck(p, "Trigger", x2, 96, false), "Trigger");
+            DisableUnsupportedPhBotCheck(AddPhBotCheck(p, isTR ? "EXP Kağıtları (Booster)" : "EXP Tickets", x2, 122, false), "EXP Tickets");
+            DisableUnsupportedPhBotCheck(AddPhBotCheck(p, isTR ? "SP EXP Kağıtları (Booster)" : "SP EXP Tickets", x2, 148, false), "SP EXP Tickets");
 
             var btnEn = new Button { Text = isTR ? "Etkinleştir" : "Enable", Font = PhBotFont(), Location = new Point(430, 16), Size = new Size(82, 26) };
             var btnDis = new Button { Text = isTR ? "Devre dışı bırak" : "Disable", Font = PhBotFont(), Location = new Point(516, 16), Size = new Size(110, 26) };
             var cbBotOnly = AddPhBotCheck(p, isTR ? "Sadece bottayken kullan" : "Only use while botting", 430, 52, false);
             var cbTraceOnly = AddPhBotCheck(p, isTR ? "Sadece takipteyken kullan" : "Only use while tracing", 430, 78, false);
+            btnEn.Enabled = false;
+            btnDis.Enabled = false;
+            DisableUnsupportedPhBotCheck(cbBotOnly, "Only use while botting");
+            DisableUnsupportedPhBotCheck(cbTraceOnly, "Only use while tracing");
+            if (ToolTips != null)
+            {
+                ToolTips.SetToolTip(btnEn, "Enable applies to all scroll types, which are not implemented.");
+                ToolTips.SetToolTip(btnDis, "Disable applies to all scroll types, which are not implemented.");
+            }
+            p.Controls.Add(new Label
+            {
+                Text = isTR ? "Bu sürümde yalnızca Hızlı Koşma desteklenir; diğer öğe otomasyonları etkin değildir." : "Only Speed is supported here; other item automation is unavailable in this build.",
+                Font = PhBotFont(), ForeColor = Theme.AppTheme.TextMuted, AutoSize = true,
+                Location = new Point(20, 188), MaximumSize = new Size(610, 0)
+            });
             p.Controls.Add(btnEn);
             p.Controls.Add(btnDis);
+        }
+
+        private void DisableUnsupportedPhBotCheck(CheckBox checkBox, string feature)
+        {
+            if (checkBox == null) return;
+            checkBox.Enabled = false;
+            checkBox.Checked = false;
+            if (ToolTips != null)
+                ToolTips.SetToolTip(checkBox, feature + " automation is not connected to a backend in this build.");
         }
 
         private void BuildProtectionStats(Panel p)
@@ -1163,7 +1234,11 @@ namespace xBot.App
 
         private void BuildTrainingConditions(Panel p)
         {
-            if (p == null || p.Controls.Count > 0) return;
+            if (p == null) return;
+            if (p.Controls.Count == 0)
+                ShowUnsupportedPhBotPanel(p, "Training conditions are not connected to settings, scripts, or the bot decision loop in this build.");
+            if (p.Controls.ContainsKey("PhBot_UnsupportedFeatureNote")) return;
+            if (p.Controls.Count > 0) return;
             p.AutoScroll = false;
             p.BackColor = Theme.AppTheme.Surface;
 
@@ -1586,6 +1661,17 @@ namespace xBot.App
             p.AutoScroll = false;
             p.BackColor = Theme.AppTheme.Surface;
 
+            if (string.Equals(typeName, "Job Pouch", StringComparison.OrdinalIgnoreCase))
+            {
+                p.Controls.Add(new Label
+                {
+                    Text = "Job Pouch inventory is not exposed by the current game state parser.",
+                    Font = PhBotFont(), ForeColor = Theme.AppTheme.TextMuted, AutoSize = true,
+                    Location = new Point(18, 18), MaximumSize = new Size(600, 0)
+                });
+                return;
+            }
+
             var lv = NewPhBotListView(24, 6, Math.Max(300, p.ClientSize.Width - 110), Math.Max(150, p.ClientSize.Height - 45), "Slot|50", "Icon|50", "Item|250", "Quantity|75");
             lv.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
             p.Controls.Add(lv);
@@ -1598,6 +1684,7 @@ namespace xBot.App
             btnRefresh.Anchor = AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom;
             Classicize(btnRefresh);
             p.Controls.Add(btnRefresh);
+            btnRefresh.Click += (s, e) => RefreshInventoryGridTab(p, typeName);
 
             var btnSort = new Button();
             btnSort.Text = "S\nO\nR\nT";
@@ -1607,6 +1694,7 @@ namespace xBot.App
             btnSort.Anchor = AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom;
             Classicize(btnSort);
             p.Controls.Add(btnSort);
+            btnSort.Click += (s, e) => SortInventoryGridTab(p);
 
             var lblCount = new Label();
             lblCount.Text = "Item count: 0/0";
@@ -1615,10 +1703,112 @@ namespace xBot.App
             lblCount.Location = new Point(24, Math.Max(160, p.ClientSize.Height - 30));
             lblCount.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             p.Controls.Add(lblCount);
+            RefreshInventoryGridTab(p, typeName);
+        }
+
+        private void RefreshInventoryGridTab(Panel panel, string typeName)
+        {
+            if (panel == null) return;
+            ListView list = null;
+            Label count = null;
+            foreach (Control control in panel.Controls)
+            {
+                if (control is ListView view) list = view;
+                else if (control is Label label) count = label;
+            }
+            if (list == null) return;
+
+            var items = new List<Tuple<int, SRItem>>();
+            int capacity = 0;
+            try
+            {
+                if (string.Equals(typeName, "Job", StringComparison.OrdinalIgnoreCase))
+                {
+                    var inventory = InfoManager.Character?.Inventory;
+                    if (inventory != null)
+                    {
+                        capacity = inventory.Capacity;
+                        for (int i = 0; i < inventory.Capacity; i++)
+                        {
+                            var item = inventory[i];
+                            if (item != null && item.isEquipable() && ((SREquipable)item).isJob())
+                                items.Add(Tuple.Create(i, item));
+                        }
+                    }
+                }
+                else if (string.Equals(typeName, "Transport", StringComparison.OrdinalIgnoreCase))
+                {
+                    var pets = InfoManager.MyPets;
+                    if (pets != null)
+                    {
+                        for (int i = 0; i < pets.Count; i++)
+                        {
+                            var pet = pets.GetAt(i);
+                            if (pet == null || !pet.isTransport() || pet.Inventory == null) continue;
+                            capacity = pet.Inventory.Capacity;
+                            for (int slot = 0; slot < pet.Inventory.Capacity; slot++)
+                                if (pet.Inventory[slot] != null) items.Add(Tuple.Create(slot, pet.Inventory[slot]));
+                            break;
+                        }
+                    }
+                }
+                else if (string.Equals(typeName, "Guild", StringComparison.OrdinalIgnoreCase))
+                {
+                    var storage = InfoManager.Guild?.Storage;
+                    if (storage != null)
+                    {
+                        capacity = storage.Capacity;
+                        for (int i = 0; i < storage.Capacity; i++)
+                            if (storage[i] != null) items.Add(Tuple.Create(i, storage[i]));
+                    }
+                }
+            }
+            catch (Exception ex) { PhBotDebug("inventory " + typeName + " refresh: " + ex.Message); }
+
+            list.BeginUpdate();
+            try
+            {
+                list.Items.Clear();
+                foreach (var entry in items)
+                {
+                    var item = entry.Item2;
+                    var row = new ListViewItem(entry.Item1.ToString());
+                    row.SubItems.Add("");
+                    row.SubItems.Add(item.Name ?? item.ServerName ?? "Unknown item");
+                    row.SubItems.Add(item.Quantity.ToString());
+                    row.Tag = item;
+                    list.Items.Add(row);
+                }
+                if (count != null)
+                    count.Text = string.Format("Item count: {0}/{1}", items.Count, capacity);
+            }
+            finally { list.EndUpdate(); }
+        }
+
+        private void SortInventoryGridTab(Panel panel)
+        {
+            if (panel == null) return;
+            ListView list = null;
+            foreach (Control control in panel.Controls)
+                if (control is ListView view) { list = view; break; }
+            if (list == null) return;
+            var rows = new List<ListViewItem>();
+            foreach (ListViewItem row in list.Items) rows.Add((ListViewItem)row.Clone());
+            rows.Sort((left, right) => string.Compare(left.SubItems.Count > 2 ? left.SubItems[2].Text : left.Text,
+                right.SubItems.Count > 2 ? right.SubItems[2].Text : right.Text, StringComparison.OrdinalIgnoreCase));
+            list.BeginUpdate();
+            try
+            {
+                list.Items.Clear();
+                list.Items.AddRange(rows.ToArray());
+            }
+            finally { list.EndUpdate(); }
         }
 
         private void BuildInventoryExchange(Panel p)
         {
+            if (p == null) return;
+            ShowUnsupportedInventoryTab(p, "Exchange requests and confirmation are not connected to a safe trade backend.");
             if (p == null || p.Controls.Count > 0) return;
             p.AutoScroll = false;
             p.BackColor = Theme.AppTheme.Surface;
@@ -1681,6 +1871,8 @@ namespace xBot.App
 
         private void BuildInventoryJobTickets(Panel p)
         {
+            if (p == null) return;
+            ShowUnsupportedInventoryTab(p, "Job Ticket filtering and exchange are not implemented by this client.");
             if (p == null || p.Controls.Count > 0) return;
             p.AutoScroll = false;
             p.BackColor = Theme.AppTheme.Surface;
@@ -1705,6 +1897,8 @@ namespace xBot.App
 
         private void BuildInventoryItem(Panel p)
         {
+            if (p == null) return;
+            ShowUnsupportedInventoryTab(p, "Inflation and awakening automation are not implemented by this client.");
             if (p == null || p.Controls.Count > 0) return;
             p.AutoScroll = false;
             p.BackColor = Theme.AppTheme.Surface;
@@ -1743,6 +1937,8 @@ namespace xBot.App
 
         private void BuildInventoryGori(Panel p)
         {
+            if (p == null) return;
+            ShowUnsupportedInventoryTab(p, "Gori item exchange is not connected to an item exchange backend.");
             if (p == null || p.Controls.Count > 0) return;
             p.AutoScroll = false;
             p.BackColor = Theme.AppTheme.Surface;
@@ -1816,6 +2012,22 @@ namespace xBot.App
 
             var lblHint = new Label { Text = "* Setting the value to 0 will ignore the stat", Font = PhBotFont(), Location = new Point(330, 266), AutoSize = true, ForeColor = Color.FromArgb(60, 60, 60) };
             p.Controls.Add(lblHint);
+        }
+
+        private void ShowUnsupportedInventoryTab(Panel panel, string message)
+        {
+            if (panel == null || panel.Controls.Count > 0) return;
+            panel.AutoScroll = false;
+            panel.BackColor = Theme.AppTheme.Surface;
+            panel.Controls.Add(new Label
+            {
+                Text = message,
+                Font = PhBotFont(),
+                ForeColor = Theme.AppTheme.TextMuted,
+                AutoSize = true,
+                MaximumSize = new Size(Math.Max(300, panel.ClientSize.Width - 36), 0),
+                Location = new Point(18, 18)
+            });
         }
     }
 }

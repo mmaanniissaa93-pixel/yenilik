@@ -50,9 +50,14 @@ packages/
 
 # Dokümantasyon ve referans dosyaları
 docs/
+!docs/
+docs/*
+!docs/FEATURES.md
+!docs/UI-Backend-Inventory-2026-10-22.md
 .agents/
 
 # Splash sprite atlası (isteğe bağlı üretilir)
 splash_atlas.png
 tests/PacketParserScenarios/PacketParserScenarios.csproj
 tests/PacketParserScenarios/Program.cs
+docs/UI-Backend-Inventory-2026-10-22.md

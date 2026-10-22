@@ -18,6 +18,9 @@ namespace xBot.Game
 	// and filling the GUI with the necessary
 	public static class PacketParser
 	{
+        private static readonly object QuestUpdateDiagnosticSync = new object();
+        private static DateTime s_lastQuestUpdateDiagnosticUtc = DateTime.MinValue;
+
         public static void ShardListResponse(Packet packet)
 		{
 			Window w = Window.Get;
@@ -1535,7 +1538,28 @@ namespace xBot.Game
 				}
 				InfoManager.OnQuestUpdated();
 			}
-			catch (Exception ex) { Window.Get?.Log("Quest güncellemesi okunamadı: " + ex.Message, LogLevel.Warning); }
+			catch (Exception ex)
+			{
+				DateTime now = DateTime.UtcNow;
+				lock (QuestUpdateDiagnosticSync)
+				{
+					if ((now - s_lastQuestUpdateDiagnosticUtc).TotalSeconds < 10.0) return;
+					s_lastQuestUpdateDiagnosticUtc = now;
+				}
+				try
+				{
+					byte[] payload = packet != null ? packet.GetBytes() : null;
+					int length = payload != null ? payload.Length : 0;
+					int sampleLength = Math.Min(length, 32);
+					byte[] sample = new byte[sampleLength];
+					if (sampleLength > 0) Array.Copy(payload, sample, sampleLength);
+					string profile = DataManager.CurrentProfile != null ? DataManager.CurrentProfile.DisplayName : "unknown";
+					string hex = Packet.ToStringHexadecimal(sample);
+					Window.Get?.Log(string.Format("Quest update parse failed: opcode=0x{0:X4}, profile={1}, payload={2} bytes, prefix={3}, error={4}",
+						packet != null ? packet.Opcode : (ushort)0, profile, length, hex, ex.Message), LogLevel.Warning);
+				}
+				catch { Window.Get?.Log("Quest güncellemesi okunamadı: " + ex.Message, LogLevel.Warning); }
+			}
 		}
 		private static SRQuest ReadActiveQuest(Packet packet, uint questId)
 		{

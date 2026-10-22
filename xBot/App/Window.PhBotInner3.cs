@@ -176,6 +176,8 @@ namespace xBot.App
                     try { bGuild.Click -= PlayersGuildInviteClick; } catch { }
                     bGuild.Click += PlayersGuildInviteClick;
                 }
+                if (bUnion != null)
+                    DisableNotImplemented(bUnion);
 
                 // Sağ sütun: Trace GroupBox (phBot players 8..17)
                 int gx = W - traceW - 8;
@@ -512,8 +514,7 @@ namespace xBot.App
                     if (bNotice != null)
                     {
                         bNotice.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-                        try { bNotice.Click -= AcademyNoticeClick; } catch { }
-                        bNotice.Click += AcademyNoticeClick;
+                        DisableNotImplemented(bNotice);
                     }
                 }
                 if (lv != null)
@@ -532,6 +533,10 @@ namespace xBot.App
                 }
                 BuildAcademyOptions(tabs.TabPages[1]);
                 BuildAcademyMatching(tabs.TabPages[2]);
+                AddUnsupportedPanelNote(tabs.TabPages[1], "Academy management is not supported by the current game parser.");
+                AddUnsupportedPanelNote(tabs.TabPages[2], "Academy matching is not supported by the current game parser.");
+                DisableControlsRecursively(tabs.TabPages[1]);
+                DisableControlsRecursively(tabs.TabPages[2]);
             }
             catch (Exception ex) { PhBotDebug("academy full: " + ex.Message); }
             finally { _innerLayout = false; }
@@ -541,6 +546,60 @@ namespace xBot.App
         {
             try { MessageBox.Show(this, "Academy notice: (TODO backend)", ProductName); }
             catch { }
+        }
+
+        private void AddUnsupportedPanelNote(Control parent, string text)
+        {
+            if (parent == null || parent.Controls["PhBot_UnsupportedNote"] != null) return;
+            var note = new Label
+            {
+                Name = "PhBot_UnsupportedNote",
+                Text = text,
+                Font = PhBotFont(),
+                ForeColor = Theme.AppTheme.TextMuted,
+                AutoSize = true,
+                MaximumSize = new Size(Math.Max(300, parent.ClientSize.Width - 24), 0),
+                Location = new Point(10, Math.Max(10, parent.ClientSize.Height - 36))
+            };
+            parent.Controls.Add(note);
+            note.BringToFront();
+        }
+
+        private bool ShowUnsupportedPhBotScreen(string key, string message)
+        {
+            Panel panel = PlaceholderHost(key);
+            if (panel == null) return false;
+            ShowUnsupportedPhBotPanel(panel, message);
+            return true;
+        }
+
+        private void ShowUnsupportedPhBotPanel(Panel panel, string message)
+        {
+            if (panel == null || panel.Controls["PhBot_UnsupportedFeatureNote"] != null) return;
+            panel.Controls.Clear();
+            panel.AutoScroll = false;
+            panel.BackColor = Theme.AppTheme.Surface;
+            panel.Controls.Add(new Label
+            {
+                Name = "PhBot_UnsupportedFeatureNote",
+                Text = message,
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleCenter,
+                Padding = new Padding(24),
+                Font = PhBotFont(),
+                ForeColor = Theme.AppTheme.TextMuted
+            });
+        }
+
+        private void DisableControlsRecursively(Control parent)
+        {
+            if (parent == null) return;
+            foreach (Control child in parent.Controls)
+            {
+                if (child.Name != "PhBot_UnsupportedNote")
+                    DisableNotImplemented(child);
+                DisableControlsRecursively(child);
+            }
         }
 
         private void BuildAcademyOptions(TabPage tp)
@@ -901,6 +960,13 @@ namespace xBot.App
                 btnLeave.SetBounds(rx, H - 32, rightW, 26);
                 btnLeave.Visible = true;
                 Classicize(btnLeave);
+
+                gbUnion.Enabled = false;
+                gbOpt.Enabled = false;
+                gbInv.Enabled = false;
+                gbAcc.Enabled = false;
+                btnLeave.Enabled = false;
+                AddUnsupportedPanelNote(host, "Union Party management is not supported by the current packet backend.");
             }
             catch (Exception ex) { PhBotDebug("union inner: " + ex.Message); }
             finally { _innerLayout = false; }
@@ -1067,6 +1133,8 @@ namespace xBot.App
                 }
                 cbTown.Location = new Point(15, 42);
                 cbTown.Visible = true;
+                cbTown.Enabled = false;
+                if (ToolTips != null) ToolTips.SetToolTip(cbTown, "Town-script execution before stall creation is not implemented.");
 
                 CheckBox cbRefill = p.Controls["PhBot_StallOptRefill"] as CheckBox;
                 if (cbRefill == null)
@@ -1076,6 +1144,8 @@ namespace xBot.App
                 }
                 cbRefill.Location = new Point(15, 69);
                 cbRefill.Visible = true;
+                cbRefill.Enabled = false;
+                if (ToolTips != null) ToolTips.SetToolTip(cbRefill, "Automatic stall refill is not implemented.");
 
                 Label lblT = p.Controls["PhBot_StallOptTitleLbl"] as Label;
                 if (lblT == null)
@@ -1130,6 +1200,9 @@ namespace xBot.App
                 }
                 txtChat.Location = new Point(100, 162);
                 txtChat.Visible = true;
+                txtChat.Enabled = false;
+                if (ToolTips != null) ToolTips.SetToolTip(txtChat, "Stall chat automation is not implemented.");
+                if (ToolTips != null) ToolTips.SetToolTip(lblChat, "Stall chat automation is not implemented.");
 
                 Label lblNote = p.Controls["PhBot_StallOptTownNote"] as Label;
                 if (lblNote == null)
@@ -1155,33 +1228,19 @@ namespace xBot.App
                 if (pg == null) return;
                 pg.AutoScroll = false;
                 pg.BackColor = Theme.AppTheme.Surface;
-                int sW = pg.Width, sH = pg.Height;
-                if (sW < 300 || sH < 200) return;
-
-                ListView lv = pg.Controls["PhBot_StallInvList"] as ListView;
-                if (lv == null)
+                if (Stall_lstvInventoryStall != null)
                 {
-                    lv = NewPhBotListView(15, 10, Math.Max(300, sW - 65), Math.Max(180, sH - 20), "Slot|50", "Icon|50", "Name|220", "Quantity|65", "Stall|55", "Consignment|85", "Price|80");
-                    lv.Name = "PhBot_StallInvList";
-                    lv.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
-                    pg.Controls.Add(lv);
-
-                    var btnRefresh = new Button();
-                    btnRefresh.Name = "PhBot_StallInvRefresh";
-                    btnRefresh.Text = "R\nE\nF\nR\nE\nS\nH";
-                    btnRefresh.Font = new Font("Segoe UI", 8f, FontStyle.Regular);
-                    btnRefresh.Size = new Size(28, Math.Max(150, sH - 20));
-                    btnRefresh.Location = new Point(sW - 40, 10);
-                    btnRefresh.Anchor = AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom;
-                    Classicize(btnRefresh);
-                    pg.Controls.Add(btnRefresh);
+                    if (Stall_lstvInventoryStall.Parent != pg)
+                    {
+                        try { Stall_lstvInventoryStall.Parent?.Controls.Remove(Stall_lstvInventoryStall); } catch { }
+                        pg.Controls.Add(Stall_lstvInventoryStall);
+                    }
+                    Stall_lstvInventoryStall.SetBounds(8, 8, Math.Max(300, pg.ClientSize.Width - 16), Math.Max(180, pg.ClientSize.Height - 16));
+                    Stall_lstvInventoryStall.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+                    Stall_lstvInventoryStall.Visible = true;
+                    Classicize(Stall_lstvInventoryStall);
                 }
-                else
-                {
-                    lv.Location = new Point(15, 10);
-                    lv.Size = new Size(Math.Max(300, sW - 65), Math.Max(180, sH - 20));
-                    lv.Visible = true;
-                }
+                else ShowUnsupportedPhBotPanel(pg, "Stall inventory is unavailable until the game exposes the stall list.");
             }
             catch (Exception ex) { PhBotDebug("stallinv inner: " + ex.Message); }
             finally { _innerLayout = false; }
@@ -1196,49 +1255,7 @@ namespace xBot.App
                 Panel host = TabPageV_Control01_Stall_Panel;
                 Panel pg = FindHTabPanel(host, "TabPageH_Stall_Option", "Filter");
                 if (pg == null) return;
-                pg.AutoScroll = false;
-                pg.BackColor = Theme.AppTheme.Surface;
-                int fW = pg.Width, fH = pg.Height;
-                if (fW < 300 || fH < 200) return;
-
-                ListView lv = pg.Controls["PhBot_StallFilterList"] as ListView;
-                if (lv == null)
-                {
-                    lv = NewPhBotListView(15, 10, Math.Max(300, fW - 30), Math.Max(150, fH - 55), "ID|50", "Icon|50", "Name|200", "Quantity|65", "Stall|55", "Stall Price|75", "Consignment|85", "Consignment Price|110");
-                    lv.Name = "PhBot_StallFilterList";
-                    lv.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
-                    pg.Controls.Add(lv);
-
-                    var cbWear = new ComboBox { Name = "PhBot_StallFilterWear", DropDownStyle = ComboBoxStyle.DropDownList, Font = PhBotFont(), Location = new Point(15, fH - 35), Size = new Size(95, 22), Anchor = AnchorStyles.Bottom | AnchorStyles.Left };
-                    cbWear.Items.AddRange(new object[] { "Wearable", "Consumable", "General" });
-                    cbWear.SelectedIndex = 0;
-                    pg.Controls.Add(cbWear);
-
-                    var cbAll = new ComboBox { Name = "PhBot_StallFilterAll", DropDownStyle = ComboBoxStyle.DropDownList, Font = PhBotFont(), Location = new Point(115, fH - 35), Size = new Size(75, 22), Anchor = AnchorStyles.Bottom | AnchorStyles.Left };
-                    cbAll.Items.AddRange(new object[] { "All", "CH", "EU" });
-                    cbAll.SelectedIndex = 0;
-                    pg.Controls.Add(cbAll);
-
-                    var cbAny = new ComboBox { Name = "PhBot_StallFilterAny", DropDownStyle = ComboBoxStyle.DropDownList, Font = PhBotFont(), Location = new Point(195, fH - 35), Size = new Size(75, 22), Anchor = AnchorStyles.Bottom | AnchorStyles.Left };
-                    cbAny.Items.AddRange(new object[] { "Any", "Weapon", "Armor" });
-                    cbAny.SelectedIndex = 0;
-                    pg.Controls.Add(cbAny);
-
-                    var txtSearch = new TextBox { Name = "PhBot_StallFilterTxt", Font = PhBotFont(), Location = new Point(275, fH - 35), Size = new Size(140, 22), Anchor = AnchorStyles.Bottom | AnchorStyles.Left };
-                    pg.Controls.Add(txtSearch);
-
-                    var btnSearch = new Button { Name = "PhBot_StallFilterSearch", Text = "Search", Font = PhBotFont(), Location = new Point(420, fH - 37), Size = new Size(65, 25), Anchor = AnchorStyles.Bottom | AnchorStyles.Left };
-                    Classicize(btnSearch);
-                    pg.Controls.Add(btnSearch);
-
-                    var btnClear = new Button { Name = "PhBot_StallFilterClear", Text = "Clear", Font = PhBotFont(), Location = new Point(490, fH - 37), Size = new Size(60, 25), Anchor = AnchorStyles.Bottom | AnchorStyles.Left };
-                    Classicize(btnClear);
-                    pg.Controls.Add(btnClear);
-
-                    var btnReset = new Button { Name = "PhBot_StallFilterReset", Text = "Reset", Font = PhBotFont(), Location = new Point(555, fH - 37), Size = new Size(60, 25), Anchor = AnchorStyles.Bottom | AnchorStyles.Left };
-                    Classicize(btnReset);
-                    pg.Controls.Add(btnReset);
-                }
+                ShowUnsupportedPhBotPanel(pg, "Stall market filtering is not connected to a market search backend. Use the main Stall tab for your own stall inventory.");
             }
             catch (Exception ex) { PhBotDebug("stallfilter inner: " + ex.Message); }
             finally { _innerLayout = false; }

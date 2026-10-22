@@ -439,9 +439,25 @@ namespace xBot.App
             btnQuickSave.ForeColor = Color.LightGreen;
             btnQuickSave.Click += (s, e) =>
             {
-                Settings.SaveBotSettings();
-                Settings.SaveCharacterSettings();
-                Log("All settings saved successfully.");
+                try
+                {
+                    Settings.FlushPendingSaves();
+                    bool botSaved = Settings.LastBotSaveSucceeded;
+                    bool charExpected = InfoManager.inGame;
+                    bool charSaved = Settings.LastCharacterSaveSucceeded;
+                    if (botSaved && (!charExpected || charSaved))
+                        Log(charExpected ? "Bot and character settings saved." : "Bot settings saved. Character settings will be saved after entering the game.");
+                    else if (!botSaved && charExpected && !charSaved)
+                        Log("Settings were not saved. Check the log for the file access error.");
+                    else if (!botSaved)
+                        Log("Bot settings were not saved. Check the log for the file access error.");
+                    else
+                        Log("Bot settings saved, but character settings were not. Check the log for the file access error.");
+                }
+                catch (Exception ex)
+                {
+                    Log("Settings save failed: " + ex.Message);
+                }
             };
             pnlHeader.Controls.Add(btnQuickSave);
 
@@ -2517,7 +2533,12 @@ namespace xBot.App
         private void StartTradeLoopFromUi()
         {
             if (!InfoManager.inGame) { Log("Trade: önce oyuna bağlanın."); return; }
-            SaveTradeOptionsFromUi(); Settings.SaveCharacterSettings();
+            Control[] cloneOptions = Controls.Find("PhBot_TradeOptions", true);
+            if (cloneOptions != null && cloneOptions.Length > 0)
+                SavePhBotTradeOptionsFromClone(cloneOptions[0]);
+            else
+                SaveTradeOptionsFromUi();
+            Settings.SaveCharacterSettings();
             if (Bot.Get.isBotting) Bot.Get.Stop();
             string error;
             if (!TradeLoopManager.RequestStart(out error)) { Log("Trade: " + error); return; }
@@ -2552,6 +2573,7 @@ namespace xBot.App
             Trade_nudAttackRadius.Value = Math.Max(Trade_nudAttackRadius.Minimum,
                 Math.Min(Trade_nudAttackRadius.Maximum, TradeLoopManager.AttackRadius));
             RefreshTradeRouteList();
+            RefreshPhBotTradeCloneUi();
         }
 
         private void BuildConsignmentTab()
@@ -3644,6 +3666,13 @@ namespace xBot.App
                 SetProtectionCheck(cbxProtectionNoArrows, ProtectionManager.ReturnNoArrows);
                 SetProtectionCheck(cbxProtectionFullInventory, ProtectionManager.ReturnFullInventory);
                 SetProtectionCheck(cbxProtectionFullPetInventory, ProtectionManager.ReturnFullPetInventory);
+                SetNamedPhBotCheck("PhBot_PetReturnRecovery", ProtectionManager.ReturnOutOfPetRecoveryKits);
+                SetNamedPhBotCheck("PhBot_PetReturnRevive", ProtectionManager.ReturnOutOfPetRevive);
+                SetNamedPhBotCheck("PhBot_PetReturnFeed", ProtectionManager.ReturnOutOfPetFeed);
+                SetNamedPhBotCheck("PhBot_PetReturnAbnormal", ProtectionManager.ReturnOutOfPetAbnormalPill);
+                SetNamedPhBotCheck("PhBot_PetReturnTransportRecovery", ProtectionManager.ReturnOutOfTransportRecoveryKits);
+                SetNamedPhBotCheck("PhBot_PetReturnFull", ProtectionManager.ReturnFullPetInventory);
+                SetNamedPhBotCheck("PhBot_ProtectionSpeedDrugs", ProtectionManager.UseSpeedDrugs || ReturnToAreaPolicy.UseSpeedDrug || TrainingOptionsPolicy.UseSpeedDrugs);
                 SetProtectionCheck(cbxProtectionLowHP, ProtectionManager.ReturnHPLow);
                 SetProtectionCheck(cbxProtectionLowMP, ProtectionManager.ReturnMPLow);
                 SetProtectionCheck(cbxProtectionDurability, ProtectionManager.ReturnDurabilityLow);
@@ -3654,6 +3683,10 @@ namespace xBot.App
                 SetProtectionNumber(nudProtectionMP, ProtectionManager.MPLowThreshold);
                 SetProtectionNumber(nudProtectionDurability, ProtectionManager.DurabilityLowThreshold);
                 SetProtectionNumber(nudProtectionDeadDelay, ProtectionManager.DeadDelaySeconds);
+                SetProtectionNumber(_partyHealThresholdControl, PartySupportManager.PartyHealHPPercent);
+                SetProtectionCheck(_partyHealSelfControl, ProtectionManager.UseSkillHP);
+                SetProtectionNumber(_partyHealSelfThresholdControl, ProtectionManager.SkillHPPercent);
+                RefreshPhBotHealingSkills();
 
                 // Auto Stat Points
                 SetProtectionCheck(cbxAutoStatEnabled, StatPointManager.AutoDistributeEnabled);
@@ -3679,6 +3712,7 @@ namespace xBot.App
 
                 // Skills
                 SetProtectionCheck(Skills_cbxCastInOrder, SkillManager.InOrderCombo);
+                RefreshDevilSettingsControls();
                 if (cmbxImbue != null)
                     RefreshImbueSkillList();
                 UpdateSkillRuntimeStatus();
@@ -3690,6 +3724,7 @@ namespace xBot.App
 
                 // Pet sekmesi kontrolleri
                 RefreshPetSettingsControls();
+                RefreshAutoConfigureProfileSelection();
 
                 RefreshItemRuleList();
             });
@@ -3731,6 +3766,37 @@ namespace xBot.App
         {
             if (checkBox != null && checkBox.Checked != value)
                 checkBox.Checked = value;
+        }
+
+        private void SetNamedPhBotCheck(string name, bool value)
+        {
+            try
+            {
+                Control[] matches = Controls.Find(name, true);
+                if (matches == null) return;
+                foreach (Control control in matches)
+                    if (control is CheckBox checkBox && checkBox.Checked != value)
+                        checkBox.Checked = value;
+            }
+            catch { }
+        }
+
+        private void SetNamedPhBotNumber(string name, int value)
+        {
+            try
+            {
+                Control[] matches = Controls.Find(name, true);
+                if (matches == null) return;
+                foreach (Control control in matches)
+                {
+                    if (control is NumericUpDown number)
+                    {
+                        decimal clamped = Math.Max(number.Minimum, Math.Min(number.Maximum, value));
+                        if (number.Value != clamped) number.Value = clamped;
+                    }
+                }
+            }
+            catch { }
         }
 
         private void SetProtectionNumber(NumericUpDown number, int value)

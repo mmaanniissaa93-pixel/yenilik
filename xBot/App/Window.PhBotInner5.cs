@@ -1336,10 +1336,11 @@ namespace xBot.App
 
                 // Row 3: Buttons Record Polygon / Stop Recording / Clear
                 int r3Y = r2Y + 28;
-                PhBotButton(p, "PhBot_MapRecPoly", "Record Polygon", 15, r3Y, 110);
+                DisableNotImplemented(PhBotButton(p, "PhBot_MapRecPoly", "Record Polygon", 15, r3Y, 110));
                 Button btnStop = PhBotButton(p, "PhBot_MapStopPoly", "Stop Recording", 130, r3Y, 110);
-                if (btnStop != null) btnStop.Enabled = false;
-                PhBotButton(p, "PhBot_MapClearPoly", "Clear", 245, r3Y, 70);
+                DisableNotImplemented(btnStop);
+                DisableNotImplemented(PhBotButton(p, "PhBot_MapClearPoly", "Clear", 245, r3Y, 70));
+                PhBotLabel(p, "PhBot_MapPolyNote", "Polygon recording is not available in this build.", 15, r3Y + 28);
             }
             catch (Exception ex) { PhBotDebug("map inner: " + ex.Message); }
             finally { _innerLayout = false; }
@@ -1541,9 +1542,9 @@ namespace xBot.App
 
                     // Alt Butonlar (Add All Items | Add | Cancel | Start)
                     int by = 310;
-                    PhBotButton(pGear, "PhBot_AlcAddAll", "Add All Items", 14, by, 84);
-                    PhBotButton(pGear, "PhBot_AlcAdd", "Add", 102, by, 50);
-                    PhBotButton(pGear, "PhBot_AlcCancel", "Cancel", 156, by, 54);
+                    DisableNotImplemented(PhBotButton(pGear, "PhBot_AlcAddAll", "Add All Items", 14, by, 84));
+                    DisableNotImplemented(PhBotButton(pGear, "PhBot_AlcAdd", "Add", 102, by, 50));
+                    DisableNotImplemented(PhBotButton(pGear, "PhBot_AlcCancel", "Cancel", 156, by, 54));
 
                     if (btnAlchemyStart != null)
                     {
@@ -1560,7 +1561,16 @@ namespace xBot.App
                     }
                     if (btnAlchemyStop != null)
                     {
-                        btnAlchemyStop.Visible = false;
+                        if (btnAlchemyStop.Parent != pGear)
+                        {
+                            try { btnAlchemyStop.Parent.Controls.Remove(btnAlchemyStop); } catch { }
+                            pGear.Controls.Add(btnAlchemyStop);
+                        }
+                        btnAlchemyStop.Text = "Stop";
+                        btnAlchemyStop.Font = PhBotFont();
+                        btnAlchemyStop.Location = new Point(272, by);
+                        btnAlchemyStop.Size = new Size(54, 25);
+                        btnAlchemyStop.Visible = true;
                     }
 
                     // Dismantle sekmesi uyarısı
@@ -1587,16 +1597,22 @@ namespace xBot.App
                     // Sağ Kolon: Alchemy Listesi (Type | Item)
                     int rightX = 380;
                     int rightW = Math.Max(200, gw - rightX - 10);
-                    ListView lv = pGear.Controls["PhBot_AlcListView"] as ListView;
-                    if (lv == null)
+                    Label queueNote = pGear.Controls["PhBot_AlcListUnavailable"] as Label;
+                    if (queueNote == null)
                     {
-                        lv = NewPhBotListView(rightX, 14, rightW, Math.Max(200, gh - 24), "Type|90", "Item|220");
-                        lv.Name = "PhBot_AlcListView";
-                        pGear.Controls.Add(lv);
+                        queueNote = new Label
+                        {
+                            Name = "PhBot_AlcListUnavailable",
+                            Text = "Item queue is unavailable. Select one item above and use Start for automatic plusing.",
+                            Font = PhBotFont(),
+                            ForeColor = Theme.AppTheme.TextMuted,
+                            TextAlign = ContentAlignment.MiddleCenter,
+                            Location = new Point(rightX, 14),
+                            Size = new Size(rightW, Math.Max(200, gh - 24))
+                        };
+                        pGear.Controls.Add(queueNote);
                     }
-                    lv.Location = new Point(rightX, 14);
-                    lv.Size = new Size(rightW, Math.Max(200, gh - 24));
-                    lv.Visible = true;
+                    queueNote.SetBounds(rightX, 14, rightW, Math.Max(200, gh - 24));
                 }
 
                 // ---- SHINING STONE TAB ----
@@ -1611,10 +1627,10 @@ namespace xBot.App
                         pShining.Controls.Add(cmbShine);
                     }
                     cmbShine.Location = new Point(14, 18); cmbShine.Size = new Size(200, 24); cmbShine.Visible = true;
-                    PhBotLabel(pShining, "PhBot_BlueStoneLbl", "Blue Stone:           0", 14, 60);
-                    PhBotLabel(pShining, "PhBot_BlackStoneLbl", "Black Stone:          0", 14, 96);
-                    PhBotButton(pShining, "PhBot_ShineCraft", "Craft All", 14, 140, 75);
-                    PhBotButton(pShining, "PhBot_ShineCancel", "Cancel", 94, 140, 75);
+                    DisableNotImplemented(cmbShine);
+                    PhBotLabel(pShining, "PhBot_ShineUnavailable", "Shining Stone crafting is not connected to the alchemy backend.", 14, 60);
+                    DisableNotImplemented(PhBotButton(pShining, "PhBot_ShineCraft", "Craft All", 14, 100, 75));
+                    DisableNotImplemented(PhBotButton(pShining, "PhBot_ShineCancel", "Cancel", 94, 100, 75));
                 }
 
                 // ---- TABLET TAB ----
@@ -1629,12 +1645,10 @@ namespace xBot.App
                         pTablet.Controls.Add(cmbTab);
                     }
                     cmbTab.Location = new Point(14, 18); cmbTab.Size = new Size(200, 24); cmbTab.Visible = true;
-                    PhBotLabel(pTablet, "PhBot_EarthLbl", "Earth           0", 14, 60);
-                    PhBotLabel(pTablet, "PhBot_WindLbl", "Wind            0", 14, 92);
-                    PhBotLabel(pTablet, "PhBot_FireLbl", "Fire            0", 14, 124);
-                    PhBotLabel(pTablet, "PhBot_WaterLbl", "Water           0", 14, 156);
-                    PhBotButton(pTablet, "PhBot_TabStart", "Start", 14, 200, 75);
-                    PhBotButton(pTablet, "PhBot_TabStop", "Stop", 94, 200, 75);
+                    DisableNotImplemented(cmbTab);
+                    PhBotLabel(pTablet, "PhBot_TabletUnavailable", "Tablet mixing is not connected to the alchemy backend.", 14, 60);
+                    DisableNotImplemented(PhBotButton(pTablet, "PhBot_TabStart", "Start", 14, 100, 75));
+                    DisableNotImplemented(PhBotButton(pTablet, "PhBot_TabStop", "Stop", 94, 100, 75));
                 }
             }
             catch (Exception ex) { PhBotDebug("alchemy inner: " + ex.Message); }
@@ -1728,19 +1742,50 @@ namespace xBot.App
                     if (cmbStar == null)
                     {
                         cmbStar = new ComboBox { Name = "PhBot_TradeStarCmb", DropDownStyle = ComboBoxStyle.DropDownList, Font = PhBotFont() };
-                        cmbStar.Items.AddRange(new object[] { "Use quantity", "1 Star", "2 Star", "3 Star", "4 Star", "5 Star" });
+                        cmbStar.Items.AddRange(new object[] { "Fill (auto)", "Quantity" });
                         cmbStar.SelectedIndex = 0;
                         pLoop.Controls.Add(cmbStar);
+                    }
+                    if (cmbStar.Items.Count != 2 || !string.Equals(Convert.ToString(cmbStar.Items[0]), "Fill (auto)", StringComparison.Ordinal))
+                    {
+                        cmbStar.Items.Clear();
+                        cmbStar.Items.AddRange(new object[] { "Fill (auto)", "Quantity" });
+                        cmbStar.SelectedIndex = 0;
                     }
                     cmbStar.Location = new Point(14, 196);
                     cmbStar.Size = new Size(120, 24);
                     cmbStar.Visible = true;
+
+                    NumericUpDown nudAmount = pLoop.Controls["PhBot_TradeAmount"] as NumericUpDown;
+                    if (nudAmount == null)
+                    {
+                        nudAmount = new NumericUpDown { Name = "PhBot_TradeAmount", Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, Minimum = 0, Maximum = 1000000, Value = 0 };
+                        pLoop.Controls.Add(nudAmount);
+                        nudAmount.ValueChanged += (s, e) => { if (Trade_nudAmount != null) Trade_nudAmount.Value = nudAmount.Value; };
+                    }
+                    nudAmount.Location = new Point(140, 197);
+                    nudAmount.Size = new Size(70, 22);
+                    nudAmount.Visible = true;
+                    if (cmbStar.Tag as string != "mode-event-bound")
+                    {
+                        cmbStar.Tag = "mode-event-bound";
+                        cmbStar.SelectedIndexChanged += (s, e) => { nudAmount.Enabled = cmbStar.SelectedIndex == 1; Settings.SaveCharacterSettings(); };
+                    }
+                    nudAmount.Enabled = cmbStar.SelectedIndex == 1;
 
                     // Add Button
                     Button btnAdd = pLoop.Controls["PhBot_TradeAdd"] as Button;
                     if (btnAdd == null)
                     {
                         btnAdd = new Button { Name = "PhBot_TradeAdd", Text = "Add", Font = PhBotFont(), Size = new Size(180, 28) };
+                        btnAdd.Click += (s, e) =>
+                        {
+                            SyncPhBotTradeRouteInputs(cmbStart, cmbEnd, cmbTrans, cmbStar, nudAmount);
+                            if (Trade_tbxRoutePath == null || string.IsNullOrWhiteSpace(Trade_tbxRoutePath.Text))
+                                BrowseTradeRoute();
+                            if (Trade_tbxRoutePath != null && !string.IsNullOrWhiteSpace(Trade_tbxRoutePath.Text))
+                                AddTradeRouteFromUi();
+                        };
                         pLoop.Controls.Add(btnAdd);
                     }
                     btnAdd.Location = new Point(14, 234);
@@ -1753,7 +1798,13 @@ namespace xBot.App
                     {
                         btnStart = new Button { Name = "PhBot_TradeStart", Text = "Start", Font = PhBotFont(), Size = new Size(85, 28) };
                         btnStart.Click += (s, e) => {
-                            try { StartTradeLoopFromUi(); } catch { }
+                            try
+                            {
+                                SyncPhBotTradeRouteInputs(cmbStart, cmbEnd, cmbTrans, cmbStar, nudAmount);
+                                SavePhBotTradeOptionsFromClone(pOptions);
+                                StartTradeLoopFromUi();
+                            }
+                            catch (Exception ex) { Log("Trade start failed: " + ex.Message); }
                         };
                         pLoop.Controls.Add(btnStart);
                     }
@@ -1802,26 +1853,22 @@ namespace xBot.App
                     if (pw < 200) pw = W;
                     if (ph < 100) ph = H - 35;
 
-                    ListView lvItems = pItems.Controls["PhBot_TradeItemsList"] as ListView;
-                    if (lvItems == null)
+                    var visibleItem = pItems.Controls["PhBot_TradeItemName"] as TextBox;
+                    if (visibleItem == null)
                     {
-                        lvItems = NewPhBotListView(14, 14, pw - 28, Math.Max(200, ph - 28), "ID|70", "Icon|60", "Name|280", "Buy|60", "Quantity|80");
-                        lvItems.Name = "PhBot_TradeItemsList";
-                        pItems.Controls.Add(lvItems);
+                        pItems.Controls.Add(new Label { Text = "Specialty good name (empty = auto)", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextPrimary, AutoSize = true, Location = new Point(14, 18) });
+                        visibleItem = new TextBox { Name = "PhBot_TradeItemName", Font = PhBotFont(), BackColor = Theme.AppTheme.Surface, ForeColor = Theme.AppTheme.TextPrimary };
+                        pItems.Controls.Add(visibleItem);
+                        visibleItem.TextChanged += (s, e) => { TradeLoopManager.DefaultItemName = visibleItem.Text; if (Trade_tbxItem != null) Trade_tbxItem.Text = visibleItem.Text; Settings.SaveCharacterSettings(); };
+                        pItems.Controls.Add(new Label { Text = "Names match game item names. Route scripts handle movement and teleporting.", Font = PhBotFont(), ForeColor = Theme.AppTheme.TextMuted, AutoSize = true, Location = new Point(14, 128), MaximumSize = new Size(520, 0) });
                     }
-                    lvItems.Location = new Point(14, 14);
-                    lvItems.Size = new Size(pw - 28, Math.Max(200, ph - 28));
-                    lvItems.Visible = true;
-                    if (lvItems.Columns.Count >= 5)
+                    if (visibleItem != null)
                     {
-                        lvItems.Columns[0].Width = 70;
-                        lvItems.Columns[1].Width = 60;
-                        int remN = lvItems.ClientSize.Width - 70 - 60 - 60 - 80 - 4;
-                        lvItems.Columns[2].Width = Math.Max(200, remN);
-                        lvItems.Columns[3].Width = 60;
-                        lvItems.Columns[4].Width = 80;
+                        visibleItem.Location = new Point(14, 40);
+                        visibleItem.Size = new Size(Math.Min(420, pw - 28), 24);
+                        if (visibleItem.Text != (TradeLoopManager.DefaultItemName ?? "")) visibleItem.Text = TradeLoopManager.DefaultItemName ?? "";
+                        if (Trade_tbxItem != null) Trade_tbxItem.Text = visibleItem.Text;
                     }
-                    Classicize(lvItems);
                 }
 
                 // ---- OPTIONS TAB ----
@@ -1856,6 +1903,7 @@ namespace xBot.App
 
                     // [ ] Skip town loop
                     EnsureBoxCheck(pOptions, "PhBot_TradeSkipTown", "Skip town loop", 14, 110);
+                    EnsureBoxCheck(pOptions, "PhBot_TradeTerminate", "Terminate transport when loop finishes", 14, 238);
 
                     // (o) Stay on transport
                     // ( ) Stay off transport
@@ -1886,7 +1934,16 @@ namespace xBot.App
                     }
                     rbnRemount.Location = new Point(14, 206);
                     rbnRemount.Visible = true;
+
                 }
+
+                BindPhBotTradeCloneControls(
+                    pLoop?.Controls["PhBot_TradeStartCmb"] as ComboBox,
+                    pLoop?.Controls["PhBot_TradeEndCmb"] as ComboBox,
+                    pLoop?.Controls["PhBot_TradeTransCmb"] as ComboBox,
+                    pLoop?.Controls["PhBot_TradeStarCmb"] as ComboBox,
+                    pLoop?.Controls["PhBot_TradeAmount"] as NumericUpDown,
+                    pOptions);
 
                 // Hide custom panels from Window.CustomTabs.cs
                 if (Trade_pnlLoop != null) Trade_pnlLoop.Visible = false;
@@ -1897,6 +1954,122 @@ namespace xBot.App
             }
             catch (Exception ex) { PhBotDebug("trade inner: " + ex.Message); }
             finally { _innerLayout = false; }
+        }
+
+        private void SyncPhBotTradeRouteInputs(ComboBox start, ComboBox end, ComboBox transport, ComboBox amountMode, NumericUpDown amount)
+        {
+            if (Trade_tbxStartTown != null) Trade_tbxStartTown.Text = Convert.ToString(start?.SelectedItem) ?? "";
+            if (Trade_tbxEndTown != null) Trade_tbxEndTown.Text = Convert.ToString(end?.SelectedItem) ?? "";
+            if (Trade_tbxTransport != null) Trade_tbxTransport.Text = Convert.ToString(transport?.SelectedItem) ?? "";
+            if (Trade_tbxItem != null) Trade_tbxItem.Text = TradeLoopManager.DefaultItemName ?? "";
+            if (Trade_cmbxAmountMode != null) Trade_cmbxAmountMode.SelectedIndex = amountMode != null && amountMode.SelectedIndex == 1 ? 1 : 0;
+            if (Trade_nudAmount != null && amount != null)
+                Trade_nudAmount.Value = Math.Max(Trade_nudAmount.Minimum, Math.Min(Trade_nudAmount.Maximum, amount.Value));
+        }
+
+        private void BindPhBotTradeCloneControls(ComboBox start, ComboBox end, ComboBox transport, ComboBox amountMode, NumericUpDown amount, Control options)
+        {
+            if (start != null && start.Tag as string != "bound") { start.Tag = "bound"; start.SelectedIndexChanged += (s, e) => Settings.SaveCharacterSettings(); }
+            if (end != null && end.Tag as string != "bound") { end.Tag = "bound"; end.SelectedIndexChanged += (s, e) => Settings.SaveCharacterSettings(); }
+            if (transport != null && transport.Tag as string != "bound") { transport.Tag = "bound"; transport.SelectedIndexChanged += (s, e) => Settings.SaveCharacterSettings(); }
+
+            if (options == null) return;
+            BindTradeCloneCheck(options, "PhBot_TradeRepeat", check =>
+            {
+                var count = options.Controls["PhBot_TradeRepeatN"] as TextBox;
+                int repeats;
+                TradeLoopManager.RepeatCount = check.Checked && count != null && int.TryParse(count.Text, out repeats) ? Math.Max(1, Math.Min(999, repeats)) : 1;
+                Settings.SaveCharacterSettings();
+            });
+            BindTradeCloneCheck(options, "PhBot_TradeAttackThieves", check =>
+            {
+                TradeLoopManager.AttackSpawnedThieves = check.Checked;
+                Settings.SaveCharacterSettings();
+            });
+            BindTradeCloneCheck(options, "PhBot_TradeReturnScroll", check => { TradeLoopManager.UseReturnScroll = check.Checked; Settings.SaveCharacterSettings(); });
+            BindTradeCloneCheck(options, "PhBot_TradeTerminate", check => { TradeLoopManager.TerminateTransportAtEnd = check.Checked; Settings.SaveCharacterSettings(); });
+            BindTradeCloneCheck(options, "PhBot_TradeSkipTown", check => { TradeLoopManager.SkipTownLoop = check.Checked; Settings.SaveCharacterSettings(); });
+            BindTradeCloneRadio(options, "PhBot_TradeStayOn", TradeMountMode.StayMounted);
+            BindTradeCloneRadio(options, "PhBot_TradeStayOff", TradeMountMode.StayOff);
+            BindTradeCloneRadio(options, "PhBot_TradeRemount", TradeMountMode.Remount);
+
+            var repeatCount = options.Controls["PhBot_TradeRepeatN"] as TextBox;
+            if (repeatCount != null && repeatCount.Tag as string != "bound")
+            {
+                repeatCount.Tag = "bound";
+                repeatCount.TextChanged += (s, e) =>
+                {
+                    var check = options.Controls["PhBot_TradeRepeat"] as CheckBox;
+                    int count;
+                    if (int.TryParse(repeatCount.Text, out count)) TradeLoopManager.RepeatCount = check != null && check.Checked ? Math.Max(1, Math.Min(999, count)) : 1;
+                    Settings.SaveCharacterSettings();
+                };
+            }
+            var radius = options.Controls["PhBot_TradeAttackRadius"] as TextBox;
+            if (radius != null && radius.Tag as string != "bound")
+            {
+                radius.Tag = "bound";
+                radius.TextChanged += (s, e) => { int value; if (int.TryParse(radius.Text, out value)) TradeLoopManager.AttackRadius = Math.Max(5, Math.Min(100, value)); Settings.SaveCharacterSettings(); };
+            }
+        }
+
+        private void BindTradeCloneCheck(Control parent, string name, Action<CheckBox> update)
+        {
+            var check = parent.Controls[name] as CheckBox;
+            if (check == null || check.Tag as string == "bound") return;
+            check.Tag = "bound";
+            check.CheckedChanged += (s, e) => update(check);
+        }
+
+        private void BindTradeCloneRadio(Control parent, string name, TradeMountMode mode)
+        {
+            var radio = parent.Controls[name] as RadioButton;
+            if (radio == null || radio.Tag as string == "bound") return;
+            radio.Tag = "bound";
+            radio.CheckedChanged += (s, e) => { if (radio.Checked) { TradeLoopManager.MountMode = mode; Settings.SaveCharacterSettings(); } };
+        }
+
+        private void SavePhBotTradeOptionsFromClone(Control options)
+        {
+            if (options == null) return;
+            var repeat = options.Controls["PhBot_TradeRepeat"] as CheckBox;
+            var repeatText = options.Controls["PhBot_TradeRepeatN"] as TextBox;
+            int repeats;
+            TradeLoopManager.RepeatCount = repeat != null && repeat.Checked && repeatText != null && int.TryParse(repeatText.Text, out repeats) ? Math.Max(1, Math.Min(999, repeats)) : 1;
+            TradeLoopManager.UseReturnScroll = (options.Controls["PhBot_TradeReturnScroll"] as CheckBox)?.Checked ?? TradeLoopManager.UseReturnScroll;
+            TradeLoopManager.TerminateTransportAtEnd = (options.Controls["PhBot_TradeTerminate"] as CheckBox)?.Checked ?? TradeLoopManager.TerminateTransportAtEnd;
+            TradeLoopManager.SkipTownLoop = (options.Controls["PhBot_TradeSkipTown"] as CheckBox)?.Checked ?? TradeLoopManager.SkipTownLoop;
+            TradeLoopManager.AttackSpawnedThieves = (options.Controls["PhBot_TradeAttackThieves"] as CheckBox)?.Checked ?? TradeLoopManager.AttackSpawnedThieves;
+            var radius = options.Controls["PhBot_TradeAttackRadius"] as TextBox;
+            int radiusValue;
+            if (radius != null && int.TryParse(radius.Text, out radiusValue)) TradeLoopManager.AttackRadius = Math.Max(5, Math.Min(100, radiusValue));
+            if ((options.Controls["PhBot_TradeStayOn"] as RadioButton)?.Checked == true) TradeLoopManager.MountMode = TradeMountMode.StayMounted;
+            else if ((options.Controls["PhBot_TradeStayOff"] as RadioButton)?.Checked == true) TradeLoopManager.MountMode = TradeMountMode.StayOff;
+            else if ((options.Controls["PhBot_TradeRemount"] as RadioButton)?.Checked == true) TradeLoopManager.MountMode = TradeMountMode.Remount;
+            Settings.SaveCharacterSettings();
+        }
+
+        public void RefreshPhBotTradeCloneUi()
+        {
+            SetNamedPhBotCheck("PhBot_TradeRepeat", TradeLoopManager.RepeatCount > 1);
+            SetNamedPhBotCheck("PhBot_TradeAttackThieves", TradeLoopManager.AttackSpawnedThieves);
+            SetNamedPhBotCheck("PhBot_TradeReturnScroll", TradeLoopManager.UseReturnScroll);
+            SetNamedPhBotCheck("PhBot_TradeSkipTown", TradeLoopManager.SkipTownLoop);
+            SetNamedPhBotCheck("PhBot_TradeTerminate", TradeLoopManager.TerminateTransportAtEnd);
+            SetNamedPhBotCheck("PhBot_TradeStayOn", TradeLoopManager.MountMode == TradeMountMode.StayMounted);
+            SetNamedPhBotCheck("PhBot_TradeStayOff", TradeLoopManager.MountMode == TradeMountMode.StayOff);
+            SetNamedPhBotCheck("PhBot_TradeRemount", TradeLoopManager.MountMode == TradeMountMode.Remount);
+            SetNamedPhBotText("PhBot_TradeRepeatN", TradeLoopManager.RepeatCount.ToString());
+            SetNamedPhBotText("PhBot_TradeAttackRadius", TradeLoopManager.AttackRadius.ToString());
+            RefreshTradeRouteList();
+        }
+
+        private void SetNamedPhBotText(string name, string value)
+        {
+            Control[] matches = Controls.Find(name, true);
+            if (matches == null) return;
+            foreach (Control control in matches)
+                if (control is TextBox text && text.Text != value) text.Text = value;
         }
     }
 }

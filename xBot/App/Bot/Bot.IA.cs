@@ -56,6 +56,11 @@ namespace xBot.App
         private readonly Dictionary<uint, CombatObstacleObservation> _combatObstacleObservations = new Dictionary<uint, CombatObstacleObservation>();
         private static readonly TimeSpan CombatTargetBlacklistDuration = TimeSpan.FromSeconds(5);
         private static readonly TimeSpan CombatObstacleObservationDuration = TimeSpan.FromSeconds(1);
+        // Target scoring changes as mobs spawn/update. Keep the current target until
+        // an explicit rotation rule asks for a switch or the current target is invalid.
+        private bool _allowCombatTargetSwitch;
+        private uint _lastLoggedCombatTargetId;
+        private string _combatTargetSwitchReason;
 
         /// <summary>
         /// Asenkron pet toplama iş parçacığını başlatır (Bot startlı olmasa bile çalışır).
@@ -146,6 +151,9 @@ namespace xBot.App
                 _unreachableMobs.Clear();
                 _combatApproachFailures.Clear();
                 _combatObstacleObservations.Clear();
+                _allowCombatTargetSwitch = false;
+                _lastLoggedCombatTargetId = 0;
+                _combatTargetSwitchReason = null;
                 SkillManager.BeginBotRun();
                 try { m_botCts?.Dispose(); } catch { }
                 m_botCts = new System.Threading.CancellationTokenSource();
@@ -1163,6 +1171,11 @@ namespace xBot.App
                                 if (skillToCast.ID == 1)
                                 {
                                     skillToCast = SkillManager.GetFallbackAttack(GetMyWeaponType());
+                                    if (skillToCast == null)
+                                    {
+                                        w.LogProcess("Temel saldırı becerisi bulunamadı; hedefte beklemek yerine sonraki hedef turuna geçiliyor.");
+                                        break;
+                                    }
                                 }
 
                                 if (!IsLiveCombatTarget(mob))
@@ -1367,6 +1380,7 @@ namespace xBot.App
                     RetryAfterUtc = now.Add(CombatTargetBlacklistDuration)
                 };
                 _combatApproachFailures.Remove(mob.UniqueID);
+                _combatTargetSwitchReason = "önceki hedef atlandı: " + reason;
                 Window.Get.Log($"[Combat] {mob.Name} (UID {mob.UniqueID}) 5 sn hedef listesinden çıkarıldı: {reason}");
             }
 
@@ -1389,6 +1403,7 @@ namespace xBot.App
             try { PacketBuilder.DeselectEntity(mob.UniqueID); }
             catch { }
             InfoManager.OnEntitySelected(0);
+            _lastLoggedCombatTargetId = 0;
         }
 
         private bool IsCombatTargetBehindObstacle(SRMob mob, SRCoord playerPosition = null)
@@ -1432,6 +1447,7 @@ namespace xBot.App
         private bool EnsureCombatTargetSelected(SRMob mob)
         {
             if (!isBotting || !IsLiveCombatTarget(mob)) return false;
+            uint previousSelected = InfoManager.SelectedEntityUniqueID;
             if (InfoManager.SelectedEntityUniqueID != mob.UniqueID)
             {
                 // A previous selection signal must not acknowledge this request.
@@ -1447,6 +1463,19 @@ namespace xBot.App
             bool ready = isBotting && CombatPolicy.CanSendAttack(IsLiveCombatTarget(mob),
                 mob.UniqueID, InfoManager.SelectedEntityUniqueID);
             if (!ready) DeferCombatTarget(mob, "Hedef seçimi 3.25 sn içinde sunucudan onaylanmadı");
+            else if (_lastLoggedCombatTargetId != mob.UniqueID)
+            {
+                SRCoord playerPosition = InfoManager.Character?.GetRealtimePosition();
+                SRCoord mobPosition = mob.GetRealtimePosition();
+                double distance = playerPosition != null && mobPosition != null
+                    ? playerPosition.DistanceTo(mobPosition) : -1;
+                string reason = _combatTargetSwitchReason;
+                if (string.IsNullOrWhiteSpace(reason))
+                    reason = previousSelected == 0 ? "yeni hedef" : "önceki hedef tamamlandı veya geçersiz";
+                Window.Get.Log($"[Combat] Hedef seçildi: {mob.Name} (UID {mob.UniqueID}), uzaklık={distance:F1}m, neden={reason}.");
+                _lastLoggedCombatTargetId = mob.UniqueID;
+                _combatTargetSwitchReason = null;
+            }
             return ready;
         }
 
@@ -1711,7 +1740,10 @@ namespace xBot.App
         private SRMob GetMobFiltered(List<SRMob> mobs, SRCoord trainingPosition, int trainingRadius)
         {
             if (mobs == null || mobs.Count == 0)
+            {
+                _allowCombatTargetSwitch = false;
                 return null;
+            }
 
             if (_unreachableMobs.Count > 0)
             {
@@ -1738,8 +1770,8 @@ namespace xBot.App
             }
 
             rotation.Prune(id => IsLiveCombatTarget(InfoManager.Mobs.Find(m => m != null && m.UniqueID == id)));
-            bool keepCurrentTarget = CombatAIEngine.StickToMob
-                || (!CombatAIEngine.SwitchTargetByPosition && !CombatAIEngine.SwitchMonsterAfterDot);
+            bool keepCurrentTarget = CombatAIEngine.StickToMob || !_allowCombatTargetSwitch;
+            _allowCombatTargetSwitch = false;
             if (keepCurrentTarget && InfoManager.SelectedEntityUniqueID != 0)
             {
                 SRMob currentSelected = mobs.Find(m => m != null && m.UniqueID == InfoManager.SelectedEntityUniqueID);

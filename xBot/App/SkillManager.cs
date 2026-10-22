@@ -36,6 +36,8 @@ namespace xBot.App
         public static DateTime LastCastAt { get; private set; }
         private static readonly BuffRetryTracker BuffRetries = new BuffRetryTracker();
         private static readonly BuffRetryTracker AttackRetries = new BuffRetryTracker();
+        private static string s_lastDevilDiagnostic = "";
+        private static DateTime s_lastDevilDiagnosticUtc = DateTime.MinValue;
         private static readonly System.Collections.Concurrent.ConcurrentDictionary<uint, SRSkill> CastMetadata =
             new System.Collections.Concurrent.ConcurrentDictionary<uint, SRSkill>();
         public static SRSkill GetCastSkill(uint id)
@@ -51,7 +53,14 @@ namespace xBot.App
                 metadata.StartCooldown();
         }
 
-        public static void BeginBotRun() { BuffRetries.Reset(); AttackRetries.Reset(); s_lastDevilAttemptUtc = DateTime.MinValue; }
+        public static void BeginBotRun()
+        {
+            BuffRetries.Reset();
+            AttackRetries.Reset();
+            s_lastDevilAttemptUtc = DateTime.MinValue;
+            s_lastDevilDiagnostic = "";
+            s_lastDevilDiagnosticUtc = DateTime.MinValue;
+        }
         public static bool CanUseAttackSkill(SRSkill skill, uint mp)
         {
             return skill != null && skill.Enabled && skill.isCastingEnabled
@@ -87,7 +96,7 @@ namespace xBot.App
             if (skillId == 0) return;
             // A cooldown rejection gives no remaining duration. Do not invent
             // a fresh 30-minute Devil cooldown or 16-second imbue cooldown.
-            int delay = skillId == GetEquippedDevilSkillId() ? Math.Max(1000, Math.Min(60000, DevilSpiritDelaySeconds * 1000)) : 1000;
+            int delay = skillId == GetEquippedDevilSkillId() ? Math.Max(1000, Math.Min(120000, DevilSpiritDelaySeconds * 1000)) : 1000;
             BuffRetries.Rejected(skillId, error == 0x0C ? 350 : error == 5 ? delay : 2000);
             Window.Get?.Log($"[Buff] ID={skillId}, sunucu yanıtı=0x{error:X2}; yeniden denenecek.");
         }
@@ -218,43 +227,114 @@ namespace xBot.App
         /// </summary>
         public static bool CheckDevilSpirit(List<SRMob> nearbyMobs = null)
         {
-            if (!IsDevilSpiritEnabled || InfoManager.Character == null || !InfoManager.CharacterActions.CanStart)
+            if (!IsDevilSpiritEnabled)
                 return false;
+            if (InfoManager.Character == null)
+            {
+                ReportDevilStatus("Karakter hazır değil.");
+                return false;
+            }
             if (DevilSpiritHPPercent < 100 && InfoManager.Character.GetHPPercent() > DevilSpiritHPPercent)
+            {
+                ReportDevilStatus("HP eşiği bekleniyor: " + InfoManager.Character.GetHPPercent() + "% > " + DevilSpiritHPPercent + "%.");
                 return false;
-            if (HasDevilBuff() || !EvaluateDevilTriggers(nearbyMobs)) return false;
+            }
+            if (HasDevilBuff())
+            {
+                ReportDevilStatus("Devil Spirit etkisi zaten aktif.");
+                return false;
+            }
+            if (nearbyMobs == null)
+                nearbyMobs = GetNearbyMobsForDevil();
+            string triggerReason;
+            if (!EvaluateDevilTriggers(nearbyMobs, out triggerReason))
+            {
+                ReportDevilStatus(triggerReason);
+                return false;
+            }
+            if (!InfoManager.CharacterActions.CanStart)
+            {
+                ReportDevilStatus("Karakter başka bir aksiyonda; boşalınca yeniden denenecek.");
+                return false;
+            }
             if (!IsDevilEquipped())
             {
                 // Equip and activate separately, without delaying activation
                 // once the server has placed the item in the avatar inventory.
-                if ((DateTime.UtcNow - s_lastDevilAttemptUtc).TotalSeconds < 2) return false;
-                return TryEquipDevilItem() || TryUseDevilItem();
+                if ((DateTime.UtcNow - s_lastDevilAttemptUtc).TotalSeconds < 2)
+                {
+                    ReportDevilStatus("Devil Spirit kuşanma/kullanma isteğinin sunucu yanıtı bekleniyor.");
+                    return false;
+                }
+                if (TryEquipDevilItem() || TryUseDevilItem())
+                {
+                    ReportDevilStatus("Devil Spirit kuşanma veya kullanma isteği gönderildi.");
+                    return true;
+                }
+                ReportDevilStatus("Devil Spirit kuşanılmamış ve envanterde kullanılabilir Devil eşyası bulunamadı.");
+                return false;
             }
             var learned = FindDevilSkill();
             uint skillId = learned != null ? learned.ID : GetEquippedDevilSkillId();
-            if (skillId == 0) return false;
+            if (skillId == 0)
+            {
+                ReportDevilStatus("Kuşanılmış Devil eşyasının skill ID'si çözümlenemedi.");
+                return false;
+            }
+            string blockedReason = GetDevilCastBlockedReason(skillId, learned);
+            if (!string.IsNullOrEmpty(blockedReason))
+            {
+                ReportDevilStatus(blockedReason);
+                return false;
+            }
             bool sent = learned != null ? TrySendBuff(learned) : TrySendBuff(skillId);
-            if (sent) Window.Get?.Log($"[Buff] Devil Spirit isteği: ID={skillId}.");
+            if (sent)
+            {
+                s_lastDevilDiagnostic = "";
+                Window.Get?.Log($"[Buff] Devil Spirit isteği gönderildi: ID={skillId}.");
+            }
+            else
+            {
+                ReportDevilStatus("Skill cast isteği oyun istemcisi tarafından kabul edilmedi; aksiyon/cooldown durumu tekrar denetlenecek.");
+            }
             return sent;
         }
-        private static bool EvaluateDevilTriggers(List<SRMob> nearbyMobs)
+        private static List<SRMob> GetNearbyMobsForDevil()
         {
-            if (nearbyMobs != null)
-                nearbyMobs = nearbyMobs.Where(m => m != null && m.LifeStateType != SRModel.LifeState.Dead).ToList();
-            // 1) "Hazırsa" (DevilWhenReady): Devil Spirit hazır olduğunda bas!
+            var result = new List<SRMob>();
+            var character = InfoManager.Character;
+            var worldMobs = InfoManager.Mobs;
+            if (character == null || worldMobs == null) return result;
+            var position = character.GetRealtimePosition();
+            uint characterId = character.UniqueID;
+            foreach (var mob in worldMobs.Snapshot())
+            {
+                if (mob == null || mob.LifeStateType == SRModel.LifeState.Dead) continue;
+                var mobPosition = mob.GetRealtimePosition();
+                bool attackingMe = mob.TargetUniqueID == characterId;
+                if (attackingMe || (position != null && mobPosition != null && position.DistanceTo(mobPosition) <= 40.0))
+                    result.Add(mob);
+            }
+            return result;
+        }
+
+        private static bool EvaluateDevilTriggers(List<SRMob> nearbyMobs, out string reason)
+        {
+            reason = "Tetik koşulu oluşmadı: canavar saldırı koşulu bekleniyor.";
+            nearbyMobs = (nearbyMobs ?? new List<SRMob>())
+                .Where(m => m != null && m.LifeStateType != SRModel.LifeState.Dead)
+                .ToList();
+            uint myId = InfoManager.Character != null ? InfoManager.Character.UniqueID : 0;
+            // "Hazırsa" means the spirit cooldown is ready; it is independent of
+            // monster-count/type combat triggers and must work even with no mobs nearby.
             if (DevilWhenReady || UseDevilSpirit)
             {
-                if (DevilEvenIfNotAttacking)
-                    return true;
-                if (nearbyMobs != null && nearbyMobs.Count > 0)
-                    return true;
+                reason = "";
+                return true;
             }
 
-            if (nearbyMobs == null || nearbyMobs.Count == 0)
+            if (nearbyMobs.Count == 0)
                 return false;
-
-            uint myId = InfoManager.Character != null ? InfoManager.Character.UniqueID : 0;
-            var myPos = InfoManager.Character?.GetRealtimePosition();
 
             // 2) "Saldıran canavar sayısı >" X (DevilMonsterCountEnabled)
             if (DevilMonsterCountEnabled)
@@ -264,13 +344,15 @@ namespace xBot.App
                 {
                     var m = nearbyMobs[i];
                     if (m == null) continue;
-                    bool isAttackingMe = (m.TargetUniqueID == myId)
-                        || (myPos != null && m.Position != null && myPos.DistanceTo(m.GetRealtimePosition()) <= 4.5);
+                    bool isAttackingMe = IsMobAttackingCharacter(m, myId);
                     if (DevilEvenIfNotAttacking || isAttackingMe)
                         count++;
                 }
                 if (count > DevilMonsterCount)
+                {
+                    reason = "";
                     return true;
+                }
             }
 
             // 3) Canavar türü kontrolleri (Giant, Genel Parti, Şampiyon Parti, Giant Parti, Titan, Elit, Güçlü, Etkinlik, Unique, Pillar)
@@ -285,14 +367,55 @@ namespace xBot.App
 
                 if (typeMatch)
                 {
-                    bool isAttackingMe = (m.TargetUniqueID == myId)
-                        || (myPos != null && m.Position != null && myPos.DistanceTo(m.GetRealtimePosition()) <= 15.0);
+                    bool isAttackingMe = IsMobAttackingCharacter(m, myId);
                     if (DevilEvenIfNotAttacking || isAttackingMe)
+                    {
+                        reason = "";
                         return true;
+                    }
                 }
             }
 
+            reason = "Seçili Devil canavar sayısı/türü tetik koşulları henüz oluşmadı.";
             return false;
+        }
+
+        private static bool IsMobAttackingCharacter(SRMob mob, uint characterId)
+        {
+            if (mob == null) return false;
+            return characterId != 0 && mob.TargetUniqueID == characterId;
+        }
+
+        private static string GetDevilCastBlockedReason(uint skillId, SRSkill skill)
+        {
+            var character = InfoManager.Character;
+            if (character == null) return "Karakter hazır değil.";
+            if (skill != null && !skill.Enabled) return "Devil Spirit skilli devre dışı.";
+            if (skill != null && !skill.isCastingEnabled) return "Devil Spirit cooldown'da.";
+            if (skill != null && skill.MPUsage > character.MP)
+                return "Yetersiz MP: " + character.MP + "/" + skill.MPUsage + ".";
+            if (!BuffRetries.CanTry(skillId)) return "Önceki Devil isteğinin sunucu yanıtı bekleniyor veya yeniden deneme süresi dolmadı.";
+            if (Bot.Get.Proxy?.Agent == null) return "Oyun Agent bağlantısı hazır değil.";
+            if (!InfoManager.inGame) return "Oyun içi oturum hazır değil.";
+            if (InfoManager.inTeleport) return "Işınlanma sırasında skill kullanılamaz.";
+            if (InfoManager.JoinedGameUtc != DateTime.MinValue && (DateTime.UtcNow - InfoManager.JoinedGameUtc).TotalSeconds < 5.0)
+                return "Karakterin oyuna girişinden sonraki güvenlik beklemesi sürüyor.";
+            if (InfoManager.LastTeleportUtc != DateTime.MinValue && (DateTime.UtcNow - InfoManager.LastTeleportUtc).TotalSeconds < 5.0)
+                return "Işınlanma sonrası güvenlik beklemesi sürüyor.";
+            if (!InfoManager.CharacterActions.CanStart) return "Karakter başka bir aksiyonda; boşalınca yeniden denenecek.";
+            return "";
+        }
+
+        private static void ReportDevilStatus(string message)
+        {
+            if (string.IsNullOrWhiteSpace(message)) return;
+            DateTime now = DateTime.UtcNow;
+            if (string.Equals(s_lastDevilDiagnostic, message, StringComparison.Ordinal)
+                && (now - s_lastDevilDiagnosticUtc).TotalSeconds < 10.0)
+                return;
+            s_lastDevilDiagnostic = message;
+            s_lastDevilDiagnosticUtc = now;
+            Window.Get?.Log("[Devil] " + message);
         }
 
         public static bool HasDevilBuff()
@@ -307,21 +430,27 @@ namespace xBot.App
                     var b = buffs.GetAt(i);
                     if (b == null)
                         continue;
-                    string sn = b.ServerName ?? "";
-                    string name = b.Name ?? "";
-                    if (sn.IndexOf("NASRUN", StringComparison.OrdinalIgnoreCase) >= 0
-                        || sn.IndexOf("DEVIL", StringComparison.OrdinalIgnoreCase) >= 0
-                        || sn.IndexOf("SEYTAN", StringComparison.OrdinalIgnoreCase) >= 0
-                        || name.IndexOf("Devil", StringComparison.OrdinalIgnoreCase) >= 0
-                        || name.IndexOf("Nasrun", StringComparison.OrdinalIgnoreCase) >= 0
-                        || name.IndexOf("Şeytan", StringComparison.OrdinalIgnoreCase) >= 0)
+                    if (IsDevilSkillId(b.ID))
                     {
                         return true;
+                    }
+                    var equippedSkillId = GetEquippedDevilSkillId();
+                    if (equippedSkillId != 0 && b.ID == equippedSkillId) return true;
+                    if (equippedSkillId != 0)
+                    {
+                        var expected = GetCastSkill(equippedSkillId);
+                        if (expected != null && expected.GroupID != 0 && b.GroupID == expected.GroupID)
+                            return true;
                     }
                 }
             }
             catch { }
             return false;
+        }
+
+        private static bool IsDevilSkillId(uint id)
+        {
+            return id == 31141 || id == 31142 || id == 31144 || id == 31145 || id == 31148;
         }
 
         public static bool IsDevilEquipped()

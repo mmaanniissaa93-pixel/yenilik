@@ -98,13 +98,20 @@ namespace xBot.App
                     return preference != null && preference.Preference == MonsterPreferenceType.Prefer
                         && index >= 0 && (currentIndex < 0 || index < currentIndex);
                 }).ToList();
-                if (GetMobFiltered(preferred, center, radius) != null) return true;
+                if (GetMobFiltered(preferred, center, radius) != null)
+                {
+                    _combatTargetSwitchReason = "tercih listesinde daha öncelikli mob bulundu";
+                    _allowCombatTargetSwitch = true;
+                    return true;
+                }
             }
             if (!CombatAIEngine.SwitchMonsterAfterDot) { rotation.Reset(); return false; }
             if (!rotation.DotDelayElapsed(current.UniqueID, HasDamageOverTime(current), EngineNow,
                 CombatAIEngine.SwitchMonsterDotDelay)) return false;
             if (GetMobFiltered(alternatives, center, radius) == null) return false;
             rotation.Defer(current.UniqueID, EngineNow);
+            _combatTargetSwitchReason = "DOT süresi doldu; etkili DOT sürerken sıradaki moba geçiliyor";
+            _allowCombatTargetSwitch = true;
             return true;
         }
 

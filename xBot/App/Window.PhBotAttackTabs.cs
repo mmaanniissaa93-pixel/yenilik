@@ -172,6 +172,7 @@ namespace xBot.App
 
             PopulatePartyBuffSkills();
             RefreshPartyAssignmentsList();
+            BindCharacterSettingsSaving(p);
         }
 
         private void PromptAddPartyBuffAssignment()
@@ -389,6 +390,7 @@ namespace xBot.App
 
             p.Controls.Add(grpSettings);
             RefreshPartyOptPlayersList();
+            BindCharacterSettingsSaving(p);
         }
 
         private void RefreshPartyOptPlayersList()
@@ -659,6 +661,7 @@ namespace xBot.App
             RefreshResurrectRegexList();
             PopulateResurrectNearbyPlayers();
             PopulateResurrectSkills();
+            BindCharacterSettingsSaving(p);
         }
 
         private void RefreshResurrectRegexList()
@@ -1196,10 +1199,10 @@ namespace xBot.App
 
             PopulateLureSkills();
             RefreshLureWhitelist();
-            BindLureSaving(p);
+            BindCharacterSettingsSaving(p);
         }
 
-        private void BindLureSaving(Control parent)
+        private void BindCharacterSettingsSaving(Control parent)
         {
             foreach (Control control in parent.Controls)
             {
@@ -1207,7 +1210,7 @@ namespace xBot.App
                 else if (control is TextBox text) text.TextChanged += (s, e) => Settings.SaveCharacterSettings();
                 else if (control is ComboBox combo) combo.SelectedIndexChanged += (s, e) => Settings.SaveCharacterSettings();
                 else if (control is Button button) button.Click += (s, e) => Settings.SaveCharacterSettings();
-                BindLureSaving(control);
+                BindCharacterSettingsSaving(control);
             }
         }
 

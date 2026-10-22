@@ -23,12 +23,18 @@ namespace xBot.App
 		private static readonly object CharacterSettingsLock = new object();
 		private static long s_lastBotSaveTick = 0;
 		private static long s_lastCharSaveTick = 0;
+		public static bool LastBotSaveSucceeded { get; private set; }
+		public static bool LastCharacterSaveSucceeded { get; private set; }
 		private static int s_botSavePending;
 		private static int s_charSavePending;
 		private static string s_loadedCharacterProfilePath = "";
 		public static string LoadedCharacterProfile
 		{
 			get { return string.IsNullOrEmpty(s_loadedCharacterProfilePath) ? "" : Path.GetFileNameWithoutExtension(s_loadedCharacterProfilePath); }
+		}
+		public static string LoadedCharacterProfilePath
+		{
+			get { return s_loadedCharacterProfilePath ?? ""; }
 		}
 		private const int SaveDebounceMs = 800;
 		private static void QueueTrailingBotSave()
@@ -103,6 +109,7 @@ namespace xBot.App
 				return;
 			}
 			s_lastBotSaveTick = now;
+			LastBotSaveSucceeded = false;
 			if (!LoadingBotSettings)
 			{
 				lock (BotSettingsLock)
@@ -173,48 +180,84 @@ namespace xBot.App
 
 					// Custom managers
 					root["LoginStrategy"] = LoginStrategyManager.ToJson();
-					root["CombatAI"] = CombatAIEngine.ToJson();
 					root["Accounts"] = AccountManager.ToJson();
 					root["SelectedAccount"] = AccountManager.SelectedAccountUsername;
 					root["Socks5Proxy"] = Network.Socks5Config.ToJson();
-					root["PartySupport"] = PartySupportManager.ToJson();
-					root["ResurrectPolicy"] = ResurrectPolicy.ToJson();
-					root["LurePolicy"] = LurePolicy.ToJson();
 					root["Alchemy"] = AlchemyManager.ToJson();
 					root["TargetAssist"] = TargetAssistManager.ToJson();
-					root["PetPolicy"] = PetPolicy.ToJson();
 					CommandCenter.CommandCenterManager.SaveSettings(root);
 
 					// Saving (atomic: tmp + replace, yarım yazımı engeller)
-					SaveJsonAtomic(UserSettingsPath, root.ToString());
+					LastBotSaveSucceeded = SaveJsonAtomic(UserSettingsPath, root.ToString());
 				}
 			}
 		}
-		private static void SaveJsonAtomic(string path, string content)
+		private static bool SaveJsonAtomic(string path, string content)
 		{
 			string tmp = path + ".tmp";
-			File.WriteAllText(tmp, content);
 			try
 			{
+				string directory = Path.GetDirectoryName(Path.GetFullPath(path));
+				if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+					Directory.CreateDirectory(directory);
+				File.WriteAllText(tmp, content);
+
 				if (File.Exists(path))
-					File.Replace(tmp, path, null);
+				{
+					try
+					{
+						File.Replace(tmp, path, null);
+					}
+					catch
+					{
+						// Some file systems do not implement Replace. Move the old file
+						// aside first and restore it if publishing the new file fails.
+						string movedBackup = GetUniqueBackupPath(path, "previous");
+						File.Move(path, movedBackup);
+						try
+						{
+							File.Move(tmp, path);
+						}
+						catch
+						{
+							if (!File.Exists(path) && File.Exists(movedBackup))
+								File.Move(movedBackup, path);
+							throw;
+						}
+					}
+				}
 				else
 					File.Move(tmp, path);
+				return true;
 			}
-			catch
+			catch (System.Exception ex)
 			{
-				// Replace desteklenmiyorsa fallback
-				try
-				{
-					if (File.Exists(path))
-						File.Delete(path);
-					File.Move(tmp, path);
-				}
-				catch (System.Exception ex)
-				{
-					Window.Get.Log("Ayar kaydedilemedi (" + path + "): " + ex.Message);
-					try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
-				}
+				try { Window.Get?.Log("Ayar kaydedilemedi (" + path + "): " + ex.Message); } catch { }
+				return false;
+			}
+			finally
+			{
+				try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
+			}
+		}
+
+		private static string GetUniqueBackupPath(string path, string suffix)
+		{
+			string candidate = path + "." + suffix + "-" + DateTime.Now.ToString("yyyyMMdd-HHmmss-fff") + ".bak";
+			int sequence = 1;
+			while (File.Exists(candidate))
+				candidate = path + "." + suffix + "-" + DateTime.Now.ToString("yyyyMMdd-HHmmss-fff") + "-" + sequence++ + ".bak";
+			return candidate;
+		}
+
+		private static void PreserveCorruptSettings(string path, string label)
+		{
+			if (string.IsNullOrEmpty(path) || !File.Exists(path)) return;
+			string backup = GetUniqueBackupPath(path, "corrupt");
+			try { File.Copy(path, backup, false); }
+			catch (Exception ex)
+			{
+				try { Window.Get?.Log("Bozuk " + label + " yedeği alınamadı (" + path + "): " + ex.Message); } catch { }
 			}
 		}
 		/// <summary>
@@ -232,11 +275,11 @@ namespace xBot.App
 					LoadBotSettings(path);
 					LoadingBotSettings = false;
 				}
-				catch
+				catch (Exception ex)
 				{
 					LoadingBotSettings = false;
-					Window.Get.Log("Error loading bot settings.. using the settings partially loaded");
-					File.Move(path, path+".bkp");
+					PreserveCorruptSettings(path, "bot ayarları");
+					try { Window.Get?.Log("Bot ayarları yüklenemedi; kısmen yüklenen ayarlar kullanılacak: " + ex.Message); } catch { }
 					SaveBotSettings();
 				}
 			}
@@ -417,6 +460,7 @@ namespace xBot.App
 				return;
 			}
 			s_lastCharSaveTick = now;
+			LastCharacterSaveSucceeded = false;
 			if (!LoadingCharacterSettings && InfoManager.inGame)
 			{
 				lock (CharacterSettingsLock)
@@ -702,8 +746,10 @@ namespace xBot.App
 					string safeSilkroad = string.IsNullOrEmpty(DataManager.SilkroadName) ? "UnknownSilkroad" : DataManager.SilkroadName;
 					string safeServer = string.IsNullOrEmpty(InfoManager.ServerName) ? "UnknownServer" : InfoManager.ServerName;
 					string safeChar = string.IsNullOrEmpty(InfoManager.CharName) ? "UnknownChar" : InfoManager.CharName;
-					string cfgFile = "Config\\" + safeSilkroad + "_" + safeServer + "_" + safeChar + ".json";
-					SaveJsonAtomic(cfgFile, root.ToString());
+					string cfgFile = string.IsNullOrEmpty(s_loadedCharacterProfilePath)
+						? "Config\\" + safeSilkroad + "_" + safeServer + "_" + safeChar + ".json"
+						: s_loadedCharacterProfilePath;
+					LastCharacterSaveSucceeded = SaveJsonAtomic(cfgFile, root.ToString());
 				}
 			}
 		}
@@ -721,6 +767,8 @@ namespace xBot.App
 			SaveBotSettings();
 			if (InfoManager.inGame)
 				SaveCharacterSettings();
+			else
+				LastCharacterSaveSucceeded = false;
 		}
 		/// <summary>
 		/// Load character settings if exists or try to load default if it's checked.
@@ -730,6 +778,8 @@ namespace xBot.App
 			// Check folder
 			if (!Directory.Exists("Config"))
 				Directory.CreateDirectory("Config");
+			// Do not let a previously selected profile receive the next character's saves.
+			s_loadedCharacterProfilePath = "";
 
 Window w = Window.Get;
 		// Check config path
@@ -737,6 +787,7 @@ Window w = Window.Get;
 		string safeServer = string.IsNullOrEmpty(InfoManager.ServerName) ? "UnknownServer" : InfoManager.ServerName;
 		string safeChar = string.IsNullOrEmpty(InfoManager.CharName) ? "UnknownChar" : InfoManager.CharName;
 		string cfgPath = "Config\\" + safeSilkroad + "_" + safeServer + "_" + safeChar + ".json";
+		string attemptedPath = cfgPath;
 		try
 			{
 				if (File.Exists(cfgPath))
@@ -746,7 +797,8 @@ Window w = Window.Get;
 				}
 				else if (w.Settings_cbxLoadDefaultConfigs.Checked && File.Exists("Config\\Default.json"))
 				{
-					LoadCharacterSettings("Config\\Default.json");
+					attemptedPath = "Config\\Default.json";
+					LoadCharacterSettings(attemptedPath);
 					w.Log("Configs by default loaded successfully");
 				}
 				else
@@ -755,11 +807,11 @@ Window w = Window.Get;
 					w.Log("Configs created successfully");
 				}
 			}
-			catch
+		catch (Exception ex)
 			{
 				LoadingCharacterSettings = false;
-				File.Move(cfgPath, cfgPath + ".bkp");
-				w.Log("Error loading character configs... Using the configs partially loaded");
+				PreserveCorruptSettings(attemptedPath, "karakter ayarları");
+				w.Log("Karakter ayarları yüklenemedi; kısmen yüklenen ayarlar kullanılacak: " + ex.Message);
 				SaveCharacterSettings();
 			}
 		}
@@ -779,18 +831,8 @@ Window w = Window.Get;
 			}
 			if (name.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
 				name = name.Substring(0, name.Length - 5);
-			string configRoot = Path.GetFullPath("Config");
-			string profilePath = Path.GetFullPath(Path.Combine(configRoot, name + ".json"));
-			if (!profilePath.StartsWith(configRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-			{
-				error = "Profil yolu Config klasörünün dışında olamaz.";
-				return false;
-			}
-			if (!File.Exists(profilePath))
-			{
-				error = "Profil bulunamadı: " + name;
-				return false;
-			}
+			string profilePath;
+			if (!AutoConfigureManager.TryResolveProfilePath(name, out profilePath, out error)) return false;
 			if (string.Equals(s_loadedCharacterProfilePath, profilePath, StringComparison.OrdinalIgnoreCase))
 				return true;
 
@@ -803,7 +845,7 @@ Window w = Window.Get;
 			Exception failure = null;
 			MethodInvoker load = delegate
 			{
-				try { LoadCharacterSettings(profilePath); }
+				try { LoadCharacterSettings(profilePath, true); }
 				catch (Exception ex) { failure = ex; }
 			};
 			if (w.InvokeRequired) w.Invoke(load); else load();
@@ -814,11 +856,13 @@ Window w = Window.Get;
 			}
 			return true;
 		}
-		private static void LoadCharacterSettings(string path)
+		private static void LoadCharacterSettings(string path, bool selectedProfile = false)
 		{
 			lock (CharacterSettingsLock)
 			{
 				LoadingCharacterSettings = true;
+				try
+				{
 				JObject root;
 
 				// Load or create config
@@ -1350,8 +1394,13 @@ Window w = Window.Get;
 					PetPolicy.FromJson((Newtonsoft.Json.Linq.JObject)root["PetPolicy"]);
 
 				LoadingCharacterSettings = false;
-				s_loadedCharacterProfilePath = string.IsNullOrEmpty(path) ? "" : Path.GetFullPath(path);
+					s_loadedCharacterProfilePath = selectedProfile && !string.IsNullOrEmpty(path) ? Path.GetFullPath(path) : "";
 				w.RefreshCustomSettingsWidgets();
+				}
+				finally
+				{
+					LoadingCharacterSettings = false;
+				}
 			}
 		}
 	}

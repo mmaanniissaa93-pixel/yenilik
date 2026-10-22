@@ -41,6 +41,7 @@ namespace xBot.App
         public static TradeMountMode MountMode { get; set; } = TradeMountMode.Remount;
         public static bool AttackSpawnedThieves { get; set; }
         public static int AttackRadius { get; set; } = 30;
+        public static string DefaultItemName { get; set; } = "";
         public static string Status { get; private set; } = "Hazır";
         public static bool IsRunning { get { return running; } }
         public static bool StartRequested { get { return startRequested; } }
@@ -210,7 +211,8 @@ namespace xBot.App
                 ["SkipTownLoop"] = SkipTownLoop,
                 ["MountMode"] = MountMode.ToString(),
                 ["AttackSpawnedThieves"] = AttackSpawnedThieves,
-                ["AttackRadius"] = AttackRadius
+                ["AttackRadius"] = AttackRadius,
+                ["DefaultItemName"] = DefaultItemName ?? ""
             };
             JArray routes = new JArray();
             foreach (TradeRouteDefinition route in GetRoutes())
@@ -240,6 +242,7 @@ namespace xBot.App
             SkipTownLoop = ReadBool(root, "SkipTownLoop", true);
             AttackSpawnedThieves = ReadBool(root, "AttackSpawnedThieves", false);
             AttackRadius = ReadInt(root, "AttackRadius", 30, 5, 100);
+            DefaultItemName = (string)root["DefaultItemName"] ?? "";
             TradeMountMode mount;
             if (Enum.TryParse((string)root["MountMode"], true, out mount)) MountMode = mount;
             JArray routes = root["Routes"] as JArray;

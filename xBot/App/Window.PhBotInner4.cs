@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 using xBot.Game;
+using xBot.Game.Objects.Common;
 
 namespace xBot.App
 {
@@ -14,6 +15,7 @@ namespace xBot.App
     /// </summary>
     public partial class Window
     {
+        private bool _refreshingAutoConfigureProfiles;
         private Panel FindPanelByName(string name)
         {
             try
@@ -182,6 +184,7 @@ namespace xBot.App
             _innerLayout = true;
             try
             {
+                if (ShowUnsupportedPhBotScreen("Sound", "Sound alerts are not connected to game events in this build.")) return;
                 Panel host = PlaceholderHost("Sound");
                 if (host == null || host.Controls["PhBot_SoundTabs"] != null) return;
                 host.Controls.Clear();
@@ -442,6 +445,7 @@ namespace xBot.App
             _innerLayout = true;
             try
             {
+                if (ShowUnsupportedPhBotScreen("Key Bindings", "Key bindings are not implemented. Use the visible Start and Stop controls.")) return;
                 Panel host = PlaceholderHost("Key Bindings");
                 if (host == null || host.Controls["PhBot_KeysDone"] != null) return;
                 host.Controls.Clear();
@@ -556,6 +560,7 @@ namespace xBot.App
             _innerLayout = true;
             try
             {
+                if (ShowUnsupportedPhBotScreen("Conditions", "Training conditions are not connected to the bot decision loop in this build.")) return;
                 Panel host = PlaceholderHost("Conditions");
                 if (host == null || host.Controls["PhBot_ConditionsTabs"] != null) return;
                 host.Controls.Clear();
@@ -694,6 +699,7 @@ namespace xBot.App
             _innerLayout = true;
             try
             {
+                if (ShowUnsupportedPhBotScreen("Notifications", "Notification rules and notification history are not connected to a backend in this build.")) return;
                 Panel host = PlaceholderHost("Notifications");
                 if (host == null || host.Controls["PhBot_NotifTabs"] != null) return;
                 host.Controls.Clear();
@@ -887,17 +893,84 @@ namespace xBot.App
                     Location = new Point(12, 20),
                     Size = new Size(colW - 24, 24)
                 };
-                cbProf.Items.Add(isTR ? "Varsayılan" : "Default");
-                try { cbProf.SelectedIndex = 0; } catch { }
+                foreach (string profile in AutoConfigureManager.ListProfiles())
+                    cbProf.Items.Add(profile);
+                if (cbProf.Items.Count == 0)
+                {
+                    cbProf.Items.Add(isTR ? "Kayıtlı profil yok" : "No saved profiles");
+                    cbProf.Enabled = false;
+                }
+                string activeProfile = Settings.LoadedCharacterProfile;
+                int activeIndex = cbProf.Items.IndexOf(string.IsNullOrEmpty(activeProfile) ? "Default" : activeProfile);
+                try { cbProf.SelectedIndex = activeIndex >= 0 ? activeIndex : (cbProf.Enabled ? -1 : 0); } catch { }
+                cbProf.SelectedIndexChanged += (s, e) =>
+                {
+                    if (_refreshingAutoConfigureProfiles || cbProf.SelectedItem == null) return;
+                    string error;
+                    if (!Settings.TryLoadCharacterProfile(cbProf.SelectedItem.ToString(), out error))
+                        MessageBox.Show(error, isTR ? "Profil yüklenemedi" : "Could not load profile", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    else
+                        RefreshCustomSettingsWidgets();
+                };
                 GrayCombo(cbProf);
                 gbProf.Controls.Add(cbProf);
 
                 int btnGap = 8;
                 int totalBtnW = colW - 24;
                 int btnW = (totalBtnW - (btnGap * 2)) / 3;
-                PhBotButton(gbProf, "PhBot_AutoNew", isTR ? "Yeni" : "New", 12, 52, btnW);
-                PhBotButton(gbProf, "PhBot_AutoRename", isTR ? "Adlandır" : "Rename", 12 + btnW + btnGap, 52, btnW);
-                PhBotButton(gbProf, "PhBot_AutoDelete", isTR ? "Sil" : "Delete", 12 + (btnW + btnGap) * 2, 52, totalBtnW - ((btnW + btnGap) * 2));
+                Button btnNewProfile = PhBotButton(gbProf, "PhBot_AutoNew", isTR ? "Yeni" : "New", 12, 52, btnW);
+                Button btnRenameProfile = PhBotButton(gbProf, "PhBot_AutoRename", isTR ? "Adlandır" : "Rename", 12 + btnW + btnGap, 52, btnW);
+                Button btnDeleteProfile = PhBotButton(gbProf, "PhBot_AutoDelete", isTR ? "Sil" : "Delete", 12 + (btnW + btnGap) * 2, 52, totalBtnW - ((btnW + btnGap) * 2));
+                btnNewProfile.Click += (s, e) =>
+                {
+                    string name = PromptInput(isTR ? "Yeni profil adı:" : "New profile name:", isTR ? "Profil oluştur" : "Create profile");
+                    if (string.IsNullOrWhiteSpace(name)) return;
+                    string error;
+                    if (!AutoConfigureManager.CreateProfile(name, out error))
+                        MessageBox.Show(error, isTR ? "Profil oluşturulamadı" : "Could not create profile", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    else
+                    {
+                        Settings.TryLoadCharacterProfile(name, out error);
+                        RefreshAutoConfigureProfiles(cbProf, name);
+                    }
+                };
+                btnRenameProfile.Click += (s, e) =>
+                {
+                    if (cbProf.SelectedItem == null) return;
+                    string oldName = cbProf.SelectedItem.ToString();
+                    string newName = PromptInput(isTR ? "Yeni profil adı:" : "New profile name:", isTR ? "Profili yeniden adlandır" : "Rename profile");
+                    if (string.IsNullOrWhiteSpace(newName)) return;
+                    string error;
+                    if (!AutoConfigureManager.RenameProfile(oldName, newName, out error))
+                        MessageBox.Show(error, isTR ? "Profil adlandırılamadı" : "Could not rename profile", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    else
+                    {
+                        if (!Settings.TryLoadCharacterProfile(newName, out error))
+                            MessageBox.Show(error, isTR ? "Profil yeniden adlandırıldı fakat yüklenemedi" : "Profile renamed but could not be loaded", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        RefreshAutoConfigureProfiles(cbProf, newName);
+                    }
+                };
+                btnDeleteProfile.Click += (s, e) =>
+                {
+                    if (cbProf.SelectedItem == null) return;
+                    string name = cbProf.SelectedItem.ToString();
+                    if (string.Equals(name, "Default", StringComparison.OrdinalIgnoreCase))
+                    {
+                        MessageBox.Show(isTR ? "Default profili silinemez." : "The Default profile cannot be deleted.", "phBot", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        return;
+                    }
+                    if (string.Equals(Settings.LoadedCharacterProfile, name, StringComparison.OrdinalIgnoreCase))
+                    {
+                        MessageBox.Show(isTR ? "Etkin profili silmeden önce başka bir profil yükleyin." : "Load another profile before deleting the active profile.", "phBot", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        return;
+                    }
+                    if (MessageBox.Show(isTR ? ("'" + name + "' profili silinsin mi?") : ("Delete profile '" + name + "'?"), "phBot", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                        return;
+                    string error;
+                    if (!AutoConfigureManager.DeleteProfile(name, out error))
+                        MessageBox.Show(error, isTR ? "Profil silinemedi" : "Could not delete profile", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    else RefreshAutoConfigureProfiles(cbProf);
+                };
                 host.Controls.Add(gbProf);
 
                 // Right Column CheckBoxes
@@ -944,7 +1017,9 @@ namespace xBot.App
                         try { primary = (cbPrim.SelectedItem ?? "Wizard").ToString(); } catch { }
                         string secondary = "None";
                         try { secondary = (cbSec.SelectedItem ?? "None").ToString(); } catch { }
-                        bool useEuro = !string.IsNullOrEmpty(primary) && !string.Equals(primary, "Dagger", System.StringComparison.OrdinalIgnoreCase);
+                        if (InfoManager.Character == null)
+                            throw new InvalidOperationException(isTR ? "Önce oyun içindeki karakterin yüklenmesini bekleyin." : "Wait for your in-game character to load first.");
+                        bool useEuro = InfoManager.Character.GetRace() == SRTypes.Race.European;
                         string summary = useEuro
                             ? AutoConfigureManager.ApplyEuropean(primary, secondary)
                             : AutoConfigureManager.ApplyChinese(build, weapon);
@@ -971,39 +1046,25 @@ namespace xBot.App
                 };
                 host.Controls.Add(btnConfigure);
 
-                // GroupBox Restore / Yapılandırmayı geri yükle
+                // Profile selection loads a saved character configuration immediately.
                 GroupBox gbRestore = new GroupBox
                 {
-                    Text = isTR ? "Yapılandırmayı geri yükle" : "Restore configuration",
+                    Text = isTR ? "Etkin profil" : "Active profile",
                     Location = new Point(col2X, 208),
                     Size = new Size(colW, 92),
                     Font = PhBotFont(),
                     BackColor = Theme.AppTheme.Surface
                 };
-                ComboBox cbRestore = new ComboBox
+                Label activeProfileLabel = new Label
                 {
-                    Name = "PhBot_AutoRestoreCombo",
-                    DropDownStyle = ComboBoxStyle.DropDownList,
-                    Location = new Point(12, 20),
-                    Size = new Size(colW - 24, 24)
-                };
-                GrayCombo(cbRestore);
-                gbRestore.Controls.Add(cbRestore);
-
-                Button btnRestore = new Button
-                {
-                    Name = "PhBot_AutoRestoreBtn",
-                    Text = isTR ? "Geri Yükleme" : "Restore",
-                    Location = new Point(12, 52),
-                    Size = new Size(95, 25),
-                    FlatStyle = FlatStyle.Flat,
-                    BackColor = Color.FromArgb(246, 247, 248),
-                    ForeColor = Color.FromArgb(50, 50, 50),
+                    Name = "PhBot_AutoActiveProfileLabel",
+                    Text = isTR ? "Listeden profil seçildiğinde ayarları hemen yüklenir." : "Selecting a profile loads its settings immediately.",
+                    Location = new Point(12, 25),
+                    Size = new Size(colW - 24, 45),
+                    ForeColor = Theme.AppTheme.TextMuted,
                     Font = PhBotFont()
                 };
-                btnRestore.FlatAppearance.BorderColor = Color.FromArgb(210, 212, 216);
-                btnRestore.FlatAppearance.BorderSize = 1;
-                gbRestore.Controls.Add(btnRestore);
+                gbRestore.Controls.Add(activeProfileLabel);
                 host.Controls.Add(gbRestore);
 
                 Label done = new Label { Name = "PhBot_AutoDone", Text = "", Tag = langTag, Width = hostW, Visible = false };
@@ -1011,6 +1072,38 @@ namespace xBot.App
             }
             catch (Exception ex) { PhBotDebug("autocfg inner: " + ex.Message); }
             finally { _innerLayout = false; }
+        }
+
+        private void RefreshAutoConfigureProfiles(ComboBox combo, string selectName = null)
+        {
+            if (combo == null || combo.IsDisposed) return;
+            _refreshingAutoConfigureProfiles = true;
+            try
+            {
+                string selected = selectName ?? Settings.LoadedCharacterProfile;
+                combo.Items.Clear();
+                foreach (string profile in AutoConfigureManager.ListProfiles()) combo.Items.Add(profile);
+                combo.Enabled = combo.Items.Count > 0;
+                if (combo.Items.Count == 0)
+                    combo.Items.Add(LocalizationManager.CurrentLanguage == "TR" ? "Kayıtlı profil yok" : "No saved profiles");
+                int index = combo.Items.IndexOf(string.IsNullOrEmpty(selected) ? "Default" : selected);
+                combo.SelectedIndex = index >= 0 ? index : (combo.Enabled ? -1 : 0);
+                Control[] labels = Controls.Find("PhBot_AutoActiveProfileLabel", true);
+                if (labels != null && labels.Length > 0 && labels[0] is Label label)
+                {
+                    string active = Settings.LoadedCharacterProfile;
+                    string language = LocalizationManager.CurrentLanguage == "TR" ? "Etkin profil: " : "Active profile: ";
+                    label.Text = language + (string.IsNullOrEmpty(active) ? "(character default)" : active);
+                }
+            }
+            finally { _refreshingAutoConfigureProfiles = false; }
+        }
+
+        public void RefreshAutoConfigureProfileSelection()
+        {
+            Control[] controls = Controls.Find("PhBot_AutoProfile", true);
+            if (controls != null && controls.Length > 0 && controls[0] is ComboBox combo)
+                RefreshAutoConfigureProfiles(combo);
         }
 
         // ---------------------------------------------------------------
@@ -1022,6 +1115,7 @@ namespace xBot.App
             _innerLayout = true;
             try
             {
+                if (ShowUnsupportedPhBotScreen("Masteries", "Mastery management is not available here. Auto Configure can apply its supported mastery presets.")) return;
                 Panel host = PlaceholderHost("Masteries");
                 if (host == null) return;
                 try { host.AutoScroll = false; } catch { }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Linq;
 using System.Windows.Forms;
 using xBot.Game;
 
@@ -19,6 +20,14 @@ namespace xBot.App
     public partial class Window
     {
         public static bool UsePhBotClassic = true;
+
+        private NumericUpDown _partyHealThresholdControl;
+        private ListView _partyHealSkillsList;
+        private CheckBox _partyHealSelfControl;
+        private NumericUpDown _partyHealSelfThresholdControl;
+        private ListView _phBotAttackLogList;
+        private Timer _phBotAttackLogTimer;
+        private readonly Dictionary<string, DateTime> _phBotAttackers = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
 
         private static bool? _phBotTestMode;
         internal static bool PhBotTestMode
@@ -674,13 +683,15 @@ namespace xBot.App
                 lv.Columns.Add("Attacker", 150);
                 lv.Columns.Add("Info", 300);
                 p.Controls.Add(lv);
-                var lbl = new Label();
-                lbl.Text = "Size saldıran oyuncular burada listelenir (Job Cave / PK takibi).";
-                lbl.Font = PhBotFont();
-                lbl.AutoSize = true;
-                lbl.Location = new Point(6, Math.Max(220, p.Height - 40));
-                lbl.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
-                p.Controls.Add(lbl);
+                _phBotAttackLogList = lv;
+                if (_phBotAttackLogTimer == null)
+                {
+                    _phBotAttackLogTimer = new Timer { Interval = 1000 };
+                    _phBotAttackLogTimer.Tick += (s, e) => RefreshPhBotAttackLog();
+                    FormClosed += (s, e) => { _phBotAttackLogTimer.Stop(); _phBotAttackLogTimer.Dispose(); _phBotAttackLogTimer = null; };
+                }
+                _phBotAttackLogTimer.Start();
+                RefreshPhBotAttackLog();
             }
             else if (name == "Resurrect")
             {
@@ -688,10 +699,23 @@ namespace xBot.App
             }
             else if (name == "Healing")
             {
-                AddPhBotLabeledNumber(p, "Heal party member when HP % <", 10, 10, 70);
-                AddPhBotLabeledNumber(p, "Group heal when avg HP % <", 10, 38, 60);
+                var partyThreshold = AddPhBotLabeledNumber(p, "Heal party member when HP % <", 10, 10, PartySupportManager.PartyHealHPPercent);
+                partyThreshold.Name = "PhBot_PartyHealThreshold";
+                partyThreshold.Minimum = 1;
+                partyThreshold.Maximum = 99;
+                partyThreshold.Value = Math.Max(1, Math.Min(99, (int)PartySupportManager.PartyHealHPPercent));
+                partyThreshold.ValueChanged += (s, e) => {
+                    PartySupportManager.PartyHealHPPercent = (byte)partyThreshold.Value;
+                    PartySupportManager.PartyHealEnabled = true;
+                    Settings.SaveCharacterSettings();
+                };
+                var groupThreshold = AddPhBotLabeledNumber(p, "Group heal when avg HP % <", 10, 38, 60);
+                groupThreshold.Enabled = false;
+                if (ToolTips != null)
+                    ToolTips.SetToolTip(groupThreshold, "Area/group healing is not implemented; this threshold has no runtime consumer.");
                 var chkSelf = new CheckBox
                 {
+                    Name = "PhBot_HealingSelfEnabled",
                     Text = "Heal self when HP % <",
                     Font = PhBotFont(),
                     AutoSize = true,
@@ -706,6 +730,7 @@ namespace xBot.App
                 };
                 var nudSelf = new NumericUpDown
                 {
+                    Name = "PhBot_HealingSelfThreshold",
                     Font = PhBotFont(),
                     Location = new Point(160, 66),
                     Size = new Size(50, 22),
@@ -722,11 +747,17 @@ namespace xBot.App
                 p.Controls.Add(chkSelf);
                 p.Controls.Add(nudSelf);
                 var lv = new ListView();
+                lv.Name = "PhBot_HealingSkills";
                 lv.View = View.Details; lv.FullRowSelect = true; lv.GridLines = false; lv.BackColor = Theme.AppTheme.Surface;
                 lv.Location = new Point(10, 100); lv.Size = new Size(420, 170);
                 lv.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-                lv.Columns.Add("Heal skill", 250); lv.Columns.Add("Target", 150);
+                lv.Columns.Add("Available heal skill", 250); lv.Columns.Add("Selection", 150);
                 p.Controls.Add(lv);
+                _partyHealSkillsList = lv;
+                _partyHealThresholdControl = partyThreshold;
+                _partyHealSelfControl = chkSelf;
+                _partyHealSelfThresholdControl = nudSelf;
+                RefreshPhBotHealingSkills();
             }
             else if (name == "Lure")
             {
@@ -736,6 +767,77 @@ namespace xBot.App
             {
                 BuildPhBotPartyOptionsTab(p);
             }
+        }
+
+        private void RefreshPhBotHealingSkills()
+        {
+            if (_partyHealSkillsList == null || _partyHealSkillsList.IsDisposed) return;
+            _partyHealSkillsList.BeginUpdate();
+            try
+            {
+                _partyHealSkillsList.Items.Clear();
+                var skills = InfoManager.Character?.Skills;
+                if (skills != null)
+                {
+                    for (int i = 0; i < skills.Count; i++)
+                    {
+                        var skill = skills.GetAt(i);
+                        if (skill == null || !skill.Enabled || !PartyPolicy.IsClericHealingSkill(skill.ServerName)) continue;
+                        var row = new ListViewItem(skill.Name ?? skill.ServerName ?? ("Skill " + skill.ID));
+                        row.SubItems.Add("Party Support auto-select");
+                        row.Tag = skill.ID;
+                        _partyHealSkillsList.Items.Add(row);
+                    }
+                }
+                if (_partyHealSkillsList.Items.Count == 0)
+                {
+                    var row = new ListViewItem("No eligible healing skill learned");
+                    row.SubItems.Add("Cleric heal required");
+                    _partyHealSkillsList.Items.Add(row);
+                }
+            }
+            finally { _partyHealSkillsList.EndUpdate(); }
+        }
+
+        private void RefreshPhBotAttackLog()
+        {
+            var list = _phBotAttackLogList;
+            var character = InfoManager.Character;
+            if (list == null || list.IsDisposed || character == null || InfoManager.Players == null) return;
+
+            DateTime now = DateTime.Now;
+            uint characterId = character.UniqueID;
+            foreach (var player in InfoManager.Players.Snapshot())
+            {
+                if (player == null || player.UniqueID == characterId || player.TargetUniqueID != characterId) continue;
+                if (!string.IsNullOrWhiteSpace(player.Name))
+                    _phBotAttackers[player.Name] = now;
+            }
+            var expired = new List<string>();
+            foreach (var entry in _phBotAttackers)
+                if ((now - entry.Value).TotalSeconds > 120) expired.Add(entry.Key);
+            foreach (string name in expired) _phBotAttackers.Remove(name);
+
+            list.BeginUpdate();
+            try
+            {
+                list.Items.Clear();
+                foreach (var entry in _phBotAttackers.OrderByDescending(pair => pair.Value))
+                {
+                    var row = new ListViewItem(entry.Value.ToString("HH:mm:ss"));
+                    row.SubItems.Add(entry.Key);
+                    row.SubItems.Add("Targeting your character");
+                    list.Items.Add(row);
+                }
+                if (list.Items.Count == 0)
+                {
+                    var row = new ListViewItem(DateTime.Now.ToString("HH:mm:ss"));
+                    row.SubItems.Add("-");
+                    row.SubItems.Add("No player is targeting your character");
+                    list.Items.Add(row);
+                }
+            }
+            finally { list.EndUpdate(); }
         }
 
         // ---------------------------------------------------------------
