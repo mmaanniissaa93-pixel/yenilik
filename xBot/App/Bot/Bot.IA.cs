@@ -18,6 +18,58 @@ namespace xBot.App
         /// <summary>
         /// Thread controlling all botting actions.
         /// </summary>
+        public class BotConfigSnapshot
+        {
+            public bool WalkToCenter { get; set; }
+            public bool EnableTownLoop { get; set; }
+            public bool ReturnNavMesh { get; set; }
+            public bool AutoBuy { get; set; }
+            public bool BuyPills { get; set; }
+            public bool EnableMobPriority { get; set; } = true;
+            public bool TargetGeneral { get; set; } = true;
+            public bool TargetChampion { get; set; } = true;
+            public bool TargetGiant { get; set; } = true;
+            public bool TargetParty { get; set; } = true;
+            public bool TargetElite { get; set; } = true;
+            public bool TargetUnique { get; set; } = true;
+
+            public static BotConfigSnapshot Capture(Window w)
+            {
+                var snapshot = new BotConfigSnapshot();
+                if (w == null) return snapshot;
+
+                w.InvokeIfRequired(() =>
+                {
+                    if (w.Training_cbxWalkToCenter != null)
+                        snapshot.WalkToCenter = w.Training_cbxWalkToCenter.Checked;
+                    if (w.Town_cbxEnableTownLoop != null)
+                        snapshot.EnableTownLoop = w.Town_cbxEnableTownLoop.Checked;
+                    if (w.Town_cbxReturnNavMesh != null)
+                        snapshot.ReturnNavMesh = w.Town_cbxReturnNavMesh.Checked;
+                    if (w.Town_cbxAutoBuy != null)
+                        snapshot.AutoBuy = w.Town_cbxAutoBuy.Checked;
+                    if (w.Town_cbxBuyPills != null)
+                        snapshot.BuyPills = w.Town_cbxBuyPills.Checked;
+                    if (w.Combat_cbxMobPriority != null)
+                        snapshot.EnableMobPriority = w.Combat_cbxMobPriority.Checked;
+                    if (w.Combat_cbxTargetGeneral != null)
+                        snapshot.TargetGeneral = w.Combat_cbxTargetGeneral.Checked;
+                    if (w.Combat_cbxTargetChampion != null)
+                        snapshot.TargetChampion = w.Combat_cbxTargetChampion.Checked;
+                    if (w.Combat_cbxTargetGiant != null)
+                        snapshot.TargetGiant = w.Combat_cbxTargetGiant.Checked;
+                    if (w.Combat_cbxTargetParty != null)
+                        snapshot.TargetParty = w.Combat_cbxTargetParty.Checked;
+                    if (w.Combat_cbxTargetElite != null)
+                        snapshot.TargetElite = w.Combat_cbxTargetElite.Checked;
+                    if (w.Combat_cbxTargetUnique != null)
+                        snapshot.TargetUnique = w.Combat_cbxTargetUnique.Checked;
+                });
+
+                return snapshot;
+            }
+        }
+        public BotConfigSnapshot CurrentConfigSnapshot { get; private set; }
         Thread tBotting;
         Script currentScript;
         private volatile bool m_stopBottingRequested;
@@ -155,6 +207,7 @@ namespace xBot.App
                 _lastLoggedCombatTargetId = 0;
                 _combatTargetSwitchReason = null;
                 SkillManager.BeginBotRun();
+                CurrentConfigSnapshot = BotConfigSnapshot.Capture(Window.Get);
                 try { m_botCts?.Dispose(); } catch { }
                 m_botCts = new System.Threading.CancellationTokenSource();
                 tBotting = new Thread(this.ThreadBotting);
@@ -188,6 +241,7 @@ namespace xBot.App
                 // Bloklanan döngüye en fazla 2sn süre tanı, UI'yi kilitleme
                 try { if (t != null && t.IsAlive && t != Thread.CurrentThread) t.Join(2000); } catch { }
                 if (t == null || !t.IsAlive) tBotting = null;
+                CurrentConfigSnapshot = null;
                 // ...
                 Window w = Window.Get;
                 w.LogProcess("Bot stopped");
@@ -296,7 +350,10 @@ namespace xBot.App
                     // HERHANGİ biri açıksa döngü vardır (senkron edge-case dahil).
                     bool townCycling = true;
                     try { townCycling = ReturnToAreaPolicy.TownCycling; } catch { }
-                    try { if (w.Town_cbxEnableTownLoop != null && w.Town_cbxEnableTownLoop.Checked) townCycling = true; } catch { }
+                    try {
+                        bool enableLoop = CurrentConfigSnapshot != null ? CurrentConfigSnapshot.EnableTownLoop : (w?.Town_cbxEnableTownLoop != null && w.Town_cbxEnableTownLoop.Checked);
+                        if (enableLoop) townCycling = true;
+                    } catch { }
                     if (ReturnToAreaPolicy.SkipTownScript || !ReturnToAreaPolicy.ContinueTownScript)
                     {
                         townCycling = false;
@@ -673,7 +730,10 @@ namespace xBot.App
             // açıksa şehir döngüsü yapılır — bot şehirde başlayınca çalışır.
             bool townOn = false;
             try { townOn = ReturnToAreaPolicy.TownCycling; } catch { }
-            try { if (w.Town_cbxEnableTownLoop != null && w.Town_cbxEnableTownLoop.Checked) townOn = true; } catch { }
+            try {
+                bool enableLoop = CurrentConfigSnapshot != null ? CurrentConfigSnapshot.EnableTownLoop : (w?.Town_cbxEnableTownLoop != null && w.Town_cbxEnableTownLoop.Checked);
+                if (enableLoop) townOn = true;
+            } catch { }
             if (!townOn)
             {
                 w.LogProcess("Town Loop is disabled in Town settings.");
@@ -842,7 +902,8 @@ namespace xBot.App
                         // Default time walking
                         int timeTraveling = 3000;
                         // Try to make a training movement
-                        if (w.Training_cbxWalkToCenter.Checked)
+                        bool walkToCenter = CurrentConfigSnapshot != null ? CurrentConfigSnapshot.WalkToCenter : (w?.Training_cbxWalkToCenter != null && w.Training_cbxWalkToCenter.Checked);
+                        if (walkToCenter)
                         {
                             if (!myPosition.Equals(trainingPosition, 3.0))
                             {
@@ -1831,7 +1892,7 @@ namespace xBot.App
             if (myPosition == null) return null;
 
             Window w = Window.Get;
-            bool enablePriority = (w.Combat_cbxMobPriority == null || w.Combat_cbxMobPriority.Checked);
+            bool enablePriority = CurrentConfigSnapshot != null ? CurrentConfigSnapshot.EnableMobPriority : (w == null || w.Combat_cbxMobPriority == null || w.Combat_cbxMobPriority.Checked);
             SRTypes.Weapon selectionWeapon = GetMyWeaponType();
             var attackRangesByMobType = new Dictionary<SRMob.Mob, double>();
             SRPlayer assistPlayer = CombatAIEngine.SameMob && !string.IsNullOrWhiteSpace(CombatAIEngine.SameMobCharName)
@@ -1851,7 +1912,33 @@ namespace xBot.App
 
                 // Check if user allowed targeting this mob type
                 bool allowed = true;
-                if (w.Combat_cbxTargetGeneral != null)
+                if (CurrentConfigSnapshot != null)
+                {
+                    switch (m.MobType)
+                    {
+                        case SRMob.Mob.General:
+                            allowed = CurrentConfigSnapshot.TargetGeneral;
+                            break;
+                        case SRMob.Mob.Champion:
+                            allowed = CurrentConfigSnapshot.TargetChampion;
+                            break;
+                        case SRMob.Mob.Giant:
+                            allowed = CurrentConfigSnapshot.TargetGiant;
+                            break;
+                        case SRMob.Mob.PartyGeneral:
+                        case SRMob.Mob.PartyChampion:
+                        case SRMob.Mob.PartyGiant:
+                            allowed = CurrentConfigSnapshot.TargetParty;
+                            break;
+                        case SRMob.Mob.Elite:
+                            allowed = CurrentConfigSnapshot.TargetElite;
+                            break;
+                        case SRMob.Mob.Unique:
+                            allowed = CurrentConfigSnapshot.TargetUnique;
+                            break;
+                    }
+                }
+                else if (w?.Combat_cbxTargetGeneral != null)
                 {
                     switch (m.MobType)
                     {

@@ -44,6 +44,9 @@ namespace xBot.Game.Objects
 				}
 			}
 			set {
+				if (index < 0)
+					throw new ArgumentOutOfRangeException(nameof(index), index, "Index cannot be negative.");
+
 				lock (m_sync)
 				{
 					if (index >= m_list.Count)
@@ -66,6 +69,46 @@ namespace xBot.Game.Objects
 					// Set new value
 					m_list[index] = value;
 				}
+			}
+		}
+		/// <summary>
+		/// Attempts to get the element at the specified index without masking out-of-bounds as valid default elements.
+		/// Returns true if index is within valid bounds [0, Capacity - 1]; otherwise false.
+		/// </summary>
+		public bool TryGet(int index, out T value)
+		{
+			lock (m_sync)
+			{
+				if (index < 0 || index >= m_list.Count)
+					{
+						value = default(T);
+						return false;
+					}
+				value = m_list[index];
+				return true;
+			}
+		}
+		/// <summary>
+		/// Determines whether the given index is within the valid allocated range of the list.
+		/// </summary>
+		public bool IsValidIndex(int index)
+		{
+			lock (m_sync)
+			{
+				return index >= 0 && index < m_list.Count;
+			}
+		}
+		/// <summary>
+		/// Determines whether the slot at the specified index exists and is empty (equals default(T)).
+		/// Returns false if the index is out of bounds.
+		/// </summary>
+		public bool IsSlotEmpty(int index)
+		{
+			lock (m_sync)
+			{
+				if (index < 0 || index >= m_list.Count)
+					return false;
+				return EqualityComparer<T>.Default.Equals(m_list[index], default(T));
 			}
 		}
 		public void Add(T value)

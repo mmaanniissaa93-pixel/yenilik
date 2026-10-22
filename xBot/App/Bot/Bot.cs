@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using xBot.Network;
 using SecurityAPI;
 using System.Collections.Generic;
@@ -110,63 +110,94 @@ namespace xBot.App
 		#endregion
 
 		#region (Methods)
-		private void CreateNickname()
+		/// <summary>
+		/// Formats a character nickname with a numeric suffix, enforcing Silkroad's 12-character limit
+		/// while preserving the full numeric suffix.
+		/// </summary>
+		public static string FormatNicknameWithSuffix(string baseName, string suffix)
 		{
-			Window w = Window.Get;
-			WinAPI.InvokeIfRequired(w.Settings_tbxCustomName, () => {
-				CreatingCharacterName = w.Settings_tbxCustomName.Text;
-			});
+			if (baseName == null) baseName = "";
+			if (suffix == null) suffix = "";
 
-			if (CreatingCharacterName == "")
+			if ((baseName + suffix).Length <= 12)
+				return baseName + suffix;
+
+			if (suffix.Length >= 12)
+				return suffix.Substring(0, 12);
+
+			int allowedBaseLength = 12 - suffix.Length;
+			return baseName.Substring(0, allowedBaseLength) + suffix;
+		}
+
+		/// <summary>
+		/// Evaluates the current sequence text, returns the number to use for this generation,
+		/// and calculates the next sequence string to save/display.
+		/// </summary>
+		public static void AdvanceSequenceCounter(string currentText, int maxLength, out string numberToUse, out string nextSequenceText)
+		{
+			if (maxLength <= 0) maxLength = 3;
+			int currentVal = 0;
+			if (string.IsNullOrWhiteSpace(currentText) || !int.TryParse(currentText.Trim(), out currentVal) || currentVal < 0)
 			{
-				WinAPI.InvokeIfRequired(w.Settings_cmbxCreateCharGenre, () => {
-					CreatingCharacterName = GetRandomNickname(w.Settings_cmbxCreateCharGenre.Text);
-				});
+				currentVal = 0;
+			}
+			numberToUse = currentVal.ToString();
+
+			int nextVal = currentVal + 1;
+			string nextStr = nextVal.ToString();
+			if (nextStr.Length > maxLength)
+			{
+				nextSequenceText = "0";
 			}
 			else
 			{
-				string Number = "0";
-				// Extract and update number sequence
-				WinAPI.InvokeIfRequired(w.Settings_tbxCustomSequence, () => {
-					int length = w.Settings_tbxCustomSequence.Text.Length;
-					if (length == 0)
-					{
-						// Start default
-						w.Settings_tbxCustomSequence.Text = Number;
-					}
-					else
-					{
-						// Increase or reset
-						Number = w.Settings_tbxCustomSequence.Text;
-						int seqVal;
-						string NextNumber = ((int.TryParse(Number, out seqVal) ? seqVal : 0) + 1).ToString();
-						if (NextNumber.Length > w.Settings_tbxCustomSequence.MaxLength)
-						{
-							// Reset
-							w.Settings_tbxCustomSequence.Text = "0";
-						}
-						else
-						{
-							w.Settings_tbxCustomSequence.Text = NextNumber;
-						}
-					}
+				nextSequenceText = nextStr;
+			}
+		}
+		private void CreateNickname()
+		{
+			Window w = Window.Get;
+			string customName = "";
+			if (w != null && w.Settings_tbxCustomName != null)
+			{
+				WinAPI.InvokeIfRequired(w.Settings_tbxCustomName, () => {
+					customName = w.Settings_tbxCustomName.Text?.Trim() ?? "";
 				});
-				WinAPI.InvokeIfRequired(w, () => {
-					Settings.SaveBotSettings();
-				});
-				// Join name and number
-				if ((CreatingCharacterName + Number).Length > 12)
-				{
-					// Check Silkroad restriction & fix it
-					CreatingCharacterName = CreatingCharacterName.Substring(0, 12 - Number.Length);
-				}
-				else
-				{
-					CreatingCharacterName = CreatingCharacterName + Number;
-				}
 			}
 
-			w.Log("Checking nickname [" + CreatingCharacterName + "]");
+			if (string.IsNullOrEmpty(customName))
+			{
+				string genre = "Random";
+				if (w != null && w.Settings_cmbxCreateCharGenre != null)
+				{
+					WinAPI.InvokeIfRequired(w.Settings_cmbxCreateCharGenre, () => {
+						genre = w.Settings_cmbxCreateCharGenre.Text;
+					});
+				}
+				CreatingCharacterName = GetRandomNickname(genre);
+			}
+			else
+			{
+				string numberToUse = "0";
+				if (w != null && w.Settings_tbxCustomSequence != null)
+				{
+					WinAPI.InvokeIfRequired(w.Settings_tbxCustomSequence, () => {
+						string rawSeq = w.Settings_tbxCustomSequence.Text;
+						int maxLen = w.Settings_tbxCustomSequence.MaxLength > 0 ? w.Settings_tbxCustomSequence.MaxLength : 3;
+						AdvanceSequenceCounter(rawSeq, maxLen, out numberToUse, out string nextSeq);
+						w.Settings_tbxCustomSequence.Text = nextSeq;
+					});
+				}
+				if (w != null)
+				{
+					WinAPI.InvokeIfRequired(w, () => {
+						Settings.SaveBotSettings();
+					});
+				}
+				CreatingCharacterName = FormatNicknameWithSuffix(customName, numberToUse);
+			}
+
+			w?.Log("Checking nickname [" + CreatingCharacterName + "]");
 			PacketBuilder.CheckCharacterName(CreatingCharacterName);
 		}
 		/// <summary>

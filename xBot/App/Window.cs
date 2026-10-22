@@ -830,22 +830,22 @@ namespace xBot.App
 		}
 		public void Character_SetPosition(SRCoord p)
 		{
-			Character_lblLocation.InvokeIfRequired(() => {
+			Character_lblLocation?.BeginInvokeIfRequired(() => {
 				if (Character_lblLocation.Tag == null || p.Region != (ushort)Character_lblLocation.Tag){
 					Character_lblLocation.Tag = p.Region;
 					Character_lblLocation.Text = DataManager.GetRegion(p.Region);
 				}
 			});
-			Minimap_panelCoords.InvokeIfRequired(() => {
+			Minimap_panelCoords?.BeginInvokeIfRequired(() => {
 				Minimap_tbxX.Text = p.X.ToString();
 				Minimap_tbxY.Text = p.Y.ToString();
 				Minimap_tbxZ.Text = p.Z.ToString();
 				Minimap_tbxRegion.Text = p.Region.ToString();
 			});
-			Character_lblCoordX.InvokeIfRequired(() => {
+			Character_lblCoordX?.BeginInvokeIfRequired(() => {
 				Character_lblCoordX.Text = "X : " + Math.Round(p.PosX);
 			});
-			Character_lblCoordY.InvokeIfRequired(() => {
+			Character_lblCoordY?.BeginInvokeIfRequired(() => {
 				Character_lblCoordY.Text = "Y : " + Math.Round(p.PosY);
 			});
 		}
@@ -1457,8 +1457,6 @@ namespace xBot.App
 					item = activeItem;
 				else if (this.Training_lstvAreas.SelectedItems.Count > 0)
 					item = this.Training_lstvAreas.SelectedItems[0];
-				else if (this.Training_lstvAreas.Items.Count > 0)
-					item = this.Training_lstvAreas.Items[0];
 
 				if (item != null)
 				{
@@ -1469,6 +1467,13 @@ namespace xBot.App
 					else if (item.SubItems.Count > 4 && item.SubItems[1].Tag != null && item.SubItems[2].Tag != null && item.SubItems[3].Tag != null && item.SubItems[4].Tag != null)
 					{
 						result = new SRCoord((ushort)item.SubItems[1].Tag, (int)item.SubItems[2].Tag, (int)item.SubItems[4].Tag, (int)item.SubItems[3].Tag);
+					}
+				}
+				else
+				{
+					if (this.Training_lstvAreas.Items.Count > 0)
+					{
+						this.LogProcess("Eğitim alanı seçilmedi veya aktif değil; varsayılan alana otomatik yönelme engellendi.");
 					}
 				}
 			});
@@ -1483,8 +1488,6 @@ namespace xBot.App
 					item = activeItem;
 				else if (this.Training_lstvAreas.SelectedItems.Count > 0)
 					item = this.Training_lstvAreas.SelectedItems[0];
-				else if (this.Training_lstvAreas.Items.Count > 0)
-					item = this.Training_lstvAreas.Items[0];
 
 				if (item != null)
 				{
@@ -1507,8 +1510,6 @@ namespace xBot.App
 					item = activeItem;
 				else if (this.Training_lstvAreas.SelectedItems.Count > 0)
 					item = this.Training_lstvAreas.SelectedItems[0];
-				else if (this.Training_lstvAreas.Items.Count > 0)
-					item = this.Training_lstvAreas.Items[0];
 
 				if (item != null)
 				{
@@ -1563,8 +1564,6 @@ namespace xBot.App
 					item = activeItem;
 				else if (this.Training_lstvAreas.SelectedItems.Count > 0)
 					item = this.Training_lstvAreas.SelectedItems[0];
-				else if (this.Training_lstvAreas.Items.Count > 0)
-					item = this.Training_lstvAreas.Items[0];
 
 				if (item != null)
 				{

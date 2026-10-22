@@ -1,4 +1,4 @@
-﻿using SecurityAPI;
+using SecurityAPI;
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
@@ -235,76 +235,116 @@ namespace xBot.App
 		/// <summary>
 		/// Event loop.
 		/// </summary>
+		public void RunLoopTick()
+		{
+			OnLoop(tJoinedLoop, null);
+		}
 		private void OnLoop(object timer,ElapsedEventArgs e)
 		{
-			Window w = Window.Get;
-			// Update character realtime position
-			SRCoord p = InfoManager.Character.GetRealtimePosition();
-			// Set values
-			w.Character_SetPosition(p);
-			// Update map view every seconds
-			if (JoinedLoopCounter % 5 == 0)
-				w.Minimap_Character_View(p, InfoManager.Character.GetDegreeAngle());
-			// Update header stats (LVL/HP/MP labels) every 5 iterations
-			if (JoinedLoopCounter % 5 == 0)
-				w.UpdateHeaderStats();
-			// Grace period: İlk 5 saniye (dünya ve spawnlar oturana kadar) paket basma
-			bool isGracePeriod = !InfoManager.inGame || InfoManager.inTeleport
-				|| (InfoManager.JoinedGameUtc != DateTime.MinValue && (DateTime.UtcNow - InfoManager.JoinedGameUtc).TotalSeconds < 5.0)
-				|| (InfoManager.LastTeleportUtc != DateTime.MinValue && (DateTime.UtcNow - InfoManager.LastTeleportUtc).TotalSeconds < 5.0);
+			if (System.Threading.Interlocked.CompareExchange(ref m_onLoopRunning, 1, 0) != 0)
+				return;
 
-			if (JoinedLoopCounter == 25)
+			try
 			{
-				w.Log("[INFO] Oyun dünyası ve spawnlar yüklendi, koruma ve kontroller devrede.", LogLevel.Success);
-			}
+				SRCharacter character = InfoManager.Character;
+				if (character == null)
+					return;
 
-			// Run all protection checks from one throttled, serialized tick.
-			if (JoinedLoopCounter % 5 == 0 && !isGracePeriod)
-			{
-				try { StartPetLooting(); } catch { }
-				ProtectionManager.RunTick();
-				// Pot güvenlik ağı: HP sabitse HP paketi gelmez ve event tetiklenmez
-				// (şehirde bekleme, dirilme sonrası). 1sn yoklama bottan bağımsız çalışır;
-				// cooldown kapısı (tUsingHP/MP timer) spam'i engeller.
-				try { CheckUsingHP(); } catch { }
-				try { CheckUsingMP(); } catch { }
-				try { CheckUsingVigor(); } catch { }
-				// Trace takibi: eskiden tek seferlik MoveTo idi, oyuncu uzaklaşınca
-				// bot bekliyordu. 1sn tick ile hedefe periyodik yürünür.
-				try { UpdateTraceTick(); } catch { }
+				SRCoord p = character.GetRealtimePosition();
+				if (p == null)
+					return;
 
-				// PhBot AutoSelectUniques / AutoSelectTitans (botting yapmıyorken hedef seçme)
-				if (!isBotting && (CombatAIEngine.AutoSelectUniques || CombatAIEngine.AutoSelectTitans))
+				Window w = Window.Get;
+				// Set values
+				w?.Character_SetPosition(p);
+				// Update map view every seconds
+				if (JoinedLoopCounter % 5 == 0)
+					w?.Minimap_Character_View(p, character.GetDegreeAngle());
+				// Update header stats (LVL/HP/MP labels) every 5 iterations
+				if (JoinedLoopCounter % 5 == 0)
+					w?.UpdateHeaderStats();
+				// Grace period: İlk 5 saniye (dünya ve spawnlar oturana kadar) paket basma
+				bool isGracePeriod = !InfoManager.inGame || InfoManager.inTeleport
+					|| (InfoManager.JoinedGameUtc != DateTime.MinValue && (DateTime.UtcNow - InfoManager.JoinedGameUtc).TotalSeconds < 5.0)
+					|| (InfoManager.LastTeleportUtc != DateTime.MinValue && (DateTime.UtcNow - InfoManager.LastTeleportUtc).TotalSeconds < 5.0);
+
+				if (JoinedLoopCounter == 25)
 				{
-					try
+					w?.Log("[INFO] Oyun dünyası ve spawnlar yüklendi, koruma ve kontroller devrede.", LogLevel.Success);
+				}
+
+				// Run all protection checks from one throttled, serialized tick.
+				if (JoinedLoopCounter % 5 == 0 && !isGracePeriod)
+				{
+					try { StartPetLooting(); } catch { }
+					ProtectionManager.RunTick();
+					// Pot güvenlik ağı: HP sabitse HP paketi gelmez ve event tetiklenmez
+					// (şehirde bekleme, dirilme sonrası). 1sn yoklama bottan bağımsız çalışır;
+					// cooldown kapısı (tUsingHP/MP timer) spam'i engeller.
+					try { CheckUsingHP(); } catch { }
+					try { CheckUsingMP(); } catch { }
+					try { CheckUsingVigor(); } catch { }
+					// Trace takibi: eskiden tek seferlik MoveTo idi, oyuncu uzaklaşınca
+					// bot bekliyordu. 1sn tick ile hedefe periyodik yürünür.
+					try { UpdateTraceTick(); } catch { }
+
+					// PhBot AutoSelectUniques / AutoSelectTitans (botting yapmıyorken hedef seçme)
+					if (!isBotting && (CombatAIEngine.AutoSelectUniques || CombatAIEngine.AutoSelectTitans))
 					{
-						for (int mIdx = 0; mIdx < InfoManager.Mobs.Count; mIdx++)
+						try
 						{
-							var mob = InfoManager.Mobs.GetAt(mIdx);
-							if (mob == null) continue;
-							bool isUniq = mob.MobType == SRMob.Mob.Unique;
-							bool isTit = mob.MobType == SRMob.Mob.Titan || mob.MobType == SRMob.Mob.PartyGiant || mob.MobType == SRMob.Mob.Elite;
-							if ((CombatAIEngine.AutoSelectUniques && isUniq) || (CombatAIEngine.AutoSelectTitans && isTit))
+							for (int mIdx = 0; mIdx < InfoManager.Mobs.Count; mIdx++)
 							{
-								if (InfoManager.Character != null && InfoManager.Character.TargetUniqueID != mob.UniqueID)
+								var mob = InfoManager.Mobs.GetAt(mIdx);
+								if (mob == null) continue;
+								bool isUniq = mob.MobType == SRMob.Mob.Unique;
+								bool isTit = mob.MobType == SRMob.Mob.Titan || mob.MobType == SRMob.Mob.PartyGiant || mob.MobType == SRMob.Mob.Elite;
+								if ((CombatAIEngine.AutoSelectUniques && isUniq) || (CombatAIEngine.AutoSelectTitans && isTit))
 								{
-									PacketBuilder.SelectEntity(mob.UniqueID);
-									w.LogProcess($"Auto-selected nearby {(isUniq ? "Unique" : "Titan")}: [{mob.Name}]");
-									break;
+									if (InfoManager.Character != null && InfoManager.Character.TargetUniqueID != mob.UniqueID)
+									{
+										PacketBuilder.SelectEntity(mob.UniqueID);
+										w?.LogProcess($"Auto-selected nearby {(isUniq ? "Unique" : "Titan")}: [{mob.Name}]");
+										break;
+									}
 								}
 							}
 						}
-					}
-					catch (Exception ex)
-					{
-						Theme.ModernLogger.LogSwallowed(ex, "Bot.Events.AutoSelectUniqueOrTitan");
+						catch (Exception ex)
+						{
+							Theme.ModernLogger.LogSwallowed(ex, "Bot.Events.AutoSelectUniqueOrTitan");
+						}
 					}
 				}
+				JoinedLoopCounter++;
 			}
-			JoinedLoopCounter++;
+			catch (Exception ex)
+			{
+				DateTime now = DateTime.UtcNow;
+				if (ex.Message != m_lastOnLoopErrorMessage || (now - m_lastOnLoopErrorTime).TotalSeconds >= 5.0)
+				{
+					string countSuffix = m_suppressedOnLoopErrorCount > 0 ? $" (+{m_suppressedOnLoopErrorCount} repeated suppressed)" : "";
+					Theme.ModernLogger.LogSwallowed(ex, $"Bot.Events.OnLoop: {ex.Message}{countSuffix}");
+					m_lastOnLoopErrorTime = now;
+					m_lastOnLoopErrorMessage = ex.Message;
+					m_suppressedOnLoopErrorCount = 0;
+				}
+				else
+				{
+					m_suppressedOnLoopErrorCount++;
+				}
+			}
+			finally
+			{
+				System.Threading.Interlocked.Exchange(ref m_onLoopRunning, 0);
+			}
 		}
 		private Timer tJoinedLoop;
 		private uint JoinedLoopCounter = 0;
+		private int m_onLoopRunning = 0;
+		private DateTime m_lastOnLoopErrorTime = DateTime.MinValue;
+		private string m_lastOnLoopErrorMessage = null;
+		private int m_suppressedOnLoopErrorCount = 0;
 		/// <summary>
 		/// Called right before all character data is loaded.
 		/// </summary>

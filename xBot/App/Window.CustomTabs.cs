@@ -3734,7 +3734,7 @@ namespace xBot.App
         {
             if (lblProtectionStatPointsRemain != null)
             {
-                lblProtectionStatPointsRemain.InvokeIfRequired(() =>
+                lblProtectionStatPointsRemain.BeginInvokeIfRequired(() =>
                 {
                     if (InfoManager.Character != null)
                         lblProtectionStatPointsRemain.Text = InfoManager.Character.StatPoints.ToString();
@@ -3755,7 +3755,7 @@ namespace xBot.App
                 ? Color.LightGreen
                 : (SkillManager.ConsecutiveCastFailures > 0 ? Color.Khaki : Color.LightSkyBlue);
 
-            lblSkillRuntimeStatus.InvokeIfRequired(() =>
+            lblSkillRuntimeStatus.BeginInvokeIfRequired(() =>
             {
                 lblSkillRuntimeStatus.Text = text;
                 lblSkillRuntimeStatus.ForeColor = color;
@@ -3817,19 +3817,19 @@ namespace xBot.App
 
                 if (lblHeaderLevel != null)
                 {
-                    lblHeaderLevel.InvokeIfRequired(() => {
+                    lblHeaderLevel.BeginInvokeIfRequired(() => {
                         lblHeaderLevel.Text = "LVL: " + InfoManager.Character.Level;
                     });
                 }
                 if (lblHeaderHP != null)
                 {
-                    lblHeaderHP.InvokeIfRequired(() => {
+                    lblHeaderHP.BeginInvokeIfRequired(() => {
                         lblHeaderHP.Text = "HP: " + InfoManager.Character.GetHPPercent() + "%";
                     });
                 }
                 if (lblHeaderMP != null)
                 {
-                    lblHeaderMP.InvokeIfRequired(() => {
+                    lblHeaderMP.BeginInvokeIfRequired(() => {
                         lblHeaderMP.Text = "MP: " + InfoManager.Character.GetMPPercent() + "%";
                     });
                 }
