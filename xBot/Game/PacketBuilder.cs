@@ -1,4 +1,4 @@
-using SecurityAPI;
+﻿using SecurityAPI;
 using System;
 using System.Collections.Generic;
 using xBot.App;
@@ -682,23 +682,27 @@ namespace xBot.Game
 				return false;
 			}
 		}
-		public static void MoveItem(byte slotInitial,byte slotFinal, SRTypes.InventoryItemMovement type,ushort quantity = 0)
+		public static bool MoveItem(byte slotInitial,byte slotFinal, SRTypes.InventoryItemMovement type,ushort quantity = 0)
 		{
+			if (Bot.Get?.Proxy?.Agent == null) return false;
 			Packet p = new Packet(Agent.Opcode.CLIENT_INVENTORY_ITEM_MOVEMENT);
 			p.WriteByte(type);
 			p.WriteByte(slotInitial);
 			p.WriteByte(slotFinal);
 			p.WriteUShort(quantity);
 			Bot.Get.Proxy.Agent.InjectToServer(p);
+			return true;
 		}
-		public static void MoveItem(byte slotInitial,byte slotFinal, SRTypes.InventoryItemMovement type,uint uniqueID)
+		public static bool MoveItem(byte slotInitial,byte slotFinal, SRTypes.InventoryItemMovement type,uint uniqueID)
 		{
+			if (Bot.Get?.Proxy?.Agent == null) return false;
 			Packet p = new Packet(Agent.Opcode.CLIENT_INVENTORY_ITEM_MOVEMENT);
 			p.WriteByte(type);
 			p.WriteByte(slotInitial);
 			p.WriteByte(slotFinal);
 			p.WriteUInt(uniqueID);
 			Bot.Get.Proxy.Agent.InjectToServer(p);
+			return true;
 		}
 		public static void DropItem(byte slot)
 		{

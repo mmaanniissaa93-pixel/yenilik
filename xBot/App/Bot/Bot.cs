@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using xBot.Network;
 using SecurityAPI;
 using System.Collections.Generic;
@@ -48,8 +48,19 @@ namespace xBot.App
 		/// <summary>
 		/// Check if is sorting any inventory.
 		/// </summary>
-		public bool isSorting { get { return tSorting != null; } }
+		public bool isSorting
+		{
+			get
+			{
+				lock (m_sortingLock)
+				{
+					return tSorting != null && tSorting.IsAlive;
+				}
+			}
+		}
 		private Thread tSorting;
+		private readonly object m_sortingLock = new object();
+		private int m_sortingSessionId;
 		private volatile bool m_stopSortingRequested;
 		/// <summary>
 		/// Ping check by command
@@ -481,8 +492,19 @@ namespace xBot.App
 		}
 		private void MoveTo(SRCoord position, Action<string> trace)
 		{
-			if (InfoManager.Character.isRiding)
-				PacketBuilder.MoveTo(position,InfoManager.Character.RidingUniqueID, trace);
+			if (position == null)
+			{
+				trace?.Invoke("MoveTo not sent reason=null-position");
+				return;
+			}
+			SRCharacter character = InfoManager.Character;
+			if (character == null)
+			{
+				trace?.Invoke("MoveTo not sent reason=no-character");
+				return;
+			}
+			if (character.isRiding)
+				PacketBuilder.MoveTo(position, character.RidingUniqueID, trace);
 			else
 				PacketBuilder.MoveTo(position, 0, trace);
 		}
@@ -677,30 +699,42 @@ namespace xBot.App
 
 		public bool StartInventorySort()
 		{
-			if (InfoManager.inGame && !isSorting)
+			lock (m_sortingLock)
 			{
+				if (!InfoManager.inGame || isSorting)
+					return false;
+
 				m_stopSortingRequested = false;
-				tSorting = new Thread(InventorySort);
+				int sessionId = ++m_sortingSessionId;
+				tSorting = new Thread(() => InventorySort(sessionId));
 				tSorting.IsBackground = true;
 				tSorting.Priority = ThreadPriority.BelowNormal;
 				tSorting.Start();
 
 				Window w = Window.Get;
-				w.Inventory_btnItemsSort.InvokeIfRequired(() => {
+				w?.Inventory_btnItemsSort?.BeginInvokeIfRequired(() => {
 					w.Inventory_btnItemsSort.Tag = w.Inventory_btnItemsSort.ForeColor;
 					w.Inventory_btnItemsSort.ForeColor = System.Drawing.Color.FromArgb(0, 180, 255);
 				});
 				return true;
 			}
-			return false;
 		}
 		public void InventorySort()
+		{
+			int sessionId;
+			lock (m_sortingLock)
+			{
+				sessionId = m_sortingSessionId;
+			}
+			InventorySort(sessionId);
+		}
+		private void InventorySort(int sessionId)
 		{
 			Window w = Window.Get;
 
 			bool sort = true;
 			try {
-			while (InfoManager.inGame && sort && !m_stopSortingRequested)
+			while (InfoManager.inGame && sort && !m_stopSortingRequested && m_sortingSessionId == sessionId)
 			{
 				sort = false;
 				xList<SRItem> inventory = InfoManager.Character?.Inventory;
@@ -708,6 +742,9 @@ namespace xBot.App
 					break;
 				for (byte j = (byte)(inventory.Capacity - 1); j >= 13; j--)
 				{
+					if (m_stopSortingRequested || m_sortingSessionId != sessionId)
+						break;
+
 					if (inventory[j] != null && inventory[j].QuantityMax != 1)
 					{
 						ushort quantityInitial = inventory[j].Quantity;
@@ -716,6 +753,9 @@ namespace xBot.App
 						{
 							for (byte k = 13; k < j; k++)
 							{
+								if (m_stopSortingRequested || m_sortingSessionId != sessionId)
+									break;
+
 								// Just in case
 								if (inventory[j] == null)
 									break;
@@ -727,13 +767,16 @@ namespace xBot.App
 										ushort quantityFinal = inventory[k].Quantity;
 										if (quantityFinal < quantityMax)
 										{
-											w.LogProcess("Sorting (" + j + ") -> (" + k + ") ...");
+											w?.LogProcess("Sorting (" + j + ") -> (" + k + ") ...");
 
 											ushort quantityMaxMoved = (ushort)(quantityMax - quantityFinal);
+											bool sent;
 											if (quantityInitial <= quantityMaxMoved)
-												PacketBuilder.MoveItem(j, k, SRTypes.InventoryItemMovement.InventoryToInventory, quantityInitial);
+												sent = PacketBuilder.MoveItem(j, k, SRTypes.InventoryItemMovement.InventoryToInventory, quantityInitial);
 											else
-												PacketBuilder.MoveItem(j++, k, SRTypes.InventoryItemMovement.InventoryToInventory, quantityMaxMoved);
+												sent = PacketBuilder.MoveItem(j++, k, SRTypes.InventoryItemMovement.InventoryToInventory, quantityMaxMoved);
+											if (!sent)
+												break;
 											sort = true;
 											InfoManager.MonitorInventoryMovement.WaitOne(1000);
 											break;
@@ -746,39 +789,69 @@ namespace xBot.App
 				}
 			}
 
-			} finally {
-			w.Inventory_btnItemsSort.InvokeIfRequired(() => {
-			if (w.Inventory_btnItemsSort.Tag != null) w.Inventory_btnItemsSort.ForeColor = (System.Drawing.Color)w.Inventory_btnItemsSort.Tag;
+			}
+			catch (Exception ex)
+			{
+				w?.LogProcess("Sorting error: " + ex.Message);
+			}
+			finally {
+			w?.Inventory_btnItemsSort?.BeginInvokeIfRequired(() => {
+				if (w.Inventory_btnItemsSort.Tag != null) w.Inventory_btnItemsSort.ForeColor = (System.Drawing.Color)w.Inventory_btnItemsSort.Tag;
 				w.Inventory_btnItemsSort.Tag = null;
 			});
 
-			w.LogProcess("Sorting completed");
-			tSorting = null;
+			w?.LogProcess("Sorting completed");
+
+			lock (m_sortingLock)
+			{
+				if (tSorting == Thread.CurrentThread)
+				{
+					tSorting = null;
+				}
+			}
 			/* sorting done */ }
 		}
 		public bool StopInventorySort()
 		{
-			if (isSorting)
+			Thread workerToJoin = null;
+			lock (m_sortingLock)
 			{
-				m_stopSortingRequested = true;
-				tSorting = null;
+				if (tSorting == null || !tSorting.IsAlive)
+					return false;
 
-				Window w = Window.Get;
-				w.LogProcess("Sorting stopped");
-				w.Inventory_btnItemsSort.InvokeIfRequired(() => {
-				if (w.Inventory_btnItemsSort.Tag != null) w.Inventory_btnItemsSort.ForeColor = (System.Drawing.Color)w.Inventory_btnItemsSort.Tag;
-					w.Inventory_btnItemsSort.Tag = null;
-				});
-				w.Inventory_btnStorageSort.InvokeIfRequired(() => {
-					if (w.Inventory_btnStorageSort.Tag != null)
-					{
-						w.Inventory_btnStorageSort.ForeColor = (System.Drawing.Color)w.Inventory_btnStorageSort.Tag;
-						w.Inventory_btnStorageSort.Tag = null;
-					}
-				});
-				return true;
+				m_stopSortingRequested = true;
+				m_sortingSessionId++;
+				try { InfoManager.MonitorInventoryMovement.Set(); } catch { }
+				workerToJoin = tSorting;
 			}
-			return false;
+
+			if (workerToJoin != null && workerToJoin.IsAlive && workerToJoin != Thread.CurrentThread)
+			{
+				try { workerToJoin.Join(250); } catch { }
+			}
+
+			lock (m_sortingLock)
+			{
+				if (workerToJoin != null && !workerToJoin.IsAlive && tSorting == workerToJoin)
+				{
+					tSorting = null;
+				}
+			}
+
+			Window w = Window.Get;
+			w?.LogProcess("Sorting stopped");
+			w?.Inventory_btnItemsSort?.BeginInvokeIfRequired(() => {
+				if (w.Inventory_btnItemsSort.Tag != null) w.Inventory_btnItemsSort.ForeColor = (System.Drawing.Color)w.Inventory_btnItemsSort.Tag;
+				w.Inventory_btnItemsSort.Tag = null;
+			});
+			w?.Inventory_btnStorageSort?.BeginInvokeIfRequired(() => {
+				if (w.Inventory_btnStorageSort.Tag != null)
+				{
+					w.Inventory_btnStorageSort.ForeColor = (System.Drawing.Color)w.Inventory_btnStorageSort.Tag;
+					w.Inventory_btnStorageSort.Tag = null;
+				}
+			});
+			return true;
 		}
 		/// <summary>
 		/// Depodaki bölünebilir eşyaları birleştirir (InventorySort'un depo karşılığı).
@@ -786,29 +859,41 @@ namespace xBot.App
 		/// </summary>
 		public bool StartStorageSort()
 		{
-			if (InfoManager.inGame && !isSorting && InfoManager.Character?.Storage != null)
+			lock (m_sortingLock)
 			{
+				if (!InfoManager.inGame || isSorting || InfoManager.Character?.Storage == null)
+					return false;
+
 				m_stopSortingRequested = false;
-				tSorting = new Thread(StorageSort);
+				int sessionId = ++m_sortingSessionId;
+				tSorting = new Thread(() => StorageSort(sessionId));
 				tSorting.IsBackground = true;
 				tSorting.Priority = ThreadPriority.BelowNormal;
 				tSorting.Start();
 
 				Window w = Window.Get;
-				w.Inventory_btnStorageSort.InvokeIfRequired(() => {
+				w?.Inventory_btnStorageSort?.BeginInvokeIfRequired(() => {
 					w.Inventory_btnStorageSort.Tag = w.Inventory_btnStorageSort.ForeColor;
 					w.Inventory_btnStorageSort.ForeColor = System.Drawing.Color.FromArgb(0, 180, 255);
 				});
 				return true;
 			}
-			return false;
 		}
 		public void StorageSort()
+		{
+			int sessionId;
+			lock (m_sortingLock)
+			{
+				sessionId = m_sortingSessionId;
+			}
+			StorageSort(sessionId);
+		}
+		private void StorageSort(int sessionId)
 		{
 			Window w = Window.Get;
 			bool sort = true;
 			try {
-			while (InfoManager.inGame && sort && !m_stopSortingRequested)
+			while (InfoManager.inGame && sort && !m_stopSortingRequested && m_sortingSessionId == sessionId)
 			{
 				sort = false;
 				xList<SRItem> storage = InfoManager.Character?.Storage;
@@ -816,6 +901,9 @@ namespace xBot.App
 					break;
 				for (int j = storage.Capacity - 1; j >= 0; j--)
 				{
+					if (m_stopSortingRequested || m_sortingSessionId != sessionId)
+						break;
+
 					if (storage[j] != null && storage[j].QuantityMax != 1)
 					{
 						ushort quantityInitial = storage[j].Quantity;
@@ -824,6 +912,9 @@ namespace xBot.App
 						{
 							for (int k = 0; k < j; k++)
 							{
+								if (m_stopSortingRequested || m_sortingSessionId != sessionId)
+									break;
+
 								if (storage[j] == null)
 									break;
 								if (storage[k] != null && storage[k].ID == storage[j].ID)
@@ -831,16 +922,19 @@ namespace xBot.App
 									ushort quantityFinal = storage[k].Quantity;
 									if (quantityFinal < quantityMax)
 									{
-										w.LogProcess("Sorting storage (" + j + ") -> (" + k + ") ...");
+										w?.LogProcess("Sorting storage (" + j + ") -> (" + k + ") ...");
 										ushort quantityMaxMoved = (ushort)(quantityMax - quantityFinal);
 										byte from = (byte)j, to = (byte)k;
+										bool sent;
 										if (quantityInitial <= quantityMaxMoved)
-											PacketBuilder.MoveItem(from, to, SRTypes.InventoryItemMovement.StorageToStorage, quantityInitial);
+											sent = PacketBuilder.MoveItem(from, to, SRTypes.InventoryItemMovement.StorageToStorage, quantityInitial);
 										else
 										{
-											PacketBuilder.MoveItem(from, to, SRTypes.InventoryItemMovement.StorageToStorage, quantityMaxMoved);
+											sent = PacketBuilder.MoveItem(from, to, SRTypes.InventoryItemMovement.StorageToStorage, quantityMaxMoved);
 											j++;
 										}
+										if (!sent)
+											break;
 										sort = true;
 										InfoManager.MonitorInventoryMovement.WaitOne(1000);
 										break;
@@ -851,16 +945,28 @@ namespace xBot.App
 					}
 				}
 			}
-			} finally {
-			w.Inventory_btnStorageSort.InvokeIfRequired(() => {
+			}
+			catch (Exception ex)
+			{
+				w?.LogProcess("Storage sorting error: " + ex.Message);
+			}
+			finally {
+			w?.Inventory_btnStorageSort?.BeginInvokeIfRequired(() => {
 				if (w.Inventory_btnStorageSort.Tag != null)
 				{
 					w.Inventory_btnStorageSort.ForeColor = (System.Drawing.Color)w.Inventory_btnStorageSort.Tag;
 					w.Inventory_btnStorageSort.Tag = null;
 				}
 			});
-			w.LogProcess("Storage sorting completed");
-			tSorting = null;
+			w?.LogProcess("Storage sorting completed");
+
+			lock (m_sortingLock)
+			{
+				if (tSorting == Thread.CurrentThread)
+				{
+					tSorting = null;
+				}
+			}
 			/* sorting done */ }
 		}
 		/// <summary>

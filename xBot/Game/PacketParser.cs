@@ -1,4 +1,4 @@
-using SecurityAPI;
+﻿using SecurityAPI;
 using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
@@ -4049,10 +4049,12 @@ namespace xBot.Game
 		}
 		public static void EntitySkillStart(Packet p)
 		{
+			if (p.RemainingRead() < 1) return;
 			if (p.ReadByte() != 1)
 			{
 				// B070 failures carry a one-byte skill error (0x10 = obstacle).
 				// Parse before publishing so truncated packets cannot wake a cast.
+				if (p.RemainingRead() < 1) return;
 				byte error = p.ReadByte();
 				uint skillId = InfoManager.CharacterActions.PendingSkillId;
 				bool wasAttack;
@@ -4068,16 +4070,18 @@ namespace xBot.Game
 				}
 				return;
 			}
+			// Silkroad-R / modern clients include an extra DWORD between the action ID and target ID.
+			// Without consuming it, the all-zero UnknownId is mistaken for the target and the
+			// character action tracker cannot match the server's cast acknowledgement.
+			bool hasExtendedTargetId = DataManager.CurrentProfile?.HasExtendedSkillCastTargetId ?? (DataManager.Locale == 65 || DataManager.Locale == 56 || DataManager.Locale == 18);
+			int minRequiredBytes = 14 + (hasExtendedTargetId ? 8 : 4);
+			if (p.RemainingRead() < minRequiredBytes) return;
+
 			SRTypes.SkillCast type = (SRTypes.SkillCast)p.ReadByte();
 			p.SeekRead(1, System.IO.SeekOrigin.Current);
 			uint skillID = p.ReadUInt();
 			uint sourceUniqueID = p.ReadUInt();
 			p.SeekRead(4, System.IO.SeekOrigin.Current);
-			// Silkroad-R / modern clients include an extra DWORD between the action ID and target ID.
-			// Without consuming it, the all-zero UnknownId is mistaken for the target and the
-			// character action tracker cannot match the server's cast acknowledgement.
-			bool hasExtendedTargetId = DataManager.CurrentProfile?.HasExtendedSkillCastTargetId ?? (DataManager.Locale == 65);
-			if (p.RemainingRead() < (hasExtendedTargetId ? 8 : 4)) return;
 			if (hasExtendedTargetId)
 				p.SeekRead(4, System.IO.SeekOrigin.Current);
 			uint targetUniqueID = p.ReadUInt();
@@ -4089,22 +4093,28 @@ namespace xBot.Game
 		}
 		public static void EntitySkillEnd(Packet p)
 		{
+			if (p.RemainingRead() < 1) return;
 			// success
 			if (p.ReadBool())
 			{
-                p.SeekRead(8, System.IO.SeekOrigin.Current);
+				if (p.RemainingRead() < 8) return;
+				p.SeekRead(8, System.IO.SeekOrigin.Current);
 				SkillDamageParsing(p);
-            }
+			}
 		}
-		private static void SkillDamageParsing(Packet p){
+		private static void SkillDamageParsing(Packet p)
+		{
+			if (p.RemainingRead() < 1) return;
 			bool hasDamage = p.ReadBool();
 			if (hasDamage)
 			{
-                p.SeekRead(1, System.IO.SeekOrigin.Current);
-                byte targetCount = p.ReadByte();
+				if (p.RemainingRead() < 2) return;
+				p.SeekRead(1, System.IO.SeekOrigin.Current);
+				byte targetCount = p.ReadByte();
 				// AOE
 				for (byte j = 0; j < targetCount; j++)
 				{
+					if (p.RemainingRead() < 5) return;
 					uint targetUniqueID = p.ReadUInt();
 					byte dmgEffect = p.ReadByte();
 					// Since there it's not enough flags to check, then this way have to be used
@@ -4112,8 +4122,9 @@ namespace xBot.Game
 						InfoManager.OnEntityDead(targetUniqueID);
 					else if (dmgEffect.HasFlags((byte)(SRTypes.DamageEffect.Block | SRTypes.DamageEffect.Cancel)))
 						continue;
+					if (p.RemainingRead() < 8) return;
 					p.SeekRead(8, System.IO.SeekOrigin.Current);
-                }
+				}
 			}
 		}
 		public static void EntitySkillBuffAdded(Packet packet)

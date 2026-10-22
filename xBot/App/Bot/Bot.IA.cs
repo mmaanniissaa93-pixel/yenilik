@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -193,8 +193,8 @@ namespace xBot.App
                 w.LogProcess("Bot stopped");
 
                 w.Log("Stopping bot");
-                // Update GUI
-                WinAPI.InvokeIfRequired(w.btnBotStart, () => {
+                // Update GUI asynchronously to prevent deadlock when Stop() is called from background threads
+                WinAPI.BeginInvokeIfRequired(w.btnBotStart, () => {
                     w.btnBotStart.ForeColor = Color.Red;
                     w.ToolTips.SetToolTip(w.btnBotStart, "Start Bot");
                 });
@@ -204,21 +204,26 @@ namespace xBot.App
         }
         private void ThreadBotting()
         {
+            try
+            {
 			if (TradeLoopManager.StartRequested)
 			{
 				if (!TradeLoopManager.SkipTownLoop)
 				{
 					try
 					{
-						SRCoord tradeStart = InfoManager.Character.GetRealtimePosition();
-						Script preparation = Script.GetTownScriptForRegion(tradeStart.Region)
-							?? Script.GetNearestTownScript(tradeStart, 150);
-						if (preparation != null)
+						SRCoord tradeStart = InfoManager.Character?.GetRealtimePosition();
+						if (tradeStart != null)
 						{
-							Window.Get.Log("Trade Loop: normal town script çalıştırılıyor [" + preparation.FileName + "]...");
-							preparation.Run(0);
+							Script preparation = Script.GetTownScriptForRegion(tradeStart.Region)
+								?? Script.GetNearestTownScript(tradeStart, 150);
+							if (preparation != null)
+							{
+								Window.Get?.Log("Trade Loop: normal town script çalıştırılıyor [" + preparation.FileName + "]...");
+								preparation.Run(0);
+							}
+							else Window.Get?.Log("Trade Loop: normal town script bulunamadı; trade rotasına geçiliyor.", Theme.LogLevel.Warning);
 						}
-						else Window.Get.Log("Trade Loop: normal town script bulunamadı; trade rotasına geçiliyor.", Theme.LogLevel.Warning);
 					}
 					catch (Exception ex) { Window.Get.Log("Trade Loop town hazırlığı: " + ex.Message, Theme.LogLevel.Warning); }
 				}
@@ -242,6 +247,11 @@ namespace xBot.App
             Window w = Window.Get;
             while (!m_stopBottingRequested && tBotting != null)
             {
+                if (!InfoManager.inGame || InfoManager.Character == null)
+                {
+                    SleepInterruptible(500);
+                    continue;
+                }
                 // Quest packet thread only queues completion work. Execute it here
                 // so movement/scripts keep a single bot-thread owner.
                 QuestAutomationManager.ObserveActiveQuests();
@@ -251,12 +261,17 @@ namespace xBot.App
                     continue;
                 }
                 // Checking where am I ?
-                w.LogProcess("Checking current location...");
+                w?.LogProcess("Checking current location...");
                 SRCoord myPosition = InfoManager.Character.GetRealtimePosition();
+                if (myPosition == null)
+                {
+                    SleepInterruptible(500);
+                    continue;
+                }
                 currentScript = null;
-                var activeArea = w.TrainingArea_GetPosition();
-                if (activeArea != null && myPosition != null
-                    && myPosition.DistanceTo(activeArea) <= w.TrainingArea_GetRadius()
+                var activeArea = w?.TrainingArea_GetPosition();
+                if (activeArea != null
+                    && myPosition.DistanceTo(activeArea) <= (w != null ? w.TrainingArea_GetRadius() : 50)
                     && !TownManager.Get.IsNearTown(myPosition))
                 {
                     // Starting in the configured field needs no town-script scan.
@@ -611,6 +626,21 @@ namespace xBot.App
                         }
                     }
                 }
+            }
+                    }
+            catch (ThreadAbortException)
+            {
+                // Normal thread abort
+            }
+            catch (Exception ex)
+            {
+                Window.Get?.Log("ThreadBotting kritik hata: " + ex.Message, Theme.LogLevel.Error);
+                try { Stop(); } catch { }
+            }
+            finally
+            {
+                if (tBotting == Thread.CurrentThread)
+                    tBotting = null;
             }
         }
         /// <summary>
@@ -3985,9 +4015,13 @@ namespace xBot.App
         {
             if (point == null) return false;
             if (!point.inDungeon()) return WaitMovement(point, attempts, tolerance);
+            SRCharacter character = InfoManager.Character;
+            if (character == null) return false;
+            SRCoord myPos = character.GetRealtimePosition();
+            if (myPos == null) return false;
             return WaitMovement(point, Math.Max(attempts, Math.Min(160,
-                InfoManager.Character.GetRealtimePosition().TimeTo(point, InfoManager.Character.GetMovementSpeed()) / 300 + 10)),
-                0.75, null, true, message => Window.Get.Log("[CAVE-PATH] " + message));
+                myPos.TimeTo(point, character.GetMovementSpeed()) / 300 + 10)),
+                0.75, null, true, message => Window.Get?.Log("[CAVE-PATH] " + message));
         }
 
         public bool WaitMovement(SRCoord position, int maxAttempts, double arrivalTolerance = 3.0)
@@ -4018,7 +4052,7 @@ namespace xBot.App
                 if (interrupt != null && interrupt())
                 {
                     // Cancel the outstanding waypoint command before interacting.
-                    if (stopOnInterrupt) MoveTo(InfoManager.Character.GetRealtimePosition(), trace);
+                    if (stopOnInterrupt) MoveTo(InfoManager.Character?.GetRealtimePosition(), trace);
                     trace?.Invoke(stopOnInterrupt ? "WaitMovement interrupted reason=candidate-found" : "WaitMovement interrupted reason=transition-observed");
                     return true;
                 }

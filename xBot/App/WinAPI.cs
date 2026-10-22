@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -60,6 +60,21 @@ namespace xBot.App
 			{
 				if (control.InvokeRequired)
 					control.Invoke(action);
+				else
+					action();
+			}catch{
+				// Control closed
+			}
+		}
+		/// <summary>
+		/// Asynchronously invoke the control if required to avoid blocking background threads.
+		/// </summary>
+		public static void BeginInvokeIfRequired(this Control control, MethodInvoker action)
+		{
+			try
+			{
+				if (control.InvokeRequired)
+					control.BeginInvoke(action);
 				else
 					action();
 			}catch{
