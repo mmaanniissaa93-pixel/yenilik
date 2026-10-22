@@ -732,7 +732,7 @@ namespace xBot.App
 		{
 			lock (m_sortingLock)
 			{
-				if (!InfoManager.inGame || isSorting)
+				if (!InfoManager.inGame || InfoManager.inTeleport || isSorting)
 					return false;
 
 				m_stopSortingRequested = false;
@@ -765,7 +765,7 @@ namespace xBot.App
 
 			bool sort = true;
 			try {
-			while (InfoManager.inGame && sort && !m_stopSortingRequested && m_sortingSessionId == sessionId)
+			while (InfoManager.inGame && !InfoManager.inTeleport && sort && !m_stopSortingRequested && m_sortingSessionId == sessionId)
 			{
 				sort = false;
 				xList<SRItem> inventory = InfoManager.Character?.Inventory;
@@ -773,7 +773,7 @@ namespace xBot.App
 					break;
 				for (byte j = (byte)(inventory.Capacity - 1); j >= 13; j--)
 				{
-					if (m_stopSortingRequested || m_sortingSessionId != sessionId)
+					if (m_stopSortingRequested || m_sortingSessionId != sessionId || !InfoManager.inGame || InfoManager.inTeleport)
 						break;
 
 					if (inventory[j] != null && inventory[j].QuantityMax != 1)
@@ -784,7 +784,7 @@ namespace xBot.App
 						{
 							for (byte k = 13; k < j; k++)
 							{
-								if (m_stopSortingRequested || m_sortingSessionId != sessionId)
+								if (m_stopSortingRequested || m_sortingSessionId != sessionId || !InfoManager.inGame || InfoManager.inTeleport)
 									break;
 
 								// Just in case
@@ -807,7 +807,10 @@ namespace xBot.App
 											else
 												sent = PacketBuilder.MoveItem(j++, k, SRTypes.InventoryItemMovement.InventoryToInventory, quantityMaxMoved);
 											if (!sent)
-												break;
+											{
+												sort = false;
+												return;
+											}
 											sort = true;
 											InfoManager.MonitorInventoryMovement.WaitOne(1000);
 											break;
@@ -815,6 +818,8 @@ namespace xBot.App
 									}
 								}
 							}
+							if (m_stopSortingRequested || m_sortingSessionId != sessionId || !InfoManager.inGame || InfoManager.inTeleport)
+								break;
 						}
 					}
 				}
@@ -884,6 +889,10 @@ namespace xBot.App
 			});
 			return true;
 		}
+		public bool StopStorageSort()
+		{
+			return StopInventorySort();
+		}
 		/// <summary>
 		/// Depodaki bölünebilir eşyaları birleştirir (InventorySort'un depo karşılığı).
 		/// UI'daki Inventory_btnStorageSort butonunun backend'idir.
@@ -892,7 +901,7 @@ namespace xBot.App
 		{
 			lock (m_sortingLock)
 			{
-				if (!InfoManager.inGame || isSorting || InfoManager.Character?.Storage == null)
+				if (!InfoManager.inGame || InfoManager.inTeleport || isSorting || InfoManager.Character?.Storage == null)
 					return false;
 
 				m_stopSortingRequested = false;
@@ -924,7 +933,7 @@ namespace xBot.App
 			Window w = Window.Get;
 			bool sort = true;
 			try {
-			while (InfoManager.inGame && sort && !m_stopSortingRequested && m_sortingSessionId == sessionId)
+			while (InfoManager.inGame && !InfoManager.inTeleport && sort && !m_stopSortingRequested && m_sortingSessionId == sessionId)
 			{
 				sort = false;
 				xList<SRItem> storage = InfoManager.Character?.Storage;
@@ -932,7 +941,7 @@ namespace xBot.App
 					break;
 				for (int j = storage.Capacity - 1; j >= 0; j--)
 				{
-					if (m_stopSortingRequested || m_sortingSessionId != sessionId)
+					if (m_stopSortingRequested || m_sortingSessionId != sessionId || !InfoManager.inGame || InfoManager.inTeleport)
 						break;
 
 					if (storage[j] != null && storage[j].QuantityMax != 1)
@@ -943,7 +952,7 @@ namespace xBot.App
 						{
 							for (int k = 0; k < j; k++)
 							{
-								if (m_stopSortingRequested || m_sortingSessionId != sessionId)
+								if (m_stopSortingRequested || m_sortingSessionId != sessionId || !InfoManager.inGame || InfoManager.inTeleport)
 									break;
 
 								if (storage[j] == null)
@@ -965,13 +974,18 @@ namespace xBot.App
 											j++;
 										}
 										if (!sent)
-											break;
+										{
+											sort = false;
+											return;
+										}
 										sort = true;
 										InfoManager.MonitorInventoryMovement.WaitOne(1000);
 										break;
 									}
 								}
 							}
+							if (m_stopSortingRequested || m_sortingSessionId != sessionId || !InfoManager.inGame || InfoManager.inTeleport)
+								break;
 						}
 					}
 				}

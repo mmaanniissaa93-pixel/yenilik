@@ -32,6 +32,7 @@ namespace xBot.App
 		/// Unique instance of this class.
 		/// </summary>
 		private static Window _this = null;
+		private static readonly object _windowLock = new object();
 		private bool _isInitializing;
 		/// <summary>
 		/// Advertising window.
@@ -80,7 +81,13 @@ namespace xBot.App
 			get
 			{
 				if (_this == null)
-					_this = new Window();
+				{
+					lock (_windowLock)
+					{
+						if (_this == null)
+							_this = new Window();
+					}
+				}
 				return _this;
 			}
 		}

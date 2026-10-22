@@ -174,7 +174,7 @@ namespace xBot.App
 		/// </summary>
 		public void OnTeleporting()
 		{
-			
+			StopInventorySort();
 		}
 		/// <summary>
 		/// Just before <see cref="OnTeleported"/> is called. Generated only once per character login.

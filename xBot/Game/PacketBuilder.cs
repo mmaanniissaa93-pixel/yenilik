@@ -684,7 +684,7 @@ namespace xBot.Game
 		}
 		public static bool MoveItem(byte slotInitial,byte slotFinal, SRTypes.InventoryItemMovement type,ushort quantity = 0)
 		{
-			if (Bot.Get?.Proxy?.Agent == null) return false;
+			if (Bot.Get?.Proxy?.Agent == null || !InfoManager.inGame || InfoManager.inTeleport) return false;
 			Packet p = new Packet(Agent.Opcode.CLIENT_INVENTORY_ITEM_MOVEMENT);
 			p.WriteByte(type);
 			p.WriteByte(slotInitial);
@@ -695,7 +695,7 @@ namespace xBot.Game
 		}
 		public static bool MoveItem(byte slotInitial,byte slotFinal, SRTypes.InventoryItemMovement type,uint uniqueID)
 		{
-			if (Bot.Get?.Proxy?.Agent == null) return false;
+			if (Bot.Get?.Proxy?.Agent == null || !InfoManager.inGame || InfoManager.inTeleport) return false;
 			Packet p = new Packet(Agent.Opcode.CLIENT_INVENTORY_ITEM_MOVEMENT);
 			p.WriteByte(type);
 			p.WriteByte(slotInitial);

@@ -78,8 +78,20 @@ namespace xBot.Network
 			catch { }
 		}
 
-		private Thread ThreadProxyReconnection;
-		private readonly ManualResetEventSlim _reconnectCancelEvent = new ManualResetEventSlim(false);
+		private readonly object m_proxyLifecycleLock = new object();
+		private Thread m_gwThread;
+		private Thread m_agThread;
+		private Socket m_gwListener;
+		private Socket m_agListener;
+
+		private Thread m_gwReconnectThread;
+		private readonly ManualResetEventSlim _gwReconnectCancelEvent = new ManualResetEventSlim(false);
+		private Thread m_gwTimeoutThread;
+		private readonly ManualResetEventSlim _gwTimeoutCancelEvent = new ManualResetEventSlim(false);
+
+		private Thread m_agTimeoutThread;
+		private readonly ManualResetEventSlim _agTimeoutCancelEvent = new ManualResetEventSlim(false);
+
 		private int CurrentAttemptReconnections;
 		private Thread PingHandler;
 		private readonly ManualResetEventSlim _pingCancelEvent = new ManualResetEventSlim(false);
@@ -121,13 +133,22 @@ namespace xBot.Network
 		/// </summary>
 		public void Start()
 		{
-			isRunning = true;
-			UiNotifier.NotifyProxyState(true);
+			lock (m_proxyLifecycleLock)
+			{
+				if (isRunning && ((m_gwThread != null && m_gwThread.IsAlive) || (m_agThread != null && m_agThread.IsAlive)))
+				{
+					BotLog.Log("[Proxy] Start() called while proxy session is already active; ignoring duplicate start.");
+					return;
+				}
 
-			Thread gwThread = (new Thread(ThreadGateway));
-			gwThread.IsBackground = true;
-			gwThread.Priority = ThreadPriority.AboveNormal;
-			gwThread.Start();
+				isRunning = true;
+				UiNotifier.NotifyProxyState(true);
+
+				m_gwThread = new Thread(ThreadGateway);
+				m_gwThread.IsBackground = true;
+				m_gwThread.Priority = ThreadPriority.AboveNormal;
+				m_gwThread.Start();
+			}
 		}
 		private string SelectHost()
 		{
@@ -176,74 +197,84 @@ namespace xBot.Network
         }
         private void ThreadGateway()
 		{
-			Gateway = new Gateway(this.SelectHost(), this.SelectPort());
-
 			Window w = Window.Get;
-			Socket SocketBinded = BindGatewaySocket("127.0.0.1");
-			if (!LoginClientlessMode)
-			{
-				Gateway.Local.Socket = SocketBinded;
-				try
-				{
-					// Loader setup
-					w.LogProcess("Executing ClientManager (Detours)...");
-					sro_client = ClientManager.Start(
-						DataManager.ClientPath,
-						DataManager.Locale,
-						0,
-						lastHostIndexSelected,
-						(ushort)((IPEndPoint)Gateway.Local.Socket.LocalEndPoint).Port,
-						GatewayHosts,
-						Gateway.Port
-					);
-					if (sro_client == null)
-					{
-						Stop();
-						return;
-					}
-					//else
-					//	sro_client.PriorityClass = ProcessPriorityClass.AboveNormal;
-
-					int dummy = 0;
-					w.Log("Client login ekraninda bekleniyor. Oyun penceresinden giris yapip Connect'e basin. Yerel baglanti: [" + Gateway.Local.Socket.LocalEndPoint.ToString() + "]");
-					w.LogProcess("Client login bekleniyor; oyundan giris yapin.", Window.ProcessState.Warning);
-					// Wait 2min. Infinity attempts
-					ProxyReconnection(120, ref dummy, int.MaxValue);
-					Gateway.Local.Socket = Gateway.Local.Socket.Accept();
-					ProxyReconnectionStop();
-					w.LogProcess("Connected");
-
-					// Save client process
-					sro_client.EnableRaisingEvents = true;
-					sro_client.Exited += new EventHandler(this.Client_Closed);
-				}
-				catch (Exception ex)
-				{
-					w.LogProcess(ex.ToString());
-					return;
-				}
-			}
 			try
 			{
-				Gateway.Remote.Socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-				w.Log("Connecting to Gateway server [" + Gateway.Host + ":" + Gateway.Port + "]");
-				w.LogProcess("Waiting server connection...");
+				Gateway = new Gateway(this.SelectHost(), this.SelectPort());
 
-				ProxyReconnection(30, ref CurrentAttemptReconnections, 10); // Wait 30 seconds, max. 10 attempts
-				if (Socks5Config.GetEffectiveProxy(out string pHost, out ushort pPort, out string pUser, out string pPass))
+				if (!LoginClientlessMode)
 				{
-					w.Log($"[SOCKS5] Routing via {pHost}:{pPort} to Gateway [{Gateway.Host}:{Gateway.Port}]");
-					Socks5Handler.Connect(Gateway.Remote.Socket, pHost, pPort, Gateway.Host, Gateway.Port, pUser, pPass);
+					m_gwListener = BindGatewaySocket("127.0.0.1");
+					if (m_gwListener == null)
+					{
+						w?.LogProcess("Failed to bind local Gateway port.", Window.ProcessState.Error);
+						Stop(false);
+						return;
+					}
+
+					try
+					{
+						// Loader setup
+						w?.LogProcess("Executing ClientManager (Detours)...");
+						sro_client = ClientManager.Start(
+							DataManager.ClientPath,
+							DataManager.Locale,
+							0,
+							lastHostIndexSelected,
+							(ushort)((IPEndPoint)m_gwListener.LocalEndPoint).Port,
+							GatewayHosts,
+							Gateway.Port
+						);
+						if (sro_client == null)
+						{
+							Stop(false);
+							return;
+						}
+
+						w?.Log("Client login ekraninda bekleniyor. Oyun penceresinden giris yapip Connect'e basin. Yerel baglanti: [" + m_gwListener.LocalEndPoint.ToString() + "]");
+						w?.LogProcess("Client login bekleniyor; oyundan giris yapin.", Window.ProcessState.Warning);
+						StartGatewayTimeout(120, "Client Gateway Connection");
+						Gateway.Local.Socket = m_gwListener.Accept();
+						StopGatewayTimeout();
+						w?.LogProcess("Connected");
+
+						// Save client process
+						sro_client.EnableRaisingEvents = true;
+						sro_client.Exited += new EventHandler(this.Client_Closed);
+					}
+					catch (Exception ex)
+					{
+						StopGatewayTimeout();
+						w?.LogProcess(ex.ToString());
+						return;
+					}
+					finally
+					{
+						try { m_gwListener?.Close(); } catch { }
+						m_gwListener = null;
+					}
 				}
-				else
+				try
 				{
-					Gateway.Remote.Socket.Connect(Gateway.Host, Gateway.Port);
+					Gateway.Remote.Socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+					w?.Log("Connecting to Gateway server [" + Gateway.Host + ":" + Gateway.Port + "]");
+					w?.LogProcess("Waiting server connection...");
+
+					StartGatewayReconnection(30, CurrentAttemptReconnections, 10); // Wait 30 seconds, max. 10 attempts
+					if (Socks5Config.GetEffectiveProxy(out string pHost, out ushort pPort, out string pUser, out string pPass))
+					{
+						w?.Log($"[SOCKS5] Routing via {pHost}:{pPort} to Gateway [{Gateway.Host}:{Gateway.Port}]");
+						Socks5Handler.Connect(Gateway.Remote.Socket, pHost, pPort, Gateway.Host, Gateway.Port, pUser, pPass);
+					}
+					else
+					{
+						Gateway.Remote.Socket.Connect(Gateway.Host, Gateway.Port);
+					}
+					StopGatewayReconnection();
+					CurrentAttemptReconnections = 0;
+					w?.Log("Connected");
+					w?.LogProcess("Connected");
 				}
-				ProxyReconnectionStop();
-				CurrentAttemptReconnections = 0;
-				w.Log("Connected");
-				w.LogProcess("Connected");
-			}
 			catch { return; }
 			try
 			{
@@ -340,15 +371,18 @@ namespace xBot.Network
 										Agent = new Agent(loginID, remoteAgentHost, remoteAgentPort);
 
 										// Bind socket available
-										string agentHost = ((IPEndPoint)SocketBinded.LocalEndPoint).Address.ToString();
+										string agentHost = "127.0.0.1";
 										int agentPort = GetAvailablePort();
 										
-						Thread agThread = new Thread(() => {
-							ThreadAgent(agentHost, agentPort);
-						});
-						agThread.IsBackground = true;
-						agThread.Priority = ThreadPriority.AboveNormal;
-										agThread.Start();
+										lock (m_proxyLifecycleLock)
+										{
+											m_agThread = new Thread(() => {
+												ThreadAgent(agentHost, agentPort);
+											});
+											m_agThread.IsBackground = true;
+											m_agThread.Priority = ThreadPriority.AboveNormal;
+											m_agThread.Start();
+										}
 										
 										// Proxy packet (bot listening)
 										PacketBuilder.Client.CreateAgentLogin(result, Agent.id, agentHost, (ushort)agentPort, packet.Opcode, extraBytes, packet.Encrypted);
@@ -507,14 +541,23 @@ namespace xBot.Network
 				if (Agent != null)
 				{
 					// Normal transition: Client closed Gateway connection to connect to Agent server
-					w.Log("[Gateway] Closed (switched to Agent server)");
+					w?.Log("[Gateway] Closed (switched to Agent server)");
 				}
 				else
 				{
-					w.LogPacket("[G] Error: " + ex.ToString());
-					w.Log("[Gateway Error] " + ex.Message);
+					w?.LogPacket("[G] Error: " + ex.ToString());
+					w?.Log("[Gateway Error] " + ex.Message);
 					// Do NOT terminate sro_client process on gateway disconnect/error!
 					Stop(false);
+				}
+			}
+			}
+			finally
+			{
+				lock (m_proxyLifecycleLock)
+				{
+					if (m_gwThread == Thread.CurrentThread)
+						m_gwThread = null;
 				}
 			}
 		}
@@ -548,47 +591,60 @@ namespace xBot.Network
 		private void ThreadAgent(string Host, int Port)
 		{
 			Window w = Window.Get;
-			// Connect AgentClient to Proxy
-			if (!ClientlessMode)
-			{
-				Agent.Local.Socket = BindSocket(Host, Port);
-				try
-				{
-					int dummy = 0;
-					w.LogProcess("Waiting client connection...", Window.ProcessState.Warning);
-					ProxyReconnection(10, ref dummy, int.MaxValue);
-					Agent.Local.Socket = Agent.Local.Socket.Accept();
-					ProxyReconnectionStop();
-					w.LogProcess("Connected");
-				}
-				catch { return; }
-			}
-			Agent.Remote.Socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 			try
 			{
-				int dummy = 0;
-				w.Log("Connecting to Agent server [" + Agent.Host + ":" + Agent.Port + "]");
-				w.LogProcess("Waiting server connection...");
-				ProxyReconnection(10, ref dummy, int.MaxValue);
-				if (Socks5Config.GetEffectiveProxy(out string pHost, out ushort pPort, out string pUser, out string pPass))
+				// Connect AgentClient to Proxy
+				if (!ClientlessMode)
 				{
-					w.Log($"[SOCKS5] Routing via {pHost}:{pPort} to Agent [{Agent.Host}:{Agent.Port}]");
-					Socks5Handler.Connect(Agent.Remote.Socket, pHost, pPort, Agent.Host, Agent.Port, pUser, pPass);
+					m_agListener = BindSocket(Host, Port);
+					try
+					{
+						w?.LogProcess("Waiting client connection...", Window.ProcessState.Warning);
+						StartAgentTimeout(15, "Waiting client connection");
+						Agent.Local.Socket = m_agListener.Accept();
+						StopAgentTimeout();
+						w?.LogProcess("Connected");
+					}
+					catch (Exception ex)
+					{
+						StopAgentTimeout();
+						w?.LogProcess("Agent client connection error: " + ex.Message, Window.ProcessState.Warning);
+						Stop(false);
+						return;
+					}
+					finally
+					{
+						try { m_agListener?.Close(); } catch { }
+						m_agListener = null;
+					}
 				}
-				else
+				Agent.Remote.Socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+				try
 				{
-					Agent.Remote.Socket.Connect(Agent.Host, Agent.Port);
+					w?.Log("Connecting to Agent server [" + Agent.Host + ":" + Agent.Port + "]");
+					w?.LogProcess("Waiting server connection...");
+					StartAgentTimeout(15, "Connecting to Agent server");
+					if (Socks5Config.GetEffectiveProxy(out string pHost, out ushort pPort, out string pUser, out string pPass))
+					{
+						w?.Log($"[SOCKS5] Routing via {pHost}:{pPort} to Agent [{Agent.Host}:{Agent.Port}]");
+						Socks5Handler.Connect(Agent.Remote.Socket, pHost, pPort, Agent.Host, Agent.Port, pUser, pPass);
+					}
+					else
+					{
+						Agent.Remote.Socket.Connect(Agent.Host, Agent.Port);
+					}
+					StopAgentTimeout();
+					w?.Log("Connected");
+					w?.LogProcess("Connected");
 				}
-				ProxyReconnectionStop();
-				w.Log("Connected");
-				w.LogProcess("Connected");
-			}
-			catch
-			{
-				w.Log("Failed to connect to the server");
-				w.LogProcess();
-				return;
-			}
+				catch (Exception ex)
+				{
+					StopAgentTimeout();
+					w?.Log("Failed to connect to the server: " + ex.Message);
+					w?.LogProcess();
+					Stop(false);
+					return;
+				}
 			try
 			{
 				// Handle it easily by iterating
@@ -732,9 +788,18 @@ namespace xBot.Network
 			}
 			catch (Exception ex)
 			{
-				w.LogPacket("[A] Error: " + ex.Message + Environment.NewLine);
-				w.Log("[Agent Error] " + ex.Message);
+				w?.LogPacket("[A] Error: " + ex.Message + Environment.NewLine);
+				w?.Log("[Agent Error] " + ex.Message);
 				Stop(false);
+			}
+			}
+			finally
+			{
+				lock (m_proxyLifecycleLock)
+				{
+					if (m_agThread == Thread.CurrentThread)
+						m_agThread = null;
+				}
 			}
 		}
 		private void DumpDisconnectDiagnostic(Window w, string reason)
@@ -770,16 +835,24 @@ namespace xBot.Network
             }
             catch (SocketException)
             {
-                /* ignore and continue */
+                try { s.Close(); } catch { }
             }
             return null;
         }
 		private Socket BindSocket(string ip, int port)
 		{
 			Socket s = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-			s.Bind(new IPEndPoint(IPAddress.Parse(ip), port));
-			s.Listen(1);
-			return s;
+			try
+			{
+				s.Bind(new IPEndPoint(IPAddress.Parse(ip), port));
+				s.Listen(1);
+				return s;
+			}
+			catch (SocketException)
+			{
+				try { s.Close(); } catch { }
+				throw;
+			}
 		}
 		/// <summary>
 		private void StartPingHandler()
@@ -804,52 +877,119 @@ namespace xBot.Network
 			}
 		}
 
-		/// <summary>
-		/// Wait the time specified and try to reconnect the proxy if is necessary.
-		/// </summary>
-		/// <param name="Seconds">Maximum time for waiting</param>
-		/// <param name="CurrentAttempts">Current connection counter</param>
-		/// <param name="MaxAttempts">Max connections to stop</param>
-		private void ProxyReconnection(int Seconds,ref int CurrentAttempts,int MaxAttempts)
+		private void StartGatewayReconnection(int seconds, int currentAttempts, int maxAttempts)
 		{
-			ProxyReconnectionStop();
-			_reconnectCancelEvent.Reset();
-			int refCurrentAttempts = CurrentAttempts;
-			int refMaxAttempts = MaxAttempts;
-			ThreadProxyReconnection = (new Thread((ThreadStart)delegate {
+			StopGatewayReconnection();
+			_gwReconnectCancelEvent.Reset();
+			m_gwReconnectThread = new Thread(() => {
 				try
 				{
-					while (Seconds > 0)
+					if (_gwReconnectCancelEvent.Wait(seconds * 1000))
+						return;
+
+					if (currentAttempts < maxAttempts)
 					{
-						if (_reconnectCancelEvent.Wait(1000))
-							return;
-						Seconds--;
+						BotLog.Log($"[Gateway] Server connection timeout ({seconds}s). Retrying ({currentAttempts + 1}/{maxAttempts})...");
+						try { Gateway?.Remote?.Socket?.Close(); } catch { }
+						lock (m_proxyLifecycleLock)
+						{
+							Reset(false);
+							CurrentAttemptReconnections = currentAttempts + 1;
+							Start();
+						}
 					}
-					if (refCurrentAttempts < refMaxAttempts)
+					else
 					{
-						Reset(false);
-						Start();
-						CurrentAttemptReconnections = refCurrentAttempts + 1;
+						BotLog.Log($"[Gateway] Max connection attempts ({maxAttempts}) reached. Stopping proxy.");
+						try { Gateway?.Remote?.Socket?.Close(); } catch { }
+						Stop(false);
 					}
 				}
 				catch (Exception ex)
 				{
-					ModernLogger.LogSwallowed(ex, "Proxy.ProxyReconnection");
+					ModernLogger.LogSwallowed(ex, "Proxy.StartGatewayReconnection");
 				}
-			}));
-			ThreadProxyReconnection.IsBackground = true;
-			ThreadProxyReconnection.Start();
+			});
+			m_gwReconnectThread.IsBackground = true;
+			m_gwReconnectThread.Start();
 		}
-		private void ProxyReconnectionStop()
+		private void StopGatewayReconnection()
 		{
-			_reconnectCancelEvent.Set();
-			if (ThreadProxyReconnection != null)
+			_gwReconnectCancelEvent.Set();
+			if (m_gwReconnectThread != null)
 			{
-				if (ThreadProxyReconnection.IsAlive)
+				if (m_gwReconnectThread.IsAlive)
 				{
-					try { ThreadProxyReconnection.Join(200); } catch { }
+					try { m_gwReconnectThread.Join(200); } catch { }
 				}
-				ThreadProxyReconnection = null;
+				m_gwReconnectThread = null;
+			}
+		}
+		private void StartGatewayTimeout(int seconds, string phaseName)
+		{
+			StopGatewayTimeout();
+			_gwTimeoutCancelEvent.Reset();
+			m_gwTimeoutThread = new Thread(() => {
+				try
+				{
+					if (_gwTimeoutCancelEvent.Wait(seconds * 1000))
+						return;
+
+					BotLog.Log($"[Gateway] Timeout waiting for {phaseName} ({seconds}s).");
+					try { m_gwListener?.Close(); } catch { }
+				}
+				catch (Exception ex)
+				{
+					ModernLogger.LogSwallowed(ex, "Proxy.StartGatewayTimeout");
+				}
+			});
+			m_gwTimeoutThread.IsBackground = true;
+			m_gwTimeoutThread.Start();
+		}
+		private void StopGatewayTimeout()
+		{
+			_gwTimeoutCancelEvent.Set();
+			if (m_gwTimeoutThread != null)
+			{
+				if (m_gwTimeoutThread.IsAlive)
+				{
+					try { m_gwTimeoutThread.Join(200); } catch { }
+				}
+				m_gwTimeoutThread = null;
+			}
+		}
+		private void StartAgentTimeout(int seconds, string phaseName)
+		{
+			StopAgentTimeout();
+			_agTimeoutCancelEvent.Reset();
+			m_agTimeoutThread = new Thread(() => {
+				try
+				{
+					if (_agTimeoutCancelEvent.Wait(seconds * 1000))
+						return;
+
+					BotLog.Log($"[Agent] Timeout during {phaseName} ({seconds}s).");
+					try { m_agListener?.Close(); } catch { }
+					try { Agent?.Remote?.Socket?.Close(); } catch { }
+				}
+				catch (Exception ex)
+				{
+					ModernLogger.LogSwallowed(ex, "Proxy.StartAgentTimeout");
+				}
+			});
+			m_agTimeoutThread.IsBackground = true;
+			m_agTimeoutThread.Start();
+		}
+		private void StopAgentTimeout()
+		{
+			_agTimeoutCancelEvent.Set();
+			if (m_agTimeoutThread != null)
+			{
+				if (m_agTimeoutThread.IsAlive)
+				{
+					try { m_agTimeoutThread.Join(200); } catch { }
+				}
+				m_agTimeoutThread = null;
 			}
 		}
 		private void ThreadPing()
@@ -885,6 +1025,9 @@ namespace xBot.Network
 		}
 		private void CloseGateway()
 		{
+			try { m_gwListener?.Close(); } catch { }
+			m_gwListener = null;
+
 			if (Agent == null)
 			{
 				StopPingHandler();
@@ -917,6 +1060,9 @@ namespace xBot.Network
 		}
 		private void CloseAgent()
 		{
+			try { m_agListener?.Close(); } catch { }
+			m_agListener = null;
+
 			if (Agent != null)
 			{
 				if (Agent.Local.Socket != null)
@@ -947,6 +1093,9 @@ namespace xBot.Network
 		{
 			isRunning = false;
 			StopPingHandler();
+			StopGatewayReconnection();
+			StopGatewayTimeout();
+			StopAgentTimeout();
 			if (terminateClient)
 			{
 				CloseClient();
@@ -956,7 +1105,9 @@ namespace xBot.Network
 		}
 		public void Stop(bool terminateClient = false)
 		{
-			ProxyReconnectionStop();
+			StopGatewayReconnection();
+			StopGatewayTimeout();
+			StopAgentTimeout();
 			Reset(terminateClient);
 			UiNotifier.NotifyProxyState(false);
 			Window w = Window.Get;
