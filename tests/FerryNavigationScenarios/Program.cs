@@ -55,7 +55,7 @@ class Program
         var shortPath = manager.FindApproachPath(path[0], new SRCoord(path[0].PosX+1,path[0].PosY+1));
         Check(shortPath.All(p=>region.Points.Any(n=>Math.Abs(n.X-p.PosX)<0.01 && Math.Abs(n.Y-p.PosY)<0.01)), "under-5m approach still uses actual mesh nodes");
         TeleportManager.Get.TestLink = new TeleportLinkInfo { BoardCoord = board, ArriveCoord = new SRCoord(12000,5000) };
-        var compound = manager.FindCompoundRoute(start, new SRCoord(12005,5000));
+        var compound = manager.FindCompoundRoute(start, new SRCoord(12005,5000), null, false);
         Check(compound != null && compound.Segments[0].Type == RouteSegmentType.Teleport,
             "inside final-approach range compound route hands off directly, without geometric board stand");
         TeleportManager.Get.TestLink = null;

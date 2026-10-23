@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Collections.Generic;
 using System.Drawing;
@@ -1465,6 +1465,13 @@ namespace xBot.App
 					item = activeItem;
 				else if (this.Training_lstvAreas.SelectedItems.Count > 0)
 					item = this.Training_lstvAreas.SelectedItems[0];
+				else if (this.Training_lstvAreas.Items.Count > 0)
+				{
+					item = this.Training_lstvAreas.Items[0];
+					item.ForeColor = System.Drawing.Color.FromArgb(0, 150, 0);
+					this.Training_lstvAreas.Tag = item;
+					this.LogProcess($"Eğitim alanı otomatik olarak aktif yapıldı: {item.Text}");
+				}
 
 				if (item != null)
 				{
@@ -1475,13 +1482,6 @@ namespace xBot.App
 					else if (item.SubItems.Count > 4 && item.SubItems[1].Tag != null && item.SubItems[2].Tag != null && item.SubItems[3].Tag != null && item.SubItems[4].Tag != null)
 					{
 						result = new SRCoord((ushort)item.SubItems[1].Tag, (int)item.SubItems[2].Tag, (int)item.SubItems[4].Tag, (int)item.SubItems[3].Tag);
-					}
-				}
-				else
-				{
-					if (this.Training_lstvAreas.Items.Count > 0)
-					{
-						this.LogProcess("Eğitim alanı seçilmedi veya aktif değil; varsayılan alana otomatik yönelme engellendi.");
 					}
 				}
 			});
@@ -1496,6 +1496,8 @@ namespace xBot.App
 					item = activeItem;
 				else if (this.Training_lstvAreas.SelectedItems.Count > 0)
 					item = this.Training_lstvAreas.SelectedItems[0];
+				else if (this.Training_lstvAreas.Items.Count > 0)
+					item = this.Training_lstvAreas.Items[0];
 
 				if (item != null)
 				{
@@ -1518,6 +1520,8 @@ namespace xBot.App
 					item = activeItem;
 				else if (this.Training_lstvAreas.SelectedItems.Count > 0)
 					item = this.Training_lstvAreas.SelectedItems[0];
+				else if (this.Training_lstvAreas.Items.Count > 0)
+					item = this.Training_lstvAreas.Items[0];
 
 				if (item != null)
 				{
@@ -1572,6 +1576,8 @@ namespace xBot.App
 					item = activeItem;
 				else if (this.Training_lstvAreas.SelectedItems.Count > 0)
 					item = this.Training_lstvAreas.SelectedItems[0];
+				else if (this.Training_lstvAreas.Items.Count > 0)
+					item = this.Training_lstvAreas.Items[0];
 
 				if (item != null)
 				{

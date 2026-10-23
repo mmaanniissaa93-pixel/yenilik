@@ -16,7 +16,17 @@ namespace xBot.Game.Navigation
     public class TeleportManager
     {
         public static TeleportManager Get = new TeleportManager();
-        public TeleportLinkInfo TestLink;
+        private TeleportLinkInfo testLink;
+        public TeleportLinkInfo TestLink
+        {
+            get => testLink;
+            set
+            {
+                if (testLink != null) Links.Remove(testLink);
+                testLink = value;
+                if (testLink != null && !Links.Contains(testLink)) Links.Add(testLink);
+            }
+        }
         public System.Collections.Generic.List<TeleportLinkInfo> Links = new System.Collections.Generic.List<TeleportLinkInfo>();
         public bool IsLinkBlacklisted(TeleportLinkInfo link) => false;
         public TeleportLinkInfo FindBestLink(SRCoord start, SRCoord target) => TestLink;

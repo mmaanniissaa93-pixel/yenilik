@@ -15,13 +15,15 @@ namespace xBot.Game.Navigation
         }
 
         public static NavigationRoute Find(SRCoord start, SRCoord target, IList<TeleportLinkInfo> links,
-            Func<SRCoord, SRCoord, List<SRCoord>> walk, Func<SRCoord, SRCoord, List<SRCoord>> approach)
+            Func<SRCoord, SRCoord, List<SRCoord>> walk, Func<SRCoord, SRCoord, List<SRCoord>> approach,
+            Func<bool> isCancelled = null)
         {
             var pending = new List<State> { new State { Position = start, Segments = new List<RouteSegment>() } };
             var visited = new HashSet<TeleportLinkInfo>();
             // Each link's arrival state is expanded at most once; cycles cannot loop forever.
             while (pending.Count > 0)
             {
+                if (isCancelled != null && isCancelled()) return null;
                 var state = pending.OrderBy(s => s.Cost).First();
                 pending.Remove(state);
                 var finish = TeleportTransitionPolicy.SameSpace(state.Position, target) ? walk(state.Position, target) : null;
@@ -32,6 +34,7 @@ namespace xBot.Game.Navigation
                 }
                 foreach (var link in links)
                 {
+                    if (isCancelled != null && isCancelled()) return null;
                     if (visited.Contains(link) || !TeleportTransitionPolicy.SameSpace(state.Position, link.BoardCoord)) continue;
                     var path = approach(state.Position, link.BoardCoord);
                     if (path == null || path.Count == 0) continue;

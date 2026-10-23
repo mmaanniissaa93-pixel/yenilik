@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Timers;
@@ -214,26 +214,60 @@ namespace xBot.App
         }
         public void MarkLastUseRejected(ushort errorCode = 0)
         {
-            if (errorCode == 0x185B)
+            uint lastId;
+            byte lastSlot;
+            lock (m_useItemLock)
             {
-                // 0x185B = Silkroad sunucu hatasi: Pot veya esya bekleme suresinde (cooldown active).
-                // Bu durum normal cooldown senkronizasyonudur, esya veya slot arizasi degildir.
-                // Kesinlikle slot bloklanmaz, esya kara listeye alinmaz.
+                lastSlot = m_lastUseItemSlot;
+                lastId = m_lastUseItemId;
+            }
+
+            bool lastWasPotion = false;
+            try
+            {
+                var inv = InfoManager.Character != null ? InfoManager.Character.Inventory : null;
+                xBot.Game.Objects.Item.SRItem last = null;
+                if (inv != null && lastSlot < inv.Capacity)
+                    last = inv[lastSlot];
+                if (last != null && last.ID == lastId && last.ID2 == 3 && last.ID3 >= 1 && last.ID3 <= 3)
+                    lastWasPotion = true;
+                else
+                {
+                    var itemData = xBot.Game.DataManager.GetItemData(lastId);
+                    if (itemData != null && itemData["tid2"] == "3")
+                    {
+                        string tid3 = itemData["tid3"];
+                        if (tid3 == "1" || tid3 == "2" || tid3 == "3")
+                            lastWasPotion = true;
+                    }
+                }
+            }
+            catch { }
+
+            // 0x0002 = Silkroad standart cooldown/meşgul (action delayed/busy) yanıtı.
+            // 0x185B = Pot veya eşya cooldown aktif yanıtı.
+            // 0x185C / 0x1889 = Eşya bekleme süresi / meşguliyet.
+            bool isCooldownOrBusy = errorCode == 0x0002 || errorCode == 0x185B || errorCode == 0x185C || errorCode == 0x1889;
+
+            if (isCooldownOrBusy || lastWasPotion)
+            {
+                // Cooldown / meşguliyet veya iksir kullanım senkronizasyonu:
+                // Normal sunucu durumudur; kesinlikle slot bloklanmaz (5sn bekletilmez),
+                // eşya kara listeye alınmaz, kullanım paritesi bozulmaz.
                 bool isEu = InfoManager.Character != null && InfoManager.Character.IsEuropean();
                 int cooldownMs = isEu ? 15000 : 1000;
 
                 lock (m_useItemLock)
                 {
-                    m_rejectBlackoutUntil = DateTime.UtcNow.AddMilliseconds(500);
+                    // Anında yeniden basabilme için yalnızca spam önleyici debounce (250ms)
+                    m_rejectBlackoutUntil = DateTime.UtcNow.AddMilliseconds(250);
                 }
 
-                // Ilgili pot timer'ini sunucu bekleme suresine gore senkronize et.
-                // Tam pencereyi (EU 15sn) baştan kurmak "lazımken basmıyor" hissi
-                // verir; kısa tutup bir sonraki HP/MP güncellemesinde tekrar dene.
-                int retryMs = Math.Min(cooldownMs, 3000);
+                // İlgili pot timer'ını hızlı denemeye ayarla (en fazla 300ms)
+                int retryMs = Math.Min(cooldownMs, 300);
                 try
                 {
-                    var item = xBot.Game.DataManager.GetItemData(m_lastUseItemId);
+                    var item = xBot.Game.DataManager.GetItemData(lastId);
                     if (item != null)
                     {
                         byte id4 = byte.Parse(item["tid4"]);
@@ -251,10 +285,15 @@ namespace xBot.App
                         }
                         else if (id4 == 3 && tUsingVigor != null)
                         {
-                            tUsingVigor.Interval = Math.Min(15000, 3000);
+                            tUsingVigor.Interval = retryMs;
                             tUsingVigor.Stop();
                             tUsingVigor.Start();
                         }
+                    }
+                    else
+                    {
+                        if (tUsingHP != null && !tUsingHP.Enabled) { tUsingHP.Interval = retryMs; tUsingHP.Start(); }
+                        if (tUsingMP != null && !tUsingMP.Enabled) { tUsingMP.Interval = retryMs; tUsingMP.Start(); }
                     }
                 }
                 catch { }
@@ -262,41 +301,16 @@ namespace xBot.App
             }
 
             uint suspectId = 0;
-            byte lastSlot;
-            uint lastId;
-            lock (m_useItemLock)
-            {
-                lastSlot = m_lastUseItemSlot;
-                lastId = m_lastUseItemId;
-            }
-            bool lastWasPotion = false;
-            try
-            {
-                var inv = InfoManager.Character != null ? InfoManager.Character.Inventory : null;
-                xBot.Game.Objects.Item.SRItem last = null;
-                if (inv != null && lastSlot < inv.Capacity)
-                    last = inv[lastSlot];
-                if (last != null && last.ID == lastId && last.ID2 == 3 && last.ID3 >= 1 && last.ID3 <= 3)
-                    lastWasPotion = true;
-            }
-            catch { }
             bool linked;
             lock (m_useItemLock)
             {
                 linked = (DateTime.UtcNow - m_lastUseItemUtc).TotalSeconds <= RejectLinkWindowSeconds;
                 if (linked)
-                    m_rejectedUseSlots[m_lastUseItemSlot] = DateTime.UtcNow.AddSeconds(RejectedSlotBlockSeconds);
+                    m_rejectedUseSlots[lastSlot] = DateTime.UtcNow.AddSeconds(RejectedSlotBlockSeconds);
                 m_rejectBlackoutUntil = DateTime.UtcNow.AddSeconds(RejectGlobalBlackoutSeconds);
-                // Son 10sn'de hic basarili kullanim yoksa reject gecici degil, icerik sorunudur:
-                // ayni item bir daha denenmesin (oturumlar arasi kalici).
-                // ANCAK pot/ilaç grubunda reject geçicidir (cooldown/hareket/usage); asla
-                // kalıcı kara listeye alınmaz, yoksa "MP hiç basılmıyor" olur.
-                if (!lastWasPotion && (DateTime.UtcNow - m_lastItemSuccessUtc).TotalSeconds > SuccessLinkWindowSeconds)
-                    suspectId = m_lastUseItemId;
+                if ((DateTime.UtcNow - m_lastItemSuccessUtc).TotalSeconds > SuccessLinkWindowSeconds)
+                    suspectId = lastId;
             }
-            // Hesaplanan usage tutmuyorsa (Sevar 0x..ED vs 0x..EC) parity ile bit0
-            // alternatifi denensin; tutan varyant kalici ogrenilir.
-            // Önce kanıtlanmış-yanlış öğrenme silinir, yoksa aynı baytta takılı kalınır.
             if (linked)
             {
                 xBot.Game.PacketBuilder.ForgetLearnedUsage(lastId);

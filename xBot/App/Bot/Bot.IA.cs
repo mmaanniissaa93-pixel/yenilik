@@ -471,7 +471,8 @@ namespace xBot.App
                             {
                                 w.LogProcess("NavMesh: Calculating route to training area...");
                                 NavigationManager.Get.TraceCavePosition(InfoManager.Character.GetRealtimePosition(), trainingPosition);
-                                NavigationRoute navRoute = NavigationManager.Get.FindCompoundRoute(myPosition, trainingPosition);
+                                NavigationRoute navRoute = NavigationManager.Get.FindCompoundRoute(myPosition, trainingPosition, () => m_stopBottingRequested);
+                                if (m_stopBottingRequested) return;
                                 if (navRoute != null && !navRoute.IsEmpty)
                                 {
                                     w.Log($"NavMesh: Executing route with {navRoute.Segments.Count} segment(s) ({navRoute.TotalWaypointsCount} waypoints)...");
@@ -543,6 +544,11 @@ namespace xBot.App
                                                 // kesilebilir mesh yaklaşımı yürür.
                                                 double walkTol = (walkIsFinalWp && walkIsFerryWalk) ? 2.5 : 3.0;
                                                 int walkAttempts = (walkIsFinalWp && walkIsFerryWalk) ? 15 : 12;
+                                                if (walkIsFinalWp && walkWp != null && myPosition != null)
+                                                {
+                                                    int distanceAttempts = Math.Max(12, Math.Min(80, (int)(myPosition.DistanceTo(walkWp) / 4.0) + 8));
+                                                    if (distanceAttempts > walkAttempts) walkAttempts = distanceAttempts;
+                                                }
                                                 w.Log($"[WALK-TRACE] WaitMovement begin wp={p + 1} tolerance={walkTol:F1}m attempts={walkAttempts}");
                                                 bool wpOk = false;
                                                 try { wpOk = WaitNavigationWaypoint(walkWp, walkAttempts, walkTol); } catch { wpOk = false; }
@@ -604,7 +610,19 @@ namespace xBot.App
                                 }
                                 else
                                 {
-                                    w.LogProcess("NavMesh: No route found (FindCompoundRoute returned null/empty).", Window.ProcessState.Warning);
+                                    double trainingMeshDistance = -1;
+                                    try { trainingMeshDistance = NavigationManager.Get.DistanceToNearestWalkablePoint(trainingPosition); } catch { }
+                                    if (trainingMeshDistance < 0 || trainingMeshDistance > 30.0)
+                                    {
+                                        string meshDetail = trainingMeshDistance < 0
+                                            ? "navmesh bölgesi bulunamadı"
+                                            : $"en yakın walkable nokta {trainingMeshDistance:F0}m uzakta";
+                                        w.Log($"NavMesh: Eğitim alanı navmesh üzerinde değil ({meshDetail}). Alanı yürünebilir bir noktaya taşıyın veya hareket scripti ekleyin.", Theme.LogLevel.Error);
+                                    }
+                                    else
+                                    {
+                                        w.LogProcess("NavMesh: No route found (FindCompoundRoute returned null/empty).", Window.ProcessState.Warning);
+                                    }
                                 }
                             }
                             else
@@ -811,7 +829,8 @@ namespace xBot.App
                     {
                         try
                         {
-                            NavigationRoute navRoute = NavigationManager.Get.FindCompoundRoute(mp, tp);
+                            NavigationRoute navRoute = NavigationManager.Get.FindCompoundRoute(mp, tp, () => m_stopBottingRequested);
+                            if (m_stopBottingRequested) return;
                             if (navRoute != null && !navRoute.IsEmpty)
                             {
                                 w.Log($"Town Loop: NavMesh dönüş rotası ({navRoute.Segments.Count} segment) uygulanıyor...");

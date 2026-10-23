@@ -1286,13 +1286,20 @@ Window w = Window.Get;
 						item.SubItems.Add(info.Type);
 
 						// Check if this area is activated
-						if (AreaActivated != "" && AreaActivated == item.Name)
+						if (AreaActivated != "" && (AreaActivated == item.Name || AreaActivated == item.Text))
 						{
 							item.ForeColor = System.Drawing.Color.FromArgb(0, 150, 0); // Green
 							w.Training_lstvAreas.Tag = item;
 							AreaActivated = "";
 						}
 						w.Training_lstvAreas.Items.Add(item);
+					}
+
+					if (w.Training_lstvAreas.Tag == null && w.Training_lstvAreas.Items.Count > 0)
+					{
+						var first = w.Training_lstvAreas.Items[0];
+						first.ForeColor = System.Drawing.Color.FromArgb(0, 150, 0);
+						w.Training_lstvAreas.Tag = first;
 					}
 
 					JObject Trace = Training.ContainsKey("Trace") ? (JObject)Training["Trace"] : new JObject();

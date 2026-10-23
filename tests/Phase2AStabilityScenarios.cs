@@ -216,24 +216,24 @@ namespace xBot.Tests
             var window = Window.Get;
             Assert(window != null, "Window singleton instance is available");
 
-            // 1. Unselected training area returns null (does not silently use Items[0])
+            // 1. Configured training area automatically activates first area when none explicitly selected (SBot reference behavior)
             window.InvokeIfRequired(() =>
             {
                 window.Training_lstvAreas.Items.Clear();
                 window.Training_lstvAreas.Tag = null;
                 window.Training_lstvAreas.SelectedItems.Clear();
 
-                // Add an item to the list, but leave it unselected and unactivated
-                var unselectedItem = new ListViewItem("Area #1");
-                unselectedItem.SubItems.Add(new ListViewItem.ListViewSubItem { Tag = (ushort)25000 });
-                unselectedItem.SubItems.Add(new ListViewItem.ListViewSubItem { Tag = 100 });
-                unselectedItem.SubItems.Add(new ListViewItem.ListViewSubItem { Tag = 200 });
-                unselectedItem.SubItems.Add(new ListViewItem.ListViewSubItem { Tag = 0 });
-                window.Training_lstvAreas.Items.Add(unselectedItem);
+                // Empty list returns null
+                Assert(window.TrainingArea_GetPosition() == null, "TrainingArea_GetPosition returns null when area list is empty");
+
+                // Add an item to the list
+                var item1 = new ListViewItem("Area #1");
+                item1.Tag = new TrainingAreaInfo { Region = 25000, X = 100, Y = 200, Z = 0, Radius = 50 };
+                window.Training_lstvAreas.Items.Add(item1);
             });
 
-            SRCoord posWithoutSelection = window.TrainingArea_GetPosition();
-            Assert(posWithoutSelection == null, "TrainingArea_GetPosition returned null when area is not activated/selected (avoided silent Items[0] fallback)");
+            SRCoord posWithItem = window.TrainingArea_GetPosition();
+            Assert(posWithItem != null && posWithItem.Region == 25000 && posWithItem.X == 100, "TrainingArea_GetPosition automatically activates first configured area (Region 25000, X 100)");
 
             // 2. Activated area (Tag is set) returns the correct coordinates
             window.InvokeIfRequired(() =>

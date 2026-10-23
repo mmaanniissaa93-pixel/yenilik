@@ -71,9 +71,11 @@ namespace xBot.Game.Navigation
 		/// Calculates shortest walkable path between (startX, startY) and (targetX, targetY) on NavRegion.
 		/// </summary>
 		public List<SRCoord> FindPath(NavRegion region, float startX, float startY, float targetX, float targetY,
-			bool meshOnly = false, ISet<int> excludedNodes = null, bool preserveNodes = false)
+			bool meshOnly = false, ISet<int> excludedNodes = null, bool preserveNodes = false, Func<bool> isCancelled = null)
 		{
 			if (region == null || region.Points == null || region.Points.Length == 0)
+				return null;
+			if (isCancelled != null && isCancelled())
 				return null;
 
 			int startNode = region.FindNearestPointIndex(startX, startY);
@@ -135,6 +137,8 @@ namespace xBot.Game.Navigation
 
 			while (openSet.Count > 0 && iterations++ < maxIterations)
 			{
+				if ((iterations & 2047) == 0 && isCancelled != null && isCancelled())
+					return null;
 				int current = openSet.Dequeue();
 
 				if (current == targetNode)

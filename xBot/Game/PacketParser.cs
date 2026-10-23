@@ -1,4 +1,4 @@
-﻿using SecurityAPI;
+using SecurityAPI;
 using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
@@ -3499,13 +3499,13 @@ namespace xBot.Game
 							forensic = $" HP={chr.GetHPPercent()}% MP={chr.GetMPPercent()}%";
 					}
 					catch { }
-					if (errorCode == 0x185B)
+					if (errorCode == 0x0002 || errorCode == 0x185B || errorCode == 0x185C || errorCode == 0x1889)
 					{
-						System.Diagnostics.Debug.WriteLine($"[Item] 0xB04C: Sunucu bekleme süresi aktif (Cooldown: 0x185B).{forensic}");
+						System.Diagnostics.Debug.WriteLine($"[Item] 0xB04C: Sunucu bekleme süresi / meşgul yanıtı (0x{errorCode:X4}).{forensic}");
 					}
 					else
 					{
-						Window.Get?.Log($"[Item Use Warning] 0xB04C rejected by server (Error code: 0x{errorCode:X4}).{forensic} Slot 5sn gecici bekletildi.", xBot.App.Theme.LogLevel.Warning);
+						Window.Get?.Log($"[Item Use Warning] 0xB04C rejected by server (Error code: 0x{errorCode:X4}).{forensic}", xBot.App.Theme.LogLevel.Warning);
 					}
 				}
 				catch { }
